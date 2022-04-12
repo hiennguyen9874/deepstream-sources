@@ -35,23 +35,23 @@ enum class OptionType : int {
     oNone = -1,
 };
 
-#define OPTION_SEQUENCE_ID "sequence_id"  // uint64_t
-#define OPTION_SEQUENCE_START "sequence_start"  // bool
-#define OPTION_SEQUENCE_END "sequence_end"  // bool
-#define OPTION_PRIORITY "priority"  // uint64_t
-#define OPTION_TIMEOUT "timeout_ms"  // uint64_t
-#define OPTION_NVDS_UNIQUE_ID "nvds_unique_id"  // int64_t
-#define OPTION_NVDS_SREAM_IDS "nvds_stream_ids"  // source_id list, vector<uint64_t>
-#define OPTION_NVDS_FRAME_META_LIST "nvds_frame_meta_list"  // vector<NvDsFrameMeta*>
-#define OPTION_NVDS_OBJ_META_LIST "nvds_obj_meta_list"  // vector<NvDsObjectMeta*>
-#define OPTION_NVDS_BATCH_META "nvds_batch_meta"  // NvDsBatchMeta*
-#define OPTION_NVDS_GST_BUFFER "nvds_gst_buffer"  // GstBuffer*
-#define OPTION_NVDS_BUF_SURFACE "nvds_buf_surface"  // NvBufSurface*
+#define OPTION_SEQUENCE_ID "sequence_id"                                    // uint64_t
+#define OPTION_SEQUENCE_START "sequence_start"                              // bool
+#define OPTION_SEQUENCE_END "sequence_end"                                  // bool
+#define OPTION_PRIORITY "priority"                                          // uint64_t
+#define OPTION_TIMEOUT "timeout_ms"                                         // uint64_t
+#define OPTION_NVDS_UNIQUE_ID "nvds_unique_id"                              // int64_t
+#define OPTION_NVDS_SREAM_IDS "nvds_stream_ids"                             // source_id list, vector<uint64_t>
+#define OPTION_NVDS_FRAME_META_LIST "nvds_frame_meta_list"                  // vector<NvDsFrameMeta*>
+#define OPTION_NVDS_OBJ_META_LIST "nvds_obj_meta_list"                      // vector<NvDsObjectMeta*>
+#define OPTION_NVDS_BATCH_META "nvds_batch_meta"                            // NvDsBatchMeta*
+#define OPTION_NVDS_GST_BUFFER "nvds_gst_buffer"                            // GstBuffer*
+#define OPTION_NVDS_BUF_SURFACE "nvds_buf_surface"                          // NvBufSurface*
 #define OPTION_NVDS_BUF_SURFACE_PARAMS_LIST "nvds_buf_surface_params_list"  // vector<NvBufSurfaceParams*>
-#define OPTION_TIMESTAMP "timestamp"  // uint64_t timestamp nano seconds
+#define OPTION_TIMESTAMP "timestamp"                                        // uint64_t timestamp nano seconds
 
 class IOptions {
-public:
+   public:
     IOptions() = default;
     virtual ~IOptions() = default;
     virtual bool hasValue(const std::string& key) const = 0;
@@ -59,7 +59,7 @@ public:
     virtual uint32_t getCount() const = 0;
     virtual std::string getKey(uint32_t idx) const = 0;
 
-protected:
+   protected:
     virtual NvDsInferStatus getValuePtr(
         const std::string& name, OptionType t, void*& ptr) const = 0;
     virtual NvDsInferStatus getArraySize(const std::string& key, uint32_t& size) const = 0;
@@ -73,36 +73,29 @@ protected:
     template <typename Value>
     struct oType;
 
-public:
-    NvDsInferStatus getDouble(const std::string& name, double& v) const
-    {
+   public:
+    NvDsInferStatus getDouble(const std::string& name, double& v) const {
         return getValue<double>(name, v);
     }
-    NvDsInferStatus getInt(const std::string& name, int64_t& v) const
-    {
+    NvDsInferStatus getInt(const std::string& name, int64_t& v) const {
         return getValue<int64_t>(name, v);
     }
-    NvDsInferStatus getUInt(const std::string& name, uint64_t& v) const
-    {
+    NvDsInferStatus getUInt(const std::string& name, uint64_t& v) const {
         return getValue<uint64_t>(name, v);
     }
-    NvDsInferStatus getString(const std::string& name, std::string& v)
-    {
+    NvDsInferStatus getString(const std::string& name, std::string& v) {
         return getValue<std::string>(name, v);
     }
-    NvDsInferStatus getBool(const std::string& name, bool& v) const
-    {
+    NvDsInferStatus getBool(const std::string& name, bool& v) const {
         return getValue<bool>(name, v);
     }
     template <typename Obj>
-    NvDsInferStatus getObj(const std::string& name, Obj*& obj) const
-    {
+    NvDsInferStatus getObj(const std::string& name, Obj*& obj) const {
         return getValue<Obj*>(name, obj);
     }
 
     template <typename Value>
-    NvDsInferStatus getValue(const std::string& name, Value& value) const
-    {
+    NvDsInferStatus getValue(const std::string& name, Value& value) const {
         using ValueType = std::remove_const_t<Value>;
         OptionType otype = oType<ValueType>::v;
         void* ptr = nullptr;
@@ -115,8 +108,7 @@ public:
     }
 
     template <typename Value>
-    NvDsInferStatus getValueArray(const std::string& name, std::vector<Value>& values) const
-    {
+    NvDsInferStatus getValueArray(const std::string& name, std::vector<Value>& values) const {
         using ValueType = std::remove_const_t<Value>;
         OptionType otype = oType<ValueType>::v;
         uint32_t size = 0;

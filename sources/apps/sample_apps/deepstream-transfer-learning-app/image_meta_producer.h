@@ -22,22 +22,21 @@
 
 #pragma once
 
-#include <sstream>
-#include <iomanip>
-#include <fstream>
 #include <chrono>
 #include <ctime>
-#include "image_meta_consumer.h"
-#include "concurrent_queue.h"
+#include <fstream>
+#include <iomanip>
+#include <sstream>
 
-class ImageMetaProducer
-{
-public:
+#include "concurrent_queue.h"
+#include "image_meta_consumer.h"
+
+class ImageMetaProducer {
+   public:
     // left: filepath for multiple file, right: file content
     typedef std::pair<std::string, std::string> string_pair;
     /// Content that will converted to string and sent to consumer
-    struct IPData
-    {
+    struct IPData {
         float confidence = 0.f;
         bool within_confidence;
         unsigned class_id = 0;
@@ -68,8 +67,7 @@ public:
     /// Returns locally stored path to complete image
     std::string get_image_full_frame_path_saved();
 
-private:
-
+   private:
     /// Format a string to csv and return it.
     std::string make_csv_data(const IPData &data);
     /// Format a string to Json and return it.

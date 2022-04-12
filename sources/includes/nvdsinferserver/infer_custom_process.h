@@ -31,7 +31,7 @@ namespace nvdsinferserver {
  *       IBatchBuffer::getBufPtr(idx=0).
  */
 class IInferCustomProcessor {
-public:
+   public:
     /** @brief IInferCustomProcessor will be deleted by nvdsinferserver lib.
      */
     virtual ~IInferCustomProcessor() = default;

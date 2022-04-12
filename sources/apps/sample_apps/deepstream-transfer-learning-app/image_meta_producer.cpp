@@ -25,9 +25,8 @@
 typedef std::pair<std::string, std::string> string_pair;
 
 ImageMetaProducer::ImageMetaProducer(ImageMetaConsumer &ic)
-        : ic_(ic) {
+    : ic_(ic) {
 }
-
 
 static std::string get_filename(const std::string &filepath) {
     std::string filename = filepath;
@@ -48,19 +47,17 @@ std::string ImageMetaProducer::make_kitti_save_path() const {
 }
 
 void ImageMetaProducer::send_and_flush_obj_data() {
-
-
-    for (const auto &elm: obj_data_json_)
+    for (const auto &elm : obj_data_json_)
         ic_.add_meta_json(elm);
     obj_data_json_.clear();
 
-    for (const auto &elm: obj_data_csv_)
+    for (const auto &elm : obj_data_csv_)
         ic_.add_meta_csv(elm);
     obj_data_csv_.clear();
 
     if (!obj_data_kitti_.empty()) {
         std::string res;
-        for (const auto &elm: obj_data_kitti_) {
+        for (const auto &elm : obj_data_kitti_) {
             res += elm + "\n";
         }
         string_pair sp(make_kitti_save_path(), res);
@@ -150,21 +147,26 @@ std::string ImageMetaProducer::make_csv_data(const IPData &data) {
 }
 
 std::string ImageMetaProducer::make_kitti_data(const IPData &data) {
-
     std::stringstream ss;
     // Please refer to :
     // https://docs.nvidia.com/tao/tao-toolkit/text/data_annotation_format.html#object-detection-kitti-format
-    ss << data.class_name << " "; // Class names
-    ss << "0.0" << " "; // Truncation (No data default value)
-    ss << "3" << " "; // Occlusion [ 0 = fully visible, 1 = partly visible, 2 = largely occluded, 3 = unknown].
-    ss << "0.0" << " "; // Alpha (No data default value)
+    ss << data.class_name << " ";  // Class names
+    ss << "0.0"
+       << " ";  // Truncation (No data default value)
+    ss << "3"
+       << " ";  // Occlusion [ 0 = fully visible, 1 = partly visible, 2 = largely occluded, 3 = unknown].
+    ss << "0.0"
+       << " ";  // Alpha (No data default value)
     // Bounding box coordinates:
-    ss << data.img_left << " "; // ymin
-    ss << data.img_top << " "; // xmin
-    ss << (data.img_left + data.img_width) << " "; // ymax
-    ss << (data.img_top + data.img_height) << " "; // xmax
-    ss << "0.0 0.0 0.0" << " "; // 3-D dimension (No data default value)
-    ss << "0.0 0.0 0.0" << " "; // Location (No data default value)
-    ss << "0.0" << " "; // Rotation_y (No data default value)
+    ss << data.img_left << " ";                     // ymin
+    ss << data.img_top << " ";                      // xmin
+    ss << (data.img_left + data.img_width) << " ";  // ymax
+    ss << (data.img_top + data.img_height) << " ";  // xmax
+    ss << "0.0 0.0 0.0"
+       << " ";  // 3-D dimension (No data default value)
+    ss << "0.0 0.0 0.0"
+       << " ";  // Location (No data default value)
+    ss << "0.0"
+       << " ";  // Rotation_y (No data default value)
     return ss.str();
 }

@@ -34,8 +34,7 @@
 #define NVDS_VERSION_MICRO 0
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -45,18 +44,18 @@ extern "C"
  * @param[in] major holds the major part of DEEPSTREAM_SDK version.
  * @param[in] minor holds the minor part of DEEPSTREAM_SDK version.
  */
-void nvds_version (unsigned int * major, unsigned int * minor);
+void nvds_version(unsigned int* major, unsigned int* minor);
 
 /**
  * Print the version as major.minor.
  * To obtain major and minor, this function calls @ref nvds_version.
  */
-void nvds_version_print (void);
+void nvds_version_print(void);
 
 /**
  * Print the versions of dependencies such as Cuda, cuDNN and TensorRT.
  */
-void nvds_dependencies_version_print (void);
+void nvds_dependencies_version_print(void);
 
 #ifdef __cplusplus
 }

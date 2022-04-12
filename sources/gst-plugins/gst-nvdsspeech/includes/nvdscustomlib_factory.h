@@ -34,26 +34,22 @@
 namespace nvdsspeech {
 
 template <class T>
-T*
-dlsym_ptr(void* handle, char const* name)
-{
+T* dlsym_ptr(void* handle, char const* name) {
     return reinterpret_cast<T*>(dlsym(handle, name));
 }
 
 class DSCustomLibrary_Factory {
-public:
+   public:
     DSCustomLibrary_Factory() = default;
 
-    ~DSCustomLibrary_Factory()
-    {
+    ~DSCustomLibrary_Factory() {
         if (m_libHandle) {
             dlclose(m_libHandle);
         }
     }
 
     IDSCustomLibrary* CreateCustomAlgoCtx(
-        const std::string& libName, const std::string& symName)
-    {
+        const std::string& libName, const std::string& symName) {
         m_libName.assign(libName);
 
         m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW);
@@ -73,7 +69,7 @@ public:
         return m_CreateAlgoCtx();
     }
 
-public:
+   public:
     void* m_libHandle;
     std::string m_libName;
     std::function<IDSCustomLibrary*()> m_CreateAlgoCtx;

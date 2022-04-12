@@ -28,11 +28,10 @@
 
 #include "nvdscustomlib_interface.hpp"
 
-
 namespace nvdstts {
 
 class DSCustomLibraryBase : public IDSCustomLibrary {
-public:
+   public:
     DSCustomLibraryBase() = default;
     virtual ~DSCustomLibraryBase() override;
 
@@ -55,7 +54,7 @@ public:
     /* Process Input Buffer */
     BufferResult ProcessBuffer(GstBuffer* inbuf) override = 0;
 
-protected:
+   protected:
     /* Gstreamer dstts plugin's base class reference */
     GstBaseTransform* m_element{nullptr};
     /* Gst Caps Information */

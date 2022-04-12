@@ -39,22 +39,21 @@
 #ifndef GST_NVDS_META_API_H
 #define GST_NVDS_META_API_H
 
+#include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
-#include <gst/base/gstbasetransform.h>
 
-#include "nvdsmeta.h"
 #include "nvds_audio_meta.h"
 #include "nvds_latency_meta.h"
+#include "nvdsmeta.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
-GType nvds_meta_api_get_type (void);
+GType nvds_meta_api_get_type(void);
 #define NVDS_META_API_TYPE (nvds_meta_api_get_type())
 
-const GstMetaInfo *nvds_meta_get_info (void);
+const GstMetaInfo *nvds_meta_get_info(void);
 
 #define NVDS_META_INFO (nvds_meta_get_info())
 
@@ -65,43 +64,43 @@ const GstMetaInfo *nvds_meta_get_info (void);
  * in the range from @ref NVDS_BATCH_GST_META to @ref NVDS_START_USER_META.
  */
 typedef enum {
-  NVDS_GST_INVALID_META=-1,
-  /* Specifies information of a formed batch. */
-  NVDS_BATCH_GST_META = NVDS_GST_CUSTOM_META + 1,
-  NVDS_DECODER_GST_META,
-  /* Specifies information of dewarped surfaces. */
-  NVDS_DEWARPER_GST_META,
-  NVDS_RESERVED_GST_META = NVDS_GST_CUSTOM_META + 4096,
-  /* Specifies the first value that may be assigned to a user-defined type. */
-  NVDS_GST_META_FORCE32 = 0x7FFFFFFF
+    NVDS_GST_INVALID_META = -1,
+    /* Specifies information of a formed batch. */
+    NVDS_BATCH_GST_META = NVDS_GST_CUSTOM_META + 1,
+    NVDS_DECODER_GST_META,
+    /* Specifies information of dewarped surfaces. */
+    NVDS_DEWARPER_GST_META,
+    NVDS_RESERVED_GST_META = NVDS_GST_CUSTOM_META + 4096,
+    /* Specifies the first value that may be assigned to a user-defined type. */
+    NVDS_GST_META_FORCE32 = 0x7FFFFFFF
 } GstNvDsMetaType;
 
 /**
  * Holds DeepSteam metadata.
  * */
- typedef struct _NvDsMeta {
-  GstMeta       meta;
+typedef struct _NvDsMeta {
+    GstMeta meta;
 
-  /** Holds a pointer to metadata. Must be cast to another structure based
+    /** Holds a pointer to metadata. Must be cast to another structure based
    on @a meta_type. */
-  gpointer meta_data;
+    gpointer meta_data;
 
- /** Holds a pointer to user-specific data . */
-  gpointer user_data;
+    /** Holds a pointer to user-specific data . */
+    gpointer user_data;
 
-  /** Holds the type of metadata, one of values of enum @ref GstNvDsMetaType. */
-  gint meta_type;
+    /** Holds the type of metadata, one of values of enum @ref GstNvDsMetaType. */
+    gint meta_type;
 
-  /** A callback to be called when @a meta_data is to be copied or transformed
+    /** A callback to be called when @a meta_data is to be copied or transformed
    from one buffer to other. @a meta_data and @a user_data are passed
    as arguments. */
-  NvDsMetaCopyFunc copyfunc;
+    NvDsMetaCopyFunc copyfunc;
 
-  /** A callback to be called when @a meta_data is to be destroyed.
+    /** A callback to be called when @a meta_data is to be destroyed.
    @a meta_data and @a user_data are passed as arguments. */
-  NvDsMetaReleaseFunc freefunc;
+    NvDsMetaReleaseFunc freefunc;
 
-  /**
+    /**
    * A callback to be called when @a meta_data is transformed into
    * @a NvDsUserMeta.
    * This function must be provided by a GStreamer plugin that precedes
@@ -117,15 +116,15 @@ typedef enum {
    *
    * @a meta_data and @a user_data are passed as arguments.
    */
-  NvDsMetaCopyFunc gst_to_nvds_meta_transform_func;
+    NvDsMetaCopyFunc gst_to_nvds_meta_transform_func;
 
-  /**
+    /**
    * A callback to be called when @a meta_data transformed into
    * @a NvDsUserMeta is to be destroyed.
    * This function must be provided by a GStreamer plugin that precedes
    * @a Gst-nvstreammux in the DeepStream pipeline.
    */
-  NvDsMetaReleaseFunc gst_to_nvds_meta_release_func;
+    NvDsMetaReleaseFunc gst_to_nvds_meta_release_func;
 
 } NvDsMeta;
 
@@ -149,9 +148,9 @@ typedef enum {
  * @return  A pointer to the attached NvDsMeta structure if successful,
  *  or NULL otherwise.
  */
-NvDsMeta *gst_buffer_add_nvds_meta (GstBuffer *buffer, gpointer meta_data,
-    gpointer user_data, NvDsMetaCopyFunc copy_func,
-    NvDsMetaReleaseFunc release_func);
+NvDsMeta *gst_buffer_add_nvds_meta(GstBuffer *buffer, gpointer meta_data,
+                                   gpointer user_data, NvDsMetaCopyFunc copy_func,
+                                   NvDsMetaReleaseFunc release_func);
 
 /**
  * Gets the @ref NvDsMeta last added to a GstBuffer.
@@ -161,7 +160,7 @@ NvDsMeta *gst_buffer_add_nvds_meta (GstBuffer *buffer, gpointer meta_data,
  * @return  A pointer to the last added NvDsMeta structure, or NULL if no
  *          %NvDsMeta was attached.
  */
-NvDsMeta* gst_buffer_get_nvds_meta (GstBuffer *buffer);
+NvDsMeta *gst_buffer_get_nvds_meta(GstBuffer *buffer);
 
 /**
  * Gets the @ref NvDsBatchMeta added to a GstBuffer.
@@ -171,7 +170,7 @@ NvDsMeta* gst_buffer_get_nvds_meta (GstBuffer *buffer);
  * @return  A pointer to the NvDsBatchMeta structure, or NULL if no
  *          NvDsMeta was attached.
  */
-NvDsBatchMeta * gst_buffer_get_nvds_batch_meta (GstBuffer *buffer);
+NvDsBatchMeta *gst_buffer_get_nvds_batch_meta(GstBuffer *buffer);
 /** @} */
 #ifdef __cplusplus
 }

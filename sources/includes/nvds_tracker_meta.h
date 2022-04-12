@@ -24,16 +24,15 @@
 #define _NVDS_TRACKER_META_H_
 
 #include <stdint.h>
-#include "nvll_osd_struct.h"
+
 #include "nvdsmeta.h"
+#include "nvll_osd_struct.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-typedef struct _NvDsPastFrameObj
-{
+typedef struct _NvDsPastFrameObj {
     uint32_t frameNum;
     NvOSD_RectParams tBbox;
     float confidence;
@@ -43,8 +42,7 @@ typedef struct _NvDsPastFrameObj
 /**
  * One object in several past frames
  */
-typedef struct _NvDsPastFrameObjList
-{
+typedef struct _NvDsPastFrameObjList {
     /**< Pointer to past frame info of this object. */
     NvDsPastFrameObj *list;
     /**< Number of frames this object appreared in the past. */
@@ -60,8 +58,7 @@ typedef struct _NvDsPastFrameObjList
 /**
  * List of objects in each stream
  * */
-typedef struct _NvDsPastFrameObjStream
-{
+typedef struct _NvDsPastFrameObjStream {
     NvDsPastFrameObjList *list; /**< Pointer to objects inside this stream. */
     uint32_t streamID;          /**< Stream id the same as frame_meta->pad_index. */
     uint64_t surfaceStreamID;   /**< Stream id used inside tracker plugin. */
@@ -72,11 +69,10 @@ typedef struct _NvDsPastFrameObjStream
 /**
  * Batch of lists of buffered objects
  */
-typedef struct _NvDsPastFrameObjBatch
-{
-    NvDsPastFrameObjStream *list;  /**< Pointer to array of stream lists. */
-    uint32_t numAllocated;  /**< Number of blocks allocated for the list. */
-    uint32_t numFilled;     /**< Number of filled blocks in the list. */
+typedef struct _NvDsPastFrameObjBatch {
+    NvDsPastFrameObjStream *list; /**< Pointer to array of stream lists. */
+    uint32_t numAllocated;        /**< Number of blocks allocated for the list. */
+    uint32_t numFilled;           /**< Number of filled blocks in the list. */
 } NvDsPastFrameObjBatch;
 
 #ifdef __cplusplus

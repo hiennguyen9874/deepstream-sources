@@ -33,101 +33,94 @@
 #ifndef __NVLL_OSD_API_DEFS__
 #define __NVLL_OSD_API_DEFS__
 
-#include "nvll_osd_struct.h"
 #include "nvbufsurface.h"
+#include "nvll_osd_struct.h"
 
 #define NVOSD_PRINT_E(f_, ...) \
-  printf("libnvosd (%d):(ERROR) : " f_, __LINE__, ##__VA_ARGS__)
+    printf("libnvosd (%d):(ERROR) : " f_, __LINE__, ##__VA_ARGS__)
 
 #define MAX_IN_BUF 16
 #define MAX_BORDER_WIDTH 32
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-typedef void * NvOSDCtxHandle;
+typedef void *NvOSDCtxHandle;
 /**
  * Holds information about the text in a frame.
  */
-typedef struct _NvOSD_FrameTextParams
-{
-  /** Holds a pointer to a buffer containing a frame. */
-  NvBufSurfaceParams *buf_ptr;
-  /** Holds the OSD mode to be used for processing. */
-  NvOSD_Mode mode;
-  /** Holds the number of strings. */
-  int num_strings;
-  /** Holds the strings' text parameters. */
-  NvOSD_TextParams *text_params_list;
+typedef struct _NvOSD_FrameTextParams {
+    /** Holds a pointer to a buffer containing a frame. */
+    NvBufSurfaceParams *buf_ptr;
+    /** Holds the OSD mode to be used for processing. */
+    NvOSD_Mode mode;
+    /** Holds the number of strings. */
+    int num_strings;
+    /** Holds the strings' text parameters. */
+    NvOSD_TextParams *text_params_list;
 } NvOSD_FrameTextParams;
 
 /** Holds information about the rectangles in a frame. */
-typedef struct _NvOSD_FrameRectParams
-{
-  /** Holds a pointer to the buffer containing the frame. */
-  NvBufSurfaceParams *buf_ptr;
-  /** Holds the OSD mode to be used for processing. */
-  NvOSD_Mode mode;
-  /** Holds the number of rectangles. */
-  int num_rects;
-  /** Holds the rectangles' parameters. */
-  NvOSD_RectParams *rect_params_list;
+typedef struct _NvOSD_FrameRectParams {
+    /** Holds a pointer to the buffer containing the frame. */
+    NvBufSurfaceParams *buf_ptr;
+    /** Holds the OSD mode to be used for processing. */
+    NvOSD_Mode mode;
+    /** Holds the number of rectangles. */
+    int num_rects;
+    /** Holds the rectangles' parameters. */
+    NvOSD_RectParams *rect_params_list;
 } NvOSD_FrameRectParams;
 
 /** Holds information about the rectangles in a frame. */
-typedef struct _NvOSD_FrameSegmentMaskParams
-{
-  /** Holds a pointer to the buffer containing the frame. */
-  NvBufSurfaceParams *buf_ptr;
-  /** Holds the OSD mode to be used for processing. */
-  NvOSD_Mode mode;
-  /** Holds the number of rectangles. */
-  int num_segments;
-  /** Holds the rectangles' parameters. */
-  NvOSD_RectParams *rect_params_list;
-  /** Holds mask parameters */
-  NvOSD_MaskParams *mask_params_list;
+typedef struct _NvOSD_FrameSegmentMaskParams {
+    /** Holds a pointer to the buffer containing the frame. */
+    NvBufSurfaceParams *buf_ptr;
+    /** Holds the OSD mode to be used for processing. */
+    NvOSD_Mode mode;
+    /** Holds the number of rectangles. */
+    int num_segments;
+    /** Holds the rectangles' parameters. */
+    NvOSD_RectParams *rect_params_list;
+    /** Holds mask parameters */
+    NvOSD_MaskParams *mask_params_list;
 } NvOSD_FrameSegmentMaskParams;
 
 /** Holds information about the lines in a frame. */
-typedef struct _NvOSD_FrameLineParams
-{
-  /** Holds a pointer to the buffer containing the frame. */
-  NvBufSurfaceParams *buf_ptr;
-  /** Holds the OSD mode to be used for processing. */
-  NvOSD_Mode mode;
-  /** Holds the number of lines. */
-  int num_lines;
-  /** Holds the lines' parameters. */
-  NvOSD_LineParams *line_params_list;
+typedef struct _NvOSD_FrameLineParams {
+    /** Holds a pointer to the buffer containing the frame. */
+    NvBufSurfaceParams *buf_ptr;
+    /** Holds the OSD mode to be used for processing. */
+    NvOSD_Mode mode;
+    /** Holds the number of lines. */
+    int num_lines;
+    /** Holds the lines' parameters. */
+    NvOSD_LineParams *line_params_list;
 } NvOSD_FrameLineParams;
 
 /** Holds information about the arrows in a frame. */
-typedef struct _NvOSD_FrameArrowParams
-{
-  /** Holds a pointer to the buffer containing the frame. */
-  NvBufSurfaceParams *buf_ptr;
-  /** Holds the OSD mode to be used for processing. */
-  NvOSD_Mode mode;
-  /** Holds the number of arrows. */
-  int num_arrows;
-  /** Holds the parameters of the arrows. */
-  NvOSD_ArrowParams *arrow_params_list;
+typedef struct _NvOSD_FrameArrowParams {
+    /** Holds a pointer to the buffer containing the frame. */
+    NvBufSurfaceParams *buf_ptr;
+    /** Holds the OSD mode to be used for processing. */
+    NvOSD_Mode mode;
+    /** Holds the number of arrows. */
+    int num_arrows;
+    /** Holds the parameters of the arrows. */
+    NvOSD_ArrowParams *arrow_params_list;
 } NvOSD_FrameArrowParams;
 
 /** Holds information about the circles in a frame. */
-typedef struct _NvOSD_FrameCircleParams
-{
-  /** Holds a pointer to the buffer containing the frame. */
-  NvBufSurfaceParams *buf_ptr;
-  /** Holds the OSD mode to be used for processing. */
-  NvOSD_Mode mode;
-  /** Holds the number of circles. */
-  int num_circles;
-  /** Holds the parameters of the circles. */
-  NvOSD_CircleParams *circle_params_list;
+typedef struct _NvOSD_FrameCircleParams {
+    /** Holds a pointer to the buffer containing the frame. */
+    NvBufSurfaceParams *buf_ptr;
+    /** Holds the OSD mode to be used for processing. */
+    NvOSD_Mode mode;
+    /** Holds the number of circles. */
+    int num_circles;
+    /** Holds the parameters of the circles. */
+    NvOSD_CircleParams *circle_params_list;
 } NvOSD_FrameCircleParams;
 
 /**
@@ -156,7 +149,6 @@ void nvll_osd_destroy_context(NvOSDCtxHandle nvosd_ctx);
  *                           to be overlayed; NULL to disable the clock.
  */
 void nvll_osd_set_clock_params(NvOSDCtxHandle nvosd_ctx, NvOSD_TextParams *clk_params);
-
 
 /**
  * /brief  Overlays clock and given text at a given location in a buffer.
@@ -274,7 +266,7 @@ int nvll_osd_draw_circles(NvOSDCtxHandle nvosd_ctx, NvOSD_FrameCircleParams *fra
  *
  * @returns 0 if successful, or -1 otherwise.
  */
-void *nvll_osd_set_params (NvOSDCtxHandle nvosd_ctx, int width, int height);
+void *nvll_osd_set_params(NvOSDCtxHandle nvosd_ctx, int width, int height);
 
 /**
  * Initializes colors for HW based blending.
@@ -288,7 +280,7 @@ void *nvll_osd_set_params (NvOSDCtxHandle nvosd_ctx, int width, int height);
  *
  * @returns A pointer to the internally allocated Host Memory.
  */
-int nvll_osd_init_colors_for_hw_blend(void *nvosd_ctx, NvOSD_Color_info * color_info, int num_classes);
+int nvll_osd_init_colors_for_hw_blend(void *nvosd_ctx, NvOSD_Color_info *color_info, int num_classes);
 
 #ifdef __cplusplus
 }

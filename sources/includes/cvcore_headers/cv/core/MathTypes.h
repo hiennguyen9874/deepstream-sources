@@ -15,6 +15,7 @@
 #include <cassert>
 #include <cmath>
 #include <vector>
+
 #include "Tensor.h"
 
 namespace cvcore {
@@ -27,9 +28,8 @@ using Matrixd = Tensor<CHW, C1, F64>;
  * A struct.
  * Structure used to store Vector2 Values.
  */
-template<class T>
-struct Vector2
-{
+template <class T>
+struct Vector2 {
     T x; /**< point x coordinate. */
     T y; /**< point y coordinate. */
 };
@@ -38,9 +38,8 @@ struct Vector2
  * A struct.
  * Structure used to store Vector3 Values.
  */
-template<class T>
-struct Vector3
-{
+template <class T>
+struct Vector3 {
     T x; /**< point x coordinate. */
     T y; /**< point y coordinate. */
     T z; /**< point z coordinate. */
@@ -59,21 +58,16 @@ using Vector3d = Vector3<double>;
  * A struct
  * Structure used to store AxisAngle Rotation parameters.
  */
-struct AxisAngleRotation
-{
+struct AxisAngleRotation {
     double angle;  /** Counterclockwise rotation angle [0, 2PI]. */
     Vector3d axis; /** 3d axis of rotation. */
 
     AxisAngleRotation()
-        : angle(0.0)
-        , axis{0, 0, 0}
-    {
+        : angle(0.0), axis{0, 0, 0} {
     }
 
     AxisAngleRotation(double angleinput, Vector3d axisinput)
-        : angle(angleinput)
-        , axis(axisinput)
-    {
+        : angle(angleinput), axis(axisinput) {
     }
 };
 
@@ -83,25 +77,16 @@ struct AxisAngleRotation
  * A rotation of unit vector u with rotation theta can be represented in quaternion as:
  * q={cos(theta/2)+ i(u*sin(theta/2))}
 */
-struct Quaternion
-{
+struct Quaternion {
     double qx, qy, qz; /** Axis or imaginary component of the quaternion representation. */
     double qw;         /** Angle or real component of the quaternion representation. */
 
     Quaternion()
-        : qx(0.0)
-        , qy(0.0)
-        , qz(0.0)
-        , qw(0.0)
-    {
+        : qx(0.0), qy(0.0), qz(0.0), qw(0.0) {
     }
 
     Quaternion(double qxinput, double qyinput, double qzinput, double qwinput)
-        : qx(qxinput)
-        , qy(qyinput)
-        , qz(qzinput)
-        , qw(qwinput)
-    {
+        : qx(qxinput), qy(qyinput), qz(qzinput), qw(qwinput) {
     }
 };
 
@@ -175,9 +160,8 @@ Quaternion RotationMatrixToQuaternion(const std::vector<double> &rotMatrix);
  * A struct.
  * Structure used to store Pose3D parameters.
  */
-template<class T>
-struct Pose3
-{
+template <class T>
+struct Pose3 {
     AxisAngleRotation rotation; /**Rotation expressed in axis angle notation.*/
     Vector3<T> translation;     /*Translation expressed as x,y,z coordinates.*/
 };
@@ -185,6 +169,6 @@ struct Pose3
 using Pose3d = Pose3<double>;
 using Pose3f = Pose3<float>;
 
-} // namespace cvcore
+}  // namespace cvcore
 
-#endif // CVCORE_Math_H
+#endif  // CVCORE_Math_H

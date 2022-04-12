@@ -35,8 +35,7 @@
 #include "nvds_tracker_meta.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define NVMOT_MAX_TRANSFORMS 4
@@ -49,13 +48,13 @@ typedef uint64_t NvMOTStreamId;
  * You can select multiple targets; the tracker will optimize across them.
  * Combinations are allowed, e.g. NVTCOMP_GPU or NVTCOMP_PVA
  */
-#define NVMOTCOMP_GPU     0x01  /**< Defines the "GPU" compute target flag. */
-#define NVMOTCOMP_CPU     0x02  /**< Defines the "CPU" compute target flag. */
-#define NVMOTCOMP_PVA     0x04  /**< Defines the "PVA" compute target flag. */
-#define NVMOTCOMP_ANY     0xff  /**< Defines a compute target flag for
-                                 "any target." */
+#define NVMOTCOMP_GPU 0x01 /**< Defines the "GPU" compute target flag. */
+#define NVMOTCOMP_CPU 0x02 /**< Defines the "CPU" compute target flag. */
+#define NVMOTCOMP_PVA 0x04 /**< Defines the "PVA" compute target flag. */
+#define NVMOTCOMP_ANY 0xff /**< Defines a compute target flag for \
+                            "any target." */
 #define NVMOTCOMP_DEFAULT NVMOTCOMP_ANY
-                                /**< Defines the compute target flag for the
+/**< Defines the compute target flag for the
                                  default target. */
 /** @} */
 
@@ -65,8 +64,7 @@ typedef uint8_t NvMOTCompute;
  * @brief Holds a configuration for batches for an input transform
  *  (a scaling/color conversion).
  */
-typedef struct _NvMOTPerTransformBatchConfig
-{
+typedef struct _NvMOTPerTransformBatchConfig {
     /** Holds the type of buffer. */
     NvBufSurfaceMemType bufferType;
     /** Holds the maximum width of each frame. */
@@ -81,12 +79,10 @@ typedef struct _NvMOTPerTransformBatchConfig
     uint32_t colorFormat;
 } NvMOTPerTransformBatchConfig;
 
-
 /**
  * @brief Holds miscellaneous configurations.
  */
-typedef struct _NvMOTMiscConfig
-{
+typedef struct _NvMOTMiscConfig {
     /** Holds the ID of the GPU to be used. */
     uint32_t gpuId;
     /** Holds the maximum number of objects to track per stream. 0 means
@@ -96,7 +92,7 @@ typedef struct _NvMOTMiscConfig
      track an unlimited number of objects. */
     uint32_t maxObjPerBatch;
     /** Holds a pointer to a callback for logging messages. */
-    typedef void (*logMsg) (int logLevel, const char * format, ...);
+    typedef void (*logMsg)(int logLevel, const char *format, ...);
 } NvMOTMiscConfig;
 
 /**
@@ -107,8 +103,7 @@ typedef struct _NvMOTMiscConfig
  * @note This structure must be deep-copied to be passed to a component that
  * is to use it persistently.
  */
-typedef struct _NvMOTConfig
-{
+typedef struct _NvMOTConfig {
     /** Holds the compute target. @see NvMOTCompute. */
     NvMOTCompute computeConfig;
     /** Holds the maximum number of streams in a batch. */
@@ -127,14 +122,13 @@ typedef struct _NvMOTConfig
     uint16_t customConfigFilePathSize;
     /** A pointer to the pathname of the tracker's custom configuration file.
      A null-terminated string. */
-    char* customConfigFilePath;
+    char *customConfigFilePath;
 } NvMOTConfig;
 
 /**
  * @brief Defines configuration request return codes.
  */
-typedef enum
-{
+typedef enum {
     NvMOTConfigStatus_OK,
     NvMOTConfigStatus_Error,
     NvMOTConfigStatus_Invalid,
@@ -147,8 +141,7 @@ typedef enum
  * Holds the status of a configuration request; includes both summary and
  * per-configuration status.
  */
-typedef struct _NvMOTConfigResponse
-{
+typedef struct _NvMOTConfigResponse {
     /** Holds the summary status of the entire configuration request. */
     NvMOTConfigStatus summaryStatus;
     /** Holds the compute target request status. */
@@ -165,8 +158,7 @@ typedef struct _NvMOTConfigResponse
 /**
  * @brief Defines generic status codes for tracking operations.
  */
-typedef enum
-{
+typedef enum {
     NvMOTStatus_OK,
     NvMOTStatus_Error,
     NvMOTStatus_Invalid_Path
@@ -175,8 +167,7 @@ typedef enum
 /**
  * @brief Bitwise flag to define whether batch/nonbatch mode is supported
  */
-typedef enum
-{
+typedef enum {
     /** Unsupported batch mode. At least either batch or non-batch should be supported. **/
     NvMOTBatchMode_Error = 0,
     /** Batch processing mode. **/
@@ -190,8 +181,7 @@ typedef enum
 /**
  * @brief Holds the definition of a rectangle.
  */
-typedef struct _NvMOTRect
-{
+typedef struct _NvMOTRect {
     /** Holds the left edge position of the object bounding box, in pixels. */
     float x;
     /** Holds the top edge position of the object bounding box, in pixels. */
@@ -207,8 +197,7 @@ typedef struct _NvMOTRect
  *
  * NvMOT creates an instance of this structure for each tracked object.
  */
-typedef struct _NvMOTObjToTrack
-{
+typedef struct _NvMOTObjToTrack {
     /** Holds the class of the object. */
     uint16_t classId;
     /** Holds the bounding box of the object. */
@@ -224,13 +213,12 @@ typedef struct _NvMOTObjToTrack
 /**
  * @brief Holds a list of objects.
  */
-typedef struct _NvMOTObjToTrackList
-{
+typedef struct _NvMOTObjToTrackList {
     /** Holds a Boolean which is true if detection was done on this frame
      even if the list of objects to track is empty. */
     bool detectionDone;
     /** Holds a pointer to a list or array of object information blocks. */
-    NvMOTObjToTrack* list;
+    NvMOTObjToTrack *list;
     /** Holds the number of blocks allocated for the list. */
     uint32_t numAllocated;
     /** Holds the number of populated blocks in the list. */
@@ -246,8 +234,7 @@ typedef struct _NvMOTObjToTrackList
  *  which @a bufferList points to must be checked with the parameters
  *  specified in @a perTransformBatchConfig in NvMOTConfig.
  */
-typedef struct _NvMOTFrame
-{
+typedef struct _NvMOTFrame {
     /** Holds the stream ID of the stream source for this frame. */
     NvMOTStreamId streamID;
     /** Holds the sequential frame number that identifies the frame
@@ -271,7 +258,7 @@ typedef struct _NvMOTFrame
     uint8_t numBuffers;
     /** Holds a pointer to an array of pointers to buffer parameter
      structures. */
-    NvBufSurfaceParams** bufferList;
+    NvBufSurfaceParams **bufferList;
     /** Holds a list of objects in this frame which are to be tracked.
      Boundary boxes are scaled for the first buffer configuration. */
     NvMOTObjToTrackList objectsIn;
@@ -280,8 +267,7 @@ typedef struct _NvMOTFrame
 /**
  * @brief Holds information about each tracked object.
  */
-typedef struct _NvMOTTrackedObj
-{
+typedef struct _NvMOTTrackedObj {
     /** Holds the class ID of the object to be tracked. */
     uint16_t classId;
     /** Holds a unique ID for the object, assigned by the tracker. */
@@ -300,8 +286,7 @@ typedef struct _NvMOTTrackedObj
 /**
  * @brief Holds a list of tracked objects.
  */
-typedef struct _NvMOTTrackedObjList
-{
+typedef struct _NvMOTTrackedObjList {
     /** Holds the stream ID of the stream associated with objects in the list.*/
     NvMOTStreamId streamID;
     /** Holds the frame number for objects in the list. */
@@ -309,7 +294,7 @@ typedef struct _NvMOTTrackedObjList
     /** Holds a Boolean which is true if this entry in the batch is valid. */
     bool valid;
     /** Holds a pointer to a list or array of object information blocks. */
-    NvMOTTrackedObj* list;
+    NvMOTTrackedObj *list;
     /** Holds the number of blocks allocated for the list. */
     uint32_t numAllocated;
     /** Holds the number of populated blocks in the list. */
@@ -319,8 +304,7 @@ typedef struct _NvMOTTrackedObjList
 /**
  * @brief Holds a batch of lists of tracked objects.
  */
-typedef struct _NvMOTTrackedObjBatch
-{
+typedef struct _NvMOTTrackedObjBatch {
     /** Holds a pointer to an array of object lists. */
     NvMOTTrackedObjList *list;
     /** Holds the number of blocks allocated for the list. */
@@ -334,14 +318,12 @@ typedef struct _NvMOTTrackedObjBatch
  *
  * @see NvMOTProcessFrame.
  */
-typedef struct _NvMOTProcessParams
-{
-    uint32_t numFrames;     /**< Holds the number of frames in the batch. */
-    NvMOTFrame *frameList;  /**< Holds a pointer to an array of frame data. */
+typedef struct _NvMOTProcessParams {
+    uint32_t numFrames;    /**< Holds the number of frames in the batch. */
+    NvMOTFrame *frameList; /**< Holds a pointer to an array of frame data. */
 } NvMOTProcessParams;
 
-typedef struct _NvMOTQuery
-{
+typedef struct _NvMOTQuery {
     /** Holds flags for supported compute targets. @see NvMOTCompute. */
     NvMOTCompute computeConfig;
     /** Holds the number of \ref NvMOTPerTransformBatchConfig entries
@@ -361,7 +343,7 @@ typedef struct _NvMOTQuery
  * @brief Holds an opaque context handle.
  */
 struct NvMOTContext;
-typedef struct NvMOTContext* NvMOTContextHandle;
+typedef struct NvMOTContext *NvMOTContextHandle;
 
 /**
  * @brief Initializes a tracking context for a batch of one or more image
@@ -428,8 +410,8 @@ NvMOTStatus NvMOT_Process(NvMOTContextHandle contextHandle,
  * @return Status of batch processing
  */
 NvMOTStatus NvMOT_ProcessPast(NvMOTContextHandle contextHandle,
-                          NvMOTProcessParams *pParams,
-                          NvDsPastFrameObjBatch *pPastFrameObjBatch);
+                              NvMOTProcessParams *pParams,
+                              NvDsPastFrameObjBatch *pPastFrameObjBatch);
 /**
  * @brief Query tracker lib capabilities and requirements.
  *
@@ -444,8 +426,7 @@ NvMOTStatus NvMOT_ProcessPast(NvMOTContextHandle contextHandle,
  *                                      filled by the tracker.
  * @return  Status of the query.
  */
-NvMOTStatus NvMOT_Query(uint16_t customConfigFilePathSize, char* pCustomConfigFilePath, NvMOTQuery *pQuery);
-
+NvMOTStatus NvMOT_Query(uint16_t customConfigFilePathSize, char *pCustomConfigFilePath, NvMOTQuery *pQuery);
 
 /**
  * @brief Removes streams from a batch.
@@ -465,7 +446,7 @@ NvMOTStatus NvMOT_Query(uint16_t customConfigFilePathSize, char* pCustomConfigFi
  */
 NvMOTStatus NvMOT_RemoveStreams(NvMOTContextHandle contextHandle, NvMOTStreamId streamIdMask);
 
-/** @} */ // end of API group
+/** @} */  // end of API group
 
 #ifdef __cplusplus
 }

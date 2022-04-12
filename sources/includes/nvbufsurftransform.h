@@ -22,6 +22,7 @@
 #define NVBUFSURFTRANSFORM_H_
 #include <cuda.h>
 #include <cuda_runtime.h>
+
 #include "nvbufsurface.h"
 
 #ifdef __cplusplus
@@ -37,94 +38,88 @@ extern "C" {
 /**
  * Specifies compute devices used by \ref NvBufSurfTransform.
  */
-typedef enum
-{
-  /** Specifies VIC as a compute device for Jetson or dGPU for an x86_64
+typedef enum {
+    /** Specifies VIC as a compute device for Jetson or dGPU for an x86_64
    system. */
-  NvBufSurfTransformCompute_Default,
-  /** Specifies that the GPU is the compute device. */
-  NvBufSurfTransformCompute_GPU,
-  /** Specifies that the VIC as a compute device. Supported only for Jetson. */
-  NvBufSurfTransformCompute_VIC
+    NvBufSurfTransformCompute_Default,
+    /** Specifies that the GPU is the compute device. */
+    NvBufSurfTransformCompute_GPU,
+    /** Specifies that the VIC as a compute device. Supported only for Jetson. */
+    NvBufSurfTransformCompute_VIC
 } NvBufSurfTransform_Compute;
-
 
 /**
  * Specifies video flip methods.
  */
-typedef enum
-{
-  /** Specifies no video flip. */
-  NvBufSurfTransform_None,
-  /** Specifies rotating 90 degrees clockwise. */
-  NvBufSurfTransform_Rotate90,
-  /** Specifies rotating 180 degree clockwise. */
-  NvBufSurfTransform_Rotate180,
-  /** Specifies rotating 270 degree clockwise. */
-  NvBufSurfTransform_Rotate270,
-  /** Specifies video flip with respect to the X-axis. */
-  NvBufSurfTransform_FlipX,
-  /** Specifies video flip with respect to the Y-axis. */
-  NvBufSurfTransform_FlipY,
-  /** Specifies video flip transpose. */
-  NvBufSurfTransform_Transpose,
-  /** Specifies video flip inverse transpose. */
-  NvBufSurfTransform_InvTranspose,
+typedef enum {
+    /** Specifies no video flip. */
+    NvBufSurfTransform_None,
+    /** Specifies rotating 90 degrees clockwise. */
+    NvBufSurfTransform_Rotate90,
+    /** Specifies rotating 180 degree clockwise. */
+    NvBufSurfTransform_Rotate180,
+    /** Specifies rotating 270 degree clockwise. */
+    NvBufSurfTransform_Rotate270,
+    /** Specifies video flip with respect to the X-axis. */
+    NvBufSurfTransform_FlipX,
+    /** Specifies video flip with respect to the Y-axis. */
+    NvBufSurfTransform_FlipY,
+    /** Specifies video flip transpose. */
+    NvBufSurfTransform_Transpose,
+    /** Specifies video flip inverse transpose. */
+    NvBufSurfTransform_InvTranspose,
 } NvBufSurfTransform_Flip;
-
 
 /**
  * Specifies video interpolation methods.
  */
-typedef enum
-{
-  /** Specifies Nearest Interpolation Method interpolation. */
-  NvBufSurfTransformInter_Nearest = 0,
-  /** Specifies Bilinear Interpolation Method interpolation. */
-  NvBufSurfTransformInter_Bilinear,
-  /** Specifies GPU-Cubic, VIC-5 Tap interpolation. */
-  NvBufSurfTransformInter_Algo1,
-  /** Specifies GPU-Super, VIC-10 Tap interpolation. */
-  NvBufSurfTransformInter_Algo2,
-  /** Specifies GPU-Lanzos, VIC-Smart interpolation. */
-  NvBufSurfTransformInter_Algo3,
-  /** Specifies GPU-Ignored, VIC-Nicest interpolation. */
-  NvBufSurfTransformInter_Algo4,
-  /** Specifies GPU-Nearest, VIC-Nearest interpolation. */
-  NvBufSurfTransformInter_Default
+typedef enum {
+    /** Specifies Nearest Interpolation Method interpolation. */
+    NvBufSurfTransformInter_Nearest = 0,
+    /** Specifies Bilinear Interpolation Method interpolation. */
+    NvBufSurfTransformInter_Bilinear,
+    /** Specifies GPU-Cubic, VIC-5 Tap interpolation. */
+    NvBufSurfTransformInter_Algo1,
+    /** Specifies GPU-Super, VIC-10 Tap interpolation. */
+    NvBufSurfTransformInter_Algo2,
+    /** Specifies GPU-Lanzos, VIC-Smart interpolation. */
+    NvBufSurfTransformInter_Algo3,
+    /** Specifies GPU-Ignored, VIC-Nicest interpolation. */
+    NvBufSurfTransformInter_Algo4,
+    /** Specifies GPU-Nearest, VIC-Nearest interpolation. */
+    NvBufSurfTransformInter_Default
 } NvBufSurfTransform_Inter;
 
 /**
  * Specifies error codes returned by \ref NvBufSurfTransform functions.
  */
-typedef enum
-{
-  /** Specifies an error in source or destination ROI. */
-  NvBufSurfTransformError_ROI_Error = -4,
-  /** Specifies invalid input parameters. */
-  NvBufSurfTransformError_Invalid_Params = -3,
-  /** Specifies a runtime execution error. */
-  NvBufSurfTransformError_Execution_Error = -2,
-  /** Specifies an unsupported feature or format. */
-  NvBufSurfTransformError_Unsupported = -1,
-  /** Specifies a successful operation. */
-  NvBufSurfTransformError_Success = 0
+typedef enum {
+    /** Specifies an error in source or destination ROI. */
+    NvBufSurfTransformError_ROI_Error = -4,
+    /** Specifies invalid input parameters. */
+    NvBufSurfTransformError_Invalid_Params = -3,
+    /** Specifies a runtime execution error. */
+    NvBufSurfTransformError_Execution_Error = -2,
+    /** Specifies an unsupported feature or format. */
+    NvBufSurfTransformError_Unsupported = -1,
+    /** Specifies a successful operation. */
+    NvBufSurfTransformError_Success = 0
 } NvBufSurfTransform_Error;
 
 /**
  * Specifies transform types.
  */
 typedef enum {
-  /** Specifies a transform to crop the source rectangle. */
-  NVBUFSURF_TRANSFORM_CROP_SRC   = 1,
-  /** Specifies a transform to crop the destination rectangle. */
-  NVBUFSURF_TRANSFORM_CROP_DST   = 1 << 1,
-  /** Specifies a transform to set the filter type. */
-  NVBUFSURF_TRANSFORM_FILTER     = 1 << 2,
-  /** Specifies a transform to set the flip method. */
-  NVBUFSURF_TRANSFORM_FLIP       = 1 << 3,
-  /** Specifies a transform to normalize output. */
-  NVBUFSURF_TRANSFORM_NORMALIZE  = 1 << 4
+    /** Specifies a transform to crop the source rectangle. */
+    NVBUFSURF_TRANSFORM_CROP_SRC = 1,
+    /** Specifies a transform to crop the destination rectangle. */
+    NVBUFSURF_TRANSFORM_CROP_DST = 1 << 1,
+    /** Specifies a transform to set the filter type. */
+    NVBUFSURF_TRANSFORM_FILTER = 1 << 2,
+    /** Specifies a transform to set the flip method. */
+    NVBUFSURF_TRANSFORM_FLIP = 1 << 3,
+    /** Specifies a transform to normalize output. */
+    NVBUFSURF_TRANSFORM_NORMALIZE = 1 << 4
 
 } NvBufSurfTransform_Transform_Flag;
 
@@ -132,10 +127,10 @@ typedef enum {
  * Specifies types of composition operations.
  */
 typedef enum {
-  /** Specifies a flag to describe the requested compositing operation. */
-  NVBUFSURF_TRANSFORM_COMPOSITE  = 1,
-  /** Specifies a composite to set the filter type. */
-  NVBUFSURF_TRANSFORM_COMPOSITE_FILTER     = 1 << 2,
+    /** Specifies a flag to describe the requested compositing operation. */
+    NVBUFSURF_TRANSFORM_COMPOSITE = 1,
+    /** Specifies a composite to set the filter type. */
+    NVBUFSURF_TRANSFORM_COMPOSITE_FILTER = 1 << 2,
 } NvBufSurfTransform_Composite_Flag;
 
 /**
@@ -143,115 +138,111 @@ typedef enum {
  */
 typedef struct
 {
-  /** Holds the rectangle top. */
-  uint32_t top;
-  /** Holds the rectangle left side. */
-  uint32_t left;
-  /** Holds the rectangle width. */
-  uint32_t width;
-  /** Holds the rectangle height. */
-  uint32_t height;
-}NvBufSurfTransformRect;
+    /** Holds the rectangle top. */
+    uint32_t top;
+    /** Holds the rectangle left side. */
+    uint32_t left;
+    /** Holds the rectangle width. */
+    uint32_t width;
+    /** Holds the rectangle height. */
+    uint32_t height;
+} NvBufSurfTransformRect;
 
 /**
  * Holds configuration parameters for a transform/composite session.
  */
-typedef struct _NvBufSurfTransformConfigParams
-{
-  /** Holds the mode of operation: VIC (Jetson) or GPU (iGPU + dGPU)
+typedef struct _NvBufSurfTransformConfigParams {
+    /** Holds the mode of operation: VIC (Jetson) or GPU (iGPU + dGPU)
    If VIC is configured, \a gpu_id is ignored. */
-  NvBufSurfTransform_Compute compute_mode;
+    NvBufSurfTransform_Compute compute_mode;
 
-  /** Holds the GPU ID to be used for processing. */
-  int32_t gpu_id;
+    /** Holds the GPU ID to be used for processing. */
+    int32_t gpu_id;
 
-  /** User configure stream to be used. If NULL, the default stream is used.
+    /** User configure stream to be used. If NULL, the default stream is used.
    Ignored if VIC is used. */
-  cudaStream_t cuda_stream;
+    cudaStream_t cuda_stream;
 
 } NvBufSurfTransformConfigParams;
 
 /**
  * Holds transform parameters for a transform call.
  */
-typedef struct _NvBufSurfaceTransformParams
-{
-  /** Holds a flag that indicates which transform parameters are valid. */
-  uint32_t transform_flag;
-  /** Holds the flip method. */
-  NvBufSurfTransform_Flip transform_flip;
-  /** Holds a transform filter. */
-  NvBufSurfTransform_Inter transform_filter;
-  /** Holds a pointer to a list of source rectangle coordinates for
+typedef struct _NvBufSurfaceTransformParams {
+    /** Holds a flag that indicates which transform parameters are valid. */
+    uint32_t transform_flag;
+    /** Holds the flip method. */
+    NvBufSurfTransform_Flip transform_flip;
+    /** Holds a transform filter. */
+    NvBufSurfTransform_Inter transform_filter;
+    /** Holds a pointer to a list of source rectangle coordinates for
    a crop operation. */
-  NvBufSurfTransformRect *src_rect;
-  /** Holds a pointer to list of destination rectangle coordinates for
+    NvBufSurfTransformRect *src_rect;
+    /** Holds a pointer to list of destination rectangle coordinates for
    a crop operation. */
-  NvBufSurfTransformRect *dst_rect;
-}NvBufSurfTransformParams;
+    NvBufSurfTransformRect *dst_rect;
+} NvBufSurfTransformParams;
 
 /**
  * Holds composite parameters for a composite call.
  */
-typedef struct _NvBufSurfTransformCompositeParams
-{
-  /** Holds a flag that indicates which composition parameters are valid. */
-  uint32_t composite_flag;
-  /** Holds the number of input buffers to be composited. */
-  uint32_t input_buf_count;
- /** Holds source rectangle coordinates of input buffers for compositing. */
-  NvBufSurfTransformRect *src_comp_rect;
-  /** Holds destination rectangle coordinates of input buffers for
+typedef struct _NvBufSurfTransformCompositeParams {
+    /** Holds a flag that indicates which composition parameters are valid. */
+    uint32_t composite_flag;
+    /** Holds the number of input buffers to be composited. */
+    uint32_t input_buf_count;
+    /** Holds source rectangle coordinates of input buffers for compositing. */
+    NvBufSurfTransformRect *src_comp_rect;
+    /** Holds destination rectangle coordinates of input buffers for
    compositing. */
-  NvBufSurfTransformRect *dst_comp_rect;
-  /** Holds a composite filter. */
-  NvBufSurfTransform_Inter composite_filter;
-}NvBufSurfTransformCompositeParams;
+    NvBufSurfTransformRect *dst_comp_rect;
+    /** Holds a composite filter. */
+    NvBufSurfTransform_Inter composite_filter;
+} NvBufSurfTransformCompositeParams;
 
 typedef struct _NvBufSurfTransform_ColorParams {
-  double red;     /**< Holds the red component of color.
+    double red; /**< Holds the red component of color.
                    Value must be in the range 0.0-1.0. */
 
-  double green;   /**< Holds the green component of color.
+    double green; /**< Holds the green component of color.
                    Value must be in the range 0.0-1.0.*/
 
-  double blue;    /**< Holds the blue component of color.
+    double blue; /**< Holds the blue component of color.
                    Value must be in the range 0.0-1.0.*/
 
-  double alpha;   /**< Holds the alpha component of color.
+    double alpha; /**< Holds the alpha component of color.
                    Value must be in the range 0.0-1.0.*/
 } NvBufSurfTransform_ColorParams;
 
 /**
  * Holds composite blend parameters for a composite blender call.
  */
-typedef struct _NvBufSurfTransformCompositeBlendParams
-{
-  /** Holds a flag that indicates which composition parameters are valid. */
-  uint32_t composite_blend_flag;
-  /** Holds the number of input buffers to be composited. */
-  uint32_t input_buf_count;
-  /** Holds a blend/composite filter applicable only  */
-  NvBufSurfTransform_Inter composite_blend_filter;
-  /** Holds background color list for blending if background buffer is absent, if NULL
+typedef struct _NvBufSurfTransformCompositeBlendParams {
+    /** Holds a flag that indicates which composition parameters are valid. */
+    uint32_t composite_blend_flag;
+    /** Holds the number of input buffers to be composited. */
+    uint32_t input_buf_count;
+    /** Holds a blend/composite filter applicable only  */
+    NvBufSurfTransform_Inter composite_blend_filter;
+    /** Holds background color list for blending if background buffer is absent, if NULL
    * it wont be used, background buffer is expected to be NULL, if blending with
    * static color is required
    */
-  NvBufSurfTransform_ColorParams *color_bg;
-  /** Holds a boolean flag list indicating whether blending to be done for particular buffer,
+    NvBufSurfTransform_ColorParams *color_bg;
+    /** Holds a boolean flag list indicating whether blending to be done for particular buffer,
    * if NULL, blending will be on all buffers, if valid value API expects at least numFilled
    * size list and each element can take value 0 or 1
    */
-  uint32_t *perform_blending;
+    uint32_t *perform_blending;
 
-}NvBufSurfTransformCompositeBlendParams;
+} NvBufSurfTransformCompositeBlendParams;
 
 /**
  ** Holds the information about synchronization objects for asynchronous
  * transform/composite APIs
  *
  */
-typedef  struct NvBufSurfTransformSyncObj* NvBufSurfTransformSyncObj_t;
+typedef struct NvBufSurfTransformSyncObj *NvBufSurfTransformSyncObj_t;
 
 /**
  * \brief  Sets user-defined session parameters.
@@ -265,8 +256,7 @@ typedef  struct NvBufSurfTransformSyncObj* NvBufSurfTransformSyncObj_t;
  * @return  An \ref NvBufSurfTransform_Error value indicating
  *  success or failure.
  */
-NvBufSurfTransform_Error NvBufSurfTransformSetSessionParams
-(NvBufSurfTransformConfigParams *config_params);
+NvBufSurfTransform_Error NvBufSurfTransformSetSessionParams(NvBufSurfTransformConfigParams *config_params);
 
 /**
  * \brief Gets the session parameters used by NvBufSurfTransform().
@@ -277,8 +267,7 @@ NvBufSurfTransform_Error NvBufSurfTransformSetSessionParams
  * @return  An \ref NvBufSurfTransform_Error value indicating
  *  success or failure.
  */
-NvBufSurfTransform_Error NvBufSurfTransformGetSessionParams
-(NvBufSurfTransformConfigParams *config_params);
+NvBufSurfTransform_Error NvBufSurfTransformGetSessionParams(NvBufSurfTransformConfigParams *config_params);
 
 /**
  * \brief Performs a transformation on batched input images.
@@ -303,8 +292,8 @@ NvBufSurfTransform_Error NvBufSurfTransformGetSessionParams
  * @return  An \ref NvBufSurfTransform_Error value indicating
  *  success or failure.
  */
-NvBufSurfTransform_Error NvBufSurfTransform (NvBufSurface *src, NvBufSurface *dst,
-    NvBufSurfTransformParams *transform_params);
+NvBufSurfTransform_Error NvBufSurfTransform(NvBufSurface *src, NvBufSurface *dst,
+                                            NvBufSurfTransformParams *transform_params);
 
 /**
  * \brief  Composites batched input images.
@@ -325,8 +314,8 @@ NvBufSurfTransform_Error NvBufSurfTransform (NvBufSurface *src, NvBufSurface *ds
  *                  in \a src and \a dst.
  * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
  */
-NvBufSurfTransform_Error NvBufSurfTransformComposite (NvBufSurface *src,
-    NvBufSurface *dst, NvBufSurfTransformCompositeParams *composite_params);
+NvBufSurfTransform_Error NvBufSurfTransformComposite(NvBufSurface *src,
+                                                     NvBufSurface *dst, NvBufSurfTransformCompositeParams *composite_params);
 
 /**
  * \brief An asynchronous (non-blocking) transformation on batched input images.
@@ -360,9 +349,9 @@ NvBufSurfTransform_Error NvBufSurfTransformComposite (NvBufSurface *src,
  * @return  An \ref NvBufSurfTransform_Error value indicating
  *  success or failure.
  */
-NvBufSurfTransform_Error NvBufSurfTransformAsync (NvBufSurface *src,
-    NvBufSurface *dst, NvBufSurfTransformParams *transform_params,
-    NvBufSurfTransformSyncObj_t *sync_obj);
+NvBufSurfTransform_Error NvBufSurfTransformAsync(NvBufSurface *src,
+                                                 NvBufSurface *dst, NvBufSurfTransformParams *transform_params,
+                                                 NvBufSurfTransformSyncObj_t *sync_obj);
 
 /**
  * \brief  Composites batched input images Asynchronously (non-blocking).
@@ -392,9 +381,9 @@ NvBufSurfTransform_Error NvBufSurfTransformAsync (NvBufSurface *src,
  *                  the composite is complete.
  * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
  */
-NvBufSurfTransform_Error NvBufSurfTransformCompositeAsync (NvBufSurface *src,
-    NvBufSurface *dst, NvBufSurfTransformCompositeParams *composite_params,
-    NvBufSurfTransformSyncObj_t *sync_obj);
+NvBufSurfTransform_Error NvBufSurfTransformCompositeAsync(NvBufSurface *src,
+                                                          NvBufSurface *dst, NvBufSurfTransformCompositeParams *composite_params,
+                                                          NvBufSurfTransformSyncObj_t *sync_obj);
 
 /**
  * \brief  Composites/Blends batched input images
@@ -421,9 +410,8 @@ NvBufSurfTransform_Error NvBufSurfTransformCompositeAsync (NvBufSurface *src,
  * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
  */
 NvBufSurfTransform_Error NvBufSurfTransformCompositeBlend(NvBufSurface *src0,
-    NvBufSurface *src1, NvBufSurface *alpha, NvBufSurface *dst,
-    NvBufSurfTransformCompositeBlendParams *blend_params);
-
+                                                          NvBufSurface *src1, NvBufSurface *alpha, NvBufSurface *dst,
+                                                          NvBufSurfTransformCompositeBlendParams *blend_params);
 
 /**
  * \brief  Wait on the synchroization object.
@@ -438,8 +426,7 @@ NvBufSurfTransform_Error NvBufSurfTransformCompositeBlend(NvBufSurface *src0,
  * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
  */
 NvBufSurfTransform_Error NvBufSurfTransformSyncObjWait(
-NvBufSurfTransformSyncObj_t sync_obj, uint32_t time_out);
-
+    NvBufSurfTransformSyncObj_t sync_obj, uint32_t time_out);
 
 /**
  * \brief  Destroy the synchroization object.
@@ -452,7 +439,7 @@ NvBufSurfTransformSyncObj_t sync_obj, uint32_t time_out);
  *
  */
 NvBufSurfTransform_Error NvBufSurfTransformSyncObjDestroy(
-    NvBufSurfTransformSyncObj_t* sync_obj);
+    NvBufSurfTransformSyncObj_t *sync_obj);
 
 /** @} */
 #ifdef __cplusplus

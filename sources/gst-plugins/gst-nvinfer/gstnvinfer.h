@@ -14,6 +14,7 @@
 
 #include <gst/base/gstbasetransform.h>
 #include <gst/video/video.h>
+#include <nvdsinfer_context.h>
 
 #include <memory>
 #include <set>
@@ -21,13 +22,9 @@
 #include <vector>
 
 #include "cuda_runtime_api.h"
-#include "nvbufsurftransform.h"
-#include <nvdsinfer_context.h>
-
 #include "gstnvdsinfer.h"
-
 #include "gstnvdsmeta.h"
-
+#include "nvbufsurftransform.h"
 #include "nvtx3/nvToolsExt.h"
 
 /* Package and library details required for plugin_init */
@@ -56,8 +53,7 @@ typedef struct _GstNvInferImpl GstNvInferImpl;
 /**
  * Enum for all GObject properties for the element.
  */
-enum
-{
+enum {
     PROP_0,
     PROP_UNIQUE_ID,
     PROP_PROCESS_MODE,
@@ -79,8 +75,7 @@ enum
 };
 
 /* nvinfer signals */
-enum
-{
+enum {
     /* Signal emitted to notify app about model update completion with
    * success/error messages. */
     SIGNAL_MODEL_UPDATED,
@@ -115,8 +110,7 @@ typedef struct
 } GstNvInferColorParams;
 
 /** Holds the cached information of an object. */
-struct GstNvInferObjectInfo
-{
+struct GstNvInferObjectInfo {
     /** Vector of cached classification attributes. */
     std::vector<NvDsInferAttribute> attributes;
     /** Cached string label. */
@@ -124,10 +118,8 @@ struct GstNvInferObjectInfo
 
     GstNvInferObjectInfo(const GstNvInferObjectInfo &) = delete;
     GstNvInferObjectInfo() = default;
-    ~GstNvInferObjectInfo()
-    {
-        for (auto &attr : attributes)
-        {
+    ~GstNvInferObjectInfo() {
+        for (auto &attr : attributes) {
             if (attr.attributeLabel)
                 free(attr.attributeLabel);
         }
@@ -138,8 +130,7 @@ struct GstNvInferObjectInfo
  * Holds the inference information/history for one object based on it's
  * tracking id.
  */
-typedef struct _GstNvInferObjectHistory
-{
+typedef struct _GstNvInferObjectHistory {
     /** Boolean indicating if the object is already being inferred on. */
     gboolean under_inference;
     /** Bounding box co-ordinates of the object when it was last inferred on. */
@@ -173,8 +164,7 @@ typedef struct
 /**
  * GstNvInfer element structure.
  */
-struct _GstNvInfer
-{
+struct _GstNvInfer {
     /** Should be the first member when extending from GstBaseTransform. */
     GstBaseTransform base_trans;
 
@@ -331,8 +321,7 @@ struct _GstNvInfer
 };
 
 /* GStreamer boilerplate. */
-struct _GstNvInferClass
-{
+struct _GstNvInferClass {
     GstBaseTransformClass parent_class;
 
     /** Signals */

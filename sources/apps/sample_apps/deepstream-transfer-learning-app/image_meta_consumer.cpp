@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #include "image_meta_consumer.h"
 
 constexpr unsigned seconds_in_one_day = 86400;
@@ -32,8 +31,7 @@ static int is_dir(const char *path) {
 }
 
 ImageMetaConsumer::ImageMetaConsumer()
-        : is_stopped_(true), save_full_frame_enabled_(true), save_cropped_obj_enabled_(false),
-          obj_ctx_handle_((NvDsObjEncCtxHandle) 0), image_saving_library_is_init_(false) {
+    : is_stopped_(true), save_full_frame_enabled_(true), save_cropped_obj_enabled_(false), obj_ctx_handle_((NvDsObjEncCtxHandle)0), image_saving_library_is_init_(false) {
 }
 
 ImageMetaConsumer::~ImageMetaConsumer() {
@@ -148,11 +146,8 @@ bool ImageMetaConsumer::setup_folders() {
     mkdir(images_cropped_obj_output_folder_.c_str(), permissions);
     mkdir(images_full_frame_output_folder_.c_str(), permissions);
     mkdir(labels_output_folder_.c_str(), permissions);
-    return is_dir(images_cropped_obj_output_folder_.c_str())
-           && is_dir(images_full_frame_output_folder_.c_str())
-           && is_dir(labels_output_folder_.c_str());
+    return is_dir(images_cropped_obj_output_folder_.c_str()) && is_dir(images_full_frame_output_folder_.c_str()) && is_dir(labels_output_folder_.c_str());
 }
-
 
 void ImageMetaConsumer::write_intro(std::ofstream &os, OutputType &ot) {
     switch (ot) {
@@ -255,7 +250,6 @@ bool ImageMetaConsumer::setup_files() {
 
 void ImageMetaConsumer::multi_metadata_maker(ConcurrentQueue<std::pair<std::string, std::string>> &queue,
                                              std::mutex &mutex, std::condition_variable &cv) {
-
     while (!is_stopped_) {
         {
             std::unique_lock<std::mutex> lk(mutex);
@@ -284,7 +278,6 @@ void ImageMetaConsumer::run() {
     th_csv_ = std::thread([this]() {
         single_metadata_maker("csv", queue_csv_, m_csv_, cv_csv_, CSV);
     });
-
 }
 
 std::string ImageMetaConsumer::make_img_path(const ImageMetaConsumer::ImageSizeType ist,
@@ -306,7 +299,6 @@ std::string ImageMetaConsumer::make_img_path(const ImageMetaConsumer::ImageSizeT
     ss << ".jpg";
     return ss.str();
 }
-
 
 NvDsObjEncCtxHandle ImageMetaConsumer::get_obj_ctx_handle() {
     return obj_ctx_handle_;
@@ -345,8 +337,7 @@ void ImageMetaConsumer::init_image_save_library_on_first_time() {
         m_kitti_.lock();
         m_json_.lock();
         m_csv_.lock();
-        if (!image_saving_library_is_init_
-            && (save_cropped_obj_enabled_ || save_full_frame_enabled_)) {
+        if (!image_saving_library_is_init_ && (save_cropped_obj_enabled_ || save_full_frame_enabled_)) {
             obj_ctx_handle_ = nvds_obj_enc_create_context();
             if (obj_ctx_handle_)
                 image_saving_library_is_init_ = true;

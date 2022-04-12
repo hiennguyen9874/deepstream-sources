@@ -28,11 +28,10 @@
 
 #include "nvdscustomlib_interface.hpp"
 
-
 namespace nvdsspeech {
 
 class DSCustomLibraryBase : public IDSCustomLibrary {
-public:
+   public:
     DSCustomLibraryBase() = default;
     virtual ~DSCustomLibraryBase() override;
 
@@ -55,7 +54,7 @@ public:
     /* Process Input Buffer */
     BufferResult ProcessBuffer(GstBuffer* inbuf) override = 0;
 
-protected:
+   protected:
     /* Gstreamer dsspeech plugin's base class reference */
     GstBaseTransform* m_element{nullptr};
     /* Gst Caps Information */
@@ -71,24 +70,18 @@ protected:
     GstAudioInfo m_outAudioInfo{nullptr, GST_AUDIO_FLAG_NONE};
 };
 
-bool
-DSCustomLibraryBase::SetProperty(const Property& prop)
-{
+bool DSCustomLibraryBase::SetProperty(const Property& prop) {
     if (prop.key == NVDS_CONFIG_FILE_PROPERTY) {
         m_configFile = prop.value;
     }
     return true;
 }
 
-bool
-DSCustomLibraryBase::Initialize()
-{
+bool DSCustomLibraryBase::Initialize() {
     return true;
 }
 
-bool
-DSCustomLibraryBase::StartWithParams(DSCustom_CreateParams* params)
-{
+bool DSCustomLibraryBase::StartWithParams(DSCustom_CreateParams* params) {
     assert(params);
     m_element = params->m_element;
     m_inCaps = gst_caps_copy(params->m_inCaps);
@@ -110,8 +103,7 @@ DSCustomLibraryBase::StartWithParams(DSCustom_CreateParams* params)
     return true;
 }
 
-DSCustomLibraryBase::~DSCustomLibraryBase()
-{
+DSCustomLibraryBase::~DSCustomLibraryBase() {
     if (m_inCaps) {
         gst_caps_unref(m_inCaps);
     }
@@ -122,8 +114,7 @@ DSCustomLibraryBase::~DSCustomLibraryBase()
 
 GstCaps*
 DSCustomLibraryBase::GetCompatibleCaps(
-    GstPadDirection direction, GstCaps* inCaps, GstCaps* otherCaps)
-{
+    GstPadDirection direction, GstCaps* inCaps, GstCaps* otherCaps) {
     if (!otherCaps) {
         g_print(
             "WARNING: DSCustomLibraryBase detect empty otherCaps, will try "

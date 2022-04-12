@@ -24,18 +24,17 @@
 #define __NVGSTDS_PRIMARY_GIE_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "deepstream_gie.h"
 
 typedef struct
 {
-  GstElement *bin;
-  GstElement *queue;
-  GstElement *nvvidconv;
-  GstElement *primary_gie;
+    GstElement *bin;
+    GstElement *queue;
+    GstElement *nvvidconv;
+    GstElement *primary_gie;
 } NvDsPrimaryGieBin;
 
 /**
@@ -50,8 +49,8 @@ typedef struct
  *
  * @return true if bin created successfully.
  */
-gboolean create_primary_gie_bin (NvDsGieConfig *config,
-    NvDsPrimaryGieBin *bin);
+gboolean create_primary_gie_bin(NvDsGieConfig *config,
+                                NvDsPrimaryGieBin *bin);
 
 #ifdef __cplusplus
 }

@@ -24,6 +24,7 @@
 #define NVDSPREPROCESS_PROPERTY_FILE_PARSER_H_
 
 #include <gst/gst.h>
+
 #include "gstnvdspreprocess.h"
 
 /**
@@ -75,6 +76,6 @@
  * @return boolean denoting if successfully parsed config file
  */
 gboolean
-nvdspreprocess_parse_config_file (GstNvDsPreProcess *nvdspreprocess, gchar *cfg_file_path);
+nvdspreprocess_parse_config_file(GstNvDsPreProcess *nvdspreprocess, gchar *cfg_file_path);
 
 #endif /* NVDSPREPROCESS_PROPERTY_FILE_PARSER_H_ */

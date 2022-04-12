@@ -30,8 +30,8 @@ detail:
   num_callback_worker_threads: 8
   verbosity_level: 0
   gpu_preallocated_memory_pools:
-  - device_id: 0
-    byte_size: 2000000000
+    - device_id: 0
+      byte_size: 2000000000
 
 ---
 name: riva_model

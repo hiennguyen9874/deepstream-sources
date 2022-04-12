@@ -48,7 +48,7 @@ extern "C" {
  *
  * params[in] src_elem GStreamer source element to be configured.
  */
-void configure_source_for_ntp_sync (GstElement *src_elem);
+void configure_source_for_ntp_sync(GstElement *src_elem);
 
 #ifdef __cplusplus
 }

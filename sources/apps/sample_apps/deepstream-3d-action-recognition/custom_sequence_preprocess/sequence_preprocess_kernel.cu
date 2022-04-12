@@ -53,19 +53,21 @@ inChannel<true>(unsigned int i)
 template <typename OutT, typename InT, bool swapRB>
 __global__ void
 ImageHWCToCSHW(
-    OutT* out, unsigned int C, unsigned int H, unsigned int W, unsigned int SHW, const InT* in,
+    OutT *out, unsigned int C, unsigned int H, unsigned int W, unsigned int SHW, const InT *in,
     unsigned int inC, unsigned int inRowPitch, Float4Vec mult, Float4Vec plus)
 {
     unsigned int c = threadIdx.x;
     unsigned int w = blockIdx.x * blockDim.y + threadIdx.y;
     unsigned int h = blockIdx.y * blockDim.z + threadIdx.z;
 
-    if (w >= W || h >= H) {
+    if (w >= W || h >= H)
+    {
         return;
     }
     unsigned int inIdx = h * inRowPitch + w * inC + inChannel<swapRB>(c);
     float inData = 0.0f;
-    if (c < inC) {
+    if (c < inC)
+    {
         inData = (float)in[inIdx];
     }
     unsigned int outIdx = c * SHW + h * W + w;
@@ -78,8 +80,8 @@ ImageHWCToCSHW(
  */
 cudaError_t
 preprocessNCDHW(
-    void* outPtr, unsigned int outC, unsigned int H, unsigned int W, unsigned int S,
-    const void* inPtr, unsigned int inC, unsigned int inRowPitch, Float4Vec scales, Float4Vec means,
+    void *outPtr, unsigned int outC, unsigned int H, unsigned int W, unsigned int S,
+    const void *inPtr, unsigned int inC, unsigned int inRowPitch, Float4Vec scales, Float4Vec means,
     bool swapRB, cudaStream_t stream)
 {
     unsigned int HW = H * W;
@@ -87,23 +89,27 @@ preprocessNCDHW(
 
     Float4Vec mult = scales;
     Float4Vec plus;
-    for (int i = 0; i < VEC4_SIZE; ++i) {
+    for (int i = 0; i < VEC4_SIZE; ++i)
+    {
         plus.d[i] = -scales.d[i] * means.d[i];
     }
 
-    dim3 blocks(outC, THREADS_PER_BLOCK_W, THREADS_PER_BLOCK_H);  // (C, W, H)
+    dim3 blocks(outC, THREADS_PER_BLOCK_W, THREADS_PER_BLOCK_H); // (C, W, H)
     // grids (W_block, H_block, 1)
     dim3 grids(
         (W + THREADS_PER_BLOCK_W - 1) / THREADS_PER_BLOCK_W,
         (H + THREADS_PER_BLOCK_H - 1) / THREADS_PER_BLOCK_H, 1);
 
-    if (swapRB) {
+    if (swapRB)
+    {
         ImageHWCToCSHW<float, unsigned char, true><<<grids, blocks, 0, stream>>>(
-            (float*)outPtr, outC, H, W, SHW, (const unsigned char*)inPtr, inC, inRowPitch, mult,
+            (float *)outPtr, outC, H, W, SHW, (const unsigned char *)inPtr, inC, inRowPitch, mult,
             plus);
-    } else {
+    }
+    else
+    {
         ImageHWCToCSHW<float, unsigned char, false><<<grids, blocks, 0, stream>>>(
-            (float*)outPtr, outC, H, W, SHW, (const unsigned char*)inPtr, inC, inRowPitch, mult,
+            (float *)outPtr, outC, H, W, SHW, (const unsigned char *)inPtr, inC, inRowPitch, mult,
             plus);
     }
     return cudaGetLastError();

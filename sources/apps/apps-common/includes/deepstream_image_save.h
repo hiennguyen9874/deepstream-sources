@@ -24,8 +24,7 @@
 #define __NVGSTDS_IMAGE_SAVE_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 typedef struct {
@@ -40,7 +39,6 @@ typedef struct {
     guint min_box_width;
     guint min_box_height;
 } NvDsImageSave;
-
 
 #ifdef __cplusplus
 }

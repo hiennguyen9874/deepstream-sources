@@ -30,15 +30,13 @@
 #include <gst/gst.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
  * Holds motion vector information about an element.
  */
-typedef struct _NvOFFlowVector
-{
+typedef struct _NvOFFlowVector {
     /** Holds the motion vector X component. */
     gshort flowx;
 

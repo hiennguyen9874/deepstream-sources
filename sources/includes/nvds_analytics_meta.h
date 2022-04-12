@@ -15,7 +15,7 @@
  *
  * @b Description: This file defines metadata concerning nvdsanalytics plugin.
  */
- /**
+/**
  * @defgroup  NvDsMetaApi Metadata APIs
  *
  * This section describes types and functions of Metadata APIs
@@ -27,12 +27,12 @@
 #define _NVDS_ANALYTICS_META_H_
 
 #include <gst/gst.h>
-#include <vector>
+
 #include <unordered_map>
+#include <vector>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 /**
  * @defgroup ee_analytics_group Analytics Metadata
@@ -49,16 +49,16 @@ extern "C"
  */
 typedef struct
 {
-/** Holds the array of ROI labels in which object is present */
-  std::vector <std::string> roiStatus;
- /** Holds the array  of OverCrowding labels in which object is present  */
-  std::vector <std::string> ocStatus;
- /** Holds the array of line crossing labels which object has crossed */
-  std::vector <std::string> lcStatus;
- /** Holds the direction string for the tracked object */
-  std::string dirStatus;
- /** Holds unique identifier for nvdsanalytics instance */
-  guint unique_id;
+    /** Holds the array of ROI labels in which object is present */
+    std::vector<std::string> roiStatus;
+    /** Holds the array  of OverCrowding labels in which object is present  */
+    std::vector<std::string> ocStatus;
+    /** Holds the array of line crossing labels which object has crossed */
+    std::vector<std::string> lcStatus;
+    /** Holds the direction string for the tracked object */
+    std::string dirStatus;
+    /** Holds unique identifier for nvdsanalytics instance */
+    guint unique_id;
 } NvDsAnalyticsObjInfo;
 
 /**
@@ -66,33 +66,33 @@ typedef struct
  */
 typedef struct
 {
-  /** Holds a map of boolean status of overcrowding for configured ROIs,
+    /** Holds a map of boolean status of overcrowding for configured ROIs,
    * which can be accessed using key, value pair; where key is the ROI label
    */
-  std::unordered_map<std::string, bool> ocStatus;
+    std::unordered_map<std::string, bool> ocStatus;
 
-  /** Holds a map of total count of valid objects in ROI  for configured ROIs,
+    /** Holds a map of total count of valid objects in ROI  for configured ROIs,
    * which can be accessed using key, value pair; where key is the ROI label
    */
-  std::unordered_map<std::string, uint32_t> objInROIcnt;
+    std::unordered_map<std::string, uint32_t> objInROIcnt;
 
-  /** Holds a map of total count of Line crossing in current frame for configured lines,
+    /** Holds a map of total count of Line crossing in current frame for configured lines,
    * which can be accessed using key, value pair; where key is the line crossing label
    */
-  std::unordered_map<std::string, uint64_t> objLCCurrCnt;
+    std::unordered_map<std::string, uint64_t> objLCCurrCnt;
 
-  /** Holds a map of total cumulative count of Line crossing  for configured lines,
+    /** Holds a map of total cumulative count of Line crossing  for configured lines,
    * can be accessed using key, value pair; where key is the line crossing label
    */
-  std::unordered_map<std::string, uint64_t> objLCCumCnt;
+    std::unordered_map<std::string, uint64_t> objLCCumCnt;
 
-  /** Holds unique identifier for nvdsanalytics instance */
-  guint unique_id;
+    /** Holds unique identifier for nvdsanalytics instance */
+    guint unique_id;
 
-  /** Holds a map of total count of objects for each class ID,
+    /** Holds a map of total count of objects for each class ID,
    * can be accessed using key, value pair; where key is class ID
    */
-  std::unordered_map<int, uint32_t> objCnt;
+    std::unordered_map<int, uint32_t> objCnt;
 } NvDsAnalyticsFrameMeta;
 
 #ifdef __cplusplus

@@ -20,8 +20,7 @@ namespace cvcore {
 /**
  * Struct to describe input type required by the model
  */
-struct ModelInputParams
-{
+struct ModelInputParams {
     size_t maxBatchSize;      /**< maxbatchSize supported by network*/
     size_t inputLayerWidth;   /**< Input layer width */
     size_t inputLayerHeight;  /**< Input layer Height */
@@ -31,13 +30,12 @@ struct ModelInputParams
 /**
  * Struct to describe the model
  */
-struct ModelInferenceParams
-{
+struct ModelInferenceParams {
     std::string engineFilePath;            /**< Engine file path. */
     std::vector<std::string> inputLayers;  /**< names of input layers. */
     std::vector<std::string> outputLayers; /**< names of output layers. */
 };
 
-} // namespace cvcore
+}  // namespace cvcore
 
-#endif // CVCORE_MODEL_H
+#endif  // CVCORE_MODEL_H

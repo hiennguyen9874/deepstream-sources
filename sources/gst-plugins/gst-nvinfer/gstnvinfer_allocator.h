@@ -14,7 +14,9 @@
 
 #include <cuda_runtime_api.h>
 #include <gst/gst.h>
+
 #include <vector>
+
 #include "cudaEGL.h"
 #include "nvbufsurface.h"
 
@@ -30,15 +32,15 @@
  */
 typedef struct
 {
-  NvBufSurface *surf;
-  /** Vector of cuda resources created by registering the above egl images in CUDA. */
-  std::vector<CUgraphicsResource> cuda_resources;
-  /** Vector of CUDA eglFrames created by mapping the above cuda resources. */
-  std::vector<CUeglFrame> egl_frames;
-  /** Pointer to the memory allocated for the batch of frames (DGPU). */
-  void *dev_memory_ptr;
-  /** Vector of pointer to individual frame memories in the batch memory */
-  std::vector<void *> frame_memory_ptrs;
+    NvBufSurface *surf;
+    /** Vector of cuda resources created by registering the above egl images in CUDA. */
+    std::vector<CUgraphicsResource> cuda_resources;
+    /** Vector of CUDA eglFrames created by mapping the above cuda resources. */
+    std::vector<CUeglFrame> egl_frames;
+    /** Pointer to the memory allocated for the batch of frames (DGPU). */
+    void *dev_memory_ptr;
+    /** Vector of pointer to individual frame memories in the batch memory */
+    std::vector<void *> frame_memory_ptrs;
 } GstNvInferMemory;
 
 /**
@@ -49,7 +51,7 @@ typedef struct
  *
  * @return Pointer to the associated GstNvInferMemory structure
  */
-GstNvInferMemory *gst_nvinfer_buffer_get_memory (GstBuffer * buffer);
+GstNvInferMemory *gst_nvinfer_buffer_get_memory(GstBuffer *buffer);
 
 /**
  * Create a new GstNvInferAllocator with the given parameters.
@@ -62,7 +64,7 @@ GstNvInferMemory *gst_nvinfer_buffer_get_memory (GstBuffer * buffer);
  *
  * @return Pointer to the GstNvInferAllocator structure cast as GstAllocator
  */
-GstAllocator *gst_nvinfer_allocator_new (guint width, guint height,
-    NvBufSurfaceColorFormat color_format, guint batch_size, guint gpu_id);
+GstAllocator *gst_nvinfer_allocator_new(guint width, guint height,
+                                        NvBufSurfaceColorFormat color_format, guint batch_size, guint gpu_id);
 
 #endif

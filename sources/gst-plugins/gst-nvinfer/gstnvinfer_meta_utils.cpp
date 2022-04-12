@@ -10,24 +10,23 @@
  */
 
 #include "gstnvinfer_meta_utils.h"
+
 #include <cmath>
 #include <cstring>
 
 static inline int
-get_element_size(NvDsInferDataType data_type)
-{
-    switch (data_type)
-    {
-    case FLOAT:
-        return 4;
-    case HALF:
-        return 2;
-    case INT32:
-        return 4;
-    case INT8:
-        return 1;
-    default:
-        return 0;
+get_element_size(NvDsInferDataType data_type) {
+    switch (data_type) {
+        case FLOAT:
+            return 4;
+        case HALF:
+            return 2;
+        case INT32:
+            return 4;
+        case INT8:
+            return 1;
+        default:
+            return 0;
     }
 }
 
@@ -35,8 +34,7 @@ get_element_size(NvDsInferDataType data_type)
  * Attach metadata for the detector. We will be adding a new metadata.
  */
 void attach_metadata_detector(GstNvInfer *nvinfer, GstMiniObject *tensor_out_object,
-                              GstNvInferFrame &frame, NvDsInferDetectionOutput &detection_output, float segmentationThreshold)
-{
+                              GstNvInferFrame &frame, NvDsInferDetectionOutput &detection_output, float segmentationThreshold) {
     static gchar font_name[] = "Serif";
     NvDsObjectMeta *obj_meta = NULL;
     NvDsObjectMeta *parent_obj_meta = frame.obj_meta; /* This will be  NULL in case of primary detector */
@@ -47,8 +45,7 @@ void attach_metadata_detector(GstNvInfer *nvinfer, GstMiniObject *tensor_out_obj
     frame_meta->bInferDone = TRUE;
     /* Iterate through the inference output for one frame and attach the detected
    * bnounding boxes. */
-    for (guint i = 0; i < detection_output.numObjects; i++)
-    {
+    for (guint i = 0; i < detection_output.numObjects; i++) {
         NvDsInferObject &obj = detection_output.objects[i];
         GstNvInferDetectionFilterParams &filter_params =
             (*nvinfer->perClassDetectionFilterParams)[obj.classIndex];
@@ -98,8 +95,7 @@ void attach_metadata_detector(GstNvInfer *nvinfer, GstMiniObject *tensor_out_obj
         rect_params.width = obj.width;
         rect_params.height = obj.height;
 
-        if (!nvinfer->process_full_frame)
-        {
+        if (!nvinfer->process_full_frame) {
             rect_params.left += parent_obj_meta->rect_params.left;
             rect_params.top += parent_obj_meta->rect_params.top;
         }
@@ -113,13 +109,10 @@ void attach_metadata_detector(GstNvInfer *nvinfer, GstMiniObject *tensor_out_obj
 
         /* Border of width 3. */
         rect_params.border_width = 3;
-        if (obj.classIndex > (gint)nvinfer->perClassColorParams->size())
-        {
+        if (obj.classIndex > (gint)nvinfer->perClassColorParams->size()) {
             rect_params.has_bg_color = 0;
             rect_params.border_color = (NvOSD_ColorParams){1, 0, 0, 1};
-        }
-        else
-        {
+        } else {
             GstNvInferColorParams &color_params =
                 (*nvinfer->perClassColorParams)[obj.classIndex];
             rect_params.has_bg_color = color_params.have_bg_color;
@@ -144,8 +137,7 @@ void attach_metadata_detector(GstNvInfer *nvinfer, GstMiniObject *tensor_out_obj
         text_params.font_params.font_color = (NvOSD_ColorParams){
             1, 1, 1, 1};
 
-        if (nvinfer->output_instance_mask && obj.mask)
-        {
+        if (nvinfer->output_instance_mask && obj.mask) {
             float *mask = (float *)g_malloc(obj.mask_size);
             memcpy(mask, obj.mask, obj.mask_size);
             obj_meta->mask_params.data = mask;
@@ -165,8 +157,7 @@ void attach_metadata_detector(GstNvInfer *nvinfer, GstMiniObject *tensor_out_obj
  * frames, need to attach a new metadata. Assume only one label per object is generated.
  */
 void attach_metadata_classifier(GstNvInfer *nvinfer, GstMiniObject *tensor_out_object,
-                                GstNvInferFrame &frame, GstNvInferObjectInfo &object_info)
-{
+                                GstNvInferFrame &frame, GstNvInferObjectInfo &object_info) {
     NvDsObjectMeta *object_meta = frame.obj_meta;
     NvDsBatchMeta *batch_meta = (nvinfer->process_full_frame) ? frame.frame_meta->base_meta.batch_meta : object_meta->base_meta.batch_meta;
 
@@ -175,9 +166,7 @@ void attach_metadata_classifier(GstNvInfer *nvinfer, GstMiniObject *tensor_out_o
         return;
 
     nvds_acquire_meta_lock(batch_meta);
-    if (nvinfer->process_full_frame && !nvinfer->input_tensor_from_meta)
-    {
-
+    if (nvinfer->process_full_frame && !nvinfer->input_tensor_from_meta) {
         /* Attach only one object in the meta since this is a full frame
      * classification. */
         object_meta = nvds_acquire_obj_meta_from_pool(batch_meta);
@@ -240,16 +229,14 @@ void attach_metadata_classifier(GstNvInfer *nvinfer, GstMiniObject *tensor_out_o
     classifier_meta->unique_component_id = nvinfer->unique_id;
     classifier_meta->classifier_type = nvinfer->classifier_type;
 
-    for (unsigned int i = 0; i < num_attrs; i++)
-    {
+    for (unsigned int i = 0; i < num_attrs; i++) {
         NvDsLabelInfo *label_info =
             nvds_acquire_label_info_meta_from_pool(batch_meta);
         NvDsInferAttribute &attr = object_info.attributes[i];
         label_info->label_id = attr.attributeIndex;
         label_info->result_class_id = attr.attributeValue;
         label_info->result_prob = attr.attributeConfidence;
-        if (attr.attributeLabel)
-        {
+        if (attr.attributeLabel) {
             g_strlcpy(label_info->result_label, attr.attributeLabel, MAX_LABEL_SIZE);
             if (object_info.label.length() == 0)
                 string_label.append(attr.attributeLabel).append(" ");
@@ -258,11 +245,9 @@ void attach_metadata_classifier(GstNvInfer *nvinfer, GstMiniObject *tensor_out_o
         nvds_add_label_info_meta_to_classifier(classifier_meta, label_info);
     }
 
-    if (string_label.length() > 0 && object_meta)
-    {
+    if (string_label.length() > 0 && object_meta) {
         gchar *temp = object_meta->text_params.display_text;
-        if (temp == nullptr)
-        {
+        if (temp == nullptr) {
             NvOSD_TextParams &text_params = object_meta->text_params;
             NvOSD_RectParams &rect_params = object_meta->rect_params;
             /* display_text requires heap allocated memory. Actual string formation
@@ -286,12 +271,9 @@ void attach_metadata_classifier(GstNvInfer *nvinfer, GstMiniObject *tensor_out_o
             g_strconcat(temp, " ", string_label.c_str(), nullptr);
         g_free(temp);
     }
-    if (nvinfer->input_tensor_from_meta)
-    {
+    if (nvinfer->input_tensor_from_meta) {
         nvds_add_classifier_meta_to_roi(frame.roi_meta, classifier_meta);
-    }
-    else
-    {
+    } else {
         nvds_add_classifier_meta_to_object(object_meta, classifier_meta);
     }
     nvds_release_meta_lock(batch_meta);
@@ -304,16 +286,13 @@ void attach_metadata_classifier(GstNvInfer *nvinfer, GstMiniObject *tensor_out_o
  * just uses the latest results.
  */
 void merge_classification_output(GstNvInferObjectHistory &history,
-                                 GstNvInferObjectInfo &new_result)
-{
-    for (auto &attr : history.cached_info.attributes)
-    {
+                                 GstNvInferObjectInfo &new_result) {
+    for (auto &attr : history.cached_info.attributes) {
         free(attr.attributeLabel);
     }
     history.cached_info.attributes.assign(new_result.attributes.begin(),
                                           new_result.attributes.end());
-    for (auto &attr : history.cached_info.attributes)
-    {
+    for (auto &attr : history.cached_info.attributes) {
         attr.attributeLabel =
             attr.attributeLabel ? strdup(attr.attributeLabel) : nullptr;
     }
@@ -321,16 +300,12 @@ void merge_classification_output(GstNvInferObjectHistory &history,
 }
 
 static void
-release_segmentation_meta(gpointer data, gpointer user_data)
-{
+release_segmentation_meta(gpointer data, gpointer user_data) {
     NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
     NvDsInferSegmentationMeta *meta = (NvDsInferSegmentationMeta *)user_meta->user_meta_data;
-    if (meta->priv_data)
-    {
+    if (meta->priv_data) {
         gst_mini_object_unref(GST_MINI_OBJECT(meta->priv_data));
-    }
-    else
-    {
+    } else {
         g_free(meta->class_map);
         g_free(meta->class_probabilities_map);
     }
@@ -338,8 +313,7 @@ release_segmentation_meta(gpointer data, gpointer user_data)
 }
 
 static gpointer
-copy_segmentation_meta(gpointer data, gpointer user_data)
-{
+copy_segmentation_meta(gpointer data, gpointer user_data) {
     NvDsUserMeta *src_user_meta = (NvDsUserMeta *)data;
     NvDsInferSegmentationMeta *src_meta = (NvDsInferSegmentationMeta *)src_user_meta->user_meta_data;
     NvDsInferSegmentationMeta *meta = (NvDsInferSegmentationMeta *)g_malloc(sizeof(NvDsInferSegmentationMeta));
@@ -355,8 +329,7 @@ copy_segmentation_meta(gpointer data, gpointer user_data)
 }
 
 void attach_metadata_segmentation(GstNvInfer *nvinfer, GstMiniObject *tensor_out_object,
-                                  GstNvInferFrame &frame, NvDsInferSegmentationOutput &segmentation_output)
-{
+                                  GstNvInferFrame &frame, NvDsInferSegmentationOutput &segmentation_output) {
     NvDsBatchMeta *batch_meta = (nvinfer->process_full_frame) ? frame.frame_meta->base_meta.batch_meta : frame.obj_meta->base_meta.batch_meta;
 
     NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(batch_meta);
@@ -374,16 +347,11 @@ void attach_metadata_segmentation(GstNvInfer *nvinfer, GstMiniObject *tensor_out
     user_meta->base_meta.release_func = release_segmentation_meta;
     user_meta->base_meta.copy_func = copy_segmentation_meta;
 
-    if (nvinfer->input_tensor_from_meta)
-    {
+    if (nvinfer->input_tensor_from_meta) {
         nvds_add_user_meta_to_roi(frame.roi_meta, user_meta);
-    }
-    else if (nvinfer->process_full_frame)
-    {
+    } else if (nvinfer->process_full_frame) {
         nvds_add_user_meta_to_frame(frame.frame_meta, user_meta);
-    }
-    else
-    {
+    } else {
         nvds_add_user_meta_to_obj(frame.obj_meta, user_meta);
     }
 }
@@ -391,21 +359,16 @@ void attach_metadata_segmentation(GstNvInfer *nvinfer, GstMiniObject *tensor_out
 /* Called when NvDsUserMeta for each frame/object is released. Reduce the
  * refcount of the mini_object by 1 and free other memory. */
 static void
-release_tensor_output_meta(gpointer data, gpointer user_data)
-{
+release_tensor_output_meta(gpointer data, gpointer user_data) {
     NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
     NvDsInferTensorMeta *meta = (NvDsInferTensorMeta *)user_meta->user_meta_data;
-    if (meta->priv_data)
-    {
+    if (meta->priv_data) {
         gst_mini_object_unref(GST_MINI_OBJECT(meta->priv_data));
-    }
-    else
-    {
+    } else {
         if (cudaSetDevice(meta->gpu_id) != cudaSuccess)
             g_print("Unable to set gpu device id during memory release.\n");
 
-        for (unsigned int i = 0; i < meta->num_output_layers; i++)
-        {
+        for (unsigned int i = 0; i < meta->num_output_layers; i++) {
             if (meta->out_buf_ptrs_dev[i] &&
                 cudaFree(meta->out_buf_ptrs_dev[i]) != cudaSuccess)
                 g_print("Unable to release device memory. \n");
@@ -423,8 +386,7 @@ release_tensor_output_meta(gpointer data, gpointer user_data)
 }
 
 static gpointer
-copy_tensor_output_meta(gpointer data, gpointer user_data)
-{
+copy_tensor_output_meta(gpointer data, gpointer user_data) {
     NvDsUserMeta *src_user_meta = (NvDsUserMeta *)data;
     NvDsInferTensorMeta *src_meta =
         (NvDsInferTensorMeta *)src_user_meta->user_meta_data;
@@ -446,16 +408,13 @@ copy_tensor_output_meta(gpointer data, gpointer user_data)
     if (cudaSetDevice(src_meta->gpu_id) != cudaSuccess)
         g_print("Unable to set gpu device id.\n");
 
-    for (unsigned int i = 0; i < src_meta->num_output_layers; i++)
-    {
+    for (unsigned int i = 0; i < src_meta->num_output_layers; i++) {
         NvDsInferLayerInfo *info = &src_meta->output_layers_info[i];
         info->buffer = src_meta->out_buf_ptrs_host[i];
         layer_size =
             get_element_size(info->dataType) * info->inferDims.numElements;
 
-        if (src_meta->out_buf_ptrs_host[i])
-        {
-
+        if (src_meta->out_buf_ptrs_host[i]) {
             if (cudaMallocHost((void **)&tensor_output_meta->out_buf_ptrs_host[i],
                                layer_size) != cudaSuccess)
                 g_print("Unable to allocate host memory. \n");
@@ -464,15 +423,11 @@ copy_tensor_output_meta(gpointer data, gpointer user_data)
                            src_meta->out_buf_ptrs_host[i], layer_size,
                            cudaMemcpyHostToHost) != cudaSuccess)
                 g_print("Unable to copy between two host memories. \n");
-        }
-        else
-        {
+        } else {
             tensor_output_meta->out_buf_ptrs_host[i] = NULL;
         }
 
-        if (src_meta->out_buf_ptrs_dev[i])
-        {
-
+        if (src_meta->out_buf_ptrs_dev[i]) {
             if (cudaMalloc((void **)&tensor_output_meta->out_buf_ptrs_dev[i],
                            layer_size) != cudaSuccess)
                 g_print("Unable to allocate device memory. \n");
@@ -481,9 +436,7 @@ copy_tensor_output_meta(gpointer data, gpointer user_data)
                            src_meta->out_buf_ptrs_dev[i], layer_size,
                            cudaMemcpyDeviceToDevice) != cudaSuccess)
                 g_print("Unable to copy between two device memories. \n");
-        }
-        else
-        {
+        } else {
             tensor_output_meta->out_buf_ptrs_dev[i] = NULL;
         }
     }
@@ -496,14 +449,12 @@ copy_tensor_output_meta(gpointer data, gpointer user_data)
 
 /* Attaches the raw tensor output to the GstBuffer as metadata. */
 void attach_tensor_output_meta(GstNvInfer *nvinfer, GstMiniObject *tensor_out_object,
-                               GstNvInferBatch *batch, NvDsInferContextBatchOutput *batch_output)
-{
+                               GstNvInferBatch *batch, NvDsInferContextBatchOutput *batch_output) {
     NvDsBatchMeta *batch_meta = (nvinfer->process_full_frame || nvinfer->input_tensor_from_meta) ? batch->frames[0].frame_meta->base_meta.batch_meta : batch->frames[0].obj_meta->base_meta.batch_meta;
 
     /* Create and attach NvDsInferTensorMeta for each frame/object. Also
    * increment the refcount of GstNvInferTensorOutputObject. */
-    for (size_t j = 0; j < batch->frames.size(); j++)
-    {
+    for (size_t j = 0; j < batch->frames.size(); j++) {
         GstNvInferFrame &frame = batch->frames[j];
 
         /* Processing on ROIs (not frames or objects) skip attaching tensor output
@@ -518,8 +469,7 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer, GstMiniObject *tensor_out_ob
         meta->priv_data = gst_mini_object_ref(tensor_out_object);
         meta->network_info = nvinfer->network_info;
 
-        for (unsigned int i = 0; i < meta->num_output_layers; i++)
-        {
+        for (unsigned int i = 0; i < meta->num_output_layers; i++) {
             NvDsInferLayerInfo &info = meta->output_layers_info[i];
             meta->out_buf_ptrs_dev[i] =
                 (uint8_t *)batch_output->outputDeviceBuffers[i] +
@@ -537,24 +487,18 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer, GstMiniObject *tensor_out_ob
         user_meta->base_meta.copy_func = copy_tensor_output_meta;
         user_meta->base_meta.batch_meta = batch_meta;
 
-        if (nvinfer->input_tensor_from_meta)
-        {
+        if (nvinfer->input_tensor_from_meta) {
             nvds_add_user_meta_to_roi(frame.roi_meta, user_meta);
-        }
-        else if (nvinfer->process_full_frame)
-        {
+        } else if (nvinfer->process_full_frame) {
             nvds_add_user_meta_to_frame(frame.frame_meta, user_meta);
-        }
-        else
-        {
+        } else {
             nvds_add_user_meta_to_obj(frame.obj_meta, user_meta);
         }
     }
 
     /* NvInfer is receiving input from tensor meta, also attach output tensor meta
    * at batch level. */
-    if (nvinfer->input_tensor_from_meta)
-    {
+    if (nvinfer->input_tensor_from_meta) {
         NvDsInferTensorMeta *meta = new NvDsInferTensorMeta;
         meta->unique_id = nvinfer->unique_id;
         meta->num_output_layers = nvinfer->output_layers_info->size();
@@ -565,8 +509,7 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer, GstMiniObject *tensor_out_ob
         meta->priv_data = gst_mini_object_ref(tensor_out_object);
         meta->network_info = nvinfer->network_info;
 
-        for (unsigned int i = 0; i < meta->num_output_layers; i++)
-        {
+        for (unsigned int i = 0; i < meta->num_output_layers; i++) {
             NvDsInferLayerInfo &info = meta->output_layers_info[i];
             meta->out_buf_ptrs_dev[i] =
                 (uint8_t *)batch_output->outputDeviceBuffers[i];

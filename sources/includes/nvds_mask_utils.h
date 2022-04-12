@@ -19,12 +19,11 @@
 #define _NVDS_MAKS_UTILS_H_
 
 #include <cuda_runtime.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -55,12 +54,12 @@ extern "C"
  *         NPPI_SMOOTH_EDGE Smooth edge filtering.
  * @param  stream [IN] The cuda-stream to use for scaling operation on GPU
  */
-bool nvds_mask_utils_resize_to_binary_argb32(float *src, uint32_t* dst,
-                uint32_t src_width, uint32_t src_height,
-                uint32_t dst_width, uint32_t dst_height,
-                uint32_t channel, float threshold,
-                uint32_t argb32_px, uint32_t interpolation,
-                cudaStream_t stream);
+bool nvds_mask_utils_resize_to_binary_argb32(float* src, uint32_t* dst,
+                                             uint32_t src_width, uint32_t src_height,
+                                             uint32_t dst_width, uint32_t dst_height,
+                                             uint32_t channel, float threshold,
+                                             uint32_t argb32_px, uint32_t interpolation,
+                                             cudaStream_t stream);
 
 /**
  * @brief  resize FP32 Tensor and apply threshold to create INT8 binary tensor
@@ -89,12 +88,12 @@ bool nvds_mask_utils_resize_to_binary_argb32(float *src, uint32_t* dst,
  *         NPPI_SMOOTH_EDGE Smooth edge filtering.
  * @param  stream [IN] The cuda-stream to use for scaling operation on GPU
  */
-bool nvds_mask_utils_resize_to_binary_uint8(float *src, uint8_t* dst,
-                uint32_t src_width, uint32_t src_height,
-                uint32_t dst_width, uint32_t dst_height,
-                uint32_t channel, float threshold,
-                uint32_t interpolation,
-                cudaStream_t stream);
+bool nvds_mask_utils_resize_to_binary_uint8(float* src, uint8_t* dst,
+                                            uint32_t src_width, uint32_t src_height,
+                                            uint32_t dst_width, uint32_t dst_height,
+                                            uint32_t channel, float threshold,
+                                            uint32_t interpolation,
+                                            cudaStream_t stream);
 
 #ifdef __cplusplus
 }

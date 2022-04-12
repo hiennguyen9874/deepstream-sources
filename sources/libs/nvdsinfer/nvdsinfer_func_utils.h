@@ -12,22 +12,22 @@
 #ifndef __NVDSINFER_FUNC_UTILS_H__
 #define __NVDSINFER_FUNC_UTILS_H__
 
+#include <NvInfer.h>
+#include <NvInferRuntime.h>
 #include <dlfcn.h>
+#include <nvdsinfer.h>
+#include <nvdsinfer_context.h>
+#include <nvdsinfer_logger.h>
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
+
 #include <cassert>
 #include <condition_variable>
 #include <mutex>
 #include <sstream>
 #include <string>
 #include <unordered_set>
-
-#include <NvInfer.h>
-#include <NvInferRuntime.h>
-#include <nvdsinfer.h>
-#include <nvdsinfer_context.h>
-#include <nvdsinfer_logger.h>
 
 /* This file provides APIs/macros for some frequently used functionality. */
 
@@ -60,7 +60,7 @@
         cudaError_t errnum = (err);                                         \
         if (errnum != cudaSuccess) {                                        \
             dsInferError(fmt ", cuda err_no:%d, err_str:%s", ##__VA_ARGS__, \
-                (int)errnum, cudaGetErrorName(errnum));                     \
+                         (int)errnum, cudaGetErrorName(errnum));            \
             action;                                                         \
         }                                                                   \
     } while (0)
@@ -77,29 +77,24 @@
 
 namespace nvdsinfer {
 
-inline const char* safeStr(const char* str)
-{
+inline const char* safeStr(const char* str) {
     return !str ? "" : str;
 }
 
-inline const char* safeStr(const std::string& str)
-{
+inline const char* safeStr(const std::string& str) {
     return str.c_str();
 }
 
-inline bool string_empty(const char* str)
-{
+inline bool string_empty(const char* str) {
     return !str || strlen(str) == 0;
 }
 
-inline bool file_accessible(const char* path)
-{
+inline bool file_accessible(const char* path) {
     assert(path);
     return (access(path, F_OK) != -1);
 }
 
-inline bool file_accessible(const std::string& path)
-{
+inline bool file_accessible(const std::string& path) {
     return (!path.empty()) && file_accessible(path.c_str());
 }
 
@@ -113,9 +108,8 @@ std::string networkMode2Str(const NvDsInferNetworkMode type);
 
 /* Custom unique_ptr subclass with deleter functions for TensorRT objects. */
 template <class T>
-class UniquePtrWDestroy : public std::unique_ptr<T, void (*)(T*)>
-{
-public:
+class UniquePtrWDestroy : public std::unique_ptr<T, void (*)(T*)> {
+   public:
     UniquePtrWDestroy(T* t = nullptr)
         : std::unique_ptr<T, void (*)(T*)>(t, [](T* t) {
               if (t)
@@ -124,9 +118,8 @@ public:
 };
 
 template <class T>
-class SharedPtrWDestroy : public std::shared_ptr<T>
-{
-public:
+class SharedPtrWDestroy : public std::shared_ptr<T> {
+   public:
     SharedPtrWDestroy(T* t = nullptr)
         : std::shared_ptr<T>(t, [](T* t) {
               if (t)
@@ -134,9 +127,8 @@ public:
           }) {}
 };
 
-class DlLibHandle
-{
-public:
+class DlLibHandle {
+   public:
     DlLibHandle(const std::string& path, int mode = RTLD_LAZY);
     ~DlLibHandle();
 
@@ -144,8 +136,7 @@ public:
     const std::string& getPath() const { return m_LibPath; }
 
     template <typename FuncPtr>
-    FuncPtr symbol(const char* func)
-    {
+    FuncPtr symbol(const char* func) {
         assert(!string_empty(func));
         if (!m_LibHandle)
             return nullptr;
@@ -153,29 +144,25 @@ public:
     }
 
     template <typename FuncPtr>
-    FuncPtr symbol(const std::string& func)
-    {
+    FuncPtr symbol(const std::string& func) {
         return symbol<FuncPtr>(func.c_str());
     }
 
-private:
+   private:
     void* m_LibHandle{nullptr};
     const std::string m_LibPath;
 };
 
 template <typename Container>
-class GuardQueue
-{
-public:
+class GuardQueue {
+   public:
     typedef typename Container::value_type T;
-    void push(const T& data)
-    {
+    void push(const T& data) {
         std::unique_lock<std::mutex> lock(m_Mutex);
         m_Queue.push_back(data);
         m_Cond.notify_one();
     }
-    T pop()
-    {
+    T pop() {
         std::unique_lock<std::mutex> lock(m_Mutex);
         m_Cond.wait(lock, [this]() { return !m_Queue.empty(); });
         assert(!m_Queue.empty());
@@ -183,13 +170,12 @@ public:
         m_Queue.erase(m_Queue.begin());
         return ret;
     }
-    void clear()
-    {
+    void clear() {
         std::unique_lock<std::mutex> lock(m_Mutex);
         m_Queue.clear();
     }
 
-private:
+   private:
     std::mutex m_Mutex;
     std::condition_variable m_Cond;
     Container m_Queue;
@@ -199,21 +185,19 @@ private:
  * Get the size of the element from the data type
  */
 inline uint32_t
-getElementSize(NvDsInferDataType t)
-{
-    switch (t)
-    {
-    case INT32:
-    case FLOAT:
-        return 4;
-    case HALF:
-        return 2;
-    case INT8:
-        return 1;
-    default:
-        dsInferError(
-            "Failed to get element size on Unknown datatype:%d", (int)t);
-        return 0;
+getElementSize(NvDsInferDataType t) {
+    switch (t) {
+        case INT32:
+        case FLOAT:
+            return 4;
+        case HALF:
+            return 2;
+        case INT8:
+            return 1;
+        default:
+            dsInferError(
+                "Failed to get element size on Unknown datatype:%d", (int)t);
+            return 0;
     }
 }
 
@@ -233,8 +217,7 @@ void SplitFullDims(
 /* Convert from TRT's nvinfer1::Dims representation to DeepStream's
  * NvDsInferBatchDims representation. */
 inline void
-convertFullDims(const nvinfer1::Dims& fullDims, NvDsInferBatchDims& batchDims)
-{
+convertFullDims(const nvinfer1::Dims& fullDims, NvDsInferBatchDims& batchDims) {
     SplitFullDims(fullDims, batchDims.dims, batchDims.batchSize);
 }
 
@@ -255,7 +238,6 @@ bool operator>(const NvDsInferDims& a, const NvDsInferDims& b);
 bool operator==(const NvDsInferDims& a, const NvDsInferDims& b);
 bool operator!=(const NvDsInferDims& a, const NvDsInferDims& b);
 
-
 bool isValidOutputFormat(const std::string& fmt);
 bool isValidOutputDataType(const std::string& dataType);
 nvinfer1::DataType str2DataType(const std::string& dataType);
@@ -263,12 +245,12 @@ uint32_t str2TensorFormat(const std::string& fmt);
 
 struct BuildParams;
 bool validateIOTensorNames(const BuildParams& params,
-                           const  nvinfer1::INetworkDefinition& network);
+                           const nvinfer1::INetworkDefinition& network);
 bool isValidDeviceType(const std::string& fmt);
 bool isValidPrecisionType(const std::string& dataType);
 nvinfer1::DataType str2PrecisionType(const std::string& dataType);
 nvinfer1::DeviceType str2DeviceType(const std::string& deviceType);
 
-} // namespace nvdsinfer
+}  // namespace nvdsinfer
 
 #endif

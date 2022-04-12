@@ -20,22 +20,23 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "gstnvdsmeta.h"
-#include "nvbufsurface.h"
-#include "deepstream_app.h"
-#include "deepstream_config_file_parser.h"
-#include "nvds_version.h"
-#include <cstring>
-#include <unistd.h>
-#include <termios.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <string>
-#include "nvds_obj_encode.h"
-#include "gst-nvmessage.h"
+#include <termios.h>
+#include <unistd.h>
 
+#include <cstring>
+#include <string>
+
+#include "deepstream_app.h"
+#include "deepstream_config_file_parser.h"
+#include "gst-nvmessage.h"
+#include "gstnvdsmeta.h"
 #include "image_meta_consumer.h"
 #include "image_meta_producer.h"
+#include "nvbufsurface.h"
+#include "nvds_obj_encode.h"
+#include "nvds_version.h"
 
 constexpr unsigned MAX_INSTANCES = 128;
 #define APP_TITLE "DeepStream Transfer Learning App"
@@ -75,17 +76,17 @@ static ImageMetaConsumer g_img_meta_consumer;
 GST_DEBUG_CATEGORY(NVDS_APP);
 
 GOptionEntry entries[] = {
-        {"version",     'v', 0, G_OPTION_ARG_NONE,           &print_version,
-                "Print DeepStreamSDK version", nullptr},
-        {"tiledtext",   't', 0, G_OPTION_ARG_NONE,           &show_bbox_text,
-                "Display Bounding box labels in tiled mode", nullptr},
-        {"version-all", 0,   0, G_OPTION_ARG_NONE,           &print_dependencies_version,
-                "Print DeepStreamSDK and dependencies version", nullptr},
-        {"cfg-file",    'c', 0, G_OPTION_ARG_FILENAME_ARRAY, &cfg_files,
-                "Set the config file", nullptr},
-        {"input-file",  'i', 0, G_OPTION_ARG_FILENAME_ARRAY, &input_files,
-                "Set the input file", nullptr},
-        {nullptr},
+    {"version", 'v', 0, G_OPTION_ARG_NONE, &print_version,
+     "Print DeepStreamSDK version", nullptr},
+    {"tiledtext", 't', 0, G_OPTION_ARG_NONE, &show_bbox_text,
+     "Display Bounding box labels in tiled mode", nullptr},
+    {"version-all", 0, 0, G_OPTION_ARG_NONE, &print_dependencies_version,
+     "Print DeepStreamSDK and dependencies version", nullptr},
+    {"cfg-file", 'c', 0, G_OPTION_ARG_FILENAME_ARRAY, &cfg_files,
+     "Set the config file", nullptr},
+    {"input-file", 'i', 0, G_OPTION_ARG_FILENAME_ARRAY, &input_files,
+     "Set the input file", nullptr},
+    {nullptr},
 };
 
 /// Will save an image cropped with the dimension specified by obj_meta
@@ -130,12 +131,11 @@ static bool save_image(const std::string &path,
 /// @return An IPData object containing the necessary information
 /// for an ImageMetaProducer
 static ImageMetaProducer::IPData make_ipdata(const AppCtx *appCtx,
-                                         const NvDsFrameMeta *frame_meta,
-                                         const NvDsObjectMeta *obj_meta) {
+                                             const NvDsFrameMeta *frame_meta,
+                                             const NvDsObjectMeta *obj_meta) {
     ImageMetaProducer::IPData ipdata;
     ipdata.confidence = obj_meta->confidence;
-    ipdata.within_confidence = ipdata.confidence > g_img_meta_consumer.get_min_confidence()
-            && ipdata.confidence < g_img_meta_consumer.get_max_confidence();
+    ipdata.within_confidence = ipdata.confidence > g_img_meta_consumer.get_min_confidence() && ipdata.confidence < g_img_meta_consumer.get_max_confidence();
     ipdata.class_id = obj_meta->class_id;
     ipdata.class_name = obj_meta->obj_label;
     ipdata.current_frame = frame_meta->frame_num;
@@ -150,31 +150,29 @@ static ImageMetaProducer::IPData make_ipdata(const AppCtx *appCtx,
     oss << std::put_time(std::localtime(&t), "%FT%T%z");
     ipdata.datetime = oss.str();
     ipdata.image_cropped_obj_path_saved =
-                g_img_meta_consumer.make_img_path(ImageMetaConsumer::CROPPED_TO_OBJECT,
-                                                  ipdata.video_stream_nb, ipdata.datetime);
+        g_img_meta_consumer.make_img_path(ImageMetaConsumer::CROPPED_TO_OBJECT,
+                                          ipdata.video_stream_nb, ipdata.datetime);
     return ipdata;
 }
 
-static void display_bad_confidence(float confidence){
-    if(confidence < 0.0 || confidence > 1.0){
-        std::cerr << "Confidence ("  << confidence << ") provided by neural network output is invalid."
-        << " ( 0.0 < confidence < 1.0 is required.)\n"
-        << "Please verify the content of the config files.\n";
+static void display_bad_confidence(float confidence) {
+    if (confidence < 0.0 || confidence > 1.0) {
+        std::cerr << "Confidence (" << confidence << ") provided by neural network output is invalid."
+                  << " ( 0.0 < confidence < 1.0 is required.)\n"
+                  << "Please verify the content of the config files.\n";
     }
 }
 
-static bool obj_meta_is_within_confidence(const NvDsObjectMeta *obj_meta){
-   return obj_meta->confidence > g_img_meta_consumer.get_min_confidence()
-    && obj_meta->confidence < g_img_meta_consumer.get_max_confidence();
+static bool obj_meta_is_within_confidence(const NvDsObjectMeta *obj_meta) {
+    return obj_meta->confidence > g_img_meta_consumer.get_min_confidence() && obj_meta->confidence < g_img_meta_consumer.get_max_confidence();
 }
 
-static bool obj_meta_is_above_min_confidence(const NvDsObjectMeta *obj_meta){
+static bool obj_meta_is_above_min_confidence(const NvDsObjectMeta *obj_meta) {
     return obj_meta->confidence > g_img_meta_consumer.get_min_confidence();
 }
 
-static bool obj_meta_box_is_above_minimum_dimension(const NvDsObjectMeta *obj_meta){
-    return obj_meta->rect_params.width > g_img_meta_consumer.get_min_box_width()
-           && obj_meta->rect_params.height > g_img_meta_consumer.get_min_box_height();
+static bool obj_meta_box_is_above_minimum_dimension(const NvDsObjectMeta *obj_meta) {
+    return obj_meta->rect_params.width > g_img_meta_consumer.get_min_box_width() && obj_meta->rect_params.height > g_img_meta_consumer.get_min_box_height();
 }
 
 /// Callback function that save full images, cropped images, and their related metadata
@@ -201,7 +199,7 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
         std::cerr << "input buffer mapinfo failed\n";
         return;
     }
-    NvBufSurface *ip_surf = (NvBufSurface *) inmap.data;
+    NvBufSurface *ip_surf = (NvBufSurface *)inmap.data;
     gst_buffer_unmap(buf, &inmap);
 
     /// Creating an ImageMetaProducer and registering a consumer.
@@ -222,7 +220,6 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
         } else
             continue;
 
-
         /// required for `get_save_full_frame_enabled()`
         std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         std::ostringstream oss;
@@ -238,19 +235,17 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
              l_obj = l_obj->next) {
             NvDsObjectMeta *obj_meta = static_cast<NvDsObjectMeta *>(l_obj->data);
             display_bad_confidence(obj_meta->confidence);
-            if (obj_meta_is_within_confidence(obj_meta)
-                && obj_meta_box_is_above_minimum_dimension(obj_meta)) {
+            if (obj_meta_is_within_confidence(obj_meta) && obj_meta_box_is_above_minimum_dimension(obj_meta)) {
                 at_least_one_confidence_is_within_range = true;
                 break;
             }
         }
 
-        if(at_least_one_confidence_is_within_range) {
+        if (at_least_one_confidence_is_within_range) {
             for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != nullptr;
                  l_obj = l_obj->next) {
                 NvDsObjectMeta *obj_meta = static_cast<NvDsObjectMeta *>(l_obj->data);
-                if (!obj_meta_is_above_min_confidence(obj_meta)
-                    || !obj_meta_box_is_above_minimum_dimension(obj_meta))
+                if (!obj_meta_is_above_min_confidence(obj_meta) || !obj_meta_box_is_above_minimum_dimension(obj_meta))
                     continue;
 
                 ImageMetaProducer::IPData ipdata = make_ipdata(appCtx, frame_meta, obj_meta);
@@ -261,8 +256,7 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
                 if (data_was_stacked && g_img_meta_consumer.get_save_cropped_images_enabled())
                     at_least_one_image_saved |= save_image(ipdata.image_cropped_obj_path_saved,
                                                            ip_surf, obj_meta, frame_meta, obj_counter);
-                if (data_was_stacked && !full_frame_written
-                    && g_img_meta_consumer.get_save_full_frame_enabled()) {
+                if (data_was_stacked && !full_frame_written && g_img_meta_consumer.get_save_full_frame_enabled()) {
                     unsigned dummy_counter = 0;
                     /// Creating a special object meta in order to save a full frame
                     NvDsObjectMeta dummy_obj_meta;
@@ -278,7 +272,7 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
             }
         }
         /// Send information contained in the producer and empty it.
-        if(at_least_one_metadata_saved) {
+        if (at_least_one_metadata_saved) {
             img_producer.send_and_flush_obj_data();
             g_img_meta_consumer.data_was_saved_for_source(source_number);
         }
@@ -314,7 +308,7 @@ static void
 perf_cb(gpointer context, NvDsAppPerfStruct *str) {
     static guint header_print_cnt = 0;
     guint i;
-    AppCtx *appCtx = (AppCtx *) context;
+    AppCtx *appCtx = (AppCtx *)context;
     guint numf = (num_instances == 1) ? str->num_instances : num_instances;
 
     g_mutex_lock(&fps_lock);
@@ -422,16 +416,18 @@ changemode(int dir) {
 
 static void
 print_runtime_commands(void) {
-    g_print("\nRuntime commands:\n"
-            "\th: Print this help\n"
-            "\tq: Quit\n\n"
-            "\tp: Pause\n"
-            "\tr: Resume\n\n");
+    g_print(
+        "\nRuntime commands:\n"
+        "\th: Print this help\n"
+        "\tq: Quit\n\n"
+        "\tp: Pause\n"
+        "\tr: Resume\n\n");
 
     if (appCtx[0]->config.tiled_display_config.enable) {
-        g_print("NOTE: To expand a source in the 2D tiled display and view object details,"
-                " left-click on the source.\n"
-                "      To go back to the tiled display, right-click anywhere on the window.\n\n");
+        g_print(
+            "NOTE: To expand a source in the 2D tiled display and view object details,"
+            " left-click on the source.\n"
+            "      To go back to the tiled display, right-click anywhere on the window.\n\n");
     }
 }
 
@@ -489,7 +485,7 @@ event_thread_func(gpointer arg) {
                     rrowsel = FALSE;
                     source_id = tile_num_columns * rrow + rcol;
                     g_print("--selecting source  col %d sou=%d--\n", rcol, source_id);
-                    if (source_id >= (gint) appCtx[0]->config.num_source_sub_bins) {
+                    if (source_id >= (gint)appCtx[0]->config.num_source_sub_bins) {
                         source_id = -1;
                     } else {
                         source_ids[0] = source_id;
@@ -536,11 +532,11 @@ get_source_id_from_coordinates(float x_rel, float y_rel) {
     int tile_num_rows = appCtx[0]->config.tiled_display_config.rows;
     int tile_num_columns = appCtx[0]->config.tiled_display_config.columns;
 
-    int source_id = (int) (x_rel * tile_num_columns);
-    source_id += ((int) (y_rel * tile_num_rows)) * tile_num_columns;
+    int source_id = (int)(x_rel * tile_num_columns);
+    source_id += ((int)(y_rel * tile_num_rows)) * tile_num_columns;
 
     /* Don't allow clicks on empty tiles. */
-    if (source_id >= (gint) appCtx[0]->config.num_source_sub_bins)
+    if (source_id >= (gint)appCtx[0]->config.num_source_sub_bins)
         source_id = -1;
 
     return source_id;
@@ -575,8 +571,8 @@ nvds_x_event_thread(gpointer data) {
 
                     if (ev.button == Button1 && source_id == -1) {
                         source_id =
-                                get_source_id_from_coordinates(ev.x * 1.0 / win_attr.width,
-                                                               ev.y * 1.0 / win_attr.height);
+                            get_source_id_from_coordinates(ev.x * 1.0 / win_attr.width,
+                                                           ev.y * 1.0 / win_attr.height);
                         if (source_id > -1) {
                             g_object_set(G_OBJECT(tiler), "show-source", source_id, nullptr);
                             source_ids[index] = source_id;
@@ -588,8 +584,7 @@ nvds_x_event_thread(gpointer data) {
                         if (!show_bbox_text)
                             appCtx[index]->show_bbox_text = FALSE;
                     }
-                }
-                    break;
+                } break;
                 case KeyRelease:
                 case KeyPress: {
                     KeySym p, r, q;
@@ -611,8 +606,7 @@ nvds_x_event_thread(gpointer data) {
                         quit = TRUE;
                         g_main_loop_quit(main_loop);
                     }
-                }
-                    break;
+                } break;
                 case ClientMessage: {
                     Atom wm_delete;
                     for (index = 0; index < MAX_INSTANCES; index++)
@@ -620,12 +614,11 @@ nvds_x_event_thread(gpointer data) {
                             break;
 
                     wm_delete = XInternAtom(display, "WM_DELETE_WINDOW", 1);
-                    if (wm_delete != None && wm_delete == (Atom) e.xclient.data.l[0]) {
+                    if (wm_delete != None && wm_delete == (Atom)e.xclient.data.l[0]) {
                         quit = TRUE;
                         g_main_loop_quit(main_loop);
                     }
-                }
-                    break;
+                } break;
             }
         }
         g_mutex_unlock(&disp_lock);
@@ -649,23 +642,23 @@ overlay_graphics(AppCtx *appCtx, GstBuffer *buf,
 
     NvDsFrameLatencyInfo *latency_info = nullptr;
     NvDsDisplayMeta *display_meta =
-            nvds_acquire_display_meta_from_pool(batch_meta);
+        nvds_acquire_display_meta_from_pool(batch_meta);
 
     display_meta->num_labels = 1;
     display_meta->text_params[0].display_text = g_strdup_printf("Source: %s",
-         appCtx->config.multi_source_config[source_ids[index]].uri);
+                                                                appCtx->config.multi_source_config[source_ids[index]].uri);
 
     display_meta->text_params[0].y_offset = 20;
     display_meta->text_params[0].x_offset = 20;
-    display_meta->text_params[0].font_params.font_color = (NvOSD_ColorParams) {
-            0, 1, 0, 1};
+    display_meta->text_params[0].font_params.font_color = (NvOSD_ColorParams){
+        0, 1, 0, 1};
     display_meta->text_params[0].font_params.font_size =
-            appCtx->config.osd_config.text_size * 1.5;
+        appCtx->config.osd_config.text_size * 1.5;
     char serif[] = "Serif";
     display_meta->text_params[0].font_params.font_name = serif;
     display_meta->text_params[0].set_bg_clr = 1;
-    display_meta->text_params[0].text_bg_clr = (NvOSD_ColorParams) {
-            0, 0, 0, 1.0};
+    display_meta->text_params[0].text_bg_clr = (NvOSD_ColorParams){
+        0, 0, 0, 1.0};
 
     if (nvds_enable_latency_measurement) {
         g_mutex_lock(&appCtx->latency_lock);
@@ -678,15 +671,15 @@ overlay_graphics(AppCtx *appCtx, GstBuffer *buf,
         display_meta->text_params[1].y_offset = (display_meta->text_params[0].y_offset * 2) +
                                                 display_meta->text_params[0].font_params.font_size;
         display_meta->text_params[1].x_offset = 20;
-        display_meta->text_params[1].font_params.font_color = (NvOSD_ColorParams) {
-                0, 1, 0, 1};
+        display_meta->text_params[1].font_params.font_color = (NvOSD_ColorParams){
+            0, 1, 0, 1};
         display_meta->text_params[1].font_params.font_size =
-                appCtx->config.osd_config.text_size * 1.5;
+            appCtx->config.osd_config.text_size * 1.5;
         char arial[] = "Arial";
         display_meta->text_params[1].font_params.font_name = arial;
         display_meta->text_params[1].set_bg_clr = 1;
-        display_meta->text_params[1].text_bg_clr = (NvOSD_ColorParams) {
-                0, 0, 0, 1.0};
+        display_meta->text_params[1].text_bg_clr = (NvOSD_ColorParams){
+            0, 0, 0, 1.0};
     }
 
     nvds_add_display_meta_to_frame(nvds_get_nth_frame_meta(batch_meta->frame_meta_list, 0), display_meta);
@@ -755,7 +748,7 @@ int main(int argc, char *argv[]) {
 
             if (input_files && input_files[i]) {
                 appCtx[i]->config.multi_source_config[0].uri =
-                        g_strdup_printf("file://%s", input_files[i]);
+                    g_strdup_printf("file://%s", input_files[i]);
                 g_free(input_files[i]);
             }
 
@@ -789,7 +782,7 @@ int main(int argc, char *argv[]) {
             }
             if (!nvds_imgsave.frame_to_skip_rules_path) {
                 std::cerr
-                        << "Consumer not started => consider adding frame-to-skip-rules-path=./my/path/to/file.csv to [img-save]\n";
+                    << "Consumer not started => consider adding frame-to-skip-rules-path=./my/path/to/file.csv to [img-save]\n";
                 can_start = false;
             }
             if (can_start) {
@@ -844,7 +837,6 @@ int main(int argc, char *argv[]) {
                 break;
             }
 
-
             if (!appCtx[i]->config.tiled_display_config.enable)
                 continue;
 
@@ -866,13 +858,13 @@ int main(int argc, char *argv[]) {
 
                 if (appCtx[i]->config.sink_bin_sub_bin_config[j].render_config.width)
                     width =
-                            appCtx[i]->config.sink_bin_sub_bin_config[j].render_config.width;
+                        appCtx[i]->config.sink_bin_sub_bin_config[j].render_config.width;
                 else
                     width = appCtx[i]->config.tiled_display_config.width;
 
                 if (appCtx[i]->config.sink_bin_sub_bin_config[j].render_config.height)
                     height =
-                            appCtx[i]->config.sink_bin_sub_bin_config[j].render_config.height;
+                        appCtx[i]->config.sink_bin_sub_bin_config[j].render_config.height;
                 else
                     height = appCtx[i]->config.tiled_display_config.height;
 
@@ -880,15 +872,15 @@ int main(int argc, char *argv[]) {
                 height = (height) ? height : DEFAULT_X_WINDOW_HEIGHT;
 
                 windows[i] =
-                        XCreateSimpleWindow(display, RootWindow(display, DefaultScreen(display)), 0, 0, width, height,
-                                            2, 0x00000000,
-                                            0x00000000);
+                    XCreateSimpleWindow(display, RootWindow(display, DefaultScreen(display)), 0, 0, width, height,
+                                        2, 0x00000000,
+                                        0x00000000);
 
                 if (num_instances > 1)
                     title = g_strdup_printf(APP_TITLE "-%d", i);
                 else
                     title = g_strdup(APP_TITLE);
-                if (XStringListToTextProperty((char **) &title, 1, &xproperty) != 0) {
+                if (XStringListToTextProperty((char **)&title, 1, &xproperty) != 0) {
                     XSetWMName(display, windows[i], &xproperty);
                     XFree(xproperty.value);
                 }
@@ -896,8 +888,8 @@ int main(int argc, char *argv[]) {
                 XSetWindowAttributes attr = {0};
                 if ((appCtx[i]->config.tiled_display_config.enable &&
                      appCtx[i]->config.tiled_display_config.rows *
-                     appCtx[i]->config.tiled_display_config.columns ==
-                     1) ||
+                             appCtx[i]->config.tiled_display_config.columns ==
+                         1) ||
                     (appCtx[i]->config.tiled_display_config.enable == 0 &&
                      appCtx[i]->config.num_source_sub_bins == 1)) {
                     attr.event_mask = KeyPress;
@@ -911,15 +903,15 @@ int main(int argc, char *argv[]) {
                     XSetWMProtocols(display, windows[i], &wmDeleteMessage, 1);
                 }
                 XMapRaised(display, windows[i]);
-                XSync(display, 1); //discard the events for now
+                XSync(display, 1);  //discard the events for now
                 gst_video_overlay_set_window_handle(GST_VIDEO_OVERLAY(appCtx
-                                                                      [i]
+                                                                          [i]
                                                                               ->pipeline.instance_bins[0]
                                                                               .sink_bin.sub_bins[j]
                                                                               .sink),
-                                                    (gulong) windows[i]);
+                                                    (gulong)windows[i]);
                 gst_video_overlay_expose(
-                        GST_VIDEO_OVERLAY(appCtx[i]->pipeline.instance_bins[0].sink_bin.sub_bins[j].sink));
+                    GST_VIDEO_OVERLAY(appCtx[i]->pipeline.instance_bins[0].sink_bin.sub_bins[j].sink));
                 if (!x_event_thread)
                     x_event_thread = g_thread_new("nvds-window-event-thread",
                                                   nvds_x_event_thread, nullptr);
@@ -934,7 +926,6 @@ int main(int argc, char *argv[]) {
             for (i = 0; i < num_instances; i++) {
                 if (gst_element_set_state(appCtx[i]->pipeline.pipeline,
                                           GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE) {
-
                     g_print("\ncan't set pipeline to playing state.\n");
                     return_value = -1;
                     should_goto_done = true;
@@ -953,7 +944,6 @@ int main(int argc, char *argv[]) {
         g_main_loop_run(main_loop);
 
         changemode(0);
-
 
     } while (false);
 

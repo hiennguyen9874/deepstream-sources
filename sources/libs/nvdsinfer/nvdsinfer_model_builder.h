@@ -12,7 +12,13 @@
 #ifndef __NVDSINFER_MODEL_BUILDER_H__
 #define __NVDSINFER_MODEL_BUILDER_H__
 
+#include <NvCaffeParser.h>
+#include <NvInfer.h>
+#include <NvInferRuntime.h>
+#include <NvOnnxParser.h>
+#include <nvdsinfer_custom_impl.h>
 #include <stdarg.h>
+
 #include <algorithm>
 #include <condition_variable>
 #include <map>
@@ -22,12 +28,6 @@
 #include <string>
 #include <unordered_map>
 
-#include <NvCaffeParser.h>
-#include <NvInfer.h>
-#include <NvInferRuntime.h>
-#include <NvOnnxParser.h>
-
-#include <nvdsinfer_custom_impl.h>
 #include "nvdsinfer_func_utils.h"
 #include "nvdsinfer_tlt.h"
 
@@ -42,25 +42,24 @@ namespace nvdsinfer {
 
 using NvDsInferCudaEngineGetFcnDeprecated = decltype(&NvDsInferCudaEngineGet);
 
-static const size_t kWorkSpaceSize = 450 * 1024 * 1024; // 450MB
+static const size_t kWorkSpaceSize = 450 * 1024 * 1024;  // 450MB
 
 /**
  * ModelParser base. Any model parser implementation must inherit from the
  * IModelParser interface.
  */
-class BaseModelParser : public IModelParser
-{
-public:
+class BaseModelParser : public IModelParser {
+   public:
     BaseModelParser(const NvDsInferContextInitParams& params,
-        const std::shared_ptr<DlLibHandle>& dllib)
+                    const std::shared_ptr<DlLibHandle>& dllib)
         : m_ModelParams(params), m_LibHandle(dllib) {}
     virtual ~BaseModelParser() {}
     virtual bool isValid() const = 0;
 
-private:
+   private:
     DISABLE_CLASS_COPY(BaseModelParser);
 
-protected:
+   protected:
     NvDsInferContextInitParams m_ModelParams;
     std::shared_ptr<DlLibHandle> m_LibHandle;
 };
@@ -69,11 +68,10 @@ protected:
  * Implementation of ModelParser for caffemodels derived from BaseModelParser.
  * Manages resources internally required for parsing caffemodels.
  */
-class CaffeModelParser : public BaseModelParser
-{
-public:
+class CaffeModelParser : public BaseModelParser {
+   public:
     CaffeModelParser(const NvDsInferContextInitParams& initParams,
-        const std::shared_ptr<DlLibHandle>& handle = nullptr);
+                     const std::shared_ptr<DlLibHandle>& handle = nullptr);
     ~CaffeModelParser() override;
     bool isValid() const override { return m_CaffeParser.get(); }
     const char* getModelName() const override { return m_ModelPath.c_str(); }
@@ -81,10 +79,10 @@ public:
 
     NvDsInferStatus parseModel(nvinfer1::INetworkDefinition& network) override;
 
-private:
+   private:
     NvDsInferStatus setPluginFactory();
 
-private:
+   private:
     std::string m_ProtoPath;
     std::string m_ModelPath;
     std::vector<std::string> m_OutputLayers;
@@ -96,11 +94,9 @@ private:
  * Implementation of ModelParser for UFF models derived from BaseModelParser.
  * Manages resources internally required for parsing UFF models.
  */
-class UffModelParser : public BaseModelParser
-{
-public:
-    struct ModelParams
-    {
+class UffModelParser : public BaseModelParser {
+   public:
+    struct ModelParams {
         std::string uffFilePath;
         nvuffparser::UffInputOrder inputOrder;
         std::vector<std::string> inputNames;
@@ -108,19 +104,18 @@ public:
         std::vector<std::string> outputNames;
     };
 
-public:
+   public:
     UffModelParser(const NvDsInferContextInitParams& initParams,
-        const std::shared_ptr<DlLibHandle>& handle = nullptr);
+                   const std::shared_ptr<DlLibHandle>& handle = nullptr);
     ~UffModelParser() override;
     NvDsInferStatus parseModel(nvinfer1::INetworkDefinition& network) override;
     bool isValid() const override { return m_UffParser.get(); }
-    const char* getModelName() const override
-    {
+    const char* getModelName() const override {
         return m_ModelParams.uffFilePath.c_str();
     }
     bool hasFullDimsSupported() const override { return false; }
 
-protected:
+   protected:
     NvDsInferStatus initParser();
     ModelParams m_ModelParams;
     UniquePtrWDestroy<nvuffparser::IUffParser> m_UffParser;
@@ -130,11 +125,10 @@ protected:
  * Implementation of ModelParser for ONNX models derived from BaseModelParser.
  * Manages resources internally required for parsing ONNX models.
  */
-class OnnxModelParser : public BaseModelParser
-{
-public:
+class OnnxModelParser : public BaseModelParser {
+   public:
     OnnxModelParser(const NvDsInferContextInitParams& initParams,
-        const std::shared_ptr<DlLibHandle>& handle = nullptr)
+                    const std::shared_ptr<DlLibHandle>& handle = nullptr)
         : BaseModelParser(initParams, handle),
           m_ModelName(initParams.onnxFilePath) {}
     ~OnnxModelParser() override = default;
@@ -143,10 +137,10 @@ public:
     NvDsInferStatus parseModel(nvinfer1::INetworkDefinition& network) override;
     bool hasFullDimsSupported() const override { return true; }
 
-private:
+   private:
     std::string m_ModelName;
 
-protected:
+   protected:
     UniquePtrWDestroy<nvonnxparser::IParser> m_OnnxParser;
 };
 
@@ -157,31 +151,27 @@ protected:
  * an instance of the IModelParser implementation required to parse the user's
  * custom model.
  */
-class CustomModelParser : public BaseModelParser
-{
-public:
+class CustomModelParser : public BaseModelParser {
+   public:
     CustomModelParser(const NvDsInferContextInitParams& initParams,
-        const std::shared_ptr<DlLibHandle>& handle);
+                      const std::shared_ptr<DlLibHandle>& handle);
 
-    ~CustomModelParser() {};
+    ~CustomModelParser(){};
 
-    bool isValid() const override
-    {
+    bool isValid() const override {
         return (bool)m_CustomParser;
     }
 
-    const char* getModelName() const override
-    {
+    const char* getModelName() const override {
         return isValid() ? safeStr(m_CustomParser->getModelName()) : "";
     }
 
     NvDsInferStatus parseModel(nvinfer1::INetworkDefinition& network) override;
-    bool hasFullDimsSupported() const override
-    {
+    bool hasFullDimsSupported() const override {
         return m_CustomParser->hasFullDimsSupported();
     }
 
-private:
+   private:
     std::unique_ptr<IModelParser> m_CustomParser;
 };
 
@@ -192,12 +182,11 @@ class TrtModelBuilder;
  * Holds build parameters common to implicit batch dimension/full dimension
  * networks.
  */
-struct BuildParams
-{
+struct BuildParams {
     using TensorIOFormat =
         std::tuple<nvinfer1::DataType, nvinfer1::TensorFormats>;
     using LayerDevicePrecision =
-      std::tuple<nvinfer1::DataType, nvinfer1::DeviceType>;
+        std::tuple<nvinfer1::DataType, nvinfer1::DeviceType>;
 
     size_t workspaceSize = kWorkSpaceSize;
     NvDsInferNetworkMode networkMode = NvDsInferNetworkMode_FP32;
@@ -207,7 +196,7 @@ struct BuildParams
     std::unordered_map<std::string, TensorIOFormat> outputFormats;
     std::unordered_map<std::string, LayerDevicePrecision> layerDevicePrecisions;
 
-public:
+   public:
     virtual ~BuildParams(){};
     virtual NvDsInferStatus configBuilder(TrtModelBuilder& builder) = 0;
     virtual bool sanityCheck() const;
@@ -216,25 +205,23 @@ public:
 /**
  * Holds build parameters required for implicit batch dimension network.
  */
-struct ImplicitBuildParams : public BuildParams
-{
+struct ImplicitBuildParams : public BuildParams {
     int maxBatchSize = 0;
     std::vector<nvinfer1::Dims> inputDims;
 
-private:
+   private:
     NvDsInferStatus configBuilder(TrtModelBuilder& builder) override;
 
     bool sanityCheck() const override;
 };
 
 using ProfileDims = std::array<nvinfer1::Dims,
-    nvinfer1::EnumMax<nvinfer1::OptProfileSelector>()>;
+                               nvinfer1::EnumMax<nvinfer1::OptProfileSelector>()>;
 
 /**
  * Holds build parameters required for full dimensions network.
  */
-struct ExplicitBuildParams : public BuildParams
-{
+struct ExplicitBuildParams : public BuildParams {
     // profileSelector, dims without batchSize
     // each input must have 3 selector MIN/OPT/MAX for profile0,
     // doesn't support multiple profiles
@@ -244,7 +231,7 @@ struct ExplicitBuildParams : public BuildParams
     int maxBatchSize = 1;
     NvDsInferTensorOrder inputOrder = NvDsInferTensorOrder_kNCHW;
 
-private:
+   private:
     NvDsInferStatus configBuilder(TrtModelBuilder& builder) override;
     bool sanityCheck() const override;
 };
@@ -252,16 +239,15 @@ private:
 /**
  * Helper class written on top of nvinfer1::ICudaEngine.
  */
-class TrtEngine
-{
-public:
+class TrtEngine {
+   public:
     TrtEngine(UniquePtrWDestroy<nvinfer1::ICudaEngine>&& engine, int dlaCore = -1)
         : m_Engine(std::move(engine)), m_DlaCore(dlaCore) {}
 
     TrtEngine(UniquePtrWDestroy<nvinfer1::ICudaEngine>&& engine,
-        const SharedPtrWDestroy<nvinfer1::IRuntime>& runtime, int dlaCore = -1,
-        const std::shared_ptr<DlLibHandle>& dlHandle = nullptr,
-        nvinfer1::IPluginFactory* pluginFactory = nullptr);
+              const SharedPtrWDestroy<nvinfer1::IRuntime>& runtime, int dlaCore = -1,
+              const std::shared_ptr<DlLibHandle>& dlHandle = nullptr,
+              nvinfer1::IPluginFactory* pluginFactory = nullptr);
 
     ~TrtEngine();
 
@@ -276,19 +262,17 @@ public:
 
     void printEngineInfo();
 
-    nvinfer1::ICudaEngine& engine()
-    {
+    nvinfer1::ICudaEngine& engine() {
         assert(m_Engine);
         return *m_Engine;
     }
 
-    nvinfer1::ICudaEngine* operator->()
-    {
+    nvinfer1::ICudaEngine* operator->() {
         assert(m_Engine);
         return m_Engine.get();
     }
 
-private:
+   private:
     DISABLE_CLASS_COPY(TrtEngine);
 
     SharedPtrWDestroy<nvinfer1::IRuntime> m_Runtime;
@@ -297,11 +281,11 @@ private:
     nvinfer1::IPluginFactory* m_RuntimePluginFactory = nullptr;
     int m_DlaCore = -1;
 
-    friend bool ::NvDsInferCudaEngineGetFromTltModel( nvinfer1::IBuilder * const builder,
-        nvinfer1::IBuilderConfig * const builderConfig,
-        const NvDsInferContextInitParams * const initParams,
-        nvinfer1::DataType dataType,
-        nvinfer1::ICudaEngine *& cudaEngine);
+    friend bool ::NvDsInferCudaEngineGetFromTltModel(nvinfer1::IBuilder* const builder,
+                                                     nvinfer1::IBuilderConfig* const builderConfig,
+                                                     const NvDsInferContextInitParams* const initParams,
+                                                     nvinfer1::DataType dataType,
+                                                     nvinfer1::ICudaEngine*& cudaEngine);
 };
 
 /**
@@ -312,18 +296,16 @@ private:
  * NvDsInferContext. Alternatively, this class can also deserialize an existing
  * serialized engine to generate the ICudaEngine.
  */
-class TrtModelBuilder
-{
-public:
+class TrtModelBuilder {
+   public:
     TrtModelBuilder(int gpuId, nvinfer1::ILogger& logger,
-        const std::shared_ptr<DlLibHandle>& dlHandle = nullptr);
+                    const std::shared_ptr<DlLibHandle>& dlHandle = nullptr);
 
     ~TrtModelBuilder() {
         m_Parser.reset();
     }
 
-    void setInt8Calibrator(std::unique_ptr<nvinfer1::IInt8Calibrator>&& calibrator)
-    {
+    void setInt8Calibrator(std::unique_ptr<nvinfer1::IInt8Calibrator>&& calibrator) {
         m_Int8Calibrator = std::move(calibrator);
     }
 
@@ -355,7 +337,7 @@ public:
     std::unique_ptr<TrtEngine> deserializeEngine(
         const std::string& path, int dla = -1);
 
-private:
+   private:
     /* Parses a model file using an IModelParser implementation for
      * Caffe/UFF/ONNX formats or from custom IModelParser implementation.
      */
@@ -369,11 +351,10 @@ private:
     /* Calls a custom library's implementaion of NvDsInferCudaEngineGet function
      * to get a built ICudaEngine. */
     std::unique_ptr<TrtEngine> getCudaEngineFromCustomLib(
-            NvDsInferCudaEngineGetFcnDeprecated cudaEngineGetDeprecatedFcn,
-            NvDsInferEngineCreateCustomFunc cudaEngineGetFcn,
-            const NvDsInferContextInitParams& initParams,
-            NvDsInferNetworkMode &networkMode);
-
+        NvDsInferCudaEngineGetFcnDeprecated cudaEngineGetDeprecatedFcn,
+        NvDsInferEngineCreateCustomFunc cudaEngineGetFcn,
+        const NvDsInferContextInitParams& initParams,
+        NvDsInferNetworkMode& networkMode);
 
     /* config builder options */
     NvDsInferStatus configCommonOptions(BuildParams& params);
@@ -403,13 +384,13 @@ private:
     friend class ImplicitBuildParams;
     friend class ExplicitBuildParams;
 
-    friend bool ::NvDsInferCudaEngineGetFromTltModel( nvinfer1::IBuilder * const builder,
-        nvinfer1::IBuilderConfig * const builderConfig,
-        const NvDsInferContextInitParams * const initParams,
-        nvinfer1::DataType dataType,
-        nvinfer1::ICudaEngine *& cudaEngine);
+    friend bool ::NvDsInferCudaEngineGetFromTltModel(nvinfer1::IBuilder* const builder,
+                                                     nvinfer1::IBuilderConfig* const builderConfig,
+                                                     const NvDsInferContextInitParams* const initParams,
+                                                     nvinfer1::DataType dataType,
+                                                     nvinfer1::ICudaEngine*& cudaEngine);
 };
 
-} // end of namespace nvdsinfer
+}  // end of namespace nvdsinfer
 
 #endif

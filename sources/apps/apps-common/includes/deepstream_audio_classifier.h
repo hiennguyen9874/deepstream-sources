@@ -24,17 +24,16 @@
 #define __NVGSTDS_AUDIO_CLASSIFIER_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "deepstream_gie.h"
 
 typedef struct
 {
-  GstElement *bin;
-  GstElement *queue;
-  GstElement *classifier;
+    GstElement *bin;
+    GstElement *queue;
+    GstElement *classifier;
 } NvDsAudioClassifierBin;
 
 /**
@@ -49,8 +48,8 @@ typedef struct
  *
  * @return true if bin created successfully.
  */
-gboolean create_audio_classifier_bin (NvDsGieConfig *config,
-    NvDsAudioClassifierBin *bin);
+gboolean create_audio_classifier_bin(NvDsGieConfig *config,
+                                     NvDsAudioClassifierBin *bin);
 
 #ifdef __cplusplus
 }

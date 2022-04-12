@@ -36,13 +36,12 @@ constexpr static uint32_t kDefaultSubSample = 0;
 // each ROI into sequence, and gather multiple ROI sequence into spacial batches.
 // It supports `subsample` and `stride` to improve performance for model inference.
 class BufferManager {
-public:
+   public:
     // constructor and destructor
     BufferManager(
         NvDsPreProcessAcquirer* allocator, const NvDsPreProcessTensorParams& params, uint32_t depth,
         uint32_t channel, cudaStream_t stream, uint32_t stride, uint32_t interval)
-        : _allocator(allocator), _tensorParams(params), _seqStride(stride), _subsample(interval)
-    {
+        : _allocator(allocator), _tensorParams(params), _seqStride(stride), _subsample(interval) {
         const auto& shape = params.network_input_shape;
         DSASSERT(shape.size() == 5 || shape.size() == 4);  // NCDHW or NCHW
         if (shape.size() == 5) {
@@ -73,7 +72,7 @@ public:
     // clear before quit
     void clearAll();
 
-private:
+   private:
     NvDsPreProcessStatus addRoi(const SourceKey& key, const NvDsPreProcessUnit& unit);
     uint32_t perBatchBytes() const { return _perBatchSize * sizeof(float); }
 
@@ -82,8 +81,7 @@ private:
 
     uint32_t SHWbytes() const { return perBatchBytes() / _channels; }
 
-    bool popOldestReady(ReadyResult& res)
-    {
+    bool popOldestReady(ReadyResult& res) {
         if (_readyPendings.empty()) {
             return false;
         }
@@ -92,7 +90,7 @@ private:
         return true;
     }
 
-private:
+   private:
     NvDsPreProcessAcquirer* _allocator = nullptr;
     NvDsPreProcessTensorParams _tensorParams;
     cudaStream_t _cuStream = nullptr;
@@ -111,7 +109,7 @@ private:
 // this context. It connects the buffer manager and input/output cuda processing
 // kernels. Return the final processed buffer into Gst-nvdspreprocess plugin.
 class SequenceImagePreprocess {
-public:
+   public:
     SequenceImagePreprocess(const CustomInitParams& initParams) { _initParams = initParams; }
     ~SequenceImagePreprocess() { deinit(); }
 
@@ -128,7 +126,7 @@ public:
     NvDsPreProcessStatus preprocessData(
         const NvDsPreProcessUnit& unit, NvDsPreProcessFormat inFormat, void* outPtr);
 
-private:
+   private:
     NvDsPreProcessStatus setDevice();
     NvDsPreProcessStatus parseUserConfig();
 

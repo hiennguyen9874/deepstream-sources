@@ -9,37 +9,33 @@
  *
  */
 
-#include "nvdsinfer_context_impl.h"
 #include <cstdio>
+
+#include "nvdsinfer_context_impl.h"
 
 /* This file implements the C interface for the NvDsInferContext class. The
  * interface is a simple wrapper over the C++ interface. */
 
 using namespace std;
 
-#define NULL_PARAM_CHECK(param, retvalue) \
-    if (param == nullptr) \
-    { \
+#define NULL_PARAM_CHECK(param, retvalue)                                    \
+    if (param == nullptr) {                                                  \
         fprintf(stderr, "Warning: NULL parameter " #param " passed to %s\n", \
-                __func__); \
-        return retvalue; \
+                __func__);                                                   \
+        return retvalue;                                                     \
     }
-
 
 NvDsInferStatus
 NvDsInferContext_Create(NvDsInferContextHandle *handle,
-        NvDsInferContextInitParams *initParams, void *userCtx,
-        NvDsInferContextLoggingFunc logFunc)
-{
+                        NvDsInferContextInitParams *initParams, void *userCtx,
+                        NvDsInferContextLoggingFunc logFunc) {
     NULL_PARAM_CHECK(handle, NVDSINFER_INVALID_PARAMS);
     NULL_PARAM_CHECK(initParams, NVDSINFER_INVALID_PARAMS);
 
     return createNvDsInferContext(handle, *initParams, userCtx, logFunc);
 }
 
-void
-NvDsInferContext_Destroy(NvDsInferContextHandle handle)
-{
+void NvDsInferContext_Destroy(NvDsInferContextHandle handle) {
     NULL_PARAM_CHECK(handle, );
 
     handle->destroy();
@@ -47,8 +43,7 @@ NvDsInferContext_Destroy(NvDsInferContextHandle handle)
 
 NvDsInferStatus
 NvDsInferContext_QueueInputBatch(NvDsInferContextHandle handle,
-        NvDsInferContextBatchInput *batchInput)
-{
+                                 NvDsInferContextBatchInput *batchInput) {
     NULL_PARAM_CHECK(handle, NVDSINFER_INVALID_PARAMS);
     NULL_PARAM_CHECK(batchInput, NVDSINFER_INVALID_PARAMS);
 
@@ -57,18 +52,15 @@ NvDsInferContext_QueueInputBatch(NvDsInferContextHandle handle,
 
 NvDsInferStatus
 NvDsInferContext_DequeueOutputBatch(NvDsInferContextHandle handle,
-        NvDsInferContextBatchOutput *batchOutput)
-{
+                                    NvDsInferContextBatchOutput *batchOutput) {
     NULL_PARAM_CHECK(handle, NVDSINFER_INVALID_PARAMS);
     NULL_PARAM_CHECK(batchOutput, NVDSINFER_INVALID_PARAMS);
 
     return handle->dequeueOutputBatch(*batchOutput);
 }
 
-void
-NvDsInferContext_ReleaseBatchOutput(NvDsInferContextHandle handle,
-        NvDsInferContextBatchOutput *batchOutput)
-{
+void NvDsInferContext_ReleaseBatchOutput(NvDsInferContextHandle handle,
+                                         NvDsInferContextBatchOutput *batchOutput) {
     NULL_PARAM_CHECK(handle, );
     NULL_PARAM_CHECK(batchOutput, );
 
@@ -76,8 +68,7 @@ NvDsInferContext_ReleaseBatchOutput(NvDsInferContextHandle handle,
 }
 
 unsigned int
-NvDsInferContext_GetNumLayersInfo(NvDsInferContextHandle handle)
-{
+NvDsInferContext_GetNumLayersInfo(NvDsInferContextHandle handle) {
     NULL_PARAM_CHECK(handle, 0);
 
     std::vector<NvDsInferLayerInfo> layersInfo;
@@ -86,10 +77,8 @@ NvDsInferContext_GetNumLayersInfo(NvDsInferContextHandle handle)
     return layersInfo.size();
 }
 
-void
-NvDsInferContext_FillLayersInfo(NvDsInferContextHandle handle,
-        NvDsInferLayerInfo *layersInfo)
-{
+void NvDsInferContext_FillLayersInfo(NvDsInferContextHandle handle,
+                                     NvDsInferLayerInfo *layersInfo) {
     NULL_PARAM_CHECK(handle, );
     NULL_PARAM_CHECK(layersInfo, );
 
@@ -99,20 +88,17 @@ NvDsInferContext_FillLayersInfo(NvDsInferContextHandle handle,
         layersInfo[i] = layersInfoVec[i];
 }
 
-void
-NvDsInferContext_GetNetworkInfo(NvDsInferContextHandle handle,
-        NvDsInferNetworkInfo *networkInfo)
-{
+void NvDsInferContext_GetNetworkInfo(NvDsInferContextHandle handle,
+                                     NvDsInferNetworkInfo *networkInfo) {
     NULL_PARAM_CHECK(handle, );
     NULL_PARAM_CHECK(networkInfo, );
 
     return handle->getNetworkInfo(*networkInfo);
 }
 
-const char*
+const char *
 NvDsInferContext_GetLabel(NvDsInferContextHandle handle, unsigned int id,
-        unsigned int value)
-{
+                          unsigned int value) {
     NULL_PARAM_CHECK(handle, nullptr);
 
     auto labels = handle->getLabels();

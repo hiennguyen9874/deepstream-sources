@@ -21,8 +21,7 @@ namespace cvcore {
  * A struct.
  * Structure used to store bounding box.
  */
-struct BBox
-{
+struct BBox {
     int xmin{0}; /**< minimum x coordinate. */
     int ymin{0}; /**< minimum y coordinate. */
     int xmax{0}; /**< maximum x coordinate. */
@@ -33,8 +32,7 @@ struct BBox
     * @param Clamping bounding box (xmin, ymin, xmax, ymax)
     * @return Clamped bounding box
     */
-    BBox clamp(const BBox &clampBox) const
-    {
+    BBox clamp(const BBox &clampBox) const {
         BBox outbox;
         outbox.xmin = std::max(clampBox.xmin, xmin);
         outbox.xmax = std::min(clampBox.xmax, xmax);
@@ -46,24 +44,21 @@ struct BBox
     /**
     * @return Width of the bounding box
     */
-    size_t getWidth() const
-    {
+    size_t getWidth() const {
         return xmax - xmin;
     }
 
     /**
     * @return Height of the bounding box
     */
-    size_t getHeight() const
-    {
+    size_t getHeight() const {
         return ymax - ymin;
     }
 
     /**
      * Checks if the bounding box is valid.
      */
-    bool isValid() const
-    {
+    bool isValid() const {
         return (xmin < xmax) && (ymin < ymax) && (getWidth() > 0) && (getHeight() > 0);
     }
 
@@ -71,8 +66,7 @@ struct BBox
     * Returns the center of the bounding box
     * @return X,Y coordinate tuple
     */
-    std::pair<int, int> getCenter() const
-    {
+    std::pair<int, int> getCenter() const {
         int centerX = xmin + getWidth() / 2;
         int centerY = ymin + getHeight() / 2;
         return std::pair<int, int>(centerX, centerY);
@@ -84,11 +78,10 @@ struct BBox
     * @param Scale in Y direction along the height
     * @return Scaled bounding box
     */
-    BBox scale(float scaleW, float scaleH) const
-    {
+    BBox scale(float scaleW, float scaleH) const {
         auto center = getCenter();
-        float newW  = getWidth() * scaleW;
-        float newH  = getHeight() * scaleH;
+        float newW = getWidth() * scaleW;
+        float newH = getHeight() * scaleH;
         BBox outbox;
         outbox.xmin = center.first - newW / 2;
         outbox.xmax = center.first + newW / 2;
@@ -104,32 +97,29 @@ struct BBox
     * @param Clamping bounding box (xmin, ymin, xmax, ymax)
     * @return Sqaure bounding box
     */
-    BBox squarify(const BBox &clampBox) const
-    {
+    BBox squarify(const BBox &clampBox) const {
         size_t w = getWidth();
         size_t h = getHeight();
 
         BBox clampedBox1 = clamp(clampBox);
-        if (!clampedBox1.isValid())
-        {
+        if (!clampedBox1.isValid()) {
             throw std::range_error("Invalid bounding box generated\n");
         }
-        float scaleW     = static_cast<float>(std::max(w, h)) / w;
-        float scaleH     = static_cast<float>(std::max(w, h)) / h;
-        BBox scaledBBox  = clampedBox1.scale(scaleW, scaleH);
+        float scaleW = static_cast<float>(std::max(w, h)) / w;
+        float scaleH = static_cast<float>(std::max(w, h)) / h;
+        BBox scaledBBox = clampedBox1.scale(scaleW, scaleH);
         BBox clampedBox2 = scaledBBox.clamp(clampBox);
-        if (!clampedBox2.isValid())
-        {
+        if (!clampedBox2.isValid()) {
             throw std::range_error("Invalid bounding box generated\n");
         }
-        size_t newW      = clampedBox2.getWidth();
-        size_t newH      = clampedBox2.getHeight();
-        size_t minW      = std::min(newH, newW);
+        size_t newW = clampedBox2.getWidth();
+        size_t newH = clampedBox2.getHeight();
+        size_t minW = std::min(newH, newW);
         clampedBox2.ymax = clampedBox2.ymin + minW;
         clampedBox2.xmax = clampedBox2.xmin + minW;
         return clampedBox2;
     }
 };
 
-} // namespace cvcore
-#endif // CVCORE_BBOX_H
+}  // namespace cvcore
+#endif  // CVCORE_BBOX_H

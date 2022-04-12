@@ -11,9 +11,6 @@
 #ifndef NV_BODYPOSE_2D_H_
 #define NV_BODYPOSE_2D_H_
 
-#include <map>
-#include <memory>
-
 #include <cuda_runtime.h>
 #include <cv/core/Array.h>
 #include <cv/core/BBox.h>
@@ -23,13 +20,16 @@
 #include <cv/core/Model.h>
 #include <cv/core/Tensor.h>
 
-namespace cvcore { namespace bodypose2d {
+#include <map>
+#include <memory>
+
+namespace cvcore {
+namespace bodypose2d {
 
 /**
  * Data structure for storing body part location.
  */
-struct BodyPart
-{
+struct BodyPart {
     int part_idx;       /**< part index. */
     Vector2i loc;       /**< x, y pixel location. */
     float score = 0.0f; /**< part score. */
@@ -38,8 +38,7 @@ struct BodyPart
 /**
  * Data structure for storing human info.
  */
-struct Human
-{
+struct Human {
     std::map<int, BodyPart> body_parts; /**< body parts map. */
     BBox boundingBox;                   /**< bounding box for person. */
     float score = 0.0f;                 /**< person score. */
@@ -48,8 +47,7 @@ struct Human
 /**
  * Data structure to describe the post processing for BodyPose2D
  */
-struct BodyPose2DPostProcessorParams
-{
+struct BodyPose2DPostProcessorParams {
     size_t numJoints;            /**< Number of joints. */
     size_t nmsWindowSize;        /**< window size for NMS operation. */
     size_t featUpsamplingFactor; /**< feature upsampleing factor. */
@@ -65,8 +63,7 @@ struct BodyPose2DPostProcessorParams
 /**
  * Enum listing the hand used for gestures
  */
-enum class HandType : uint32_t
-{
+enum class HandType : uint32_t {
     LEFT_HAND = 0,
     RIGHT_HAND
 };
@@ -74,8 +71,7 @@ enum class HandType : uint32_t
 /**
  * Data structure to describe the parameters tuned for bounding box detection from pose.
  */
-struct HandBoundingBoxParams
-{
+struct HandBoundingBoxParams {
     HandType handType;                         /**< Left or Right hand. */
     bool enableHandBoxDynamicScaling;          /**< Enable using hand scale input */
     float defaultHandBoxScalingFactor;         /** Default scaling factor for bounding box*/
@@ -124,9 +120,8 @@ CVCORE_API extern const BodyPose2DPostProcessorParams defaultPostProcessorParams
 /**
  * Interface for running pre-processing on bodypose2d network.
  */
-class CVCORE_API BodyPose2DPreProcessor
-{
-public:
+class CVCORE_API BodyPose2DPreProcessor {
+   public:
     /**
      * Default constructor is deleted
      */
@@ -161,7 +156,7 @@ public:
      */
     void execute(Tensor<NCHW, C3, F32> &output, const Tensor<NHWC, C3, U8> &input, cudaStream_t stream = 0);
 
-private:
+   private:
     /**
      * Implementation of Pose2DPostProcessor.
      */
@@ -172,9 +167,8 @@ private:
 /**
  * Interface for loading and running bodypose2d network.
  */
-class CVCORE_API BodyPose2D
-{
-public:
+class CVCORE_API BodyPose2D {
+   public:
     /**
      * Maximum detected human allowed.
      */
@@ -209,7 +203,7 @@ public:
     void execute(Array<ArrayN<Human, MAX_HUMAN_COUNT>> &output, const Tensor<NHWC, C3, U8> &input,
                  cudaStream_t stream = 0);
 
-private:
+   private:
     /**
      * Implementation of bodypose2d.
      */
@@ -220,9 +214,8 @@ private:
 /**
  * Interface for running post-processing on bodypose2d network.
  */
-class CVCORE_API BodyPose2DPostProcessor
-{
-public:
+class CVCORE_API BodyPose2DPostProcessor {
+   public:
     /**
      * Default constructor is deleted
      */
@@ -256,7 +249,7 @@ public:
     void execute(Array<ArrayN<Human, BodyPose2D::MAX_HUMAN_COUNT>> &output, const Tensor<NCHW, CX, F32> &pafMap,
                  const Tensor<NCHW, CX, F32> &heatMap, int imageWidth, int imageHeight, cudaStream_t stream = 0);
 
-private:
+   private:
     /**
      * Implementation of Pose2DPostProcessor.
      */
@@ -267,9 +260,8 @@ private:
 /**
  * Class to compute the bounding box of hand from pose.
  */
-class CVCORE_API HandBoundingBoxGenerator
-{
-public:
+class CVCORE_API HandBoundingBoxGenerator {
+   public:
     static constexpr size_t MOVING_AVG_WINDOW_SIZE = 100;
     /**
      * Default constructor is deleted
@@ -296,7 +288,7 @@ public:
      */
     ~HandBoundingBoxGenerator();
 
-private:
+   private:
     /**
      * Implmentation of HandBoundingBoxGenerator
      */
@@ -304,5 +296,6 @@ private:
     std::unique_ptr<HandBoundingBoxGeneratorImpl> m_pImpl;
 };
 
-}} // namespace cvcore::bodypose2d
+}  // namespace bodypose2d
+}  // namespace cvcore
 #endif

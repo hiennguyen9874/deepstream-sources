@@ -11,10 +11,10 @@
 #ifndef CVCORE_TENSOR_H
 #define CVCORE_TENSOR_H
 
-#include <stdexcept>
-#include <type_traits>
 #include <initializer_list>
+#include <stdexcept>
 #include <string>
+#include <type_traits>
 
 namespace cvcore {
 
@@ -25,8 +25,7 @@ using half = std::uint16_t;
  * An enum.
  * Enum type for tensor layout type.
  */
-enum TensorLayout
-{
+enum TensorLayout {
     LC,          /**< length, channel (channel interleaved). */
     CL,          /**< channel, length (channel planar). */
     HWC,         /**< height, width, channel (channel interleaved). */
@@ -42,8 +41,7 @@ enum TensorLayout
  * An enum.
  * Enum type for tensor channel count.
  */
-enum ChannelCount
-{
+enum ChannelCount {
     C1, /**< 1 channels. */
     C2, /**< 2 channels. */
     C3, /**< 3 channels. */
@@ -55,8 +53,7 @@ enum ChannelCount
  * An enum.
  * Enum type for channel type.
  */
-enum ChannelType
-{
+enum ChannelType {
     U8,  /**< uint8_t. */
     U16, /**< uint16_t. */
     F16, /**< cvcore::half. */
@@ -68,8 +65,7 @@ enum ChannelType
  * An enum.
  * Enum type for dimension type.
  */
-enum class TensorDimension
-{
+enum class TensorDimension {
     LENGTH,  /**< length dimension. */
     HEIGHT,  /**< height dimension. */
     WIDTH,   /**< width dimension. */
@@ -108,14 +104,12 @@ std::size_t GetChannelSize(ChannelType CT);
 /**
  * Implementation of TensorBase class.
  */
-class TensorBase
-{
-public:
+class TensorBase {
+   public:
     /**
      * Struct for storing dimension data.
      */
-    struct DimData
-    {
+    struct DimData {
         std::size_t size;   /**< size of each dimension. */
         std::size_t stride; /**< stride of each dimension. */
     };
@@ -231,10 +225,10 @@ public:
      */
     bool isOwning() const;
 
-protected:
+   protected:
     TensorBase();
 
-private:
+   private:
     static constexpr int kMinDimCount = 2;
     static constexpr int kMaxDimCount = 4;
 
@@ -250,107 +244,92 @@ private:
 
 namespace detail {
 
-template<TensorLayout TL>
-struct DimToIndex2D
-{
+template <TensorLayout TL>
+struct DimToIndex2D {
     static_assert(TL == LC || TL == CL, "unsupported variant!");
-    static constexpr int kLength  = TL == LC ? 0 : 1;
+    static constexpr int kLength = TL == LC ? 0 : 1;
     static constexpr int kChannel = TL == LC ? 1 : 0;
 };
 
-template<TensorLayout TL>
-struct DimToIndex3D
-{
+template <TensorLayout TL>
+struct DimToIndex3D {
     static_assert(TL == HWC || TL == CHW, "unsupported variant!");
-    static constexpr int kWidth   = TL == HWC ? 1 : 2;
-    static constexpr int kHeight  = TL == HWC ? 0 : 1;
+    static constexpr int kWidth = TL == HWC ? 1 : 2;
+    static constexpr int kHeight = TL == HWC ? 0 : 1;
     static constexpr int kChannel = TL == HWC ? 2 : 0;
 };
 
-template<TensorLayout TL>
-struct DimToIndex4D
-{
+template <TensorLayout TL>
+struct DimToIndex4D {
     static_assert(TL == DHWC || TL == DCHW || TL == CDHW, "unsupported variant!");
-    static constexpr int kWidth   = TL == DHWC ? 2 : (TL == DCHW ? 3 : 3);
-    static constexpr int kHeight  = TL == DHWC ? 1 : (TL == DCHW ? 2 : 2);
-    static constexpr int kDepth   = TL == DHWC ? 0 : (TL == DCHW ? 0 : 1);
+    static constexpr int kWidth = TL == DHWC ? 2 : (TL == DCHW ? 3 : 3);
+    static constexpr int kHeight = TL == DHWC ? 1 : (TL == DCHW ? 2 : 2);
+    static constexpr int kDepth = TL == DHWC ? 0 : (TL == DCHW ? 0 : 1);
     static constexpr int kChannel = TL == DHWC ? 3 : (TL == DCHW ? 1 : 0);
 };
 
-template<TensorLayout TL, typename = void>
-struct LayoutToIndex
-{
+template <TensorLayout TL, typename = void>
+struct LayoutToIndex {
 };
 
-template<TensorLayout TL>
-struct LayoutToIndex<TL, typename std::enable_if<TL == LC || TL == CL>::type> : public DimToIndex2D<TL>
-{
+template <TensorLayout TL>
+struct LayoutToIndex<TL, typename std::enable_if<TL == LC || TL == CL>::type> : public DimToIndex2D<TL> {
     static constexpr int kDimCount = 2;
 };
 
-template<TensorLayout TL>
-struct LayoutToIndex<TL, typename std::enable_if<TL == HWC || TL == CHW>::type> : public DimToIndex3D<TL>
-{
+template <TensorLayout TL>
+struct LayoutToIndex<TL, typename std::enable_if<TL == HWC || TL == CHW>::type> : public DimToIndex3D<TL> {
     static constexpr int kDimCount = 3;
 };
 
-template<TensorLayout TL>
+template <TensorLayout TL>
 struct LayoutToIndex<TL, typename std::enable_if<TL == DHWC || TL == DCHW || TL == CDHW>::type>
-    : public DimToIndex4D<TL>
-{
+    : public DimToIndex4D<TL> {
     static constexpr int kDimCount = 4;
 };
 
-template<ChannelType CT>
-struct ChannelTypeToNative
-{
+template <ChannelType CT>
+struct ChannelTypeToNative {
 };
 
-template<>
-struct ChannelTypeToNative<U8>
-{
+template <>
+struct ChannelTypeToNative<U8> {
     using Type = std::uint8_t;
 };
 
-template<>
-struct ChannelTypeToNative<U16>
-{
+template <>
+struct ChannelTypeToNative<U16> {
     using Type = std::uint16_t;
 };
 
-template<>
-struct ChannelTypeToNative<F32>
-{
+template <>
+struct ChannelTypeToNative<F32> {
     using Type = float;
 };
 
-template<>
-struct ChannelTypeToNative<F16>
-{
+template <>
+struct ChannelTypeToNative<F16> {
     using Type = cvcore::half;
 };
 
-template<>
-struct ChannelTypeToNative<F64>
-{
+template <>
+struct ChannelTypeToNative<F64> {
     using Type = double;
 };
 
-template<ChannelCount CC>
-std::size_t ChannelToCount()
-{
-    switch (CC)
-    {
-    case C1:
-        return 1;
-    case C2:
-        return 2;
-    case C3:
-        return 3;
-    case C4:
-        return 4;
+template <ChannelCount CC>
+std::size_t ChannelToCount() {
+    switch (CC) {
+        case C1:
+            return 1;
+        case C2:
+            return 2;
+        case C3:
+            return 3;
+        case C4:
+            return 4;
     }
-    return 0; // this is safe as this function will never be called for dynamic channel counts
+    return 0;  // this is safe as this function will never be called for dynamic channel counts
 }
 
 /**
@@ -358,12 +337,11 @@ std::size_t ChannelToCount()
  * @tparam TL tensor layout type.
  * @tparam CT channel type.
  */
-template<TensorLayout TL, ChannelType CT>
-class Tensor2D : public TensorBase
-{
+template <TensorLayout TL, ChannelType CT>
+class Tensor2D : public TensorBase {
     using DataType = typename ChannelTypeToNative<CT>::Type;
 
-public:
+   public:
     /**
      * Default Constructor.
      */
@@ -375,8 +353,7 @@ public:
      * @param isCPU whether to allocate tensor on CPU or GPU.
      */
     Tensor2D(std::initializer_list<DimData> dimData, bool isCPU)
-        : TensorBase(CT, dimData, isCPU)
-    {
+        : TensorBase(CT, dimData, isCPU) {
     }
 
     /**
@@ -386,16 +363,14 @@ public:
      * @param isCPU whether to allocate tensor on CPU or GPU.
      */
     Tensor2D(std::initializer_list<DimData> dimData, DataType *dataPtr, bool isCPU)
-        : TensorBase(CT, dimData, dataPtr, isCPU)
-    {
+        : TensorBase(CT, dimData, dataPtr, isCPU) {
     }
 
     /**
      * Get the length of the 2D tensor.
      * @return length of the 2D tensor.
      */
-    std::size_t getLength() const
-    {
+    std::size_t getLength() const {
         return getSize(DimToIndex2D<TL>::kLength);
     }
 
@@ -403,8 +378,7 @@ public:
      * Get the channel count of the 2D tensor.
      * @return channel count of the 2D tensor.
      */
-    std::size_t getChannelCount() const
-    {
+    std::size_t getChannelCount() const {
         return getSize(DimToIndex2D<TL>::kChannel);
     }
 
@@ -418,15 +392,13 @@ public:
      * @param dim tensor dimension.
      * @return tensor stride of the given dimension.
      */
-    std::size_t getStride(TensorDimension dim) const
-    {
-        switch (dim)
-        {
-        case TensorDimension::LENGTH:
-            return getStride(DimToIndex2D<TL>::kLength);
-        case TensorDimension::CHANNEL:
-            return getStride(DimToIndex2D<TL>::kChannel);
-        default:
+    std::size_t getStride(TensorDimension dim) const {
+        switch (dim) {
+            case TensorDimension::LENGTH:
+                return getStride(DimToIndex2D<TL>::kLength);
+            case TensorDimension::CHANNEL:
+                return getStride(DimToIndex2D<TL>::kChannel);
+            default:
                 throw std::out_of_range("cvcore::Tensor2D::getStride ==> Requested TensorDimension is out of bounds");
         }
     }
@@ -435,8 +407,7 @@ public:
      * Get the raw data pointer to the 2D tensor.
      * @return data pointer to the 2D tensor.
      */
-    DataType *getData()
-    {
+    DataType *getData() {
         return reinterpret_cast<DataType *>(TensorBase::getData());
     }
 
@@ -444,8 +415,7 @@ public:
      * Get the const raw data pointer to the 2D tensor.
      * @return const data pointer to the 2D tensor.
      */
-    const DataType *getData() const
-    {
+    const DataType *getData() const {
         return reinterpret_cast<DataType *>(TensorBase::getData());
     }
 };
@@ -455,12 +425,11 @@ public:
  * @tparam TL tensor layout type.
  * @tparam CT channel type.
  */
-template<TensorLayout TL, ChannelType CT>
-class Tensor3D : public TensorBase
-{
+template <TensorLayout TL, ChannelType CT>
+class Tensor3D : public TensorBase {
     using DataType = typename ChannelTypeToNative<CT>::Type;
 
-public:
+   public:
     /**
      * Default Constructor.
      */
@@ -472,8 +441,7 @@ public:
      * @param isCPU whether to allocate tensor on CPU or GPU.
      */
     Tensor3D(std::initializer_list<DimData> dimData, bool isCPU)
-        : TensorBase(CT, dimData, isCPU)
-    {
+        : TensorBase(CT, dimData, isCPU) {
     }
 
     /**
@@ -483,16 +451,14 @@ public:
      * @param isCPU whether to allocate tensor on CPU or GPU.
      */
     Tensor3D(std::initializer_list<DimData> dimData, DataType *dataPtr, bool isCPU)
-        : TensorBase(CT, dimData, dataPtr, isCPU)
-    {
+        : TensorBase(CT, dimData, dataPtr, isCPU) {
     }
 
     /**
      * Get the width of the 3D tensor.
      * @return width of the 3D tensor.
      */
-    std::size_t getWidth() const
-    {
+    std::size_t getWidth() const {
         return getSize(DimToIndex3D<TL>::kWidth);
     }
 
@@ -500,8 +466,7 @@ public:
      * Get the height of the 3D tensor.
      * @return height of the 3D tensor.
      */
-    std::size_t getHeight() const
-    {
+    std::size_t getHeight() const {
         return getSize(DimToIndex3D<TL>::kHeight);
     }
 
@@ -509,8 +474,7 @@ public:
      * Get the channel count of the 3D tensor.
      * @return channel count of the 3D tensor.
      */
-    std::size_t getChannelCount() const
-    {
+    std::size_t getChannelCount() const {
         return getSize(DimToIndex3D<TL>::kChannel);
     }
 
@@ -524,17 +488,15 @@ public:
      * @param dim tensor dimension.
      * @return tensor stride of the given dimension.
      */
-    std::size_t getStride(TensorDimension dim) const
-    {
-        switch (dim)
-        {
-        case TensorDimension::HEIGHT:
-            return getStride(DimToIndex3D<TL>::kHeight);
-        case TensorDimension::WIDTH:
-            return getStride(DimToIndex3D<TL>::kWidth);
-        case TensorDimension::CHANNEL:
-            return getStride(DimToIndex3D<TL>::kChannel);
-        default:
+    std::size_t getStride(TensorDimension dim) const {
+        switch (dim) {
+            case TensorDimension::HEIGHT:
+                return getStride(DimToIndex3D<TL>::kHeight);
+            case TensorDimension::WIDTH:
+                return getStride(DimToIndex3D<TL>::kWidth);
+            case TensorDimension::CHANNEL:
+                return getStride(DimToIndex3D<TL>::kChannel);
+            default:
                 throw std::out_of_range("cvcore::Tensor3D::getStride ==> Requested TensorDimension is out of bounds");
         }
     }
@@ -543,8 +505,7 @@ public:
      * Get the raw data pointer to the 3D tensor.
      * @return data pointer to the 3D tensor.
      */
-    DataType *getData()
-    {
+    DataType *getData() {
         return reinterpret_cast<DataType *>(TensorBase::getData());
     }
 
@@ -552,8 +513,7 @@ public:
      * Get the const raw data pointer to the 3D tensor.
      * @return const data pointer to the 3D tensor.
      */
-    const DataType *getData() const
-    {
+    const DataType *getData() const {
         return reinterpret_cast<DataType *>(TensorBase::getData());
     }
 };
@@ -563,12 +523,11 @@ public:
  * @tparam TL tensor layout type.
  * @tparam CT channel type.
  */
-template<TensorLayout TL, ChannelType CT>
-class Tensor4D : public TensorBase
-{
+template <TensorLayout TL, ChannelType CT>
+class Tensor4D : public TensorBase {
     using DataType = typename ChannelTypeToNative<CT>::Type;
 
-public:
+   public:
     /**
      * Default Constructor.
      */
@@ -580,8 +539,7 @@ public:
      * @param isCPU whether to allocate tensor on CPU or GPU.
      */
     Tensor4D(std::initializer_list<DimData> dimData, bool isCPU)
-        : TensorBase(CT, dimData, isCPU)
-    {
+        : TensorBase(CT, dimData, isCPU) {
     }
 
     /**
@@ -591,16 +549,14 @@ public:
      * @param isCPU whether to allocate tensor on CPU or GPU.
      */
     Tensor4D(std::initializer_list<DimData> dimData, DataType *dataPtr, bool isCPU)
-        : TensorBase(CT, dimData, dataPtr, isCPU)
-    {
+        : TensorBase(CT, dimData, dataPtr, isCPU) {
     }
 
     /**
      * Get the width of the 4D tensor.
      * @return width of the 4D tensor.
      */
-    std::size_t getWidth() const
-    {
+    std::size_t getWidth() const {
         return getSize(DimToIndex4D<TL>::kWidth);
     }
 
@@ -608,8 +564,7 @@ public:
      * Get the height of the 4D tensor.
      * @return height of the 4D tensor.
      */
-    std::size_t getHeight() const
-    {
+    std::size_t getHeight() const {
         return getSize(DimToIndex4D<TL>::kHeight);
     }
 
@@ -617,8 +572,7 @@ public:
      * Get the depth of the 4D tensor.
      * @return depth of the 4D tensor.
      */
-    std::size_t getDepth() const
-    {
+    std::size_t getDepth() const {
         return getSize(DimToIndex4D<TL>::kDepth);
     }
 
@@ -626,8 +580,7 @@ public:
      * Get the channel count of the 4D tensor.
      * @return channel count of the 4D tensor.
      */
-    std::size_t getChannelCount() const
-    {
+    std::size_t getChannelCount() const {
         return getSize(DimToIndex4D<TL>::kChannel);
     }
 
@@ -641,20 +594,18 @@ public:
      * @param dim tensor dimension.
      * @return tensor stride of the given dimension.
      */
-    std::size_t getStride(TensorDimension dim) const
-    {
-        switch (dim)
-        {
-        case TensorDimension::HEIGHT:
-            return getStride(DimToIndex4D<TL>::kHeight);
-        case TensorDimension::WIDTH:
-            return getStride(DimToIndex4D<TL>::kWidth);
-        case TensorDimension::CHANNEL:
-            return getStride(DimToIndex4D<TL>::kChannel);
-        case TensorDimension::DEPTH:
-            return getStride(DimToIndex4D<TL>::kDepth);
-        default:
-            throw std::out_of_range("cvcore::Tensor4D::getStride ==> Requested TensorDimension is out of bounds");
+    std::size_t getStride(TensorDimension dim) const {
+        switch (dim) {
+            case TensorDimension::HEIGHT:
+                return getStride(DimToIndex4D<TL>::kHeight);
+            case TensorDimension::WIDTH:
+                return getStride(DimToIndex4D<TL>::kWidth);
+            case TensorDimension::CHANNEL:
+                return getStride(DimToIndex4D<TL>::kChannel);
+            case TensorDimension::DEPTH:
+                return getStride(DimToIndex4D<TL>::kDepth);
+            default:
+                throw std::out_of_range("cvcore::Tensor4D::getStride ==> Requested TensorDimension is out of bounds");
         }
     }
 
@@ -662,8 +613,7 @@ public:
      * Get the raw data pointer to the 4D tensor.
      * @return data pointer to the 4D tensor.
      */
-    DataType *getData()
-    {
+    DataType *getData() {
         return reinterpret_cast<DataType *>(TensorBase::getData());
     }
 
@@ -671,15 +621,14 @@ public:
      * Get the const raw data pointer to the 4D tensor.
      * @return const data pointer to the 4D tensor.
      */
-    const DataType *getData() const
-    {
+    const DataType *getData() const {
         return reinterpret_cast<DataType *>(TensorBase::getData());
     }
 };
 
-} // namespace detail
+}  // namespace detail
 
-template<TensorLayout TL, ChannelCount CC, ChannelType CT>
+template <TensorLayout TL, ChannelCount CC, ChannelType CT>
 class Tensor;
 
 // 2D Tensors
@@ -689,39 +638,34 @@ class Tensor;
  * @tparam CC channel count.
  * @tparam CT channel type.
  */
-template<ChannelCount CC, ChannelType CT>
-class Tensor<LC, CC, CT> : public detail::Tensor2D<LC, CT>
-{
-public:
+template <ChannelCount CC, ChannelType CT>
+class Tensor<LC, CC, CT> : public detail::Tensor2D<LC, CT> {
+   public:
     using DataType = typename detail::ChannelTypeToNative<CT>::Type;
 
     static constexpr ChannelCount kChannelCount = CC;
-    
+
     Tensor() = default;
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
     Tensor(std::size_t length, bool isCPU = true)
-        : detail::Tensor2D<LC, CT>({{length, detail::ChannelToCount<CC>()}, {detail::ChannelToCount<CC>(), 1}}, isCPU)
-    {
+        : detail::Tensor2D<LC, CT>({{length, detail::ChannelToCount<CC>()}, {detail::ChannelToCount<CC>(), 1}}, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
     Tensor(std::size_t length, std::size_t channelCount, bool isCPU = true)
-        : detail::Tensor2D<LC, CT>({{length, channelCount}, {channelCount, 1}}, isCPU)
-    {
+        : detail::Tensor2D<LC, CT>({{length, channelCount}, {channelCount, 1}}, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
     Tensor(std::size_t length, DataType *dataPtr, bool isCPU = true)
         : detail::Tensor2D<LC, CT>({{length, detail::ChannelToCount<CC>()}, {detail::ChannelToCount<CC>(), 1}}, dataPtr,
-                                   isCPU)
-    {
+                                   isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
     Tensor(std::size_t length, std::size_t channelCount, DataType *dataPtr, bool isCPU = true)
-        : detail::Tensor2D<LC, CT>({{length, channelCount}, {channelCount, 1}}, dataPtr, isCPU)
-    {
+        : detail::Tensor2D<LC, CT>({{length, channelCount}, {channelCount, 1}}, dataPtr, isCPU) {
     }
 };
 
@@ -730,38 +674,33 @@ public:
  * @tparam CC channel count.
  * @tparam CT channel type.
  */
-template<ChannelCount CC, ChannelType CT>
-class Tensor<CL, CC, CT> : public detail::Tensor2D<CL, CT>
-{
-public:
+template <ChannelCount CC, ChannelType CT>
+class Tensor<CL, CC, CT> : public detail::Tensor2D<CL, CT> {
+   public:
     using DataType = typename detail::ChannelTypeToNative<CT>::Type;
 
     static constexpr ChannelCount kChannelCount = CC;
-    
+
     Tensor() = default;
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
     Tensor(std::size_t length, bool isCPU = true)
-        : detail::Tensor2D<CL, CT>({{detail::ChannelToCount<CC>(), length}, {length, 1}}, isCPU)
-    {
+        : detail::Tensor2D<CL, CT>({{detail::ChannelToCount<CC>(), length}, {length, 1}}, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
     Tensor(std::size_t length, std::size_t channelCount, bool isCPU = true)
-        : detail::Tensor2D<CL, CT>({{channelCount, length}, {length, 1}}, isCPU)
-    {
+        : detail::Tensor2D<CL, CT>({{channelCount, length}, {length, 1}}, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
     Tensor(std::size_t length, DataType *dataPtr, bool isCPU = true)
-        : detail::Tensor2D<CL, CT>({{detail::ChannelToCount<CC>(), length}, {length, 1}}, dataPtr, isCPU)
-    {
+        : detail::Tensor2D<CL, CT>({{detail::ChannelToCount<CC>(), length}, {length, 1}}, dataPtr, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
     Tensor(std::size_t length, std::size_t channelCount, DataType *dataPtr, bool isCPU = true)
-        : detail::Tensor2D<CL, CT>({{channelCount, length}, {length, 1}}, dataPtr, isCPU)
-    {
+        : detail::Tensor2D<CL, CT>({{channelCount, length}, {length, 1}}, dataPtr, isCPU) {
     }
 };
 
@@ -772,74 +711,65 @@ public:
  * @tparam CC channel count.
  * @tparam CT channel type.
  */
-template<ChannelCount CC, ChannelType CT>
-class Tensor<HWC, CC, CT> : public detail::Tensor3D<HWC, CT>
-{
-public:
+template <ChannelCount CC, ChannelType CT>
+class Tensor<HWC, CC, CT> : public detail::Tensor3D<HWC, CT> {
+   public:
     using DataType = typename detail::ChannelTypeToNative<CT>::Type;
 
     static constexpr ChannelCount kChannelCount = CC;
-    
+
     Tensor() = default;
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, B isCPU = true)
         : detail::Tensor3D<HWC, CT>({{height, width * detail::ChannelToCount<CC>()},
                                      {width, detail::ChannelToCount<CC>()},
                                      {detail::ChannelToCount<CC>(), 1}},
-                                    isCPU)
-    {
+                                    isCPU) {
     }
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, std::size_t channelCount, B isCPU = true)
-        : detail::Tensor3D<HWC, CT>({{height, width * channelCount}, {width, channelCount}, {channelCount, 1}}, isCPU)
-    {
+        : detail::Tensor3D<HWC, CT>({{height, width * channelCount}, {width, channelCount}, {channelCount, 1}}, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, DataType *dataPtr, B isCPU = true)
         : detail::Tensor3D<HWC, CT>({{height, width * detail::ChannelToCount<CC>()},
                                      {width, detail::ChannelToCount<CC>()},
                                      {detail::ChannelToCount<CC>(), 1}},
-                                    dataPtr, isCPU)
-    {
+                                    dataPtr, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, std::size_t rowPitch, DataType *dataPtr, B isCPU = true)
         : detail::Tensor3D<HWC, CT>({{height, rowPitch / GetChannelSize(CT)},
                                      {width, detail::ChannelToCount<CC>()},
                                      {detail::ChannelToCount<CC>(), 1}},
-                                    dataPtr, isCPU)
-    {
-        if(rowPitch % GetChannelSize(CT) != 0)
-        {
+                                    dataPtr, isCPU) {
+        if (rowPitch % GetChannelSize(CT) != 0) {
             throw std::domain_error("cvcore::Tensor<HWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
         }
     }
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, std::size_t channelCount, DataType *dataPtr, B isCPU = true)
         : detail::Tensor3D<HWC, CT>({{height, width * channelCount}, {width, channelCount}, {channelCount, 1}}, dataPtr,
-                                    isCPU)
-    {
+                                    isCPU) {
     }
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, std::size_t channelCount, std::size_t rowPitch, DataType *dataPtr,
            B isCPU = true)
         : detail::Tensor3D<HWC, CT>({{height, rowPitch / GetChannelSize(CT)}, {width, channelCount}, {channelCount, 1}},
-                                    dataPtr, isCPU)
-    {
-        if(rowPitch % GetChannelSize(CT) != 0)
-        {
+                                    dataPtr, isCPU) {
+        if (rowPitch % GetChannelSize(CT) != 0) {
             throw std::domain_error("cvcore::Tensor<HWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
         }
     }
@@ -850,40 +780,35 @@ public:
  * @tparam CC channel count.
  * @tparam CT channel type.
  */
-template<ChannelCount CC, ChannelType CT>
-class Tensor<CHW, CC, CT> : public detail::Tensor3D<CHW, CT>
-{
-public:
+template <ChannelCount CC, ChannelType CT>
+class Tensor<CHW, CC, CT> : public detail::Tensor3D<CHW, CT> {
+   public:
     using DataType = typename detail::ChannelTypeToNative<CT>::Type;
 
     static constexpr ChannelCount kChannelCount = CC;
-    
+
     Tensor() = default;
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
     Tensor(std::size_t width, std::size_t height, bool isCPU = true)
         : detail::Tensor3D<CHW, CT>({{detail::ChannelToCount<CC>(), width * height}, {height, width}, {width, 1}},
-                                    isCPU)
-    {
+                                    isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
     Tensor(std::size_t width, std::size_t height, std::size_t channelCount, bool isCPU = true)
-        : detail::Tensor3D<CHW, CT>({{channelCount, width * height}, {height, width}, {width, 1}}, isCPU)
-    {
+        : detail::Tensor3D<CHW, CT>({{channelCount, width * height}, {height, width}, {width, 1}}, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
     Tensor(std::size_t width, std::size_t height, DataType *dataPtr, bool isCPU = true)
         : detail::Tensor3D<CHW, CT>({{detail::ChannelToCount<CC>(), width * height}, {height, width}, {width, 1}},
-                                    dataPtr, isCPU)
-    {
+                                    dataPtr, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
     Tensor(std::size_t width, std::size_t height, std::size_t channelCount, DataType *dataPtr, bool isCPU = true)
-        : detail::Tensor3D<CHW, CT>({{channelCount, width * height}, {height, width}, {width, 1}}, dataPtr, isCPU)
-    {
+        : detail::Tensor3D<CHW, CT>({{channelCount, width * height}, {height, width}, {width, 1}}, dataPtr, isCPU) {
     }
 };
 
@@ -894,89 +819,80 @@ public:
  * @tparam CC channel count.
  * @tparam CT channel type.
  */
-template<ChannelCount CC, ChannelType CT>
-class Tensor<DHWC, CC, CT> : public detail::Tensor4D<DHWC, CT>
-{
-public:
+template <ChannelCount CC, ChannelType CT>
+class Tensor<DHWC, CC, CT> : public detail::Tensor4D<DHWC, CT> {
+   public:
     using DataType = typename detail::ChannelTypeToNative<CT>::Type;
 
     static constexpr ChannelCount kChannelCount = CC;
-    
+
     Tensor() = default;
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, B isCPU = true)
         : detail::Tensor4D<DHWC, CT>({{depth, height * width * detail::ChannelToCount<CC>()},
                                       {height, width * detail::ChannelToCount<CC>()},
                                       {width, detail::ChannelToCount<CC>()},
                                       {detail::ChannelToCount<CC>(), 1}},
-                                     isCPU)
-    {
+                                     isCPU) {
     }
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t channelCount, B isCPU = true)
         : detail::Tensor4D<DHWC, CT>({{depth, height * width * channelCount},
                                       {height, width * channelCount},
                                       {width, channelCount},
                                       {channelCount, 1}},
-                                     isCPU)
-    {
+                                     isCPU) {
     }
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, DataType *dataPtr, B isCPU = true)
         : detail::Tensor4D<DHWC, CT>({{depth, height * width * detail::ChannelToCount<CC>()},
                                       {height, width * detail::ChannelToCount<CC>()},
                                       {width, detail::ChannelToCount<CC>()},
                                       {detail::ChannelToCount<CC>(), 1}},
-                                     dataPtr, isCPU)
-    {
+                                     dataPtr, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t rowPitch, DataType *dataPtr,
            B isCPU = true)
         : detail::Tensor4D<DHWC, CT>({{depth, height * rowPitch / GetChannelSize(CT)},
                                       {height, rowPitch / GetChannelSize(CT)},
                                       {width, detail::ChannelToCount<CC>()},
                                       {detail::ChannelToCount<CC>(), 1}},
-                                     dataPtr, isCPU)
-    {
-        if(rowPitch % GetChannelSize(CT) != 0)
-        {
+                                     dataPtr, isCPU) {
+        if (rowPitch % GetChannelSize(CT) != 0) {
             throw std::domain_error("cvcore::Tensor<DHWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
         }
     }
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t channelCount, DataType *dataPtr,
            B isCPU = true)
         : detail::Tensor4D<DHWC, CT>({{depth, height * width * channelCount},
                                       {height, width * channelCount},
                                       {width, channelCount},
                                       {channelCount, 1}},
-                                     dataPtr, isCPU)
-    {
+                                     dataPtr, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename B = bool,
-             typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
+    template <ChannelCount T = CC, typename B = bool,
+              typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t channelCount, std::size_t rowPitch,
            DataType *dataPtr, B isCPU = true)
         : detail::Tensor4D<DHWC, CT>({{depth, height * rowPitch / GetChannelSize(CT)},
                                       {height, rowPitch / GetChannelSize(CT)},
                                       {width, channelCount},
                                       {channelCount, 1}},
-                                     dataPtr, isCPU)
-    {
-        if(rowPitch % GetChannelSize(CT) != 0)
-        {
+                                     dataPtr, isCPU) {
+        if (rowPitch % GetChannelSize(CT) != 0) {
             throw std::domain_error("cvcore::Tensor<DHWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
         }
     }
@@ -987,51 +903,46 @@ public:
  * @tparam CC channel count.
  * @tparam CT channel type.
  */
-template<ChannelCount CC, ChannelType CT>
-class Tensor<DCHW, CC, CT> : public detail::Tensor4D<DCHW, CT>
-{
-public:
+template <ChannelCount CC, ChannelType CT>
+class Tensor<DCHW, CC, CT> : public detail::Tensor4D<DCHW, CT> {
+   public:
     using DataType = typename detail::ChannelTypeToNative<CT>::Type;
 
     static constexpr ChannelCount kChannelCount = CC;
-    
+
     Tensor() = default;
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, bool isCPU = true)
         : detail::Tensor4D<DCHW, CT>({{depth, detail::ChannelToCount<CC>() * width * height},
                                       {detail::ChannelToCount<CC>(), width * height},
                                       {height, width},
                                       {width, 1}},
-                                     isCPU)
-    {
+                                     isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t channelCount, bool isCPU = true)
         : detail::Tensor4D<DCHW, CT>(
               {{depth, channelCount * width * height}, {channelCount, width * height}, {height, width}, {width, 1}},
-              isCPU)
-    {
+              isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, DataType *dataPtr, bool isCPU = true)
         : detail::Tensor4D<DCHW, CT>({{depth, detail::ChannelToCount<CC>() * width * height},
                                       {detail::ChannelToCount<CC>(), width * height},
                                       {height, width},
                                       {width, 1}},
-                                     dataPtr, isCPU)
-    {
+                                     dataPtr, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t channelCount, DataType *dataPtr,
            bool isCPU = true)
         : detail::Tensor4D<DCHW, CT>(
               {{depth, channelCount * width * height}, {channelCount, width * height}, {height, width}, {width, 1}},
-              dataPtr, isCPU)
-    {
+              dataPtr, isCPU) {
     }
 };
 
@@ -1040,53 +951,48 @@ public:
  * @tparam CC channel count.
  * @tparam CT channel type.
  */
-template<ChannelCount CC, ChannelType CT>
-class Tensor<CDHW, CC, CT> : public detail::Tensor4D<CDHW, CT>
-{
-public:
+template <ChannelCount CC, ChannelType CT>
+class Tensor<CDHW, CC, CT> : public detail::Tensor4D<CDHW, CT> {
+   public:
     using DataType = typename detail::ChannelTypeToNative<CT>::Type;
 
     static constexpr ChannelCount kChannelCount = CC;
-    
+
     Tensor() = default;
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, bool isCPU = true)
         : detail::Tensor4D<CDHW, CT>({{detail::ChannelToCount<CC>(), depth * width * height},
                                       {depth, width * height},
                                       {height, width},
                                       {width, 1}},
-                                     isCPU)
-    {
+                                     isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t channelCount, bool isCPU = true)
         : detail::Tensor4D<CDHW, CT>(
-              {{channelCount, depth * width * height}, {depth, width * height}, {height, width}, {width, 1}}, isCPU)
-    {
+              {{channelCount, depth * width * height}, {depth, width * height}, {height, width}, {width, 1}}, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T != CX>::type>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, DataType *dataPtr, bool isCPU = true)
         : detail::Tensor4D<CDHW, CT>({{detail::ChannelToCount<CC>(), depth * width * height},
                                       {depth, width * height},
                                       {height, width},
                                       {width, 1}},
-                                     dataPtr, isCPU)
-    {
+                                     dataPtr, isCPU) {
     }
 
-    template<ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
+    template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
     Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t channelCount, DataType *dataPtr,
            bool isCPU = true)
         : detail::Tensor4D<CDHW, CT>(
               {{channelCount, depth * width * height}, {depth, width * height}, {height, width}, {width, 1}}, dataPtr,
-              isCPU)
-    {
+              isCPU) {
     }
 };
 
-} // namespace cvcore
+}  // namespace cvcore
 
-#endif // CVCORE_TENSOR_H
+#endif  // CVCORE_TENSOR_H

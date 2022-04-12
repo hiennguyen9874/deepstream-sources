@@ -22,15 +22,16 @@
 
 #pragma once
 
-#include <string>
-#include <iostream>
 #include <chrono>
+#include <iostream>
+#include <string>
 #include <vector>
 
 class CaptureTimeRules {
     typedef std::chrono::time_point<std::chrono::system_clock> t_time_pt;
     typedef std::chrono::duration<unsigned long long> t_duration;
-public:
+
+   public:
     /// Fills the time rules with the content of the file in path
     /// \param path containing the time rules
     /// \param default_second_interval When no rules are present for a
@@ -45,7 +46,7 @@ public:
     /// False otherwise
     bool is_init_();
 
-private:
+   private:
     struct TimeRule {
         unsigned begin_time_hour;
         unsigned begin_time_minute;
@@ -63,17 +64,17 @@ private:
     /// timestamps
     static bool isInTimeRule(const TimeRule &t, const tm &now);
 
-    enum ParseResult{
+    enum ParseResult {
         PARSE_RESULT_OK,
         PARSE_RESULT_BAD_CHARS,
         PARSE_RESULT_OUT_OF_BOUND,
         PARSE_RESULT_EMPTY
     };
 
-    static ParseResult stoi_err_handling(unsigned& dst, const std::string &src, unsigned max_bound);
-    static bool parsing_contains_error(const std::vector<ParseResult>& parse_res_list,
-            const std::vector<std::string>& str_list, const std::string& curr_line,
-                             unsigned line_number);
+    static ParseResult stoi_err_handling(unsigned &dst, const std::string &src, unsigned max_bound);
+    static bool parsing_contains_error(const std::vector<ParseResult> &parse_res_list,
+                                       const std::vector<std::string> &str_list, const std::string &curr_line,
+                                       unsigned line_number);
     bool single_time_rule_parser(const std::string &path, const std::string &line,
                                  unsigned line_number);
 
@@ -83,5 +84,3 @@ private:
     std::vector<TimeRule> rules_;
     bool init_ = false;
 };
-
-

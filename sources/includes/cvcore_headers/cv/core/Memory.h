@@ -12,6 +12,7 @@
 #define CVCORE_MEMORY_H
 
 #include <cuda_runtime.h>
+
 #include "Tensor.h"
 
 namespace cvcore {
@@ -46,10 +47,9 @@ void TensorBaseCopy2D(TensorBase &dst, const TensorBase &src, int dstPitch, int 
  * @param src source Tensor which copy from.
  * @param stream cuda stream.
  */
-template<TensorLayout TL, ChannelCount CC, ChannelType CT,
-         typename std::enable_if<TL != HWC && TL != NHWC>::type * = nullptr>
-void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t stream = 0)
-{
+template <TensorLayout TL, ChannelCount CC, ChannelType CT,
+          typename std::enable_if<TL != HWC && TL != NHWC>::type * = nullptr>
+void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t stream = 0) {
     TensorBaseCopy(dst, src, stream);
 }
 
@@ -62,9 +62,8 @@ void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t s
  * @param src source Tensor which copy from.
  * @param stream cuda stream.
  */
-template<TensorLayout TL, ChannelCount CC, ChannelType CT, typename std::enable_if<TL == HWC>::type * = nullptr>
-void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t stream = 0)
-{
+template <TensorLayout TL, ChannelCount CC, ChannelType CT, typename std::enable_if<TL == HWC>::type * = nullptr>
+void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t stream = 0) {
     TensorBaseCopy2D(dst, src, dst.getStride(TensorDimension::HEIGHT) * GetChannelSize(CT),
                      src.getStride(TensorDimension::HEIGHT) * GetChannelSize(CT),
                      dst.getWidth() * dst.getChannelCount() * GetChannelSize(CT), src.getHeight(), stream);
@@ -79,15 +78,14 @@ void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t s
  * @param src source Tensor which copy from.
  * @param stream cuda stream.
  */
-template<TensorLayout TL, ChannelCount CC, ChannelType CT, typename std::enable_if<TL == NHWC>::type * = nullptr>
-void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t stream = 0)
-{
+template <TensorLayout TL, ChannelCount CC, ChannelType CT, typename std::enable_if<TL == NHWC>::type * = nullptr>
+void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t stream = 0) {
     TensorBaseCopy2D(dst, src, dst.getStride(TensorDimension::HEIGHT) * GetChannelSize(CT),
                      src.getStride(TensorDimension::HEIGHT) * GetChannelSize(CT),
                      dst.getWidth() * dst.getChannelCount() * GetChannelSize(CT), src.getDepth() * src.getHeight(),
                      stream);
 }
 
-} // namespace cvcore
+}  // namespace cvcore
 
-#endif // CVCORE_MEMORY_H
+#endif  // CVCORE_MEMORY_H

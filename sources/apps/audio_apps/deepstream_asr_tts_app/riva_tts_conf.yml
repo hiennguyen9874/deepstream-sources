@@ -43,13 +43,13 @@ detail:
   #     Suitable for non-live sinks like wavenc.
   # 1 : Insert silence mode: Insert silence in the output when audio from
   #     server is not available, useful for live outputs like pulsesink.
-  output_mode : 1
+  output_mode: 1
   # Framing modes: [0, 1, 2]
   # 0 : Default mode: use the chunk size as provided by Riva server.
   # 1 : Split mode: Split the server response in to the configured frame size.
   #     Last chunk of the response is not padded.
   # 2 : Split with padding mode: Split the server response in to configured frame
   #     size, pad last chunk with zeros if less than frame size.
-  framing_mode : 2
+  framing_mode: 2
   # Output frame size in number of samples
-  frame_size : 4410
+  frame_size: 4410

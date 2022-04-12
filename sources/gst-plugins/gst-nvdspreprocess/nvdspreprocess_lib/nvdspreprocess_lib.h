@@ -57,36 +57,31 @@
 /**
  * Custom transformation function for group
  */
-extern "C"
-NvDsPreProcessStatus CustomTransformation(NvBufSurface *in_surf,
-                                          NvBufSurface *out_surf,
-                                          CustomTransformParams &params);
+extern "C" NvDsPreProcessStatus CustomTransformation(NvBufSurface *in_surf,
+                                                     NvBufSurface *out_surf,
+                                                     CustomTransformParams &params);
 
 /**
  * Custom Asynchronus group transformation function
  */
-extern "C"
-NvDsPreProcessStatus CustomAsyncTransformation(NvBufSurface *in_surf,
-                                          NvBufSurface *out_surf,
-                                          CustomTransformParams &params);
+extern "C" NvDsPreProcessStatus CustomAsyncTransformation(NvBufSurface *in_surf,
+                                                          NvBufSurface *out_surf,
+                                                          CustomTransformParams &params);
 
 /**
  * Custom tensor preparation function for NCHW/NHWC network order
  */
-extern "C"
-NvDsPreProcessStatus CustomTensorPreparation(CustomCtx *ctx, NvDsPreProcessBatch *batch, NvDsPreProcessCustomBuf *&buf,
-                                             CustomTensorParams &tensorParam, NvDsPreProcessAcquirer *acquirer);
+extern "C" NvDsPreProcessStatus CustomTensorPreparation(CustomCtx *ctx, NvDsPreProcessBatch *batch, NvDsPreProcessCustomBuf *&buf,
+                                                        CustomTensorParams &tensorParam, NvDsPreProcessAcquirer *acquirer);
 
 /**
  * custom library initialization function
  */
-extern "C"
-CustomCtx *initLib(CustomInitParams initparams);
+extern "C" CustomCtx *initLib(CustomInitParams initparams);
 
 /**
  * custom library deinitialization function
  */
-extern "C"
-void deInitLib(CustomCtx *ctx);
+extern "C" void deInitLib(CustomCtx *ctx);
 
 #endif

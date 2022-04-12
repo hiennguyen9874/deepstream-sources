@@ -12,11 +12,11 @@
 #ifndef __NVDSINFER_LOGGER_H__
 #define __NVDSINFER_LOGGER_H__
 
-#include <memory>
-#include <mutex>
-
 #include <NvInfer.h>
 #include <nvdsinfer.h>
+
+#include <memory>
+#include <mutex>
 
 #if defined(NDEBUG)
 #define INFER_LOG_FORMAT_(fmt) fmt

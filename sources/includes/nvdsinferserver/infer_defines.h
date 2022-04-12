@@ -14,6 +14,7 @@
 #define __NVDSINFERSERVER_DEFINES_H__
 
 #include <stdarg.h>
+
 #include <cassert>
 #include <condition_variable>
 #include <functional>
@@ -94,15 +95,14 @@
 #define CONTINUE_NVINFER_ERROR(err, fmt, ...) \
     CHECK_NVINFER_ERROR(err, , fmt, ##__VA_ARGS__)
 
-
-#define CHECK_CUDA_ERR_W_ACTION(err, action, logPrint, fmt, ...)                    \
-    do {                                                                  \
-        cudaError_t errnum = (err);                                       \
-        if (errnum != cudaSuccess) {                                      \
+#define CHECK_CUDA_ERR_W_ACTION(err, action, logPrint, fmt, ...)        \
+    do {                                                                \
+        cudaError_t errnum = (err);                                     \
+        if (errnum != cudaSuccess) {                                    \
             logPrint(fmt ", cuda err_no:%d, err_str:%s", ##__VA_ARGS__, \
-                (int)errnum, cudaGetErrorName(errnum));                   \
-            action;                                                       \
-        }                                                                 \
+                     (int)errnum, cudaGetErrorName(errnum));            \
+            action;                                                     \
+        }                                                               \
     } while (0)
 
 #define CHECK_CUDA_ERR_NO_ACTION(err, fmt, ...) \

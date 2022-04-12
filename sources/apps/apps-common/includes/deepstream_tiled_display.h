@@ -24,42 +24,41 @@
 #define __NVGSTDS_TILED_DISPLAY_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <gst/gst.h>
+
 #include "nvll_osd_struct.h"
 
 typedef struct
 {
-  GstElement *bin;
-  GstElement *queue;
-  GstElement *tiler;
+    GstElement *bin;
+    GstElement *queue;
+    GstElement *tiler;
 } NvDsTiledDisplayBin;
 
-typedef enum
-{
-  NV_DS_TILED_DISPLAY_DISABLE = 0,
-  NV_DS_TILED_DISPLAY_ENABLE = 1,
-  /** When user sets tiler group enable=2,
+typedef enum {
+    NV_DS_TILED_DISPLAY_DISABLE = 0,
+    NV_DS_TILED_DISPLAY_ENABLE = 1,
+    /** When user sets tiler group enable=2,
    * all sinks with the key: link-only-to-demux=1
    * shall be linked to demuxer's src_[source_id] pad
    * where source_id is the key set in this
    * corresponding [sink] group
    */
-  NV_DS_TILED_DISPLAY_ENABLE_WITH_PARALLEL_DEMUX = 2
+    NV_DS_TILED_DISPLAY_ENABLE_WITH_PARALLEL_DEMUX = 2
 } NvDsTiledDisplayEnable;
 
 typedef struct
 {
-  NvDsTiledDisplayEnable enable;
-  guint rows;
-  guint columns;
-  guint width;
-  guint height;
-  guint gpu_id;
-  guint nvbuf_memory_type;
+    NvDsTiledDisplayEnable enable;
+    guint rows;
+    guint columns;
+    guint width;
+    guint height;
+    guint gpu_id;
+    guint nvbuf_memory_type;
 } NvDsTiledDisplayConfig;
 
 /**
@@ -75,8 +74,8 @@ typedef struct
  * @return true if bin created successfully.
  */
 gboolean
-create_tiled_display_bin (NvDsTiledDisplayConfig * config,
-                          NvDsTiledDisplayBin * bin);
+create_tiled_display_bin(NvDsTiledDisplayConfig *config,
+                         NvDsTiledDisplayBin *bin);
 
 #ifdef __cplusplus
 }

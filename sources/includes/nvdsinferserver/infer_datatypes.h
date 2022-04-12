@@ -45,9 +45,9 @@ enum class InferMemType : int {
 };
 
 enum class InferDataType : int {
-    kFp32 = FLOAT,  // 0
-    kFp16 = HALF,  // 1
-    kInt8 = INT8,  // 2
+    kFp32 = FLOAT,   // 0
+    kFp16 = HALF,    // 1
+    kInt8 = INT8,    // 2
     kInt32 = INT32,  // 3
     kInt16 = 7,
     kUint8,
@@ -86,21 +86,19 @@ enum class InferMediaFormat : int {
 
 // typedef NvDsInferDims InferDims;
 
-struct InferDims
-{
-  /** Number of dimesions of the layer.*/
-  unsigned int numDims = 0;
-  /** Size of the layer in each dimension. */
-  int d[NVDSINFER_MAX_DIMS] = {0};
-  /** Number of elements in the layer including all dimensions.*/
-  unsigned int numElements = 0;
+struct InferDims {
+    /** Number of dimesions of the layer.*/
+    unsigned int numDims = 0;
+    /** Size of the layer in each dimension. */
+    int d[NVDSINFER_MAX_DIMS] = {0};
+    /** Number of elements in the layer including all dimensions.*/
+    unsigned int numElements = 0;
 };
 
 /**
  * Holds full dimensions (including batch size) for a layer.
  */
-struct InferBatchDims
-{
+struct InferBatchDims {
     int batchSize = 0;
     InferDims dims;
 };
@@ -126,7 +124,7 @@ using SharedIBatchArray = std::shared_ptr<IBatchArray>;
 using SharedIOptions = std::shared_ptr<IOptions>;
 
 class IBatchBuffer {
-public:
+   public:
     IBatchBuffer() = default;
     virtual ~IBatchBuffer() = default;
     virtual const InferBufferDescription& getBufDesc() const = 0;
@@ -134,12 +132,12 @@ public:
     virtual uint32_t getBatchSize() const = 0;
     virtual uint64_t getTotalBytes() const = 0;
 
-private:
+   private:
     DISABLE_CLASS_COPY(IBatchBuffer);
 };
 
 class IBatchArray {
-public:
+   public:
     IBatchArray() = default;
     virtual ~IBatchArray() = default;
     virtual uint32_t getSize() const = 0;
@@ -152,7 +150,7 @@ public:
     virtual void appendIBatchBuf(SharedIBatchBuffer buf) = 0;
     virtual void setIOptions(SharedIOptions o) = 0;
 
-private:
+   private:
     DISABLE_CLASS_COPY(IBatchArray);
 };
 
@@ -166,6 +164,6 @@ struct LayerInfo {
     int maxBatchSize;  // 0=> nonBatching
 };
 
-} // namespace nvdsinferserver
+}  // namespace nvdsinferserver
 
 #endif

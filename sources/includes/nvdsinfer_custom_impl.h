@@ -143,9 +143,8 @@
  * Implementations should make sure that all member functions are overriden.
  * This parser will be deleted after the engine (nvinfer1::ICudaEngine) is built.
  */
-class IModelParser
-{
-public:
+class IModelParser {
+   public:
     IModelParser() = default;
     /**
      * Destructor, make sure all external resource would be released here. */
@@ -160,7 +159,7 @@ public:
      * @return NvDsInferStatus indicating if model parsing was sucessful.
      */
     virtual NvDsInferStatus parseModel(
-        nvinfer1::INetworkDefinition& network) = 0;
+        nvinfer1::INetworkDefinition &network) = 0;
 
     /**
      * Function interface to check if parser can support full-dimensions.
@@ -171,7 +170,7 @@ public:
      * Function interface to get the new model name which is to be used for
      * constructing the serialized engine file path.
      */
-    virtual const char* getModelName() const = 0;
+    virtual const char *getModelName() const = 0;
 };
 #endif
 
@@ -180,8 +179,7 @@ public:
  */
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -189,22 +187,22 @@ extern "C"
  */
 typedef struct
 {
-  /** Holds the number of classes requested to be parsed, starting with
+    /** Holds the number of classes requested to be parsed, starting with
    class ID 0. Parsing functions may only output objects with
    class ID less than this value. */
-  unsigned int numClassesConfigured;
-  /** Holds a per-class vector of detection confidence thresholds
+    unsigned int numClassesConfigured;
+    /** Holds a per-class vector of detection confidence thresholds
    to be applied prior to clustering operation.
    Parsing functions may only output an object with detection confidence
    greater than or equal to the vector element indexed by the object's
    class ID. */
-  std::vector<float> perClassPreclusterThreshold;
-  /* Per class threshold to be applied post clustering operation */
-  std::vector<float> perClassPostclusterThreshold;
+    std::vector<float> perClassPreclusterThreshold;
+    /* Per class threshold to be applied post clustering operation */
+    std::vector<float> perClassPostclusterThreshold;
 
-  /** Deprecated. Use perClassPreclusterThreshold instead. Reference to
+    /** Deprecated. Use perClassPreclusterThreshold instead. Reference to
    * maintain backward compatibility. */
-  std::vector<float> &perClassThreshold = perClassPreclusterThreshold;
+    std::vector<float> &perClassThreshold = perClassPreclusterThreshold;
 } NvDsInferParseDetectionParams;
 
 /**
@@ -218,23 +216,22 @@ typedef struct
  * @param[out] objectList       A reference to a vector in which the function
  *                              is to add parsed objects.
  */
-typedef bool (* NvDsInferParseCustomFunc) (
-        std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-        NvDsInferNetworkInfo  const &networkInfo,
-        NvDsInferParseDetectionParams const &detectionParams,
-        std::vector<NvDsInferObjectDetectionInfo> &objectList);
+typedef bool (*NvDsInferParseCustomFunc)(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    NvDsInferParseDetectionParams const &detectionParams,
+    std::vector<NvDsInferObjectDetectionInfo> &objectList);
 
 /**
  * Validates a custom parser function definition. Must be called
  * after defining the function.
  */
-#define CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(customParseFunc) \
-    static void checkFunc_ ## customParseFunc (NvDsInferParseCustomFunc func = customParseFunc) \
-        { checkFunc_ ## customParseFunc (); }; \
-    extern "C" bool customParseFunc (std::vector<NvDsInferLayerInfo> const &outputLayersInfo, \
-           NvDsInferNetworkInfo  const &networkInfo, \
-           NvDsInferParseDetectionParams const &detectionParams, \
-           std::vector<NvDsInferObjectDetectionInfo> &objectList);
+#define CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(customParseFunc)                                                                       \
+    static void checkFunc_##customParseFunc(NvDsInferParseCustomFunc func = customParseFunc) { checkFunc_##customParseFunc(); }; \
+    extern "C" bool customParseFunc(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,                                     \
+                                    NvDsInferNetworkInfo const &networkInfo,                                                     \
+                                    NvDsInferParseDetectionParams const &detectionParams,                                        \
+                                    std::vector<NvDsInferObjectDetectionInfo> &objectList);
 
 /**
  * Type definition for the custom bounding box and instance mask parsing function.
@@ -247,23 +244,22 @@ typedef bool (* NvDsInferParseCustomFunc) (
  * @param[out] objectList       A reference to a vector in which the function
  *                              is to add parsed objects and instance mask.
  */
-typedef bool (* NvDsInferInstanceMaskParseCustomFunc) (
-        std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-        NvDsInferNetworkInfo  const &networkInfo,
-        NvDsInferParseDetectionParams const &detectionParams,
-        std::vector<NvDsInferInstanceMaskInfo> &objectList);
+typedef bool (*NvDsInferInstanceMaskParseCustomFunc)(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    NvDsInferParseDetectionParams const &detectionParams,
+    std::vector<NvDsInferInstanceMaskInfo> &objectList);
 
 /**
  * Validates a custom parser function definition. Must be called
  * after defining the function.
  */
-#define CHECK_CUSTOM_INSTANCE_MASK_PARSE_FUNC_PROTOTYPE(customParseFunc) \
-    static void checkFunc_ ## customParseFunc (NvDsInferInstanceMaskParseCustomFunc func = customParseFunc) \
-        { checkFunc_ ## customParseFunc (); }; \
-    extern "C" bool customParseFunc (std::vector<NvDsInferLayerInfo> const &outputLayersInfo, \
-           NvDsInferNetworkInfo  const &networkInfo, \
-           NvDsInferParseDetectionParams const &detectionParams, \
-           std::vector<NvDsInferInstanceMaskInfo> &objectList);
+#define CHECK_CUSTOM_INSTANCE_MASK_PARSE_FUNC_PROTOTYPE(customParseFunc)                                                                     \
+    static void checkFunc_##customParseFunc(NvDsInferInstanceMaskParseCustomFunc func = customParseFunc) { checkFunc_##customParseFunc(); }; \
+    extern "C" bool customParseFunc(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,                                                 \
+                                    NvDsInferNetworkInfo const &networkInfo,                                                                 \
+                                    NvDsInferParseDetectionParams const &detectionParams,                                                    \
+                                    std::vector<NvDsInferInstanceMaskInfo> &objectList);
 
 /**
  * Type definition for the custom classifier output parsing function.
@@ -278,25 +274,24 @@ typedef bool (* NvDsInferInstanceMaskParseCustomFunc) (
  * @param[out] descString        A reference to a string object in which the
  *                               function may place a description string.
  */
-typedef bool (* NvDsInferClassiferParseCustomFunc) (
-        std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-        NvDsInferNetworkInfo  const &networkInfo,
-        float classifierThreshold,
-        std::vector<NvDsInferAttribute> &attrList,
-        std::string &descString);
+typedef bool (*NvDsInferClassiferParseCustomFunc)(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    float classifierThreshold,
+    std::vector<NvDsInferAttribute> &attrList,
+    std::string &descString);
 
 /**
  * Validates the classifier custom parser function definition. Must be called
  * after defining the function.
  */
-#define CHECK_CUSTOM_CLASSIFIER_PARSE_FUNC_PROTOTYPE(customParseFunc) \
-    static void checkFunc_ ## customParseFunc (NvDsInferClassiferParseCustomFunc func = customParseFunc) \
-        { checkFunc_ ## customParseFunc (); }; \
-    extern "C" bool customParseFunc (std::vector<NvDsInferLayerInfo> const &outputLayersInfo, \
-           NvDsInferNetworkInfo  const &networkInfo, \
-           float classifierThreshold, \
-           std::vector<NvDsInferAttribute> &attrList, \
-           std::string &descString);
+#define CHECK_CUSTOM_CLASSIFIER_PARSE_FUNC_PROTOTYPE(customParseFunc)                                                                     \
+    static void checkFunc_##customParseFunc(NvDsInferClassiferParseCustomFunc func = customParseFunc) { checkFunc_##customParseFunc(); }; \
+    extern "C" bool customParseFunc(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,                                              \
+                                    NvDsInferNetworkInfo const &networkInfo,                                                              \
+                                    float classifierThreshold,                                                                            \
+                                    std::vector<NvDsInferAttribute> &attrList,                                                            \
+                                    std::string &descString);
 
 typedef struct _NvDsInferContextInitParams NvDsInferContextInitParams;
 
@@ -331,42 +326,39 @@ typedef struct _NvDsInferContextInitParams NvDsInferContextInitParams;
  *                            instance it has built.
  * @return  True if the engine build was successful, or false otherwise.
  */
-typedef bool (* NvDsInferEngineCreateCustomFunc) (
-        nvinfer1::IBuilder * const builder, nvinfer1::IBuilderConfig * const builderConfig,
-        const NvDsInferContextInitParams * const initParams,
-        nvinfer1::DataType dataType,
-        nvinfer1::ICudaEngine *& cudaEngine);
+typedef bool (*NvDsInferEngineCreateCustomFunc)(
+    nvinfer1::IBuilder *const builder, nvinfer1::IBuilderConfig *const builderConfig,
+    const NvDsInferContextInitParams *const initParams,
+    nvinfer1::DataType dataType,
+    nvinfer1::ICudaEngine *&cudaEngine);
 
 /**
  * A macro that validates a custom engine creator function definition.
  * Call this macro after the function is defined.
 */
-#define CHECK_CUSTOM_ENGINE_CREATE_FUNC_PROTOTYPE(customEngineCreateFunc) \
-    static void checkFunc_ ## customEngineCreateFunc (NvDsInferEngineCreateCustomFunc = customEngineCreateFunc) \
-        { checkFunc_ ## customEngineCreateFunc(); }; \
-    extern "C" bool customEngineCreateFunc (  \
-        nvinfer1::IBuilder * const builder,  \
-        nvinfer1::IBuilderConfig * const builderConfig, \
-        const NvDsInferContextInitParams * const initParams, \
-        nvinfer1::DataType dataType, \
-        nvinfer1::ICudaEngine *& cudaEngine);
+#define CHECK_CUSTOM_ENGINE_CREATE_FUNC_PROTOTYPE(customEngineCreateFunc)                                                                               \
+    static void checkFunc_##customEngineCreateFunc(NvDsInferEngineCreateCustomFunc = customEngineCreateFunc) { checkFunc_##customEngineCreateFunc(); }; \
+    extern "C" bool customEngineCreateFunc(                                                                                                             \
+        nvinfer1::IBuilder *const builder,                                                                                                              \
+        nvinfer1::IBuilderConfig *const builderConfig,                                                                                                  \
+        const NvDsInferContextInitParams *const initParams,                                                                                             \
+        nvinfer1::DataType dataType,                                                                                                                    \
+        nvinfer1::ICudaEngine *&cudaEngine);
 
 /**
  * Specifies the type of the Plugin Factory.
  */
-typedef enum
-{
-  /** Specifies nvcaffeparser1::IPluginFactoryV2. Used only for Caffe models. */
-  PLUGIN_FACTORY_V2 = 2
+typedef enum {
+    /** Specifies nvcaffeparser1::IPluginFactoryV2. Used only for Caffe models. */
+    PLUGIN_FACTORY_V2 = 2
 } NvDsInferPluginFactoryType;
 
 /**
  * Holds a pointer to a heap-allocated Plugin Factory object required during
  * Caffe model parsing.
  */
-typedef union
-{
-  nvcaffeparser1::IPluginFactoryV2 *pluginFactoryV2;
+typedef union {
+    nvcaffeparser1::IPluginFactoryV2 *pluginFactoryV2;
 } NvDsInferPluginFactoryCaffe;
 
 /**
@@ -384,8 +376,8 @@ typedef union
  * @return  True if the Plugin Factory was created successfully, or false
  *  otherwise.
  */
-bool NvDsInferPluginFactoryCaffeGet (NvDsInferPluginFactoryCaffe &pluginFactory,
-    NvDsInferPluginFactoryType &type);
+bool NvDsInferPluginFactoryCaffeGet(NvDsInferPluginFactoryCaffe &pluginFactory,
+                                    NvDsInferPluginFactoryType &type);
 
 /**
  * Destroys a Plugin Factory instance created by
@@ -395,7 +387,7 @@ bool NvDsInferPluginFactoryCaffeGet (NvDsInferPluginFactoryCaffe &pluginFactory,
  *                          pointer to the Plugin Factory instance returned
  *                          by NvDsInferPluginFactoryCaffeGet().
  */
-void NvDsInferPluginFactoryCaffeDestroy (NvDsInferPluginFactoryCaffe &pluginFactory);
+void NvDsInferPluginFactoryCaffeDestroy(NvDsInferPluginFactoryCaffe &pluginFactory);
 
 /**
  * Returns a new instance of a Plugin Factory interface to be used
@@ -407,7 +399,7 @@ void NvDsInferPluginFactoryCaffeDestroy (NvDsInferPluginFactoryCaffe &pluginFact
  * @return  True if the Plugin Factory was created successfully, or false
  *  otherwise.
  */
-bool NvDsInferPluginFactoryRuntimeGet (nvinfer1::IPluginFactory *& pluginFactory);
+bool NvDsInferPluginFactoryRuntimeGet(nvinfer1::IPluginFactory *&pluginFactory);
 
 /**
  * Destroys a Plugin Factory instance created by
@@ -416,7 +408,7 @@ bool NvDsInferPluginFactoryRuntimeGet (nvinfer1::IPluginFactory *& pluginFactory
  * @param[in] pluginFactory     A pointer to the Plugin Factory instance
  *                              returned by NvDsInferPluginFactoryRuntimeGet().
  */
-void NvDsInferPluginFactoryRuntimeDestroy (nvinfer1::IPluginFactory * pluginFactory);
+void NvDsInferPluginFactoryRuntimeDestroy(nvinfer1::IPluginFactory *pluginFactory);
 
 /**
  * Initializes the input layers for inference. This function is called only once
@@ -433,18 +425,18 @@ void NvDsInferPluginFactoryRuntimeDestroy (nvinfer1::IPluginFactory * pluginFact
  * @return  True if input layers are initialized successfully, or false
  *  otherwise.
  */
-bool NvDsInferInitializeInputLayers (std::vector<NvDsInferLayerInfo> const &inputLayersInfo,
-        NvDsInferNetworkInfo const &networkInfo,
-        unsigned int maxBatchSize);
+bool NvDsInferInitializeInputLayers(std::vector<NvDsInferLayerInfo> const &inputLayersInfo,
+                                    NvDsInferNetworkInfo const &networkInfo,
+                                    unsigned int maxBatchSize);
 /**
  * The NvDsInferCudaEngineGet interface has been deprecated and has been
  * replaced by NvDsInferEngineCreateCustomFunc function.
  */
 bool NvDsInferCudaEngineGet(nvinfer1::IBuilder *builder,
-        NvDsInferContextInitParams *initParams,
-        nvinfer1::DataType dataType,
-        nvinfer1::ICudaEngine *& cudaEngine)
-        __attribute__((deprecated("Use 'engine-create-func-name' config parameter instead")));
+                            NvDsInferContextInitParams *initParams,
+                            nvinfer1::DataType dataType,
+                            nvinfer1::ICudaEngine *&cudaEngine)
+    __attribute__((deprecated("Use 'engine-create-func-name' config parameter instead")));
 
 /**
  * Create a customized neural network parser for user-defined models.
@@ -455,12 +447,11 @@ bool NvDsInferCudaEngineGet(nvinfer1::IBuilder *builder,
  * @param[in] initParams with model paths or config files.
  * @return Instance of IModelParser implementation.
  */
-IModelParser* NvDsInferCreateModelParser(
-    const NvDsInferContextInitParams* initParams);
+IModelParser *NvDsInferCreateModelParser(
+    const NvDsInferContextInitParams *initParams);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
-

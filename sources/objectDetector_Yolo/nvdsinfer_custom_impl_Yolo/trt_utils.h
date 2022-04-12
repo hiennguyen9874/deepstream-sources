@@ -20,17 +20,16 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-
 #ifndef __TRT_UTILS_H__
 #define __TRT_UTILS_H__
 
-#include <set>
+#include <cassert>
+#include <fstream>
+#include <iostream>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
-#include <cassert>
-#include <iostream>
-#include <fstream>
 
 #include "NvInfer.h"
 

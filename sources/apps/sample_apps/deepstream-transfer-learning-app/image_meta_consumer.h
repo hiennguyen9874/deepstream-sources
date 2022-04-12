@@ -22,29 +22,31 @@
 
 #pragma once
 
-#include <condition_variable>
-#include <mutex>
-#include <string>
+#include <deepstream_config.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <atomic>
-#include <thread>
-#include <iostream>
+#include <condition_variable>
 #include <fstream>
-#include <sstream>
 #include <iomanip>
 #include <ios>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <deepstream_config.h>
+#include <iostream>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+
+#include "capture_time_rules.h"
+#include "concurrent_queue.h"
+#include "gst-nvmessage.h"
 #include "gstnvdsmeta.h"
 #include "nvbufsurface.h"
-#include "gst-nvmessage.h"
 #include "nvds_obj_encode.h"
-#include "concurrent_queue.h"
-#include "capture_time_rules.h"
 
 class ImageMetaConsumer {
-public:
+   public:
     enum OutputType {
         KITTI = 0,
         JSON = 1,
@@ -100,7 +102,6 @@ public:
 
     /// End the job of the current thread reading from the queue.
     void stop();
-
 
     /// Min confidence getter.
     /// @return The minimum confidence required for an object.
@@ -165,8 +166,7 @@ public:
     /// \param source_id The stream number to unlock
     void unlock_source_nb(unsigned source_id);
 
-private:
-
+   private:
     /// Function launching 3 threads for KITTI JSON and CSV output.
     void run();
 

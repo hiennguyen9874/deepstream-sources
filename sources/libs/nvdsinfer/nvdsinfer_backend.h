@@ -12,17 +12,16 @@
 #ifndef __NVDSINFER_BACKEND_H__
 #define __NVDSINFER_BACKEND_H__
 
+#include <NvCaffeParser.h>
+#include <NvInfer.h>
+#include <NvInferRuntime.h>
+#include <cuda_runtime_api.h>
 #include <stdarg.h>
+
 #include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <queue>
-
-#include <cuda_runtime_api.h>
-
-#include <NvCaffeParser.h>
-#include <NvInfer.h>
-#include <NvInferRuntime.h>
 
 #include "nvdsinfer_func_utils.h"
 
@@ -36,18 +35,16 @@ namespace nvdsinfer {
 /**
  * Helper class for managing Cuda Streams.
  */
-class CudaStream
-{
-public:
+class CudaStream {
+   public:
     explicit CudaStream(uint flag = cudaStreamDefault, int priority = 0);
     ~CudaStream();
     operator cudaStream_t() { return m_Stream; }
     cudaStream_t& ptr() { return m_Stream; }
     SIMPLE_MOVE_COPY(CudaStream)
 
-private:
-    void move_copy(CudaStream&& o)
-    {
+   private:
+    void move_copy(CudaStream&& o) {
         m_Stream = o.m_Stream;
         o.m_Stream = nullptr;
     }
@@ -59,18 +56,16 @@ private:
 /**
  * Helper class for managing Cuda events.
  */
-class CudaEvent
-{
-public:
+class CudaEvent {
+   public:
     explicit CudaEvent(uint flag = cudaEventDefault);
     ~CudaEvent();
     operator cudaEvent_t() { return m_Event; }
     cudaEvent_t& ptr() { return m_Event; }
     SIMPLE_MOVE_COPY(CudaEvent)
 
-private:
-    void move_copy(CudaEvent&& o)
-    {
+   private:
+    void move_copy(CudaEvent&& o) {
         m_Event = o.m_Event;
         o.m_Event = nullptr;
     }
@@ -82,25 +77,22 @@ private:
 /**
  * Helper base class for managing Cuda allocated buffers.
  */
-class CudaBuffer
-{
-public:
+class CudaBuffer {
+   public:
     virtual ~CudaBuffer() = default;
     size_t bytes() const { return m_Size; }
 
     template <typename T>
-    T* ptr()
-    {
+    T* ptr() {
         return (T*)m_Buf;
     }
 
     void* ptr() { return m_Buf; }
     SIMPLE_MOVE_COPY(CudaBuffer)
 
-protected:
+   protected:
     explicit CudaBuffer(size_t s) : m_Size(s) {}
-    void move_copy(CudaBuffer&& o)
-    {
+    void move_copy(CudaBuffer&& o) {
         m_Buf = o.m_Buf;
         o.m_Buf = nullptr;
         m_Size = o.m_Size;
@@ -114,9 +106,8 @@ protected:
 /**
  * CUDA device buffers.
  */
-class CudaDeviceBuffer : public CudaBuffer
-{
-public:
+class CudaDeviceBuffer : public CudaBuffer {
+   public:
     explicit CudaDeviceBuffer(size_t size);
     ~CudaDeviceBuffer();
 };
@@ -124,9 +115,8 @@ public:
 /**
  * CUDA host buffers.
  */
-class CudaHostBuffer : public CudaBuffer
-{
-public:
+class CudaHostBuffer : public CudaBuffer {
+   public:
     explicit CudaHostBuffer(size_t size);
     ~CudaHostBuffer();
 };
@@ -134,9 +124,8 @@ public:
 /**
  * Abstract interface to manage a batched buffer for inference.
  */
-class InferBatchBuffer
-{
-public:
+class InferBatchBuffer {
+   public:
     InferBatchBuffer() = default;
     virtual ~InferBatchBuffer() = default;
 
@@ -149,7 +138,7 @@ public:
      * index `bindingIndex. */
     virtual NvDsInferBatchDims getBatchDims(int bindingIndex = 0) const = 0;
 
-private:
+   private:
     DISABLE_CLASS_COPY(InferBatchBuffer);
 };
 
@@ -164,9 +153,8 @@ private:
  * (ImplicitTrtBackendContext/FullDimTrtBackendContext/DlaTrtBackendContext)
  * based on the parameters used to build the network/engine.
  */
-class BackendContext
-{
-public:
+class BackendContext {
+   public:
     BackendContext() = default;
     virtual ~BackendContext() = default;
 
@@ -195,7 +183,7 @@ public:
         const std::shared_ptr<InferBatchBuffer>& buffer, CudaStream& stream,
         CudaEvent* consumeEvent) = 0;
 
-private:
+   private:
     DISABLE_CLASS_COPY(BackendContext);
 };
 
@@ -205,20 +193,18 @@ class TrtEngine;
  * Base class for implementations of the BackendContext interface. Implements
  * functionality common to all backends.
  */
-class TrtBackendContext : public BackendContext
-{
-public:
+class TrtBackendContext : public BackendContext {
+   public:
     ~TrtBackendContext();
 
-protected:
+   protected:
     TrtBackendContext(UniquePtrWDestroy<nvinfer1::IExecutionContext>&& ctx,
-        std::shared_ptr<TrtEngine> engine);
+                      std::shared_ptr<TrtEngine> engine);
 
     int getLayerIdx(const std::string& bindingName) override;
     int getNumBoundLayers() override;
 
-    const NvDsInferBatchDimsLayerInfo& getLayerInfo(int bindingIdx) override
-    {
+    const NvDsInferBatchDimsLayerInfo& getLayerInfo(int bindingIdx) override {
         assert(bindingIdx < (int)m_AllLayers.size());
         return m_AllLayers[bindingIdx];
     }
@@ -226,23 +212,20 @@ protected:
     bool canSupportBatchDims(
         int bindingIdx, const NvDsInferBatchDims& batchDims) override;
 
-    virtual NvDsInferBatchDims getMaxBatchDims(int bindingIdx) override
-    {
+    virtual NvDsInferBatchDims getMaxBatchDims(int bindingIdx) override {
         assert(bindingIdx < (int)m_AllLayers.size());
         return m_AllLayers[bindingIdx].profileDims[kSELECTOR_MAX];
     }
-    virtual NvDsInferBatchDims getMinBatchDims(int bindingIdx) override
-    {
+    virtual NvDsInferBatchDims getMinBatchDims(int bindingIdx) override {
         assert(bindingIdx < (int)m_AllLayers.size());
         return m_AllLayers[bindingIdx].profileDims[kSELECTOR_MIN];
     }
-    virtual NvDsInferBatchDims getOptBatchDims(int bindingIdx) override
-    {
+    virtual NvDsInferBatchDims getOptBatchDims(int bindingIdx) override {
         assert(bindingIdx < (int)m_AllLayers.size());
         return m_AllLayers[bindingIdx].profileDims[kSELECTOR_OPT];
     }
 
-protected:
+   protected:
     UniquePtrWDestroy<nvinfer1::IExecutionContext> m_Context;
     std::shared_ptr<TrtEngine> m_CudaEngine;
     std::vector<NvDsInferBatchDimsLayerInfo> m_AllLayers;
@@ -255,21 +238,20 @@ protected:
 /**
  * Backend context for implicit batch dimension network.
  */
-class ImplicitTrtBackendContext : public TrtBackendContext
-{
-public:
+class ImplicitTrtBackendContext : public TrtBackendContext {
+   public:
     ImplicitTrtBackendContext(
         UniquePtrWDestroy<nvinfer1::IExecutionContext>&& ctx,
         std::shared_ptr<TrtEngine> engine);
 
-private:
+   private:
     NvDsInferStatus initialize() override;
 
     NvDsInferStatus enqueueBuffer(
         const std::shared_ptr<InferBatchBuffer>& buffer, CudaStream& stream,
         CudaEvent* consumeEvent) override;
 
-protected:
+   protected:
     bool canSupportBatchDims(
         int bindingIdx, const NvDsInferBatchDims& batchDims) override;
 
@@ -279,21 +261,20 @@ protected:
 /**
  * Backend context for full dimensions network.
  */
-class FullDimTrtBackendContext : public TrtBackendContext
-{
-public:
+class FullDimTrtBackendContext : public TrtBackendContext {
+   public:
     FullDimTrtBackendContext(
         UniquePtrWDestroy<nvinfer1::IExecutionContext>&& ctx,
         std::shared_ptr<TrtEngine> engine, int profile = 0);
 
-private:
+   private:
     NvDsInferStatus initialize() override;
 
     NvDsInferStatus enqueueBuffer(
         const std::shared_ptr<InferBatchBuffer>& buffer, CudaStream& stream,
         CudaEvent* consumeEvent) override;
 
-protected:
+   protected:
     // Only idx 0 profile supported.
     const int m_ProfileIndex = 0;
 };
@@ -301,11 +282,10 @@ protected:
 /**
  * Backend context for implicit batch dimension network inferencing on DLA.
  */
-class DlaImplicitTrtBackendContext : public ImplicitTrtBackendContext
-{
-public:
+class DlaImplicitTrtBackendContext : public ImplicitTrtBackendContext {
+   public:
     DlaImplicitTrtBackendContext(UniquePtrWDestroy<nvinfer1::IExecutionContext>&& ctx,
-        std::shared_ptr<TrtEngine> engine);
+                                 std::shared_ptr<TrtEngine> engine);
 
     NvDsInferStatus enqueueBuffer(
         const std::shared_ptr<InferBatchBuffer>& buffer, CudaStream& stream,
@@ -315,17 +295,16 @@ public:
 /**
  * Backend context for implicit batch dimension network inferencing on DLA.
  */
-class DlaFullDimTrtBackendContext : public FullDimTrtBackendContext
-{
-public:
+class DlaFullDimTrtBackendContext : public FullDimTrtBackendContext {
+   public:
     DlaFullDimTrtBackendContext(UniquePtrWDestroy<nvinfer1::IExecutionContext>&& ctx,
-        std::shared_ptr<TrtEngine> engine, int profile = 0);
+                                std::shared_ptr<TrtEngine> engine, int profile = 0);
 
     NvDsInferStatus enqueueBuffer(
         const std::shared_ptr<InferBatchBuffer>& buffer, CudaStream& stream,
         CudaEvent* consumeEvent) override;
 
-private:
+   private:
     static std::mutex sExecutionMutex;
 };
 
@@ -341,6 +320,6 @@ private:
 std::unique_ptr<TrtBackendContext> createBackendContext(
     const std::shared_ptr<TrtEngine>& engine);
 
-} // end of namespace nvdsinfer
+}  // end of namespace nvdsinfer
 
 #endif

@@ -9,12 +9,13 @@
  *
  */
 
+#include "gstnvinfer_impl.h"
+
 #include <cassert>
 #include <sstream>
 #include <vector>
 
 #include "gstnvinfer.h"
-#include "gstnvinfer_impl.h"
 #include "gstnvinfer_property_parser.h"
 
 GST_DEBUG_CATEGORY_EXTERN(gst_nvinfer_debug);
@@ -22,27 +23,23 @@ GST_DEBUG_CATEGORY_EXTERN(gst_nvinfer_debug);
 
 using namespace nvdsinfer;
 
-namespace gstnvinfer
-{
+namespace gstnvinfer {
 
-void LockGMutex::lock()
-{
+void LockGMutex::lock() {
     assert(!locked);
     if (!locked)
         g_mutex_lock(&m);
     locked = true;
 }
 
-void LockGMutex::unlock()
-{
+void LockGMutex::unlock() {
     assert(locked);
     if (locked)
         g_mutex_unlock(&m);
     locked = false;
 }
 
-void LockGMutex::wait(GCond &cond)
-{
+void LockGMutex::wait(GCond &cond) {
     assert(locked);
     if (locked)
         g_cond_wait(&cond, &m);
@@ -50,15 +47,12 @@ void LockGMutex::wait(GCond &cond)
 
 DsNvInferImpl::DsNvInferImpl(GstNvInfer *infer)
     : m_InitParams(new NvDsInferContextInitParams),
-      m_GstInfer(infer)
-{
+      m_GstInfer(infer) {
     NvDsInferContext_ResetInitParams(m_InitParams.get());
 }
 
-DsNvInferImpl::~DsNvInferImpl()
-{
-    if (m_InitParams)
-    {
+DsNvInferImpl::~DsNvInferImpl() {
+    if (m_InitParams) {
         delete[] m_InitParams->perClassDetectionParams;
         g_strfreev(m_InitParams->outputLayerNames);
         g_strfreev(m_InitParams->outputIOFormats);
@@ -68,16 +62,13 @@ DsNvInferImpl::~DsNvInferImpl()
 
 /** Initialize the ModelLoadThread instance - start the model load thread. */
 DsNvInferImpl::ModelLoadThread::ModelLoadThread(DsNvInferImpl &impl)
-    : m_Impl(impl)
-{
+    : m_Impl(impl) {
     m_Thread = std::thread(&DsNvInferImpl::ModelLoadThread::Run, this);
 }
 
 /** Destroy the ModelLoadThread instance - stop and join the model load thread. */
-DsNvInferImpl::ModelLoadThread::~ModelLoadThread()
-{
-    if (m_Thread.joinable())
-    {
+DsNvInferImpl::ModelLoadThread::~ModelLoadThread() {
+    if (m_Thread.joinable()) {
         //push stop signal
         m_PendingModels.push(ModelItem("", MODEL_LOAD_STOP));
         m_Thread.join();
@@ -86,10 +77,8 @@ DsNvInferImpl::ModelLoadThread::~ModelLoadThread()
 }
 
 /** Callable function for the thread. */
-void DsNvInferImpl::ModelLoadThread::Run()
-{
-    while (true)
-    {
+void DsNvInferImpl::ModelLoadThread::Run() {
+    while (true) {
         /* Pop a pending model update item. This is a blocking call. */
         ModelItem item = m_PendingModels.pop();
         std::string file;
@@ -109,24 +98,20 @@ void DsNvInferImpl::ModelLoadThread::Run()
 }
 
 NvDsInferStatus
-DsNvInferImpl::start()
-{
+DsNvInferImpl::start() {
     m_ModelLoadThread.reset(new ModelLoadThread(*this));
     return NVDSINFER_SUCCESS;
 }
 
-void DsNvInferImpl::stop()
-{
+void DsNvInferImpl::stop() {
     m_ModelLoadThread.reset();
     m_InferCtx.reset();
 }
 
 /* Queue a new model update. */
 bool DsNvInferImpl::triggerNewModel(const std::string &modelPath,
-                                    ModelLoadType loadType)
-{
-    if (!m_ModelLoadThread.get())
-    {
+                                    ModelLoadType loadType) {
+    if (!m_ModelLoadThread.get()) {
         return false;
     }
     m_ModelLoadThread->queueModel(modelPath, loadType);
@@ -135,8 +120,7 @@ bool DsNvInferImpl::triggerNewModel(const std::string &modelPath,
 
 /* Load the new model - Try to create a new NvDsInferContext instance with new
  * parameters and store the instance in m_NextContextReplacement. */
-void DsNvInferImpl::loadModel(const std::string &modelPath, ModelLoadType loadType)
-{
+void DsNvInferImpl::loadModel(const std::string &modelPath, ModelLoadType loadType) {
     NvDsInferContextInitParams curParam;
     bool needUpdate = true;
 
@@ -147,8 +131,7 @@ void DsNvInferImpl::loadModel(const std::string &modelPath, ModelLoadType loadTy
         needUpdate = !m_NextContextReplacement;
     }
 
-    if (!needUpdate)
-    {
+    if (!needUpdate) {
         notifyLoadModelStatus(ModelStatus{
             NVDSINFER_UNKNOWN_ERROR, modelPath, "Trying to update model too frequently"});
         return;
@@ -159,8 +142,7 @@ void DsNvInferImpl::loadModel(const std::string &modelPath, ModelLoadType loadTy
 
     /* Initialize the NvDsInferContextInitParams struct with the new model
    * config. */
-    if (!initNewInferModelParams(newParams, modelPath, loadType, curParam))
-    {
+    if (!initNewInferModelParams(newParams, modelPath, loadType, curParam)) {
         notifyLoadModelStatus(ModelStatus{
             NVDSINFER_CONFIG_FAILED, modelPath,
             "Initialization of new model params failed"});
@@ -173,8 +155,7 @@ void DsNvInferImpl::loadModel(const std::string &modelPath, ModelLoadType loadTy
         createNvDsInferContext(&newContext, newParams, m_GstInfer,
                                gst_nvinfer_logger);
 
-    if (err != NVDSINFER_SUCCESS)
-    {
+    if (err != NVDSINFER_SUCCESS) {
         /* Notify application if the model load failed. */
         notifyLoadModelStatus(ModelStatus{
             err, modelPath, "Creation new model context failed"});
@@ -185,8 +166,7 @@ void DsNvInferImpl::loadModel(const std::string &modelPath, ModelLoadType loadTy
 
     /* Check that the input of the newly loaded model parameter is compatible
    * with gst-nvinfer instance. */
-    if (!isNewContextValid(*newCtxPtr, newParams))
-    {
+    if (!isNewContextValid(*newCtxPtr, newParams)) {
         notifyLoadModelStatus(ModelStatus{
             NVDSINFER_CONFIG_FAILED, modelPath,
             "New model's settings doesn't match current model"});
@@ -196,8 +176,7 @@ void DsNvInferImpl::loadModel(const std::string &modelPath, ModelLoadType loadTy
     /* Store the new NvDsInferContext instance so that it can be used for
    * inferencing after ensuring synchronization with existing buffers
    * being processed. */
-    if (!triggerContextReplace(newCtxPtr, std::move(newParamsPtr), modelPath))
-    {
+    if (!triggerContextReplace(newCtxPtr, std::move(newParamsPtr), modelPath)) {
         notifyLoadModelStatus(ModelStatus{
             NVDSINFER_UNKNOWN_ERROR, modelPath, "trigger new model replace failed"});
         return;
@@ -208,40 +187,37 @@ void DsNvInferImpl::loadModel(const std::string &modelPath, ModelLoadType loadTy
  * init params and new init params for the new model. */
 bool DsNvInferImpl::initNewInferModelParams(NvDsInferContextInitParams &newParams,
                                             const std::string &newModelPath, ModelLoadType loadType,
-                                            const NvDsInferContextInitParams &oldParams)
-{
+                                            const NvDsInferContextInitParams &oldParams) {
     NvDsInferContext_ResetInitParams(&newParams);
     assert(!newModelPath.empty());
 
-    switch (loadType)
-    {
-    case MODEL_LOAD_FROM_CONFIG:
-        if (!gst_nvinfer_parse_context_params(&newParams, newModelPath.c_str()))
-        {
+    switch (loadType) {
+        case MODEL_LOAD_FROM_CONFIG:
+            if (!gst_nvinfer_parse_context_params(&newParams, newModelPath.c_str())) {
+                GST_WARNING_OBJECT(m_GstInfer,
+                                   "[UID %d]: parse new model config file: %s failed.",
+                                   m_GstInfer->unique_id, newModelPath.c_str());
+                return false;
+            }
+            break;
+        case MODEL_LOAD_FROM_ENGINE:
+            strncpy(newParams.modelEngineFilePath, newModelPath.c_str(),
+                    sizeof(newParams.modelEngineFilePath));
+            newParams.networkMode = oldParams.networkMode;
+            memcpy(newParams.meanImageFilePath, oldParams.meanImageFilePath,
+                   sizeof(newParams.meanImageFilePath));
+            newParams.networkScaleFactor = oldParams.networkScaleFactor;
+            newParams.networkInputFormat = oldParams.networkInputFormat;
+            newParams.numOffsets = oldParams.numOffsets;
+            memcpy(newParams.offsets, oldParams.offsets, sizeof(newParams.offsets));
+            break;
+
+        default:
+
             GST_WARNING_OBJECT(m_GstInfer,
-                               "[UID %d]: parse new model config file: %s failed.",
+                               "[UID %d]: unsupported model load type (:%s), internal error.",
                                m_GstInfer->unique_id, newModelPath.c_str());
             return false;
-        }
-        break;
-    case MODEL_LOAD_FROM_ENGINE:
-        strncpy(newParams.modelEngineFilePath, newModelPath.c_str(),
-                sizeof(newParams.modelEngineFilePath));
-        newParams.networkMode = oldParams.networkMode;
-        memcpy(newParams.meanImageFilePath, oldParams.meanImageFilePath,
-               sizeof(newParams.meanImageFilePath));
-        newParams.networkScaleFactor = oldParams.networkScaleFactor;
-        newParams.networkInputFormat = oldParams.networkInputFormat;
-        newParams.numOffsets = oldParams.numOffsets;
-        memcpy(newParams.offsets, oldParams.offsets, sizeof(newParams.offsets));
-        break;
-
-    default:
-
-        GST_WARNING_OBJECT(m_GstInfer,
-                           "[UID %d]: unsupported model load type (:%s), internal error.",
-                           m_GstInfer->unique_id, newModelPath.c_str());
-        return false;
     }
 
     newParams.maxBatchSize = oldParams.maxBatchSize;
@@ -253,13 +229,11 @@ bool DsNvInferImpl::initNewInferModelParams(NvDsInferContextInitParams &newParam
     newParams.segmentationThreshold = oldParams.segmentationThreshold;
     newParams.copyInputToHostBuffers = oldParams.copyInputToHostBuffers;
     newParams.outputBufferPoolSize = oldParams.outputBufferPoolSize;
-    if (string_empty(newParams.labelsFilePath) && !string_empty(oldParams.labelsFilePath))
-    {
+    if (string_empty(newParams.labelsFilePath) && !string_empty(oldParams.labelsFilePath)) {
         strncpy(newParams.labelsFilePath, oldParams.labelsFilePath,
                 sizeof(newParams.labelsFilePath));
     }
-    if (oldParams.numDetectedClasses)
-    {
+    if (oldParams.numDetectedClasses) {
         newParams.numDetectedClasses = oldParams.numDetectedClasses;
         delete[] newParams.perClassDetectionParams;
         newParams.perClassDetectionParams =
@@ -276,10 +250,8 @@ bool DsNvInferImpl::initNewInferModelParams(NvDsInferContextInitParams &newParam
 /* Check that the input of the newly loaded model is compatible with
  * gst-nvinfer instance. */
 bool DsNvInferImpl::isNewContextValid(INvDsInferContext &newCtx,
-                                      NvDsInferContextInitParams &newParam)
-{
-    if (newParam.maxBatchSize < m_GstInfer->max_batch_size)
-    {
+                                      NvDsInferContextInitParams &newParam) {
+    if (newParam.maxBatchSize < m_GstInfer->max_batch_size) {
         GST_WARNING_OBJECT(m_GstInfer,
                            "[UID %d]: New model batch-size[in config] (%d) is smaller then gst-nvinfer's"
                            " configured batch-size (%d).",
@@ -291,8 +263,7 @@ bool DsNvInferImpl::isNewContextValid(INvDsInferContext &newCtx,
     NvDsInferNetworkInfo networkInfo;
     newCtx.getNetworkInfo(networkInfo);
     if (m_GstInfer->network_width != (gint)networkInfo.width ||
-        m_GstInfer->network_height != (gint)networkInfo.height)
-    {
+        m_GstInfer->network_height != (gint)networkInfo.height) {
         GST_WARNING_OBJECT(m_GstInfer,
                            "[UID %d]: New model input resolution (%dx%d) is not compatible with "
                            "gst-nvinfer's current resolution (%dx%d).",
@@ -306,16 +277,12 @@ bool DsNvInferImpl::isNewContextValid(INvDsInferContext &newCtx,
 }
 
 /* Notify the app of model load status using GObject signal. */
-void DsNvInferImpl::notifyLoadModelStatus(const ModelStatus &res)
-{
+void DsNvInferImpl::notifyLoadModelStatus(const ModelStatus &res) {
     assert(!res.cfg_file.empty());
-    if (res.status == NVDSINFER_SUCCESS)
-    {
+    if (res.status == NVDSINFER_SUCCESS) {
         GST_INFO_OBJECT(m_GstInfer, "[UID %d]: Load new model:%s sucessfully",
                         m_GstInfer->unique_id, res.cfg_file.c_str());
-    }
-    else
-    {
+    } else {
         GST_ELEMENT_WARNING(m_GstInfer, LIBRARY, SETTINGS,
                             ("[UID %d]: Load new model:%s failed, reason: %s",
                              m_GstInfer->unique_id, res.cfg_file.c_str(),
@@ -327,8 +294,7 @@ void DsNvInferImpl::notifyLoadModelStatus(const ModelStatus &res)
 }
 
 bool DsNvInferImpl::triggerContextReplace(NvDsInferContextPtr ctx,
-                                          NvDsInferContextInitParamsPtr params, const std::string &path)
-{
+                                          NvDsInferContextInitParamsPtr params, const std::string &path) {
     std::string lastConfig;
     LockGMutex lock(m_GstInfer->process_lock);
     m_NextContextReplacement.reset(new ContextReplacementPtr::element_type(ctx,
@@ -337,10 +303,8 @@ bool DsNvInferImpl::triggerContextReplace(NvDsInferContextPtr ctx,
 }
 
 DsNvInferImpl::ContextReplacementPtr
-DsNvInferImpl::getNextReplacementUnlock()
-{
-    if (!m_NextContextReplacement.get())
-    {
+DsNvInferImpl::getNextReplacementUnlock() {
+    if (!m_NextContextReplacement.get()) {
         return nullptr;
     }
     ContextReplacementPtr next;
@@ -352,8 +316,7 @@ DsNvInferImpl::getNextReplacementUnlock()
 /* Wait till all the buffers with gst-nvinfer are inferred/post-processed and
  * pushed downstream. */
 NvDsInferStatus
-DsNvInferImpl::flushDataUnlock(LockGMutex &lock)
-{
+DsNvInferImpl::flushDataUnlock(LockGMutex &lock) {
     GstNvInferBatch *batch = new GstNvInferBatch;
     batch->event_marker = TRUE;
 
@@ -362,19 +325,16 @@ DsNvInferImpl::flushDataUnlock(LockGMutex &lock)
     g_cond_broadcast(&m_GstInfer->process_cond);
 
     /* Wait till all the items in the two queues are handled. */
-    while (!g_queue_is_empty(m_GstInfer->input_queue))
-    {
+    while (!g_queue_is_empty(m_GstInfer->input_queue)) {
         lock.wait(m_GstInfer->process_cond);
     }
-    while (!g_queue_is_empty(m_GstInfer->process_queue))
-    {
+    while (!g_queue_is_empty(m_GstInfer->process_queue)) {
         lock.wait(m_GstInfer->process_cond);
     }
 
     g_cond_broadcast(&m_GstInfer->process_cond);
 
-    for (auto &si : *(m_GstInfer->source_info))
-    {
+    for (auto &si : *(m_GstInfer->source_info)) {
         si.second.object_history_map.clear();
     }
 
@@ -386,8 +346,7 @@ DsNvInferImpl::flushDataUnlock(LockGMutex &lock)
  * the model. */
 NvDsInferStatus
 DsNvInferImpl::resetContextUnlock(NvDsInferContextPtr ctx,
-                                  NvDsInferContextInitParamsPtr params, const std::string &path)
-{
+                                  NvDsInferContextInitParamsPtr params, const std::string &path) {
     assert(ctx.get() && params.get() && !path.empty());
     m_InferCtx = ctx;
     m_InitParams = std::move(params);
@@ -404,8 +363,7 @@ DsNvInferImpl::resetContextUnlock(NvDsInferContextPtr ctx,
     ctx->fillLayersInfo(*nvinfer->layers_info);
 
     nvinfer->output_layers_info->clear();
-    for (auto &layer : *(nvinfer->layers_info))
-    {
+    for (auto &layer : *(nvinfer->layers_info)) {
         if (!layer.isInput)
             nvinfer->output_layers_info->push_back(layer);
     }
@@ -417,8 +375,7 @@ DsNvInferImpl::resetContextUnlock(NvDsInferContextPtr ctx,
  * waiting till all the queued buffers are processed and then do the actual
  * model replacement. */
 NvDsInferStatus
-DsNvInferImpl::ensureReplaceNextContext()
-{
+DsNvInferImpl::ensureReplaceNextContext() {
     NvDsInferStatus err = NVDSINFER_SUCCESS;
 
     LockGMutex lock(m_GstInfer->process_lock);
@@ -435,8 +392,7 @@ DsNvInferImpl::ensureReplaceNextContext()
 
     /* Wait for current processing to finish. */
     err = flushDataUnlock(lock);
-    if (err != NVDSINFER_SUCCESS)
-    {
+    if (err != NVDSINFER_SUCCESS) {
         notifyLoadModelStatus(ModelStatus{
             err, path, "Model update failed while flushing data"});
         return err;
@@ -444,8 +400,7 @@ DsNvInferImpl::ensureReplaceNextContext()
 
     /* Replace the model to be used for inferencing. */
     err = resetContextUnlock(nextCtx, std::move(nextParams), path);
-    if (err != NVDSINFER_SUCCESS)
-    {
+    if (err != NVDSINFER_SUCCESS) {
         notifyLoadModelStatus(ModelStatus{
             err, path, "Model update failed while replacing the current context"});
         return err;
@@ -457,4 +412,4 @@ DsNvInferImpl::ensureReplaceNextContext()
     return NVDSINFER_SUCCESS;
 }
 
-} // namespace gstnvinfer
+}  // namespace gstnvinfer

@@ -14,15 +14,15 @@
 
 #ifdef __cplusplus
 
+#include <infer_datatypes.h>
 #include <stdarg.h>
+
 #include <condition_variable>
 #include <functional>
 #include <list>
 #include <memory>
 #include <mutex>
 #include <queue>
-
-#include <infer_datatypes.h>
 
 namespace nvdsinferserver {
 
@@ -41,7 +41,7 @@ using InferLoggingFunc =
  * The DeepStream inference interface class.
  */
 class IInferContext {
-public:
+   public:
     virtual ~IInferContext() = default;
 
     /**
@@ -78,7 +78,7 @@ public:
      *
      * @param[in,out] networkInfo Reference to a NvDsInferNetworkInfo structure.
      */
-    virtual void getNetworkInputInfo(NvDsInferNetworkInfo &networkInfo) = 0;
+    virtual void getNetworkInputInfo(NvDsInferNetworkInfo& networkInfo) = 0;
 };
 
 /**
@@ -87,7 +87,7 @@ public:
  */
 class ITritonServerInstance;
 
-} // namespace nvdsinferserver
+}  // namespace nvdsinferserver
 
 extern "C" {
 

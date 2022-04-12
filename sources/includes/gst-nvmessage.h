@@ -16,7 +16,7 @@
  * message functions.
  *
  */
- /**
+/**
  * @defgroup gst_mess_evnt_qry Events, Messages and Query based APIs
  *
  * Defines Events, Messages and Query-based APIs
@@ -29,7 +29,6 @@
 #include <gst/gst.h>
 
 G_BEGIN_DECLS
-
 
 /**
  * @defgroup gst_message_plugin Messages: Custom Message Functions API
@@ -53,7 +52,7 @@ G_BEGIN_DECLS
  *
  * @return  A pointer to the new message.
  */
-GstMessage * gst_nvmessage_new_stream_eos (GstObject *obj, guint eos_stream_id);
+GstMessage *gst_nvmessage_new_stream_eos(GstObject *obj, guint eos_stream_id);
 
 /**
  * Determines whether a message is a stream EOS message.
@@ -62,7 +61,7 @@ GstMessage * gst_nvmessage_new_stream_eos (GstObject *obj, guint eos_stream_id);
  *
  * @return  A Boolean; true if the message is a stream EOS message.
  */
-gboolean gst_nvmessage_is_stream_eos (GstMessage * message);
+gboolean gst_nvmessage_is_stream_eos(GstMessage *message);
 
 /**
  * \brief  Parses the stream ID from a stream EOS message.
@@ -76,7 +75,7 @@ gboolean gst_nvmessage_is_stream_eos (GstMessage * message);
  *
  * @return  A Boolean; true if the message was successfully parsed.
  */
-gboolean gst_nvmessage_parse_stream_eos (GstMessage * message, guint * eos_stream_id);
+gboolean gst_nvmessage_parse_stream_eos(GstMessage *message, guint *eos_stream_id);
 
 /** @} */
 

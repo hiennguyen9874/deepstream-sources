@@ -23,19 +23,17 @@
 #ifndef _NVBUFAUDIO_H_
 #define _NVBUFAUDIO_H_
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define RESERVED_BYTES 16
 
 /** Specifies audio formats */
-typedef enum
-{
+typedef enum {
     NVBUF_AUDIO_INVALID_FORMAT,
     NVBUF_AUDIO_S8,
     NVBUF_AUDIO_U8,
@@ -70,10 +68,9 @@ typedef enum
 } NvBufAudioFormat;
 
 /** Specifies audio data layout in memory */
-typedef enum
-{
+typedef enum {
     NVBUF_AUDIO_INVALID_LAYOUT,
-    NVBUF_AUDIO_INTERLEAVED, /**< audio sample from each channel shall be interleaved LRLRLRLR */
+    NVBUF_AUDIO_INTERLEAVED,     /**< audio sample from each channel shall be interleaved LRLRLRLR */
     NVBUF_AUDIO_NON_INTERLEAVED, /**< audio sample from each channel shall be interleaved ; LLLLLLLLRRRRRRRR */
 } NvBufAudioLayout;
 
@@ -81,25 +78,25 @@ typedef struct
 {
     NvBufAudioLayout layout;
     NvBufAudioFormat format;
-    uint32_t         bpf;      /**< Bytes per frame; the size of a frame;
+    uint32_t bpf;      /**< Bytes per frame; the size of a frame;
                                 * size of one sample * @channels */
-    uint32_t         channels; /**< Number of audio channels */
-    uint32_t         rate;     /**< audio sample rate in samples per second */
-    uint32_t         dataSize;
-    void*            dataPtr;
+    uint32_t channels; /**< Number of audio channels */
+    uint32_t rate;     /**< audio sample rate in samples per second */
+    uint32_t dataSize;
+    void* dataPtr;
     /** Holds the pad or port index of the Gst-streammux plugin for the frame
      * in the batch. */
-    uint32_t         padId;
+    uint32_t padId;
     /** source ID of this buffer;
      * This is w.r.t the multisrc DeepStream usecases
      */
-    uint32_t         sourceId;
+    uint32_t sourceId;
     /** NTP Timestamp of this audio buffer */
-    uint64_t         ntpTimestamp;
+    uint64_t ntpTimestamp;
     /** Buffer PTS of this audio buffer */
-    uint64_t         bufPts;
+    uint64_t bufPts;
     /** duration of this audio buffer */
-    uint64_t         duration;
+    uint64_t duration;
 
     uint8_t reserved[RESERVED_BYTES];
 } NvBufAudioParams;
@@ -107,17 +104,17 @@ typedef struct
 typedef struct
 {
     /** The size of this NvBufAudio batch */
-    uint32_t           numFilled;
+    uint32_t numFilled;
     /** The size of this NvBufAudio batch */
-    uint32_t           batchSize;
+    uint32_t batchSize;
     /** isContiguous is true when
      * the dataPtr in audioBuffers[] array is
      * contiguous with the previous and following entry
      * in the array
      */
-    bool               isContiguous;
+    bool isContiguous;
     /** Array of #batchSize audio bufffers */
-    NvBufAudioParams*  audioBuffers;
+    NvBufAudioParams* audioBuffers;
 } NvBufAudio;
 #ifdef __cplusplus
 }

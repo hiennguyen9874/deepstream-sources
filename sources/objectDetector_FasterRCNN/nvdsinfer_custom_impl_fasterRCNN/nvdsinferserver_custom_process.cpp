@@ -80,9 +80,9 @@ constexpr uint32_t kInferHeight = 375;
 constexpr uint32_t kInferChannel = 3;
 static const std::vector<float> kDefaultImageInfo{(float)kInferHeight, (float)kInferWidth, 1.0f};
 static const std::vector<std::string> kClassLabels = {
-    "background", "aeroplane", "bicycle",     "bird",  "boat",        "bottle", "bus",
-    "car",        "cat",       "chair",       "cow",   "diningtable", "dog",    "horse",
-    "motorbike",  "person",    "pottedplant", "sheep", "sofa",        "train",  "tvmonitor"};
+    "background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus",
+    "car", "cat", "chair", "cow", "diningtable", "dog", "horse",
+    "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"};
 
 /** Define a function for custom processor for DeepStream Triton plugin(nvinferserver)
  * do custom extra input preprocess and custom postprocess on triton based models.
@@ -99,8 +99,7 @@ CreateInferServerCustomProcess(const char* config, uint32_t configLen);
 namespace {
 // return buffer description string
 std::string
-strOfBufDesc(const dsis::InferBufferDescription& desc)
-{
+strOfBufDesc(const dsis::InferBufferDescription& desc) {
     std::stringstream ss;
     ss << "*" << desc.name << "*, shape: ";
     for (uint32_t i = 0; i < desc.dims.numDims; ++i) {
@@ -121,8 +120,7 @@ strOfBufDesc(const dsis::InferBufferDescription& desc)
 
 // non-maximum suppression for bbox
 std::vector<NvDsInferObjectDetectionInfo>
-nms(std::vector<NvDsInferObjectDetectionInfo>& objs)
-{
+nms(std::vector<NvDsInferObjectDetectionInfo>& objs) {
     std::vector<NvDsInferObjectDetectionInfo> final;
     final.reserve(objs.size());
     std::stable_sort(objs.begin(), objs.end(), [](const auto& a, const auto& b) {
@@ -170,11 +168,11 @@ nms(std::vector<NvDsInferObjectDetectionInfo>& objs)
  *   }
  */
 class NvInferServerCustomProcess : public dsis::IInferCustomProcessor {
-private:
+   private:
     std::map<uint64_t, std::vector<float>> _streamFeedback;
     std::mutex _streamMutex;
 
-public:
+   public:
     ~NvInferServerCustomProcess() override = default;
     /** override function
      * Specifies supported extraInputs memtype in extraInputProcess()
@@ -202,8 +200,7 @@ public:
      */
     NvDsInferStatus extraInputProcess(
         const std::vector<dsis::IBatchBuffer*>& primaryInputs,
-        std::vector<dsis::IBatchBuffer*>& extraInputs, const dsis::IOptions* options) override
-    {
+        std::vector<dsis::IBatchBuffer*>& extraInputs, const dsis::IOptions* options) override {
         INFER_ASSERT(primaryInputs.size() > 0);
         INFER_ASSERT(extraInputs.size() == 1);
         dsis::InferBufferDescription input0Desc = primaryInputs[0]->getBufDesc();
@@ -259,8 +256,7 @@ public:
      * User can even attach parsed metadata into GstBuffer from this function
      */
     NvDsInferStatus inferenceDone(
-        const dsis::IBatchArray* outputs, const dsis::IOptions* inOptions) override
-    {
+        const dsis::IBatchArray* outputs, const dsis::IOptions* inOptions) override {
         if (requireInferLoop()) {
             feedbackStreamInput(outputs, inOptions);
         }
@@ -282,13 +278,12 @@ public:
     /** override function
      * Receiving errors if anything wrong inside lowlevel lib
      */
-    void notifyError(NvDsInferStatus s) override
-    {
+    void notifyError(NvDsInferStatus s) override {
         std::unique_lock<std::mutex> locker(_streamMutex);
         _streamFeedback.clear();
     }
 
-private:
+   private:
     /** function for loop processing only. not requried for fasterRCNN
      */
     NvDsInferStatus feedbackStreamInput(
@@ -313,8 +308,7 @@ private:
  */
 extern "C" {
 dsis::IInferCustomProcessor*
-CreateInferServerCustomProcess(const char* config, uint32_t configLen)
-{
+CreateInferServerCustomProcess(const char* config, uint32_t configLen) {
     return new NvInferServerCustomProcess();
 }
 }
@@ -326,8 +320,7 @@ CreateInferServerCustomProcess(const char* config, uint32_t configLen)
  */
 NvDsInferStatus
 NvInferServerCustomProcess::feedbackStreamInput(
-    const dsis::IBatchArray* outputs, const dsis::IOptions* inOptions)
-{
+    const dsis::IBatchArray* outputs, const dsis::IOptions* inOptions) {
     static constexpr const char* kOutName = "cls_prob";
     const dsis::IBatchBuffer* state = nullptr;
     float* stateBuf = nullptr;
@@ -379,8 +372,7 @@ NvInferServerCustomProcess::feedbackStreamInput(
 NvDsInferStatus
 NvInferServerCustomProcess::parseObjBbox(
     const dsis::IBatchArray* tensors, std::vector<NvDsInferObjectDetectionInfo>& outObjs,
-    uint32_t batchIdx)
-{
+    uint32_t batchIdx) {
     const NvDsInferNetworkInfo networkInfo = {kInferWidth, kInferHeight, kInferChannel};
     NvDsInferParseDetectionParams params = {(uint32_t)kClassLabels.size()};
     params.perClassPreclusterThreshold.resize(kClassLabels.size(), kScoreThreshold);
@@ -431,8 +423,7 @@ NvInferServerCustomProcess::parseObjBbox(
 NvDsInferStatus
 NvInferServerCustomProcess::attachObjMetas(
     const dsis::IOptions* inOptions, const std::vector<NvDsInferObjectDetectionInfo>& detectObjs,
-    uint32_t batchIdx)
-{
+    uint32_t batchIdx) {
     INFER_ASSERT(inOptions);
     GstBuffer* gstBuf = nullptr;
     NvDsBatchMeta* batchMeta = nullptr;

@@ -37,11 +37,9 @@
 #define DSLOG_CAT_CR "DSLOG:CR"
 #define DSLOG_CAT_SG "DSLOG:SG"
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 /**
  * @brief  Opens a connection to the logger.
@@ -50,7 +48,6 @@ extern "C" {
  * prior to use of the logger.
  */
 void nvds_log_open();
-
 
 /**
  * Closes a connection to the logger.

@@ -31,25 +31,24 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define NVDSINFER_MAX_DIMS 8
 
-#define _DS_DEPRECATED_(STR) __attribute__ ((deprecated (STR)))
+#define _DS_DEPRECATED_(STR) __attribute__((deprecated(STR)))
 
 /**
  * Holds the dimensions of a layer.
  */
 typedef struct
 {
-  /** Holds the number of dimesions in the layer.*/
-  unsigned int numDims;
-  /** Holds the size of the layer in each dimension. */
-  unsigned int d[NVDSINFER_MAX_DIMS];
-  /** Holds the number of elements in the layer, including all dimensions.*/
-  unsigned int numElements;
+    /** Holds the number of dimesions in the layer.*/
+    unsigned int numDims;
+    /** Holds the size of the layer in each dimension. */
+    unsigned int d[NVDSINFER_MAX_DIMS];
+    /** Holds the number of elements in the layer, including all dimensions.*/
+    unsigned int numElements;
 } NvDsInferDims;
 
 /**
@@ -57,27 +56,26 @@ typedef struct
  */
 typedef struct
 {
-  /** Holds the channel count of the layer.*/
-  unsigned int c;
-  /** Holds the height of the layer.*/
-  unsigned int h;
-  /** Holds the width of the layer.*/
-  unsigned int w;
+    /** Holds the channel count of the layer.*/
+    unsigned int c;
+    /** Holds the height of the layer.*/
+    unsigned int h;
+    /** Holds the width of the layer.*/
+    unsigned int w;
 } NvDsInferDimsCHW;
 
 /**
  * Specifies the data type of a layer.
  */
-typedef enum
-{
-  /** Specifies FP32 format. */
-  FLOAT = 0,
-  /** Specifies FP16 format. */
-  HALF = 1,
-  /** Specifies INT8 format. */
-  INT8 = 2,
-  /** Specifies INT32 format. */
-  INT32 = 3
+typedef enum {
+    /** Specifies FP32 format. */
+    FLOAT = 0,
+    /** Specifies FP16 format. */
+    HALF = 1,
+    /** Specifies INT8 format. */
+    INT8 = 2,
+    /** Specifies INT32 format. */
+    INT32 = 3
 } NvDsInferDataType;
 
 /**
@@ -85,22 +83,22 @@ typedef enum
  */
 typedef struct
 {
-  /** Holds the data type of the layer. */
-  NvDsInferDataType dataType;
-  /** Holds the dimensions of the layer. */
-  union {
-      NvDsInferDims inferDims;
-      NvDsInferDims dims _DS_DEPRECATED_("dims is deprecated. Use inferDims instead");
-  };
-  /** Holds the TensorRT binding index of the layer. */
-  int bindingIndex;
-  /** Holds the name of the layer. */
-  const char* layerName;
-  /** Holds a pointer to the buffer for the layer data. */
-  void *buffer;
-  /** Holds a Boolean; true if the layer is an input layer,
+    /** Holds the data type of the layer. */
+    NvDsInferDataType dataType;
+    /** Holds the dimensions of the layer. */
+    union {
+        NvDsInferDims inferDims;
+        NvDsInferDims dims _DS_DEPRECATED_("dims is deprecated. Use inferDims instead");
+    };
+    /** Holds the TensorRT binding index of the layer. */
+    int bindingIndex;
+    /** Holds the name of the layer. */
+    const char *layerName;
+    /** Holds a pointer to the buffer for the layer data. */
+    void *buffer;
+    /** Holds a Boolean; true if the layer is an input layer,
    or false if an output layer. */
-  int isInput;
+    int isInput;
 } NvDsInferLayerInfo;
 
 /**
@@ -108,52 +106,52 @@ typedef struct
  */
 typedef struct
 {
-  /** Holds the input width for the model. */
-  unsigned int width;
-  /** Holds the input height for the model. */
-  unsigned int height;
-  /** Holds the number of input channels for the model. */
-  unsigned int channels;
+    /** Holds the input width for the model. */
+    unsigned int width;
+    /** Holds the input height for the model. */
+    unsigned int height;
+    /** Holds the number of input channels for the model. */
+    unsigned int channels;
 } NvDsInferNetworkInfo;
 
 /**
  * Sets values on a @ref NvDsInferDimsCHW structure from a @ref NvDsInferDims
  * structure.
  */
-#define getDimsCHWFromDims(dimsCHW,dims) \
-  do { \
-    (dimsCHW).c = (dims).d[0]; \
-    (dimsCHW).h = (dims).d[1]; \
-    (dimsCHW).w = (dims).d[2]; \
-  } while (0)
+#define getDimsCHWFromDims(dimsCHW, dims) \
+    do {                                  \
+        (dimsCHW).c = (dims).d[0];        \
+        (dimsCHW).h = (dims).d[1];        \
+        (dimsCHW).w = (dims).d[2];        \
+    } while (0)
 
-#define getDimsHWCFromDims(dimsCHW,dims) \
-  do { \
-    (dimsCHW).h = (dims).d[0]; \
-    (dimsCHW).w = (dims).d[1]; \
-    (dimsCHW).c = (dims).d[2]; \
-  } while (0)
+#define getDimsHWCFromDims(dimsCHW, dims) \
+    do {                                  \
+        (dimsCHW).h = (dims).d[0];        \
+        (dimsCHW).w = (dims).d[1];        \
+        (dimsCHW).c = (dims).d[2];        \
+    } while (0)
 
 /**
  * Holds information about one parsed object from a detector's output.
  */
 typedef struct
 {
-  /** Holds the ID of the class to which the object belongs. */
-  unsigned int classId;
+    /** Holds the ID of the class to which the object belongs. */
+    unsigned int classId;
 
-  /** Holds the horizontal offset of the bounding box shape for the object. */
-  float left;
-  /** Holds the vertical offset of the object's bounding box. */
-  float top;
-  /** Holds the width of the object's bounding box. */
-  float width;
-  /** Holds the height of the object's bounding box. */
-  float height;
+    /** Holds the horizontal offset of the bounding box shape for the object. */
+    float left;
+    /** Holds the vertical offset of the object's bounding box. */
+    float top;
+    /** Holds the width of the object's bounding box. */
+    float width;
+    /** Holds the height of the object's bounding box. */
+    float height;
 
-  /** Holds the object detection confidence level; must in the range
+    /** Holds the object detection confidence level; must in the range
    [0.0,1.0]. */
-  float detectionConfidence;
+    float detectionConfidence;
 } NvDsInferObjectDetectionInfo;
 
 /**
@@ -166,30 +164,30 @@ typedef NvDsInferObjectDetectionInfo NvDsInferParseObjectInfo;
  */
 typedef struct
 {
-  /** Holds the ID of the class to which the object belongs. */
-  unsigned int classId;
+    /** Holds the ID of the class to which the object belongs. */
+    unsigned int classId;
 
-  /** Holds the horizontal offset of the bounding box shape for the object. */
-  float left;
-  /** Holds the vertical offset of the object's bounding box. */
-  float top;
-  /** Holds the width of the object's bounding box. */
-  float width;
-  /** Holds the height of the object's bounding box. */
-  float height;
+    /** Holds the horizontal offset of the bounding box shape for the object. */
+    float left;
+    /** Holds the vertical offset of the object's bounding box. */
+    float top;
+    /** Holds the width of the object's bounding box. */
+    float width;
+    /** Holds the height of the object's bounding box. */
+    float height;
 
-  /** Holds the object detection confidence level; must in the range
+    /** Holds the object detection confidence level; must in the range
    [0.0,1.0]. */
-  float detectionConfidence;
+    float detectionConfidence;
 
-  /** Holds object segment mask */
-  float *mask;
-  /** Holds width of mask */
-  unsigned int mask_width;
-  /** Holds height of mask */
-  unsigned int mask_height;
-  /** Holds size of mask in bytes*/
-  unsigned int mask_size;
+    /** Holds object segment mask */
+    float *mask;
+    /** Holds width of mask */
+    unsigned int mask_width;
+    /** Holds height of mask */
+    unsigned int mask_height;
+    /** Holds size of mask in bytes*/
+    unsigned int mask_size;
 } NvDsInferInstanceMaskInfo;
 
 /**
@@ -257,7 +255,7 @@ typedef enum {
  * @return String name for the status. Memory is owned by the function. Callers
  *         should not free the pointer.
  */
-const char* NvDsInferStatus2Str(NvDsInferStatus status);
+const char *NvDsInferStatus2Str(NvDsInferStatus status);
 
 #ifdef __cplusplus
 }
@@ -270,8 +268,7 @@ const char* NvDsInferStatus2Str(NvDsInferStatus status);
  * Enum for selecting between minimum/optimal/maximum dimensions of a layer
  * in case of dynamic shape network.
  */
-typedef enum
-{
+typedef enum {
     kSELECTOR_MIN = 0,
     kSELECTOR_OPT,
     kSELECTOR_MAX,
@@ -291,8 +288,7 @@ typedef struct
  * Extended structure for bound layer information which additionally includes
  * min/optimal/max full dimensions of a layer in case of dynamic shape.
  */
-struct NvDsInferBatchDimsLayerInfo : NvDsInferLayerInfo
-{
+struct NvDsInferBatchDimsLayerInfo : NvDsInferLayerInfo {
     NvDsInferBatchDims profileDims[kSELECTOR_SIZE];
 };
 

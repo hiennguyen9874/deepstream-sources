@@ -37,8 +37,7 @@ bool kEnableDumpROI = std::getenv("DS_ENABLE_DUMP_ROI") ? true : false;
 namespace {
 // generate key for SrcDestBufMap
 SourceKey
-getKey(uint64_t src_id, float x, float y, float width, float height)
-{
+getKey(uint64_t src_id, float x, float y, float width, float height) {
     constexpr int64_t kMaxX = 10000;
     constexpr int64_t kMaxY = kMaxX * kMaxX;
     int64_t xy0 = int64_t(x) * kMaxX + int64_t(y) * kMaxY;
@@ -47,30 +46,28 @@ getKey(uint64_t src_id, float x, float y, float width, float height)
 }
 
 uint32_t
-getChannels(NvDsPreProcessFormat format)
-{
+getChannels(NvDsPreProcessFormat format) {
     uint32_t channels = 0;
     switch (format) {
-    case NvDsPreProcessFormat_RGB:
-    case NvDsPreProcessFormat_BGR:
-        channels = 3;
-        break;
-    case NvDsPreProcessFormat_RGBA:
-    case NvDsPreProcessFormat_BGRx:
-        channels = 4;
-        break;
-    case NvDsPreProcessFormat_GRAY:
-        channels = 1;
-    default:
-        LOG_ERROR("channel format: %d is not supported.", (int)format);
-        break;
+        case NvDsPreProcessFormat_RGB:
+        case NvDsPreProcessFormat_BGR:
+            channels = 3;
+            break;
+        case NvDsPreProcessFormat_RGBA:
+        case NvDsPreProcessFormat_BGRx:
+            channels = 4;
+            break;
+        case NvDsPreProcessFormat_GRAY:
+            channels = 1;
+        default:
+            LOG_ERROR("channel format: %d is not supported.", (int)format);
+            break;
     }
     return channels;
 }
 
 std::string
-trimStr(std::string s)
-{
+trimStr(std::string s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char c) {
                 return !std::isspace(c);
             }));
@@ -82,8 +79,7 @@ trimStr(std::string s)
 
 // parse string into float vector, e.g. "1.0;0.5;0.3"
 std::vector<float>
-parseNumList(const std::string& str)
-{
+parseNumList(const std::string& str) {
     std::string delim{';'};
     size_t pos = 0, oldpos = 0;
     std::vector<float> ret;
@@ -105,9 +101,7 @@ parseNumList(const std::string& str)
 }
 
 // dump roi image if kEnableDumpROI enabled. converted_frame_ptr must be host readable
-void
-dumpRois(NvDsPreProcessBatch& batch, uint32_t h, uint32_t w, uint32_t c)
-{
+void dumpRois(NvDsPreProcessBatch& batch, uint32_t h, uint32_t w, uint32_t c) {
     for (guint i = 0; i < batch.units.size(); i++) {
         auto& unit = batch.units[i];
         uint32_t srcid = unit.frame_meta->source_id;
@@ -128,9 +122,7 @@ dumpRois(NvDsPreProcessBatch& batch, uint32_t h, uint32_t w, uint32_t c)
 }  // namespace
 
 // resource clear up before buffer maanger get destroyed
-void
-BufferManager::clearAll()
-{
+void BufferManager::clearAll() {
     LOG_DEBUG(
         "Clearing ready pedning batches. size: %u",
         (uint32_t)_readyPendings.size());
@@ -157,8 +149,7 @@ BufferManager::clearAll()
 // store at most `max-batch-size` ROIs. If ROI number is larger than that,
 // it will allocate new block.
 NvDsPreProcessStatus
-BufferManager::addRoi(const SourceKey& key, const NvDsPreProcessUnit& unit)
-{
+BufferManager::addRoi(const SourceKey& key, const NvDsPreProcessUnit& unit) {
     DSASSERT(!_src2dstMap.count(key));
     auto last = _accumulateBlocks.rbegin();
     if (_accumulateBlocks.empty() ||
@@ -198,8 +189,7 @@ BufferManager::addRoi(const SourceKey& key, const NvDsPreProcessUnit& unit)
 
 // check and build ROI buffers on blocks
 NvDsPreProcessStatus
-BufferManager::buildRoiBlocks(const std::vector<NvDsPreProcessUnit>& rois)
-{
+BufferManager::buildRoiBlocks(const std::vector<NvDsPreProcessUnit>& rois) {
     for (const auto& unit : rois) {
         uint64_t source_id = unit.frame_meta->source_id;
         const auto& roi = unit.roi_meta.roi;
@@ -220,8 +210,7 @@ BufferManager::buildRoiBlocks(const std::vector<NvDsPreProcessUnit>& rois)
 // Before this call, all of the ROI information buffers should be created
 // by `buildRoiBlocks`
 NvDsPreProcessStatus
-BufferManager::locateRoiDst(const NvDsPreProcessUnit& unit, void*& dstPatch)
-{
+BufferManager::locateRoiDst(const NvDsPreProcessUnit& unit, void*& dstPatch) {
     uint64_t source_id = unit.frame_meta->source_id;
     const auto& roi = unit.roi_meta.roi;
     SourceKey key = getKey(source_id, roi.left, roi.top, roi.width, roi.height);
@@ -269,8 +258,7 @@ BufferManager::locateRoiDst(const NvDsPreProcessUnit& unit, void*& dstPatch)
 
 // collect all ready results of ROI sequence buffers
 NvDsPreProcessStatus
-BufferManager::collectReady()
-{
+BufferManager::collectReady() {
     UniqPtr<NvDsPreProcessCustomBuf> buf(
         nullptr,
         [this](NvDsPreProcessCustomBuf* b) { _allocator->release(b); });
@@ -362,9 +350,7 @@ BufferManager::collectReady()
     return NVDSPREPROCESS_SUCCESS;
 }
 
-bool
-BufferManager::popReady(ReadyResult& res)
-{
+bool BufferManager::popReady(ReadyResult& res) {
     if (!_readyPendings.size()) {
         return false;
     }
@@ -388,8 +374,7 @@ BufferManager::popReady(ReadyResult& res)
 // Convert and normalize each input cropped ROI image into NCSHW(NCDHW) format.
 NvDsPreProcessStatus
 SequenceImagePreprocess::preprocessData(
-    const NvDsPreProcessUnit& unit, NvDsPreProcessFormat inFormat, void* outPtr)
-{
+    const NvDsPreProcessUnit& unit, NvDsPreProcessFormat inFormat, void* outPtr) {
     DSASSERT(unit.converted_frame_ptr);
     DSASSERT(unit.roi_meta.converted_buffer);
     bool swapRB = false;
@@ -398,23 +383,23 @@ SequenceImagePreprocess::preprocessData(
         swapRB = false;
     } else {
         switch (_initParams.tensor_params.network_color_format) {
-        case NvDsPreProcessFormat_RGB:
-        case NvDsPreProcessFormat_RGBA:
-            if (inFormat == NvDsPreProcessFormat_BGR || inFormat == NvDsPreProcessFormat_BGRx) {
-                swapRB = true;
-            }
-            break;
-        case NvDsPreProcessFormat_BGR:
-        case NvDsPreProcessFormat_BGRx:
-            if (inFormat == NvDsPreProcessFormat_RGB || inFormat == NvDsPreProcessFormat_RGBA) {
-                swapRB = true;
-            }
-            break;
-        default:
-            LOG_ERROR(
-                "network format: %d is not supported.",
-                (int)_initParams.tensor_params.network_color_format);
-            return NVDSPREPROCESS_CUSTOM_LIB_FAILED;
+            case NvDsPreProcessFormat_RGB:
+            case NvDsPreProcessFormat_RGBA:
+                if (inFormat == NvDsPreProcessFormat_BGR || inFormat == NvDsPreProcessFormat_BGRx) {
+                    swapRB = true;
+                }
+                break;
+            case NvDsPreProcessFormat_BGR:
+            case NvDsPreProcessFormat_BGRx:
+                if (inFormat == NvDsPreProcessFormat_RGB || inFormat == NvDsPreProcessFormat_RGBA) {
+                    swapRB = true;
+                }
+                break;
+            default:
+                LOG_ERROR(
+                    "network format: %d is not supported.",
+                    (int)_initParams.tensor_params.network_color_format);
+                return NVDSPREPROCESS_CUSTOM_LIB_FAILED;
         }
     }
 
@@ -433,8 +418,7 @@ SequenceImagePreprocess::preprocessData(
 }
 
 NvDsPreProcessStatus
-SequenceImagePreprocess::setDevice()
-{
+SequenceImagePreprocess::setDevice() {
     if (_gpuId != -1) {
         CHECK_CUDA_ERR(cudaSetDevice(_gpuId), "failed to set dev-id:%d", _gpuId);
     }
@@ -446,8 +430,7 @@ SequenceImagePreprocess::setDevice()
 // shape is reshaped from 3D's NCSHW order shape.
 // Parse channel-scale-factors, mean-offsets, subsample, stride from [user-config].
 NvDsPreProcessStatus
-SequenceImagePreprocess::init()
-{
+SequenceImagePreprocess::init() {
     bool is3D = true;
     auto const& input_shape = _initParams.tensor_params.network_input_shape;
     uint32_t bank = input_shape.size();
@@ -515,7 +498,6 @@ SequenceImagePreprocess::init()
         cudaStreamCreateWithPriority(&_cuStream, 0, 0),
         "cudaStreamCreateWithPriority failed");
 
-
     _bufManager = std::make_unique<BufferManager>(
         nullptr, _initParams.tensor_params, _S, _C, _cuStream, _stride, _subsample);
     DSASSERT(_bufManager);
@@ -529,8 +511,7 @@ SequenceImagePreprocess::init()
 
 // parse user-config
 NvDsPreProcessStatus
-SequenceImagePreprocess::parseUserConfig()
-{
+SequenceImagePreprocess::parseUserConfig() {
     auto const& tables = _initParams.user_configs;
     try {
         auto iSample = tables.find(CUSTOM_CONFIG_SUBSAMPLE);
@@ -567,12 +548,10 @@ SequenceImagePreprocess::parseUserConfig()
                 }
             }
         }
-    }
-    catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         LOG_ERROR("Catch exception parse preprocess config, error: %s", e.what());
         return NVDSPREPROCESS_CONFIG_FAILED;
-    }
-    catch (...) {
+    } catch (...) {
         LOG_ERROR("Catch unknown exception parse preprocess config");
         return NVDSPREPROCESS_CONFIG_FAILED;
     }
@@ -581,8 +560,7 @@ SequenceImagePreprocess::parseUserConfig()
 
 // Implementation of cast context deInitLib.
 NvDsPreProcessStatus
-SequenceImagePreprocess::deinit()
-{
+SequenceImagePreprocess::deinit() {
     LOG_INFO("SequenceImagePreprocess is deinitializing");
     if (_cuStream != nullptr) {
         setDevice();
@@ -605,8 +583,7 @@ SequenceImagePreprocess::deinit()
 NvDsPreProcessStatus
 SequenceImagePreprocess::prepareTensorData(
     NvDsPreProcessBatch* batchIn, NvDsPreProcessCustomBuf*& bufOut,
-    CustomTensorParams& tensorParam, NvDsPreProcessAcquirer* allocator)
-{
+    CustomTensorParams& tensorParam, NvDsPreProcessAcquirer* allocator) {
     LOG_DEBUG("preparing sequence TensorData in progress...");
     DSASSERT(batchIn);
     DSASSERT(allocator);
@@ -680,8 +657,7 @@ SequenceImagePreprocess::prepareTensorData(
 NvDsPreProcessStatus
 CustomSequenceTensorPreparation(
     CustomCtx* cctx, NvDsPreProcessBatch* batch, NvDsPreProcessCustomBuf*& buf,
-    CustomTensorParams& tensorParam, NvDsPreProcessAcquirer* allocator)
-{
+    CustomTensorParams& tensorParam, NvDsPreProcessAcquirer* allocator) {
     LOG_DEBUG("CustomSequenceTensorPreparation processing in progress");
     SequenceImagePreprocess* ctx =
         reinterpret_cast<SequenceImagePreprocess*>(cctx);
@@ -691,8 +667,7 @@ CustomSequenceTensorPreparation(
 
 // Implementation of entrypoint to init custom lib context
 CustomCtx*
-initLib(CustomInitParams initparams)
-{
+initLib(CustomInitParams initparams) {
     LOG_DEBUG("Initializing Custom sequence preprocessing lib");
     auto ctx = std::make_unique<SequenceImagePreprocess>(initparams);
     DSASSERT(ctx);
@@ -704,9 +679,7 @@ initLib(CustomInitParams initparams)
 }
 
 // Implementation of entrypoint to destroy custom lib context
-void
-deInitLib(CustomCtx* cctx)
-{
+void deInitLib(CustomCtx* cctx) {
     LOG_DEBUG("Deinitializing Custom sequence preprocessing lib");
     SequenceImagePreprocess* ctx =
         reinterpret_cast<SequenceImagePreprocess*>(cctx);

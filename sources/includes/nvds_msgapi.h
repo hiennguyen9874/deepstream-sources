@@ -30,8 +30,7 @@
 #define __NVDS_MSGAPI_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 #include <stdint.h>
 
@@ -42,21 +41,21 @@ typedef void *NvDsMsgApiHandle;
  * Defines events associated with connections to remote entities.
  */
 typedef enum {
-  /** Specifies that a connection attempt was Successful*/
-  NVDS_MSGAPI_EVT_SUCCESS,
-  /** Specifies disconnection of a connection handle. */
-  NVDS_MSGAPI_EVT_DISCONNECT,
-  /** Specifies that the remote service is down. */
-  NVDS_MSGAPI_EVT_SERVICE_DOWN
+    /** Specifies that a connection attempt was Successful*/
+    NVDS_MSGAPI_EVT_SUCCESS,
+    /** Specifies disconnection of a connection handle. */
+    NVDS_MSGAPI_EVT_DISCONNECT,
+    /** Specifies that the remote service is down. */
+    NVDS_MSGAPI_EVT_SERVICE_DOWN
 } NvDsMsgApiEventType;
 
 /**
  * Defines completion codes for operations in the messaging API.
  */
 typedef enum {
-NVDS_MSGAPI_OK,
-NVDS_MSGAPI_ERR,
-NVDS_MSGAPI_UNKNOWN_TOPIC
+    NVDS_MSGAPI_OK,
+    NVDS_MSGAPI_ERR,
+    NVDS_MSGAPI_UNKNOWN_TOPIC
 } NvDsMsgApiErrorType;
 
 /**
@@ -67,7 +66,7 @@ NVDS_MSGAPI_UNKNOWN_TOPIC
   *                             that is useful to the callback.
   * @param[in] completion_flag  The completion code from a send operation.
   */
-typedef void (*nvds_msgapi_send_cb_t)(void *user_ptr,  NvDsMsgApiErrorType completion_flag);
+typedef void (*nvds_msgapi_send_cb_t)(void *user_ptr, NvDsMsgApiErrorType completion_flag);
 
 /**
  * @brief Type definition for callback registered during subscribe.
@@ -141,7 +140,7 @@ NvDsMsgApiErrorType nvds_msgapi_send(NvDsMsgApiHandle h_ptr, char *topic, const 
  *
  * @return  A completion code for the send operation.
  */
-NvDsMsgApiErrorType nvds_msgapi_send_async(NvDsMsgApiHandle h_ptr, char  *topic, const uint8_t *payload, size_t nbuf, nvds_msgapi_send_cb_t send_callback, void *user_ptr);
+NvDsMsgApiErrorType nvds_msgapi_send_async(NvDsMsgApiHandle h_ptr, char *topic, const uint8_t *payload, size_t nbuf, nvds_msgapi_send_cb_t send_callback, void *user_ptr);
 
 /**
   * Subscribe to a remote entity for receiving messages on a particular topic(s)
@@ -154,7 +153,7 @@ NvDsMsgApiErrorType nvds_msgapi_send_async(NvDsMsgApiHandle h_ptr, char  *topic,
   *
   * @return Status of the subscribe operation.
  */
-NvDsMsgApiErrorType nvds_msgapi_subscribe (NvDsMsgApiHandle h_ptr, char ** topics, int num_topics, nvds_msgapi_subscribe_request_cb_t  cb, void *user_ctx);
+NvDsMsgApiErrorType nvds_msgapi_subscribe(NvDsMsgApiHandle h_ptr, char **topics, int num_topics, nvds_msgapi_subscribe_request_cb_t cb, void *user_ctx);
 
 /**
  * Calls into the adapter to allow for execution of undnerlying protocol logic.
@@ -221,4 +220,3 @@ NvDsMsgApiErrorType nvds_msgapi_connection_signature(char *broker_str, char *cfg
 #endif
 
 /** @} */
-

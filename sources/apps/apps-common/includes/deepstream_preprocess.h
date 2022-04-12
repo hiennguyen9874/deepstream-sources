@@ -24,25 +24,24 @@
 #define __NVGSTDS_PREPROCESS_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <gst/gst.h>
 
 typedef struct
 {
-  /** create a bin for the element only if enabled */
-  gboolean enable;
-  /** config file path having properties for preprocess */
-  gchar *config_file_path;
+    /** create a bin for the element only if enabled */
+    gboolean enable;
+    /** config file path having properties for preprocess */
+    gchar *config_file_path;
 } NvDsPreProcessConfig;
 
 typedef struct
 {
-  GstElement *bin;
-  GstElement *queue;
-  GstElement *preprocess;
+    GstElement *bin;
+    GstElement *queue;
+    GstElement *preprocess;
 } NvDsPreProcessBin;
 
 /**
@@ -57,8 +56,8 @@ typedef struct
  *
  * @return true if bin created successfully.
  */
-gboolean create_preprocess_bin (NvDsPreProcessConfig *config,
-    NvDsPreProcessBin *bin);
+gboolean create_preprocess_bin(NvDsPreProcessConfig *config,
+                               NvDsPreProcessBin *bin);
 
 #ifdef __cplusplus
 }

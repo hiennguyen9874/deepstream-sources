@@ -20,13 +20,13 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <fstream>
-#include <sstream>
-#include <iomanip>
 #include "capture_time_rules.h"
 
-constexpr unsigned seconds_in_day = 86400;
+#include <fstream>
+#include <iomanip>
+#include <sstream>
 
+constexpr unsigned seconds_in_day = 86400;
 
 static std::vector<std::string> split_string(const std::string &str, char split_char) {
     std::vector<std::string> elems;
@@ -81,8 +81,8 @@ bool CaptureTimeRules::parsing_contains_error(const std::vector<ParseResult> &pa
 
     for (unsigned i = 0; i < 7; ++i) {
         unsigned tab_nb = 0;
-        for (const auto& elm: str_list[i])
-            if(elm == '\t')
+        for (const auto &elm : str_list[i])
+            if (elm == '\t')
                 tab_nb++;
         if (parse_res_list[i] == PARSE_RESULT_OK) {
             shift += str_list[i].size() + 1;
@@ -103,7 +103,7 @@ bool CaptureTimeRules::parsing_contains_error(const std::vector<ParseResult> &pa
         for (int j = 0; j < shift; ++j)
             ss << ' ';
         switch (parse_res_list[i]) {
-            case PARSE_RESULT_OK: // should not happen
+            case PARSE_RESULT_OK:  // should not happen
                 break;
             case PARSE_RESULT_BAD_CHARS:
                 ss << "replace this part by ";
@@ -122,7 +122,6 @@ bool CaptureTimeRules::parsing_contains_error(const std::vector<ParseResult> &pa
     std::cerr << ss.str();
     return contains_error;
 }
-
 
 bool CaptureTimeRules::single_time_rule_parser(const std::string &path, const std::string &line,
                                                unsigned line_number) {
@@ -182,9 +181,7 @@ bool CaptureTimeRules::single_time_rule_parser(const std::string &path, const st
     if (parsing_contains_error(parse_res_list, elm_list, line, line_number)) {
         return false;
     }
-    t.end_time_is_next_day = (t.end_time_hour < t.begin_time_hour
-                              || (t.end_time_hour == t.begin_time_hour
-                                  && t.end_time_minute <= t.begin_time_minute));
+    t.end_time_is_next_day = (t.end_time_hour < t.begin_time_hour || (t.end_time_hour == t.begin_time_hour && t.end_time_minute <= t.begin_time_minute));
 
     t.interval_between_frame_capture_seconds = ((tts_h * 60) + tts_m) * 60 + tts_s;
     rules_.push_back(t);
@@ -211,7 +208,6 @@ void CaptureTimeRules::init(const std::string &path, unsigned int default_second
     init_ = no_error;
 }
 
-
 CaptureTimeRules::t_duration CaptureTimeRules::getCurrentTimeInterval() {
     auto now = std::chrono::system_clock::now();
     if (now < end_of_current_time_interval_) {
@@ -220,7 +216,7 @@ CaptureTimeRules::t_duration CaptureTimeRules::getCurrentTimeInterval() {
 
     time_t tt = std::chrono::system_clock::to_time_t(now);
     tm local_tm = *localtime(&tt);
-    for (const auto &elm: rules_) {
+    for (const auto &elm : rules_) {
         if (isInTimeRule(elm, local_tm)) {
             local_tm.tm_hour = elm.end_time_hour;
             local_tm.tm_min = elm.end_time_minute;
@@ -235,7 +231,7 @@ CaptureTimeRules::t_duration CaptureTimeRules::getCurrentTimeInterval() {
     current_time_interval_ = default_duration_;
     tm tmp_tm = *localtime(&tt);
     t_duration time_diff = std::chrono::seconds(seconds_in_day);
-    for (const auto &elm: rules_) {
+    for (const auto &elm : rules_) {
         tmp_tm.tm_hour = elm.begin_time_hour;
         tmp_tm.tm_min = elm.begin_time_minute;
         auto tp = std::chrono::system_clock::from_time_t(std::mktime(&tmp_tm));
@@ -255,24 +251,15 @@ bool CaptureTimeRules::isInTimeRule(const CaptureTimeRules::TimeRule &t, const t
     unsigned n_h = static_cast<unsigned>(now.tm_hour);
     unsigned n_m = static_cast<unsigned>(now.tm_min);
 
-    bool is_after_begin = n_h > t.begin_time_hour
-                          || (n_h == t.begin_time_hour
-                              && n_m >= t.begin_time_minute);
-    bool is_before_end = n_h < t.end_time_hour
-                         || (n_h == t.end_time_hour
-                             && n_m < t.end_time_minute);
+    bool is_after_begin = n_h > t.begin_time_hour || (n_h == t.begin_time_hour && n_m >= t.begin_time_minute);
+    bool is_before_end = n_h < t.end_time_hour || (n_h == t.end_time_hour && n_m < t.end_time_minute);
     if (!t.end_time_is_next_day)
         return is_after_begin && is_before_end;
 
-    bool is_after_begin_plus_24 = (n_h + 24) > t.begin_time_hour
-                                  || ((n_h + 24) == t.begin_time_hour
-                                      && n_m >= t.begin_time_minute);
-    bool is_before_end_plus_24 = n_h < (t.end_time_hour + 24)
-                                 || (n_h == (t.end_time_hour + 24)
-                                     && n_m < t.end_time_minute);
+    bool is_after_begin_plus_24 = (n_h + 24) > t.begin_time_hour || ((n_h + 24) == t.begin_time_hour && n_m >= t.begin_time_minute);
+    bool is_before_end_plus_24 = n_h < (t.end_time_hour + 24) || (n_h == (t.end_time_hour + 24) && n_m < t.end_time_minute);
 
-    bool next_day_condition = (is_after_begin && is_before_end_plus_24)
-                              || (is_after_begin_plus_24 && is_before_end);
+    bool next_day_condition = (is_after_begin && is_before_end_plus_24) || (is_after_begin_plus_24 && is_before_end);
 
     return next_day_condition;
 }
@@ -280,5 +267,3 @@ bool CaptureTimeRules::isInTimeRule(const CaptureTimeRules::TimeRule &t, const t
 bool CaptureTimeRules::is_init_() {
     return init_;
 }
-
-

@@ -33,64 +33,63 @@
 #define MAX_COMPONENT_LEN 64
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
  * Holds information about latency of the given subcomponent
  */
 typedef struct _NvDsMetaSubCompLatency {
-  /** Holds the subcomponent names. */
-  gchar sub_comp_name[MAX_COMPONENT_LEN];
-  /** Holds the system timestamp of the buffer when it arrives
+    /** Holds the subcomponent names. */
+    gchar sub_comp_name[MAX_COMPONENT_LEN];
+    /** Holds the system timestamp of the buffer when it arrives
    at the input of the component. */
-  gdouble in_system_timestamp;
-  /** Holds the system timestamp of the buffer when it leaves
+    gdouble in_system_timestamp;
+    /** Holds the system timestamp of the buffer when it leaves
    at the output of the component. */
-  gdouble out_system_timestamp;
+    gdouble out_system_timestamp;
 } NvDsMetaSubCompLatency;
 
 /**
  * Holds information about latency of the given component
  */
 typedef struct _NvDsMetaCompLatency {
-  /** Holds the name of the component for which latency is measured. */
-  gchar component_name[MAX_COMPONENT_LEN];
-  /** Holds the system timestamp of the buffer when it arrives
+    /** Holds the name of the component for which latency is measured. */
+    gchar component_name[MAX_COMPONENT_LEN];
+    /** Holds the system timestamp of the buffer when it arrives
    at the input of the component. */
-  gdouble in_system_timestamp;
-  /** Holds the system timestamp of buffer when it
+    gdouble in_system_timestamp;
+    /** Holds the system timestamp of buffer when it
    is sent to the downstream component. */
-  gdouble out_system_timestamp;
-  /** Holds the source ID of the component, e.g. the camera ID. */
-  guint source_id;
-  /** Holds the current frame number for which latency is measured. */
-  guint frame_num;
-  /** Holds the pad or port index of the stream muxer for the frame
+    gdouble out_system_timestamp;
+    /** Holds the source ID of the component, e.g. the camera ID. */
+    guint source_id;
+    /** Holds the current frame number for which latency is measured. */
+    guint frame_num;
+    /** Holds the pad or port index of the stream muxer for the frame
    in the batch. */
-  guint pad_index;
-  /** Holds latency information of subcomponent in an array */
-  NvDsMetaSubCompLatency sub_comp_latencies[16];
-  /** Holds the number of subcomponents for the given component */
-  guint num_sub_comps;
-}NvDsMetaCompLatency;
+    guint pad_index;
+    /** Holds latency information of subcomponent in an array */
+    NvDsMetaSubCompLatency sub_comp_latencies[16];
+    /** Holds the number of subcomponents for the given component */
+    guint num_sub_comps;
+} NvDsMetaCompLatency;
 
 /**
  * Holds information about the latency of a given frame.
  */
 typedef struct
 {
-  /** Holds the source ID of the component, e.g. the camera ID. */
-  guint source_id;
-  /** Holds the current frame number for which latency is measured. */
-  guint frame_num;
-  /** Holds the system timestamp of the buffer when it arrives
+    /** Holds the source ID of the component, e.g. the camera ID. */
+    guint source_id;
+    /** Holds the current frame number for which latency is measured. */
+    guint frame_num;
+    /** Holds the system timestamp of the buffer when it arrives
    at the input of the first component in the pipeline. By default,
    the decoder is considered to be the first component in the pipeline. */
-  gdouble comp_in_timestamp;
-  /** Holds the latency of the frame in milliseconds. */
-  gdouble latency;
+    gdouble comp_in_timestamp;
+    /** Holds the latency of the frame in milliseconds. */
+    gdouble latency;
 } NvDsFrameLatencyInfo;
 
 /**
@@ -104,8 +103,8 @@ typedef struct
  * @returns  A pointer to a @ref NvDsUserMeta structure which holds an
  *          @ref NvDsMetaCompLatency as @a NvDsUserMeta.user_meta_data.
  */
-NvDsUserMeta *nvds_set_input_system_timestamp(GstBuffer * buffer,
-    gchar *element_name);
+NvDsUserMeta *nvds_set_input_system_timestamp(GstBuffer *buffer,
+                                              gchar *element_name);
 
 /**
  * \brief  Sets the system timestamp when a Gst Buffer that is pushed
@@ -120,10 +119,10 @@ NvDsUserMeta *nvds_set_input_system_timestamp(GstBuffer * buffer,
  *
  * @returns  TRUE if the timestamp is attached successfully, or FALSE otherwise.
  */
-gboolean nvds_set_output_system_timestamp(GstBuffer * buffer, gchar *element_name);
+gboolean nvds_set_output_system_timestamp(GstBuffer *buffer, gchar *element_name);
 
-gboolean nvds_add_sub_time(GstBuffer * buffer, gchar *element_name, gchar *name,\
- gdouble start_time, gdouble end_time);
+gboolean nvds_add_sub_time(GstBuffer *buffer, gchar *element_name, gchar *name,
+                           gdouble start_time, gdouble end_time);
 
 /**
  * \brief  Measures the latency of all frames present in the current batch.
@@ -139,7 +138,7 @@ gboolean nvds_add_sub_time(GstBuffer * buffer, gchar *element_name, gchar *name,
  *                          fills it with information about all of the sources.
  */
 guint nvds_measure_buffer_latency(GstBuffer *buf,
-    NvDsFrameLatencyInfo *latency_info);
+                                  NvDsFrameLatencyInfo *latency_info);
 
 /**
  * Indicates whether the environment variable

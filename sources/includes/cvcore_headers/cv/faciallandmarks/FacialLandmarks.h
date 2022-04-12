@@ -13,10 +13,7 @@
 #ifndef CVCORE_FACIALLANDMARKS_H_
 #define CVCORE_FACIALLANDMARKS_H_
 
-#include <memory>
-
 #include <cuda_runtime.h>
-
 #include <cv/core/Array.h>
 #include <cv/core/BBox.h>
 #include <cv/core/Core.h>
@@ -24,7 +21,10 @@
 #include <cv/core/Model.h>
 #include <cv/core/Tensor.h>
 
-namespace cvcore { namespace faciallandmarks {
+#include <memory>
+
+namespace cvcore {
+namespace faciallandmarks {
 
 /**
  * Default Image Processing Params for Facial Landmarks.
@@ -44,9 +44,8 @@ CVCORE_API extern const ModelInferenceParams defaultInferenceParams;
 /**
  * Interface for running pre-processing for FacialLandmarks.
  */
-class CVCORE_API FacialLandmarksPreProcessor
-{
-public:
+class CVCORE_API FacialLandmarksPreProcessor {
+   public:
     /**
      * Removing the default constructor for FacialLandmarksPreProcessor.
      */
@@ -77,7 +76,7 @@ public:
                  const Array<float> &facesBBoxesScales, const Tensor<NHWC, C3, U8> &inputImagesBatch,
                  cudaStream_t stream = 0);
 
-private:
+   private:
     struct FacialLandmarksPreProcessorImpl;
     std::unique_ptr<FacialLandmarksPreProcessorImpl> m_pImpl;
 };
@@ -85,9 +84,8 @@ private:
 /**
  * Interface for loading and running FacialLandmarks.
  */
-class CVCORE_API FacialLandmarks
-{
-public:
+class CVCORE_API FacialLandmarks {
+   public:
     /**
      * The total number of Facial Landmarks.
      */
@@ -125,7 +123,7 @@ public:
                  Array<BBox> &facesBBoxes, const Array<float> &facesBBoxesScales,
                  const Tensor<NHWC, C3, U8> &inputImagesBatch, cudaStream_t stream = 0);
 
-private:
+   private:
     struct FacialLandmarksImpl;
     std::unique_ptr<FacialLandmarksImpl> m_pImpl;
 };
@@ -133,9 +131,8 @@ private:
 /**
  * Interface for running post-processing for FacialLandmarks.
  */
-class CVCORE_API FacialLandmarksPostProcessor
-{
-public:
+class CVCORE_API FacialLandmarksPostProcessor {
+   public:
     /**
      * Removing the default constructor for FacialLandmarksPostProcessor.
      */
@@ -168,11 +165,12 @@ public:
     void execute(Array<ArrayN<Vector2f, FacialLandmarks::MAX_NUM_FACIAL_LANDMARKS>> &facialKeypointsCoordinates,
                  const Tensor<CL, CX, F32> &coordRaw, const Array<BBox> &facesBBoxes, cudaStream_t stream = 0);
 
-private:
+   private:
     struct FacialLandmarksPostProcessorImpl;
     std::unique_ptr<FacialLandmarksPostProcessorImpl> m_pImpl;
 };
 
-}} // namespace cvcore::faciallandmarks
+}  // namespace faciallandmarks
+}  // namespace cvcore
 
 #endif

@@ -28,10 +28,9 @@
 #ifndef __NVDSINFER_DBSCAN_H__
 #define __NVDSINFER_DBSCAN_H__
 
+#include <nvdsinfer.h>
 #include <stddef.h>
 #include <stdint.h>
-
-#include <nvdsinfer.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,8 +83,8 @@ void NvDsInferDBScanDestroy(NvDsInferDBScanHandle handle);
  *                              this value after clustering.
  */
 void NvDsInferDBScanCluster(NvDsInferDBScanHandle handle,
-        NvDsInferDBScanClusteringParams *params,  NvDsInferObjectDetectionInfo *objects,
-        size_t *numObjects);
+                            NvDsInferDBScanClusteringParams *params, NvDsInferObjectDetectionInfo *objects,
+                            size_t *numObjects);
 
 /**
  * Clusters an array of objects in place using specified clustering parameters.
@@ -105,8 +104,8 @@ void NvDsInferDBScanCluster(NvDsInferDBScanHandle handle,
  *                              this value after clustering.
  */
 void NvDsInferDBScanClusterHybrid(NvDsInferDBScanHandle handle,
-        NvDsInferDBScanClusteringParams *params,  NvDsInferObjectDetectionInfo *objects,
-        size_t *numObjects);
+                                  NvDsInferDBScanClusteringParams *params, NvDsInferObjectDetectionInfo *objects,
+                                  size_t *numObjects);
 
 #ifdef __cplusplus
 }

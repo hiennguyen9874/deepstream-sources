@@ -38,7 +38,7 @@ extern "C" {
  *
  * @return A pointer to the new batch size query.
  */
-GstQuery * gst_nvquery_batch_size_new (void);
+GstQuery* gst_nvquery_batch_size_new(void);
 
 /**
  * Determines whether a query is a batch size query.
@@ -47,7 +47,7 @@ GstQuery * gst_nvquery_batch_size_new (void);
  *
  * @return  True if the query is a batch size query.
  */
-gboolean gst_nvquery_is_batch_size (GstQuery * query);
+gboolean gst_nvquery_is_batch_size(GstQuery* query);
 
 /**
  * Sets the batch size, used by the elements responding to the batch size query.
@@ -57,7 +57,7 @@ gboolean gst_nvquery_is_batch_size (GstQuery * query);
  * params[in] query         A pointer to a batch size query.
  * params[in] batch_size    The batch size to be set.
  */
-void gst_nvquery_batch_size_set (GstQuery * query, guint batch_size);
+void gst_nvquery_batch_size_set(GstQuery* query, guint batch_size);
 
 /**
  * Parses batch size from a batch size query.
@@ -68,7 +68,7 @@ void gst_nvquery_batch_size_set (GstQuery * query, guint batch_size);
  *
  * @return  True if the query was successfully parsed.
  */
-gboolean gst_nvquery_batch_size_parse (GstQuery * query, guint * batch_size);
+gboolean gst_nvquery_batch_size_parse(GstQuery* query, guint* batch_size);
 
 /**
  * Creates a number of streams query, used by elements to query
@@ -76,7 +76,7 @@ gboolean gst_nvquery_batch_size_parse (GstQuery * query, guint * batch_size);
  *
  * @return  A pointer to the new query.
  */
-GstQuery * gst_nvquery_numStreams_size_new (void);
+GstQuery* gst_nvquery_numStreams_size_new(void);
 
 /**
  * Determines whether a query is a number-of-streams query.
@@ -85,7 +85,7 @@ GstQuery * gst_nvquery_numStreams_size_new (void);
  *
  * @return  A Boolean; true if the query is a number of streams query.
  */
-gboolean gst_nvquery_is_numStreams_size (GstQuery * query);
+gboolean gst_nvquery_is_numStreams_size(GstQuery* query);
 
 /**
  * \brief  Sets the number of input sources.
@@ -96,7 +96,7 @@ gboolean gst_nvquery_is_numStreams_size (GstQuery * query);
  * params[in] query             A pointer to a number-of-streams query.
  * params[in] numStreams_size   The number of input sources.
  */
-void gst_nvquery_numStreams_size_set (GstQuery * query, guint numStreams_size);
+void gst_nvquery_numStreams_size_set(GstQuery* query, guint numStreams_size);
 
 /**
  * Parses the number of streams from a number of streams query.
@@ -107,7 +107,7 @@ void gst_nvquery_numStreams_size_set (GstQuery * query, guint numStreams_size);
  *
  * @return  True if the query was successfully parsed.
  */
-gboolean gst_nvquery_numStreams_size_parse (GstQuery * query, guint * numStreams_size);
+gboolean gst_nvquery_numStreams_size_parse(GstQuery* query, guint* numStreams_size);
 
 /** @} */
 

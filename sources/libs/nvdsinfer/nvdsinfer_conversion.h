@@ -36,8 +36,7 @@
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void
-NvDsInferConvert_C3ToP3Float(
+void NvDsInferConvert_C3ToP3Float(
     float *outBuffer,
     unsigned char *inBuffer,
     unsigned int width,
@@ -67,8 +66,7 @@ NvDsInferConvert_C3ToP3Float(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void
-NvDsInferConvert_C3ToL3Float(
+void NvDsInferConvert_C3ToL3Float(
     float *outBuffer,
     unsigned char *inBuffer,
     unsigned int width,
@@ -98,8 +96,7 @@ NvDsInferConvert_C3ToL3Float(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void
-NvDsInferConvert_C4ToP3Float(
+void NvDsInferConvert_C4ToP3Float(
     float *outBuffer,
     unsigned char *inBuffer,
     unsigned int width,
@@ -129,8 +126,7 @@ NvDsInferConvert_C4ToP3Float(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void
-NvDsInferConvert_C4ToL3Float(
+void NvDsInferConvert_C4ToL3Float(
     float *outBuffer,
     unsigned char *inBuffer,
     unsigned int width,
@@ -160,8 +156,7 @@ NvDsInferConvert_C4ToL3Float(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void
-NvDsInferConvert_C3ToP3RFloat(
+void NvDsInferConvert_C3ToP3RFloat(
     float *outBuffer,
     unsigned char *inBuffer,
     unsigned int width,
@@ -191,8 +186,7 @@ NvDsInferConvert_C3ToP3RFloat(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void
-NvDsInferConvert_C3ToL3RFloat(
+void NvDsInferConvert_C3ToL3RFloat(
     float *outBuffer,
     unsigned char *inBuffer,
     unsigned int width,
@@ -222,8 +216,7 @@ NvDsInferConvert_C3ToL3RFloat(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void
-NvDsInferConvert_C4ToP3RFloat(
+void NvDsInferConvert_C4ToP3RFloat(
     float *outBuffer,
     unsigned char *inBuffer,
     unsigned int width,
@@ -253,8 +246,7 @@ NvDsInferConvert_C4ToP3RFloat(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void
-NvDsInferConvert_C4ToL3RFloat(
+void NvDsInferConvert_C4ToL3RFloat(
     float *outBuffer,
     unsigned char *inBuffer,
     unsigned int width,
@@ -282,51 +274,48 @@ NvDsInferConvert_C4ToL3RFloat(
  *                       (width * height * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void
-NvDsInferConvert_C1ToP1Float(
-        float *outBuffer,
-        unsigned char *inBuffer,
-        unsigned int width,
-        unsigned int height,
-        unsigned int pitch,
-        float scaleFactor,
-        float *meanDataBuffer,
-        cudaStream_t stream);
+void NvDsInferConvert_C1ToP1Float(
+    float *outBuffer,
+    unsigned char *inBuffer,
+    unsigned int width,
+    unsigned int height,
+    unsigned int pitch,
+    float scaleFactor,
+    float *meanDataBuffer,
+    cudaStream_t stream);
 
-void
-NvDsInferConvert_FtFTensor(
-        float *outBuffer,
-        float *inBuffer,
-        unsigned int width,
-        unsigned int height,
-        unsigned int pitch,
-        float scaleFactor,
-        float *meanDataBuffer,
-        cudaStream_t stream);
-
+void NvDsInferConvert_FtFTensor(
+    float *outBuffer,
+    float *inBuffer,
+    unsigned int width,
+    unsigned int height,
+    unsigned int pitch,
+    float scaleFactor,
+    float *meanDataBuffer,
+    cudaStream_t stream);
 
 /**
  * Function pointer type to which any of the NvDsInferConvert functions can be
  * assigned.
  */
-typedef void (* NvDsInferConvertFcn)(
-        float *outBuffer,
-        unsigned char *inBuffer,
-        unsigned int width,
-        unsigned int height,
-        unsigned int pitch,
-        float scaleFactor,
-        float *meanDataBuffer,
-        cudaStream_t stream);
+typedef void (*NvDsInferConvertFcn)(
+    float *outBuffer,
+    unsigned char *inBuffer,
+    unsigned int width,
+    unsigned int height,
+    unsigned int pitch,
+    float scaleFactor,
+    float *meanDataBuffer,
+    cudaStream_t stream);
 
-typedef void (* NvDsInferConvertFcnFloat)(
-        float *outBuffer,
-        float *inBuffer,
-        unsigned int width,
-        unsigned int height,
-        unsigned int pitch,
-        float scaleFactor,
-        float *meanDataBuffer,
-        cudaStream_t stream);
+typedef void (*NvDsInferConvertFcnFloat)(
+    float *outBuffer,
+    float *inBuffer,
+    unsigned int width,
+    unsigned int height,
+    unsigned int pitch,
+    float scaleFactor,
+    float *meanDataBuffer,
+    cudaStream_t stream);
 
 #endif /* __NVDSINFER_CONVERSION_H__ */

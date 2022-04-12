@@ -140,12 +140,10 @@ typedef struct
     NvDsInferContextBatchOutput batch_output;
 } GstNvInferTensorOutputObject;
 
-namespace gstnvinfer
-{
+namespace gstnvinfer {
 
 /** Holds runtime model update status along with the error message if any. */
-struct ModelStatus
-{
+struct ModelStatus {
     /** Status of the model update. */
     NvDsInferStatus status;
     /** Config file used for model update. */
@@ -155,16 +153,13 @@ struct ModelStatus
 };
 
 /** C++ helper class written on top of GMutex/GCond. */
-class LockGMutex
-{
-  public:
+class LockGMutex {
+   public:
     LockGMutex(GMutex &mutex)
-        : m(mutex)
-    {
+        : m(mutex) {
         lock();
     }
-    ~LockGMutex()
-    {
+    ~LockGMutex() {
         if (locked)
             unlock();
     }
@@ -172,14 +167,13 @@ class LockGMutex
     void unlock();
     void wait(GCond &cond);
 
-  private:
+   private:
     GMutex &m;
     bool locked = false;
 };
 
 /** Enum for type of model update required. */
-enum ModelLoadType
-{
+enum ModelLoadType {
     /** Load a new model by just replacing the model engine assuming no network
    * architecture changes. */
     MODEL_LOAD_FROM_ENGINE,
@@ -210,9 +204,8 @@ enum ModelLoadType
  *
  * Check deepstream-test5-app README for more details on OTA and runtime model
  * update and sample test steps.*/
-class DsNvInferImpl
-{
-  public:
+class DsNvInferImpl {
+   public:
     using ContextReplacementPtr =
         std::unique_ptr<std::tuple<NvDsInferContextPtr, NvDsInferContextInitParamsPtr, std::string>>;
 
@@ -223,8 +216,7 @@ class DsNvInferImpl
     /* Stop the model load thread. Release the NvDsInferContext. */
     void stop();
 
-    bool isContextReady() const
-    {
+    bool isContextReady() const {
         return m_InferCtx.get();
     }
 
@@ -241,21 +233,19 @@ class DsNvInferImpl
     /** NvDsInferContext initialization params. */
     NvDsInferContextInitParamsPtr m_InitParams;
 
-  private:
+   private:
     /** Class implementation of separate thread for runtime model load. */
-    class ModelLoadThread
-    {
-      public:
+    class ModelLoadThread {
+       public:
         using ModelItem = std::tuple<std::string, ModelLoadType>;
 
         ModelLoadThread(DsNvInferImpl &impl);
         ~ModelLoadThread();
-        void queueModel(const std::string &modelPath, ModelLoadType type)
-        {
+        void queueModel(const std::string &modelPath, ModelLoadType type) {
             m_PendingModels.push(ModelItem(modelPath, type));
         }
 
-      private:
+       private:
         void Run();
 
         DsNvInferImpl &m_Impl;
@@ -286,6 +276,6 @@ class DsNvInferImpl
     ContextReplacementPtr m_NextContextReplacement;
 };
 
-} // namespace gstnvinfer
+}  // namespace gstnvinfer
 
 #endif

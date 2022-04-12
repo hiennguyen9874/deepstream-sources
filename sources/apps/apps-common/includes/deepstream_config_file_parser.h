@@ -21,31 +21,30 @@
  */
 
 #ifndef __NVGSTDS_CONFIG_PARSER_H__
-#define  __NVGSTDS_CONFIG_PARSER_H__
+#define __NVGSTDS_CONFIG_PARSER_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <gst/gst.h>
-#include "deepstream_config.h"
-#include "deepstream_sources.h"
-#include "deepstream_preprocess.h"
-#include "deepstream_primary_gie.h"
+
 #include "deepstream_audio_classifier.h"
-#include "deepstream_tiled_display.h"
-#include "deepstream_gie.h"
-#include "deepstream_sinks.h"
-#include "deepstream_osd.h"
-#include "deepstream_sources.h"
+#include "deepstream_c2d_msg.h"
+#include "deepstream_config.h"
+#include "deepstream_dewarper.h"
 #include "deepstream_dsanalytics.h"
 #include "deepstream_dsexample.h"
-#include "deepstream_streammux.h"
-#include "deepstream_tracker.h"
-#include "deepstream_dewarper.h"
-#include "deepstream_c2d_msg.h"
+#include "deepstream_gie.h"
 #include "deepstream_image_save.h"
+#include "deepstream_osd.h"
+#include "deepstream_preprocess.h"
+#include "deepstream_primary_gie.h"
+#include "deepstream_sinks.h"
+#include "deepstream_sources.h"
+#include "deepstream_streammux.h"
+#include "deepstream_tiled_display.h"
+#include "deepstream_tracker.h"
 
 #define CONFIG_GROUP_SOURCE_LIST "source-list"
 #define CONFIG_GROUP_SOURCE_LIST_NUM_SOURCE_BINS "num-source-bins"
@@ -64,8 +63,8 @@ extern "C"
 #define CONFIG_GROUP_DSEXAMPLE "ds-example"
 #define CONFIG_GROUP_STREAMMUX "streammux"
 #define CONFIG_GROUP_DEWARPER "dewarper"
-#define CONFIG_GROUP_MSG_CONVERTER  "message-converter"
-#define CONFIG_GROUP_MSG_CONSUMER  "message-consumer"
+#define CONFIG_GROUP_MSG_CONVERTER "message-converter"
+#define CONFIG_GROUP_MSG_CONSUMER "message-consumer"
 #define CONFIG_GROUP_IMG_SAVE "img-save"
 #define CONFIG_GROUP_AUDIO_TRANSFORM "audio-transform"
 #define CONFIG_GROUP_AUDIO_CLASSIFIER "audio-classifier"
@@ -105,8 +104,6 @@ extern "C"
 #define CONFIG_GROUP_SOURCE_SMART_RECORD_DURATION "smart-rec-duration"
 #define CONFIG_GROUP_SOURCE_SMART_RECORD_INTERVAL "smart-rec-interval"
 
-
-
 /**
  * Function to read properties of source element from configuration file.
  *
@@ -118,7 +115,7 @@ extern "C"
  * @return true if parsed successfully.
  */
 gboolean
-parse_dewarper (NvDsDewarperConfig * config, GKeyFile * key_file, gchar *cfg_file_path);
+parse_dewarper(NvDsDewarperConfig *config, GKeyFile *key_file, gchar *cfg_file_path);
 
 /**
  * Function to read properties of source element from configuration file.
@@ -131,8 +128,8 @@ parse_dewarper (NvDsDewarperConfig * config, GKeyFile * key_file, gchar *cfg_fil
  * @return true if parsed successfully.
  */
 gboolean
-parse_source (NvDsSourceConfig * config, GKeyFile * key_file,
-    gchar * group, gchar * cfg_file_path);
+parse_source(NvDsSourceConfig *config, GKeyFile *key_file,
+             gchar *group, gchar *cfg_file_path);
 
 /**
  * Function to read properties of OSD element from configuration file.
@@ -142,7 +139,7 @@ parse_source (NvDsSourceConfig * config, GKeyFile * key_file,
  *
  * @return true if parsed successfully.
  */
-gboolean parse_osd (NvDsOSDConfig * config, GKeyFile * key_file);
+gboolean parse_osd(NvDsOSDConfig *config, GKeyFile *key_file);
 
 /**
  * Function to read properties of nvdspreprocess element from configuration file.
@@ -155,8 +152,8 @@ gboolean parse_osd (NvDsOSDConfig * config, GKeyFile * key_file);
  * @return true if parsed successfully.
  */
 gboolean
-parse_preprocess (NvDsPreProcessConfig * config, GKeyFile * key_file,
-    gchar * cfg_file_path);
+parse_preprocess(NvDsPreProcessConfig *config, GKeyFile *key_file,
+                 gchar *cfg_file_path);
 
 /**
  * Function to read properties of infer element from configuration file.
@@ -170,8 +167,8 @@ parse_preprocess (NvDsPreProcessConfig * config, GKeyFile * key_file,
  * @return true if parsed successfully.
  */
 gboolean
-parse_gie (NvDsGieConfig * config, GKeyFile * key_file, gchar * group,
-    gchar * cfg_file_path);
+parse_gie(NvDsGieConfig *config, GKeyFile *key_file, gchar *group,
+          gchar *cfg_file_path);
 
 /**
  * Function to read properties of tracker element from configuration file.
@@ -183,7 +180,7 @@ parse_gie (NvDsGieConfig * config, GKeyFile * key_file, gchar * group,
  * @return true if parsed successfully.
  */
 gboolean
-parse_tracker (NvDsTrackerConfig * config, GKeyFile * key_file, gchar * cfg_file_path);
+parse_tracker(NvDsTrackerConfig *config, GKeyFile *key_file, gchar *cfg_file_path);
 
 /**
  * Function to read properties of sink element from configuration file.
@@ -195,7 +192,7 @@ parse_tracker (NvDsTrackerConfig * config, GKeyFile * key_file, gchar * cfg_file
  * @return true if parsed successfully.
  */
 gboolean
-parse_sink (NvDsSinkSubBinConfig * config, GKeyFile * key_file, gchar * group, gchar * cfg_file_path);
+parse_sink(NvDsSinkSubBinConfig *config, GKeyFile *key_file, gchar *group, gchar *cfg_file_path);
 
 /**
  * Function to read properties of tiler element from configuration file.
@@ -206,7 +203,7 @@ parse_sink (NvDsSinkSubBinConfig * config, GKeyFile * key_file, gchar * group, g
  * @return true if parsed successfully.
  */
 gboolean
-parse_tiled_display (NvDsTiledDisplayConfig * config, GKeyFile * key_file);
+parse_tiled_display(NvDsTiledDisplayConfig *config, GKeyFile *key_file);
 
 /**
  * Function to read properties of dsanalytics element from configuration file.
@@ -217,7 +214,7 @@ parse_tiled_display (NvDsTiledDisplayConfig * config, GKeyFile * key_file);
  * @return true if parsed successfully.
  */
 gboolean
-parse_dsanalytics (NvDsDsAnalyticsConfig * config, GKeyFile * key_file, gchar* cfg_file_path);
+parse_dsanalytics(NvDsDsAnalyticsConfig *config, GKeyFile *key_file, gchar *cfg_file_path);
 
 /**
  * Function to read properties of dsexample element from configuration file.
@@ -228,7 +225,7 @@ parse_dsanalytics (NvDsDsAnalyticsConfig * config, GKeyFile * key_file, gchar* c
  * @return true if parsed successfully.
  */
 gboolean
-parse_dsexample (NvDsDsExampleConfig * config, GKeyFile * key_file);
+parse_dsexample(NvDsDsExampleConfig *config, GKeyFile *key_file);
 
 /**
  * Function to read properties of streammux element from configuration file.
@@ -240,7 +237,7 @@ parse_dsexample (NvDsDsExampleConfig * config, GKeyFile * key_file);
  * @return true if parsed successfully.
  */
 gboolean
-parse_streammux (NvDsStreammuxConfig * config, GKeyFile * key_file, gchar * cfg_file_path);
+parse_streammux(NvDsStreammuxConfig *config, GKeyFile *key_file, gchar *cfg_file_path);
 
 /**
  * Function to read properties of message converter element from configuration file.
@@ -253,7 +250,7 @@ parse_streammux (NvDsStreammuxConfig * config, GKeyFile * key_file, gchar * cfg_
  * @return true if parsed successfully.
  */
 gboolean
-parse_msgconv (NvDsSinkMsgConvBrokerConfig *config, GKeyFile *key_file, gchar *group, gchar *cfg_file_path);
+parse_msgconv(NvDsSinkMsgConvBrokerConfig *config, GKeyFile *key_file, gchar *group, gchar *cfg_file_path);
 
 /**
  * Function to read properties of message consumer element from configuration file.
@@ -266,7 +263,7 @@ parse_msgconv (NvDsSinkMsgConvBrokerConfig *config, GKeyFile *key_file, gchar *g
  * @return true if parsed successfully.
  */
 gboolean
-parse_msgconsumer (NvDsMsgConsumerConfig *config, GKeyFile *key_file, gchar *group, gchar *cfg_file_path);
+parse_msgconsumer(NvDsMsgConsumerConfig *config, GKeyFile *key_file, gchar *group, gchar *cfg_file_path);
 
 /**
  * Function to read properties of image save from configuration file.
@@ -279,8 +276,8 @@ parse_msgconsumer (NvDsMsgConsumerConfig *config, GKeyFile *key_file, gchar *gro
  * @return true if parsed successfully.
  */
 gboolean
-parse_image_save (NvDsImageSave *config, GKeyFile *key_file,
-                   gchar *group, gchar *cfg_file_path);
+parse_image_save(NvDsImageSave *config, GKeyFile *key_file,
+                 gchar *group, gchar *cfg_file_path);
 
 /**
  * Utility function to convert relative path in configuration file
@@ -290,7 +287,7 @@ parse_image_save (NvDsImageSave *config, GKeyFile *key_file,
  * @param[in] file_path relative path of file.
  */
 gchar *
-get_absolute_file_path (gchar *cfg_file_path, gchar * file_path);
+get_absolute_file_path(gchar *cfg_file_path, gchar *file_path);
 
 #ifdef __cplusplus
 }

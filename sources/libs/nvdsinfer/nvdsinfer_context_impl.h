@@ -12,7 +12,11 @@
 #ifndef __NVDSINFER_CONTEXT_IMPL_H__
 #define __NVDSINFER_CONTEXT_IMPL_H__
 
+#include <NvCaffeParser.h>
+#include <NvInfer.h>
+#include <cuda_runtime_api.h>
 #include <stdarg.h>
+
 #include <condition_variable>
 #include <functional>
 #include <list>
@@ -20,18 +24,14 @@
 #include <mutex>
 #include <queue>
 
-#include <NvCaffeParser.h>
-#include <NvInfer.h>
-#include <cuda_runtime_api.h>
-
 #ifdef WITH_OPENCV
 #include <opencv2/objdetect/objdetect.hpp>
 #endif
 
 #include <nvdsinfer_context.h>
 #include <nvdsinfer_custom_impl.h>
-#include <nvdsinfer_utils.h>
 #include <nvdsinfer_logger.h>
+#include <nvdsinfer_utils.h>
 
 #include "nvdsinfer_backend.h"
 
@@ -59,15 +59,13 @@ typedef struct
 /**
  * Provides pre-processing functionality like mean subtraction and normalization.
  */
-class InferPreprocessor
-{
-public:
+class InferPreprocessor {
+   public:
     InferPreprocessor(const NvDsInferNetworkInfo& info, NvDsInferFormat format,
-        const NvDsInferBatchDimsLayerInfo& layerInfo, int id = 0);
+                      const NvDsInferBatchDimsLayerInfo& layerInfo, int id = 0);
     virtual ~InferPreprocessor() = default;
 
-    void setLoggingFunc(const NvDsInferLoggingFunc& func)
-    {
+    void setLoggingFunc(const NvDsInferLoggingFunc& func) {
         m_LoggingFunc = func;
     }
     bool setScaleOffsets(float scale, const std::vector<float>& offsets = {});
@@ -78,13 +76,13 @@ public:
     NvDsInferStatus syncStream();
 
     NvDsInferStatus transform(NvDsInferContextBatchInput& batchInput,
-        void* devBuf, CudaStream& mainStream, CudaEvent* waitingEvent);
+                              void* devBuf, CudaStream& mainStream, CudaEvent* waitingEvent);
 
-private:
+   private:
     NvDsInferStatus readMeanImageFile();
     DISABLE_CLASS_COPY(InferPreprocessor);
 
-private:
+   private:
     int m_UniqueID = 0;
     NvDsInferLoggingFunc m_LoggingFunc;
 
@@ -94,7 +92,7 @@ private:
     NvDsInferTensorOrder m_InputOrder = NvDsInferTensorOrder_kNCHW;
     NvDsInferBatchDimsLayerInfo m_NetworkInputLayer;
     float m_Scale = 1.0f;
-    std::vector<float> m_ChannelMeans; // same as channels
+    std::vector<float> m_ChannelMeans;  // same as channels
     std::string m_MeanFile;
 
     std::unique_ptr<CudaStream> m_PreProcessStream;
@@ -106,38 +104,31 @@ private:
 /**
  * Base class for post-processing on inference output.
  */
-class InferPostprocessor
-{
-protected:
+class InferPostprocessor {
+   protected:
     InferPostprocessor(NvDsInferNetworkType type, int id, int gpuId)
         : m_NetworkType(type), m_UniqueID(id), m_GpuID(gpuId) {}
 
-public:
+   public:
     virtual ~InferPostprocessor() = default;
-    void setDlHandle(const std::shared_ptr<DlLibHandle>& dlHandle)
-    {
+    void setDlHandle(const std::shared_ptr<DlLibHandle>& dlHandle) {
         m_CustomLibHandle = dlHandle;
     }
-    void setNetworkInfo(const NvDsInferNetworkInfo& info)
-    {
+    void setNetworkInfo(const NvDsInferNetworkInfo& info) {
         m_NetworkInfo = info;
     }
-    void setAllLayerInfo(std::vector<NvDsInferBatchDimsLayerInfo>& info)
-    {
+    void setAllLayerInfo(std::vector<NvDsInferBatchDimsLayerInfo>& info) {
         m_AllLayerInfo.resize(info.size());
         std::copy(info.begin(), info.end(), m_AllLayerInfo.begin());
     }
-    void setOutputLayerInfo(std::vector<NvDsInferBatchDimsLayerInfo>& info)
-    {
+    void setOutputLayerInfo(std::vector<NvDsInferBatchDimsLayerInfo>& info) {
         m_OutputLayerInfo.resize(info.size());
         std::copy(info.begin(), info.end(), m_OutputLayerInfo.begin());
     }
-    void setLoggingFunc(const NvDsInferLoggingFunc& func)
-    {
+    void setLoggingFunc(const NvDsInferLoggingFunc& func) {
         m_LoggingFunc = func;
     }
-    const std::vector<std::vector<std::string>>& getLabels() const
-    {
+    const std::vector<std::vector<std::string>>& getLabels() const {
         return m_Labels;
     }
     bool needInputCopy() const { return m_CopyInputToHostBuffers; }
@@ -154,21 +145,21 @@ public:
 
     void freeBatchOutput(NvDsInferContextBatchOutput& batchOutput);
 
-private:
+   private:
     /* Parse the output of each frame in batch. */
     virtual NvDsInferStatus parseEachBatch(
         const std::vector<NvDsInferLayerInfo>& outputLayers,
         NvDsInferFrameOutput& result) = 0;
 
-protected:
+   protected:
     NvDsInferStatus parseLabelsFile(const std::string& path);
     NvDsInferStatus allocDeviceResource();
     void releaseFrameOutput(NvDsInferFrameOutput& frameOutput);
 
-private:
+   private:
     DISABLE_CLASS_COPY(InferPostprocessor);
 
-protected:
+   protected:
     /* Processor type */
     NvDsInferNetworkType m_NetworkType = NvDsInferNetworkType_Other;
 
@@ -189,9 +180,8 @@ protected:
 };
 
 /** Implementation of post-processing class for object detection networks. */
-class DetectPostprocessor : public InferPostprocessor
-{
-public:
+class DetectPostprocessor : public InferPostprocessor {
+   public:
     DetectPostprocessor(int id, int gpuId = 0)
         : InferPostprocessor(NvDsInferNetworkType_Detector, id, gpuId) {}
     ~DetectPostprocessor() override = default;
@@ -199,7 +189,7 @@ public:
     NvDsInferStatus initResource(
         const NvDsInferContextInitParams& initParams) override;
 
-private:
+   private:
     NvDsInferStatus parseEachBatch(
         const std::vector<NvDsInferLayerInfo>& outputLayers,
         NvDsInferFrameOutput& result) override;
@@ -210,11 +200,10 @@ private:
         NvDsInferParseDetectionParams const& detectionParams,
         std::vector<NvDsInferObjectDetectionInfo>& objectList);
 
-    std::vector<int> nonMaximumSuppression
-                     (std::vector<std::pair<float, int>>& scoreIndex,
-                      std::vector<NvDsInferParseObjectInfo>& bbox,
-                      const float nmsThreshold);
-    void clusterAndFillDetectionOutputNMS(NvDsInferDetectionOutput &output);
+    std::vector<int> nonMaximumSuppression(std::vector<std::pair<float, int>>& scoreIndex,
+                                           std::vector<NvDsInferParseObjectInfo>& bbox,
+                                           const float nmsThreshold);
+    void clusterAndFillDetectionOutputNMS(NvDsInferDetectionOutput& output);
     void clusterAndFillDetectionOutputCV(NvDsInferDetectionOutput& output);
     void clusterAndFillDetectionOutputDBSCAN(NvDsInferDetectionOutput& output);
     void clusterAndFillDetectionOutputHybrid(NvDsInferDetectionOutput& output);
@@ -222,12 +211,12 @@ private:
     NvDsInferStatus fillDetectionOutput(
         const std::vector<NvDsInferLayerInfo>& outputLayers,
         NvDsInferDetectionOutput& output);
-    void preClusteringThreshold(NvDsInferParseDetectionParams const &detectionParams,
-            std::vector<NvDsInferObjectDetectionInfo> &objectList);
+    void preClusteringThreshold(NvDsInferParseDetectionParams const& detectionParams,
+                                std::vector<NvDsInferObjectDetectionInfo>& objectList);
     void filterTopKOutputs(const int topK,
-                          std::vector<NvDsInferObjectDetectionInfo> &objectList);
+                           std::vector<NvDsInferObjectDetectionInfo>& objectList);
 
-private:
+   private:
     _DS_DEPRECATED_("Use m_ClusterMode instead")
     bool m_UseDBScan = false;
     std::shared_ptr<NvDsInferDBScan> m_DBScanHandle;
@@ -253,9 +242,8 @@ private:
 };
 
 /** Implementation of post-processing class for instance segmentation networks. */
-class InstanceSegmentPostprocessor : public InferPostprocessor
-{
-public:
+class InstanceSegmentPostprocessor : public InferPostprocessor {
+   public:
     InstanceSegmentPostprocessor(int id, int gpuId = 0)
         : InferPostprocessor(NvDsInferNetworkType_InstanceSegmentation, id, gpuId) {}
     ~InstanceSegmentPostprocessor() override = default;
@@ -263,7 +251,7 @@ public:
     NvDsInferStatus initResource(
         const NvDsInferContextInitParams& initParams) override;
 
-private:
+   private:
     NvDsInferStatus parseEachBatch(
         const std::vector<NvDsInferLayerInfo>& outputLayers,
         NvDsInferFrameOutput& result) override;
@@ -272,12 +260,12 @@ private:
     NvDsInferStatus fillDetectionOutput(
         const std::vector<NvDsInferLayerInfo>& outputLayers,
         NvDsInferDetectionOutput& output);
-    void preClusteringThreshold(NvDsInferParseDetectionParams const &detectionParams,
-            std::vector<NvDsInferInstanceMaskInfo> &objectList);
+    void preClusteringThreshold(NvDsInferParseDetectionParams const& detectionParams,
+                                std::vector<NvDsInferInstanceMaskInfo>& objectList);
     void filterTopKOutputs(const int topK,
-                          std::vector<NvDsInferInstanceMaskInfo> &objectList);
+                           std::vector<NvDsInferInstanceMaskInfo>& objectList);
 
-private:
+   private:
     NvDsInferClusterMode m_ClusterMode;
 
     /* Number of classes detected by the model. */
@@ -296,16 +284,15 @@ private:
 };
 
 /** Implementation of post-processing class for classification networks. */
-class ClassifyPostprocessor : public InferPostprocessor
-{
-public:
+class ClassifyPostprocessor : public InferPostprocessor {
+   public:
     ClassifyPostprocessor(int id, int gpuId = 0)
         : InferPostprocessor(NvDsInferNetworkType_Classifier, id, gpuId) {}
 
     NvDsInferStatus initResource(
         const NvDsInferContextInitParams& initParams) override;
 
-private:
+   private:
     NvDsInferStatus parseEachBatch(
         const std::vector<NvDsInferLayerInfo>& outputLayers,
         NvDsInferFrameOutput& result) override;
@@ -319,22 +306,21 @@ private:
         NvDsInferNetworkInfo const& networkInfo, float classifierThreshold,
         std::vector<NvDsInferAttribute>& attrList, std::string& attrString);
 
-private:
+   private:
     float m_ClassifierThreshold = 0.0f;
     NvDsInferClassiferParseCustomFunc m_CustomClassifierParseFunc = nullptr;
 };
 
 /** Implementation of post-processing class for segmentation networks. */
-class SegmentPostprocessor : public InferPostprocessor
-{
-public:
+class SegmentPostprocessor : public InferPostprocessor {
+   public:
     SegmentPostprocessor(int id, int gpuId = 0)
         : InferPostprocessor(NvDsInferNetworkType_Segmentation, id, gpuId) {}
 
     NvDsInferStatus initResource(
         const NvDsInferContextInitParams& initParams) override;
 
-private:
+   private:
     NvDsInferStatus parseEachBatch(
         const std::vector<NvDsInferLayerInfo>& outputLayers,
         NvDsInferFrameOutput& result) override;
@@ -343,21 +329,20 @@ private:
         const std::vector<NvDsInferLayerInfo>& outputLayers,
         NvDsInferSegmentationOutput& output);
 
-private:
+   private:
     float m_SegmentationThreshold = 0.0f;
     NvDsInferTensorOrder m_SegmentationOutputOrder = NvDsInferTensorOrder_kNCHW;
 };
 
-class OtherPostprocessor : public InferPostprocessor
-{
-public:
+class OtherPostprocessor : public InferPostprocessor {
+   public:
     OtherPostprocessor(int id, int gpuId = 0)
         : InferPostprocessor(NvDsInferNetworkType_Other, id, gpuId) {}
 
     NvDsInferStatus initResource(
         const NvDsInferContextInitParams& initParams) override;
 
-private:
+   private:
     NvDsInferStatus parseEachBatch(
         const std::vector<NvDsInferLayerInfo>& outputLayers,
         NvDsInferFrameOutput& result) override {
@@ -370,9 +355,8 @@ class BackendContext;
 /**
  * Implementation of the INvDsInferContext interface.
  */
-class NvDsInferContextImpl : public INvDsInferContext
-{
-public:
+class NvDsInferContextImpl : public INvDsInferContext {
+   public:
     /**
      * Default constructor.
      */
@@ -382,22 +366,22 @@ public:
      * Initializes the Infer engine, allocates layer buffers and other required
      * initialization steps.
      */
-    NvDsInferStatus initialize(NvDsInferContextInitParams &initParams,
-            void *userCtx, NvDsInferContextLoggingFunc logFunc);
+    NvDsInferStatus initialize(NvDsInferContextInitParams& initParams,
+                               void* userCtx, NvDsInferContextLoggingFunc logFunc);
 
-private:
+   private:
     /**
      * Free up resouces and deinitialize the inference engine.
      */
     ~NvDsInferContextImpl() override;
 
     /* Implementation of the public methods of INvDsInferContext interface. */
-    NvDsInferStatus queueInputBatch(NvDsInferContextBatchInput &batchInput) override;
-    NvDsInferStatus queueInputBatchPreprocessed(NvDsInferContextBatchPreprocessedInput &batchInput) override;
-    NvDsInferStatus dequeueOutputBatch(NvDsInferContextBatchOutput &batchOutput) override;
-    void releaseBatchOutput(NvDsInferContextBatchOutput &batchOutput) override;
-    void fillLayersInfo(std::vector<NvDsInferLayerInfo> &layersInfo) override;
-    void getNetworkInfo(NvDsInferNetworkInfo &networkInfo) override;
+    NvDsInferStatus queueInputBatch(NvDsInferContextBatchInput& batchInput) override;
+    NvDsInferStatus queueInputBatchPreprocessed(NvDsInferContextBatchPreprocessedInput& batchInput) override;
+    NvDsInferStatus dequeueOutputBatch(NvDsInferContextBatchOutput& batchOutput) override;
+    void releaseBatchOutput(NvDsInferContextBatchOutput& batchOutput) override;
+    void fillLayersInfo(std::vector<NvDsInferLayerInfo>& layersInfo) override;
+    void getNetworkInfo(NvDsInferNetworkInfo& networkInfo) override;
     const std::vector<std::vector<std::string>>& getLabels() override;
     void destroy() override;
 
@@ -414,8 +398,8 @@ private:
     std::unique_ptr<BackendContext> buildModel(
         NvDsInferContextInitParams& initParams);
     bool deserializeEngineAndBackend(const std::string enginePath, int dla,
-        std::shared_ptr<TrtEngine>& engine,
-        std::unique_ptr<BackendContext>& backend);
+                                     std::shared_ptr<TrtEngine>& engine,
+                                     std::unique_ptr<BackendContext>& backend);
     NvDsInferStatus checkBackendParams(
         BackendContext& ctx, const NvDsInferContextInitParams& initParams);
 
@@ -448,7 +432,7 @@ private:
     std::vector<NvDsInferBatchDimsLayerInfo> m_OutputLayerInfo;
     NvDsInferBatchDimsLayerInfo m_InputImageLayerInfo;
 
-    std::vector<void *> m_BindingBuffers;
+    std::vector<void*> m_BindingBuffers;
     std::vector<std::unique_ptr<CudaDeviceBuffer>> m_InputDeviceBuffers;
 
     uint32_t m_OutputBufferPoolSize = NVDSINFER_MIN_OUTPUT_BUFFERPOOL_SIZE;
@@ -474,41 +458,41 @@ private:
     bool m_Initialized = false;
 };
 
-}
+}  // namespace nvdsinfer
 
-#define printMsg(level, tag_str, fmt, ...)                                  \
-    do {                                                                    \
-        char* baseName = strrchr((char*)__FILE__, '/');                     \
-        baseName = (baseName) ? (baseName + 1) : (char*)__FILE__;           \
-        char logMsgBuffer[5 * _MAX_STR_LENGTH + 1];                             \
-        snprintf(logMsgBuffer, 5 * _MAX_STR_LENGTH,                             \
-            tag_str " NvDsInferContextImpl::%s() <%s:%d> [UID = %d]: " fmt, \
-            __func__, baseName, __LINE__, m_UniqueID, ##__VA_ARGS__);       \
-        if (m_LoggingFunc) {                                                \
-            m_LoggingFunc(level, logMsgBuffer);                             \
-        } else {                                                            \
-            fprintf(stderr, "%s\n", logMsgBuffer);                          \
-        }                                                                   \
+#define printMsg(level, tag_str, fmt, ...)                                       \
+    do {                                                                         \
+        char* baseName = strrchr((char*)__FILE__, '/');                          \
+        baseName = (baseName) ? (baseName + 1) : (char*)__FILE__;                \
+        char logMsgBuffer[5 * _MAX_STR_LENGTH + 1];                              \
+        snprintf(logMsgBuffer, 5 * _MAX_STR_LENGTH,                              \
+                 tag_str " NvDsInferContextImpl::%s() <%s:%d> [UID = %d]: " fmt, \
+                 __func__, baseName, __LINE__, m_UniqueID, ##__VA_ARGS__);       \
+        if (m_LoggingFunc) {                                                     \
+            m_LoggingFunc(level, logMsgBuffer);                                  \
+        } else {                                                                 \
+            fprintf(stderr, "%s\n", logMsgBuffer);                               \
+        }                                                                        \
     } while (0)
 
-#define printError(fmt, ...) \
-    do { \
-        printMsg (NVDSINFER_LOG_ERROR, "Error in", fmt, ##__VA_ARGS__); \
+#define printError(fmt, ...)                                           \
+    do {                                                               \
+        printMsg(NVDSINFER_LOG_ERROR, "Error in", fmt, ##__VA_ARGS__); \
     } while (0)
 
-#define printWarning(fmt, ...) \
-    do { \
-        printMsg (NVDSINFER_LOG_WARNING, "Warning from", fmt, ##__VA_ARGS__); \
+#define printWarning(fmt, ...)                                               \
+    do {                                                                     \
+        printMsg(NVDSINFER_LOG_WARNING, "Warning from", fmt, ##__VA_ARGS__); \
     } while (0)
 
-#define printInfo(fmt, ...) \
-    do { \
-        printMsg (NVDSINFER_LOG_INFO, "Info from", fmt, ##__VA_ARGS__); \
+#define printInfo(fmt, ...)                                            \
+    do {                                                               \
+        printMsg(NVDSINFER_LOG_INFO, "Info from", fmt, ##__VA_ARGS__); \
     } while (0)
 
-#define printDebug(fmt, ...) \
-    do { \
-        printMsg (NVDSINFER_LOG_DEBUG, "DEBUG", fmt, ##__VA_ARGS__); \
+#define printDebug(fmt, ...)                                        \
+    do {                                                            \
+        printMsg(NVDSINFER_LOG_DEBUG, "DEBUG", fmt, ##__VA_ARGS__); \
     } while (0)
 
 #endif

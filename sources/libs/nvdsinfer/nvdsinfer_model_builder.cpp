@@ -9,8 +9,14 @@
  *
  */
 
+#include "nvdsinfer_model_builder.h"
+
+#include <NvInferPlugin.h>
+#include <NvOnnxParser.h>
+#include <NvUffParser.h>
 #include <dlfcn.h>
 #include <unistd.h>
+
 #include <array>
 #include <fstream>
 #include <iomanip>
@@ -19,14 +25,9 @@
 #include <memory>
 #include <sstream>
 
-#include <NvInferPlugin.h>
-#include <NvOnnxParser.h>
-#include <NvUffParser.h>
-
 #include "nvdsinfer.h"
 #include "nvdsinfer_custom_impl.h"
 #include "nvdsinfer_func_utils.h"
-#include "nvdsinfer_model_builder.h"
 #include "nvdsinfer_utils.h"
 
 namespace nvdsinfer {
@@ -39,40 +40,32 @@ constexpr nvinfer1::TensorFormats kDefaultTensorFormats =
     1U << (uint32_t)nvinfer1::TensorFormat::kLINEAR;
 
 CaffeModelParser::CaffeModelParser(const NvDsInferContextInitParams& initParams,
-    const std::shared_ptr<DlLibHandle>& handle)
+                                   const std::shared_ptr<DlLibHandle>& handle)
     : BaseModelParser(initParams, handle),
       m_ProtoPath(initParams.protoFilePath),
-      m_ModelPath(initParams.modelFilePath)
-{
-    if(initParams.numOutputLayers <= 0)
-    {
+      m_ModelPath(initParams.modelFilePath) {
+    if (initParams.numOutputLayers <= 0) {
         dsInferError("No output layers specified. Need atleast one output layer");
         return;
     }
 
-    for (unsigned int i = 0; i < initParams.numOutputLayers; i++)
-    {
+    for (unsigned int i = 0; i < initParams.numOutputLayers; i++) {
         assert(initParams.outputLayerNames[i]);
         m_OutputLayers.emplace_back(initParams.outputLayerNames[i]);
     }
     m_CaffeParser = nvcaffeparser1::createCaffeParser();
 }
 
-CaffeModelParser::~CaffeModelParser()
-{
+CaffeModelParser::~CaffeModelParser() {
     m_CaffeParser.reset();
     /* Destroy the PluginFactory created for building the Caffe model.*/
-    if (m_CaffePluginFactory.pluginFactoryV2)
-    {
+    if (m_CaffePluginFactory.pluginFactoryV2) {
         assert(m_LibHandle);
         auto destroyFunc =
             READ_SYMBOL(m_LibHandle, NvDsInferPluginFactoryCaffeDestroy);
-        if (destroyFunc)
-        {
+        if (destroyFunc) {
             destroyFunc(m_CaffePluginFactory);
-        }
-        else
-        {
+        } else {
             dsInferWarning(
                 "Custom lib: %s doesn't have function "
                 "<NvDsInferPluginFactoryCaffeDestroy> may cause memory-leak",
@@ -82,8 +75,7 @@ CaffeModelParser::~CaffeModelParser()
 }
 
 NvDsInferStatus
-CaffeModelParser::setPluginFactory()
-{
+CaffeModelParser::setPluginFactory() {
     assert(m_CaffeParser);
     if (!m_LibHandle)
         return NVDSINFER_SUCCESS;
@@ -95,8 +87,7 @@ CaffeModelParser::setPluginFactory()
         return NVDSINFER_SUCCESS;
 
     NvDsInferPluginFactoryType type{PLUGIN_FACTORY_V2};
-    if (!fcn(m_CaffePluginFactory, type))
-    {
+    if (!fcn(m_CaffePluginFactory, type)) {
         dsInferError(
             "Could not get PluginFactory instance for "
             "Caffe parsing from custom library");
@@ -105,9 +96,9 @@ CaffeModelParser::setPluginFactory()
 
     if (type != PLUGIN_FACTORY_V2) {
         dsInferError(
-                    "Invalid PluginFactory type returned by "
-                    "custom library");
-            return NVDSINFER_CUSTOM_LIB_FAILED;
+            "Invalid PluginFactory type returned by "
+            "custom library");
+        return NVDSINFER_CUSTOM_LIB_FAILED;
 
     } else {
         m_CaffeParser->setPluginFactoryV2(m_CaffePluginFactory.pluginFactoryV2);
@@ -117,28 +108,23 @@ CaffeModelParser::setPluginFactory()
 }
 
 NvDsInferStatus
-CaffeModelParser::parseModel(nvinfer1::INetworkDefinition& network)
-{
-    if (!isValid())
-    {
+CaffeModelParser::parseModel(nvinfer1::INetworkDefinition& network) {
+    if (!isValid()) {
         dsInferError("parse Caffe model failed, please check config file");
         return NVDSINFER_INVALID_PARAMS;
     }
 
-    if (!file_accessible(m_ProtoPath))
-    {
+    if (!file_accessible(m_ProtoPath)) {
         dsInferError("Cannot access prototxt file '%s'", safeStr(m_ProtoPath));
         return NVDSINFER_CONFIG_FAILED;
     }
-    if (!file_accessible(m_ModelPath))
-    {
+    if (!file_accessible(m_ModelPath)) {
         dsInferError("Cannot access caffemodel file '%s'", safeStr(m_ModelPath));
         return NVDSINFER_CONFIG_FAILED;
     }
 
     NvDsInferStatus status = setPluginFactory();
-    if (status != NVDSINFER_SUCCESS)
-    {
+    if (status != NVDSINFER_SUCCESS) {
         dsInferError("Failed to set caffe plugin Factory from custom lib");
         return NVDSINFER_TENSORRT_ERROR;
     }
@@ -146,20 +132,17 @@ CaffeModelParser::parseModel(nvinfer1::INetworkDefinition& network)
     /* Parse the caffe model. */
     const nvcaffeparser1::IBlobNameToTensor* blobNameToTensor =
         m_CaffeParser->parse(m_ProtoPath.c_str(), m_ModelPath.c_str(), network,
-            nvinfer1::DataType::kFLOAT);
+                             nvinfer1::DataType::kFLOAT);
 
-    if (!blobNameToTensor)
-    {
+    if (!blobNameToTensor) {
         dsInferError("Failed while parsing caffe network: %s", safeStr(m_ProtoPath));
         return NVDSINFER_TENSORRT_ERROR;
     }
 
-    for (const auto& layerName : m_OutputLayers)
-    {
+    for (const auto& layerName : m_OutputLayers) {
         /* Find and mark output layers */
         nvinfer1::ITensor* tensor = blobNameToTensor->find(layerName.c_str());
-        if (!tensor)
-        {
+        if (!tensor) {
             dsInferError("Could not find output layer '%s'", safeStr(layerName));
             return NVDSINFER_CONFIG_FAILED;
         }
@@ -170,36 +153,31 @@ CaffeModelParser::parseModel(nvinfer1::INetworkDefinition& network)
 }
 
 UffModelParser::UffModelParser(const NvDsInferContextInitParams& initParams,
-    const std::shared_ptr<DlLibHandle>& handle)
-    : BaseModelParser(initParams, handle)
-{
+                               const std::shared_ptr<DlLibHandle>& handle)
+    : BaseModelParser(initParams, handle) {
     m_ModelParams.uffFilePath = initParams.uffFilePath;
-    if (string_empty(initParams.uffInputBlobName))
-    {
+    if (string_empty(initParams.uffInputBlobName)) {
         dsInferError("Uff input blob name is empty");
         return;
     }
 
-    if(initParams.numOutputLayers <= 0)
-    {
+    if (initParams.numOutputLayers <= 0) {
         dsInferError("No output layers specified. Need atleast one output layer");
         return;
     }
 
     m_ModelParams.inputNames.emplace_back(initParams.uffInputBlobName);
     nvinfer1::Dims3 uffInputDims(initParams.inferInputDims.c,
-        initParams.inferInputDims.h, initParams.inferInputDims.w);
+                                 initParams.inferInputDims.h, initParams.inferInputDims.w);
     m_ModelParams.inputDims.emplace_back(uffInputDims);
 
-    if (m_ModelParams.inputDims.size() != m_ModelParams.inputNames.size())
-    {
+    if (m_ModelParams.inputDims.size() != m_ModelParams.inputNames.size()) {
         dsInferError(
             "Unrecognized uff input blob names and dims are not match");
         return;
     }
 
-    switch (initParams.uffInputOrder)
-    {
+    switch (initParams.uffInputOrder) {
         case NvDsInferTensorOrder_kNCHW:
             m_ModelParams.inputOrder = nvuffparser::UffInputOrder::kNCHW;
             break;
@@ -215,8 +193,7 @@ UffModelParser::UffModelParser(const NvDsInferContextInitParams& initParams,
             return;
     }
 
-    for (unsigned int i = 0; i < initParams.numOutputLayers; i++)
-    {
+    for (unsigned int i = 0; i < initParams.numOutputLayers; i++) {
         assert(initParams.outputLayerNames[i]);
         m_ModelParams.outputNames.emplace_back(initParams.outputLayerNames[i]);
     }
@@ -224,20 +201,16 @@ UffModelParser::UffModelParser(const NvDsInferContextInitParams& initParams,
     m_UffParser = nvuffparser::createUffParser();
 }
 
-UffModelParser::~UffModelParser()
-{
+UffModelParser::~UffModelParser() {
     m_UffParser.reset();
 }
 
 NvDsInferStatus
-UffModelParser::initParser()
-{
+UffModelParser::initParser() {
     /* Register the input layer (name, dims and input order). */
-    for (size_t i = 0; i < m_ModelParams.inputNames.size(); ++i)
-    {
+    for (size_t i = 0; i < m_ModelParams.inputNames.size(); ++i) {
         if (!m_UffParser->registerInput(m_ModelParams.inputNames[i].c_str(),
-                m_ModelParams.inputDims[i], m_ModelParams.inputOrder))
-        {
+                                        m_ModelParams.inputDims[i], m_ModelParams.inputOrder)) {
             dsInferError(
                 "Failed to register uff input blob: %s DimsCHW:(%s) "
                 "Order: %s",
@@ -249,10 +222,8 @@ UffModelParser::initParser()
     }
 
     /* Register outputs. */
-    for (const auto& layerName : m_ModelParams.outputNames)
-    {
-        if (!m_UffParser->registerOutput(layerName.c_str()))
-        {
+    for (const auto& layerName : m_ModelParams.outputNames) {
+        if (!m_UffParser->registerOutput(layerName.c_str())) {
             dsInferError(
                 "Failed to register uff output blob: %s", safeStr(layerName));
             return NVDSINFER_CONFIG_FAILED;
@@ -263,32 +234,27 @@ UffModelParser::initParser()
 }
 
 NvDsInferStatus
-UffModelParser::parseModel(nvinfer1::INetworkDefinition& network)
-{
-    if (!isValid())
-    {
+UffModelParser::parseModel(nvinfer1::INetworkDefinition& network) {
+    if (!isValid()) {
         dsInferError("parse Uff model failed, please check config file");
         return NVDSINFER_INVALID_PARAMS;
     }
 
     NvDsInferStatus status = initParser();
-    if (status != NVDSINFER_SUCCESS)
-    {
+    if (status != NVDSINFER_SUCCESS) {
         dsInferError("Failed to init uff parser for file: %s",
-            safeStr(m_ModelParams.uffFilePath));
+                     safeStr(m_ModelParams.uffFilePath));
         return status;
     }
 
-    if (!file_accessible(m_ModelParams.uffFilePath))
-    {
+    if (!file_accessible(m_ModelParams.uffFilePath)) {
         dsInferError(
             "Cannot access UFF file '%s'", safeStr(m_ModelParams.uffFilePath));
         return NVDSINFER_CONFIG_FAILED;
     }
 
     if (!m_UffParser->parse(m_ModelParams.uffFilePath.c_str(), network,
-            nvinfer1::DataType::kFLOAT))
-    {
+                            nvinfer1::DataType::kFLOAT)) {
         dsInferError(
             "Failed to parse UFF file: %s, incorrect file or incorrect"
             " input/output blob names",
@@ -300,18 +266,15 @@ UffModelParser::parseModel(nvinfer1::INetworkDefinition& network)
 }
 
 NvDsInferStatus
-OnnxModelParser::parseModel(nvinfer1::INetworkDefinition& network)
-{
-    if (!file_accessible(m_ModelName.c_str()))
-    {
+OnnxModelParser::parseModel(nvinfer1::INetworkDefinition& network) {
+    if (!file_accessible(m_ModelName.c_str())) {
         dsInferError("Cannot access ONNX file '%s'", safeStr(m_ModelName));
         return NVDSINFER_CONFIG_FAILED;
     }
     m_OnnxParser = nvonnxparser::createParser(network, *gTrtLogger);
 
     if (!m_OnnxParser->parseFromFile(
-            m_ModelName.c_str(), (int)nvinfer1::ILogger::Severity::kWARNING))
-    {
+            m_ModelName.c_str(), (int)nvinfer1::ILogger::Severity::kWARNING)) {
         dsInferError("Failed to parse onnx file");
         return NVDSINFER_TENSORRT_ERROR;
     }
@@ -319,9 +282,8 @@ OnnxModelParser::parseModel(nvinfer1::INetworkDefinition& network)
 }
 
 CustomModelParser::CustomModelParser(const NvDsInferContextInitParams& initParams,
-    const std::shared_ptr<DlLibHandle>& handle)
-    : BaseModelParser(initParams, handle)
-{
+                                     const std::shared_ptr<DlLibHandle>& handle)
+    : BaseModelParser(initParams, handle) {
     assert(handle);
 
     /* Get the address of NvDsInferCreateModelParser interface implemented by
@@ -332,8 +294,7 @@ CustomModelParser::CustomModelParser(const NvDsInferContextInitParams& initParam
 
     /* Create the custom parser using NvDsInferCreateModelParser interface. */
     std::unique_ptr<IModelParser> modelParser(createFcn(&initParams));
-    if (!modelParser)
-    {
+    if (!modelParser) {
         dsInferError(
             "Failed to create custom parser from lib:%s, model path:%s",
             safeStr(handle->getPath()),
@@ -344,10 +305,8 @@ CustomModelParser::CustomModelParser(const NvDsInferContextInitParams& initParam
 }
 
 NvDsInferStatus
-CustomModelParser::parseModel(nvinfer1::INetworkDefinition& network)
-{
-    if (!isValid())
-    {
+CustomModelParser::parseModel(nvinfer1::INetworkDefinition& network) {
+    if (!isValid()) {
         dsInferError(
             "Failed to parse model since parser description is not valid or "
             "parser cannot be created");
@@ -357,12 +316,9 @@ CustomModelParser::parseModel(nvinfer1::INetworkDefinition& network)
     return m_CustomParser->parseModel(network);
 }
 
-bool
-BuildParams::sanityCheck() const
-{
+bool BuildParams::sanityCheck() const {
     /* Check for supported network modes. */
-    switch (networkMode)
-    {
+    switch (networkMode) {
         case NvDsInferNetworkMode_FP32:
         case NvDsInferNetworkMode_FP16:
         case NvDsInferNetworkMode_INT8:
@@ -373,9 +329,7 @@ BuildParams::sanityCheck() const
     return true;
 }
 
-bool
-ImplicitBuildParams::sanityCheck() const
-{
+bool ImplicitBuildParams::sanityCheck() const {
     /* Check for valid batch size. */
     if (maxBatchSize <= 0)
         return false;
@@ -383,20 +337,16 @@ ImplicitBuildParams::sanityCheck() const
 }
 
 NvDsInferStatus
-ImplicitBuildParams::configBuilder(TrtModelBuilder& trtBuilder)
-{
+ImplicitBuildParams::configBuilder(TrtModelBuilder& trtBuilder) {
     return trtBuilder.configImplicitOptions(*this);
 }
 
-bool
-ExplicitBuildParams::sanityCheck() const
-{
+bool ExplicitBuildParams::sanityCheck() const {
     /* Check that min <= opt <= max batch size. */
     if (minBatchSize > optBatchSize || optBatchSize > maxBatchSize)
         return false;
 
-    for (auto& layer : inputProfileDims)
-    {
+    for (auto& layer : inputProfileDims) {
         int nd = -1;
         if (!std::all_of(
                 layer.begin(), layer.end(), [&nd](const nvinfer1::Dims& s) {
@@ -404,8 +354,7 @@ ExplicitBuildParams::sanityCheck() const
                         return nd == s.nbDims;
                     nd = s.nbDims;
                     return true;
-                }))
-        {
+                })) {
             dsInferError("Explicit Options sanity check failed.");
             return false;
         }
@@ -415,32 +364,28 @@ ExplicitBuildParams::sanityCheck() const
 }
 
 NvDsInferStatus
-ExplicitBuildParams::configBuilder(TrtModelBuilder& trtBuilder)
-{
+ExplicitBuildParams::configBuilder(TrtModelBuilder& trtBuilder) {
     return trtBuilder.configExplicitOptions(*this);
 }
 
 TrtEngine::TrtEngine(UniquePtrWDestroy<nvinfer1::ICudaEngine>&& engine,
-    const SharedPtrWDestroy<nvinfer1::IRuntime>& runtime, int dlaCore,
-    const std::shared_ptr<DlLibHandle>& dlHandle,
-    nvinfer1::IPluginFactory* pluginFactory)
+                     const SharedPtrWDestroy<nvinfer1::IRuntime>& runtime, int dlaCore,
+                     const std::shared_ptr<DlLibHandle>& dlHandle,
+                     nvinfer1::IPluginFactory* pluginFactory)
     : m_Runtime(runtime),
       m_Engine(std::move(engine)),
       m_DlHandle(dlHandle),
       m_RuntimePluginFactory(pluginFactory),
-      m_DlaCore(dlaCore){}
+      m_DlaCore(dlaCore) {}
 
-TrtEngine::~TrtEngine()
-{
+TrtEngine::~TrtEngine() {
     m_Engine.reset();
 
     /* Destroy the Runtime PluginFactory instance if provided. */
-    if (m_RuntimePluginFactory && m_DlHandle)
-    {
+    if (m_RuntimePluginFactory && m_DlHandle) {
         auto destroyFcn =
             READ_SYMBOL(m_DlHandle, NvDsInferPluginFactoryRuntimeDestroy);
-        if (!destroyFcn)
-        {
+        if (!destroyFcn) {
             dsInferWarning(
                 "NvDsInferPluginFactoryRuntimeDestroy is missing in custom "
                 "lib.");
@@ -453,8 +398,7 @@ TrtEngine::~TrtEngine()
 /* Get properties of bound layers like the name, dimension, datatype
  */
 NvDsInferStatus
-TrtEngine::getLayerInfo(int idx, NvDsInferLayerInfo& info)
-{
+TrtEngine::getLayerInfo(int idx, NvDsInferLayerInfo& info) {
     assert(m_Engine);
     assert(idx < m_Engine->getNbBindings());
     nvinfer1::Dims d = m_Engine->getBindingDimensions(idx);
@@ -463,19 +407,15 @@ TrtEngine::getLayerInfo(int idx, NvDsInferLayerInfo& info)
     info.isInput = m_Engine->bindingIsInput(idx);
     info.bindingIndex = idx;
     info.layerName = safeStr(m_Engine->getBindingName(idx));
-    if (m_Engine->hasImplicitBatchDimension())
-    {
+    if (m_Engine->hasImplicitBatchDimension()) {
         info.inferDims = trt2DsDims(d);
-    }
-    else
-    {
+    } else {
         NvDsInferBatchDims batchDims;
         convertFullDims(d, batchDims);
         info.inferDims = batchDims.dims;
     }
 
-    switch (m_Engine->getBindingDataType(idx))
-    {
+    switch (m_Engine->getBindingDataType(idx)) {
         case nvinfer1::DataType::kFLOAT:
             info.dataType = FLOAT;
             break;
@@ -490,7 +430,7 @@ TrtEngine::getLayerInfo(int idx, NvDsInferLayerInfo& info)
             break;
         default:
             dsInferError(
-                    "Unknown data type for bound layer i(%s)", safeStr(info.layerName));
+                "Unknown data type for bound layer i(%s)", safeStr(info.layerName));
             return NVDSINFER_TENSORRT_ERROR;
     }
     return NVDSINFER_SUCCESS;
@@ -498,24 +438,20 @@ TrtEngine::getLayerInfo(int idx, NvDsInferLayerInfo& info)
 
 /* Get information for all layers for implicit batch dimensions network. */
 NvDsInferStatus
-TrtEngine::getImplicitLayersInfo(std::vector<NvDsInferBatchDimsLayerInfo>& layersInfo)
-{
+TrtEngine::getImplicitLayersInfo(std::vector<NvDsInferBatchDimsLayerInfo>& layersInfo) {
     layersInfo.clear();
     int maxBatch = m_Engine->getMaxBatchSize();
-    for (int i = 0; i < (int)m_Engine->getNbBindings(); i++)
-    {
+    for (int i = 0; i < (int)m_Engine->getNbBindings(); i++) {
         NvDsInferBatchDimsLayerInfo layerInfo;
         RETURN_NVINFER_ERROR(getLayerInfo(i, layerInfo),
-            "initialize backend context failed on layer: %d", i);
-        if (hasWildcard(layerInfo.inferDims))
-        {
+                             "initialize backend context failed on layer: %d", i);
+        if (hasWildcard(layerInfo.inferDims)) {
             dsInferError(
                 "ImplicitTrtBackend initialize failed because bindings has "
                 "wildcard dims");
             return NVDSINFER_CONFIG_FAILED;
         }
-        for (int iSelector = 0; iSelector < (int)kSELECTOR_SIZE; ++iSelector)
-        {
+        for (int iSelector = 0; iSelector < (int)kSELECTOR_SIZE; ++iSelector) {
             layerInfo.profileDims[iSelector] =
                 NvDsInferBatchDims{maxBatch, layerInfo.inferDims};
         }
@@ -527,23 +463,20 @@ TrtEngine::getImplicitLayersInfo(std::vector<NvDsInferBatchDimsLayerInfo>& layer
 /* Get information for all layers for full dimensions network. */
 NvDsInferStatus
 TrtEngine::getFullDimsLayersInfo(int profileIdx,
-        std::vector<NvDsInferBatchDimsLayerInfo>& layersInfo)
-{
+                                 std::vector<NvDsInferBatchDimsLayerInfo>& layersInfo) {
     layersInfo.clear();
-    for (int i = 0; i < (int)m_Engine->getNbBindings(); i++)
-    {
+    for (int i = 0; i < (int)m_Engine->getNbBindings(); i++) {
         NvDsInferBatchDimsLayerInfo layerInfo;
         RETURN_NVINFER_ERROR(getLayerInfo(i, layerInfo),
-            "initialize backend context failed on layer: %d", i);
+                             "initialize backend context failed on layer: %d", i);
 
-        if (layerInfo.isInput)
-        {
+        if (layerInfo.isInput) {
             nvinfer1::Dims minDims = m_Engine->getProfileDimensions(
-                    i, profileIdx, nvinfer1::OptProfileSelector::kMIN);
+                i, profileIdx, nvinfer1::OptProfileSelector::kMIN);
             nvinfer1::Dims optDims = m_Engine->getProfileDimensions(
-                    i, profileIdx, nvinfer1::OptProfileSelector::kOPT);
+                i, profileIdx, nvinfer1::OptProfileSelector::kOPT);
             nvinfer1::Dims maxDims = m_Engine->getProfileDimensions(
-                    i, profileIdx, nvinfer1::OptProfileSelector::kMAX);
+                i, profileIdx, nvinfer1::OptProfileSelector::kMAX);
 
             assert(minDims <= optDims && optDims <= maxDims);
 
@@ -563,32 +496,26 @@ TrtEngine::getFullDimsLayersInfo(int profileIdx,
 }
 
 /* Print engine details. */
-void
-TrtEngine::printEngineInfo()
-{
+void TrtEngine::printEngineInfo() {
     assert(m_Engine);
     nvinfer1::Dims checkDims = m_Engine->getBindingDimensions(0);
     assert(m_Engine->getNbOptimizationProfiles() > 0);
     std::stringstream s;
     std::vector<NvDsInferBatchDimsLayerInfo> layersInfo;
     bool isFullDims = false;
-    if (hasWildcard(checkDims))
-    {
+    if (hasWildcard(checkDims)) {
         isFullDims = true;
         getFullDimsLayersInfo(0, layersInfo);
         s << "[FullDims Engine Info]: layers num: " << layersInfo.size()
           << "\n";
-    }
-    else
-    {
+    } else {
         isFullDims = false;
         getImplicitLayersInfo(layersInfo);
         s << "[Implicit Engine Info]: layers num: " << layersInfo.size()
           << "\n";
     }
 
-    for (int i = 0; i < (int)layersInfo.size(); ++i)
-    {
+    for (int i = 0; i < (int)layersInfo.size(); ++i) {
         NvDsInferBatchDimsLayerInfo& layer = layersInfo[i];
         s << std::setw(3) << std::left << i << " ";
         s << std::setw(6) << std::left << (layer.isInput ? "INPUT" : "OUTPUT")
@@ -596,8 +523,7 @@ TrtEngine::printEngineInfo()
         s << std::setw(6) << std::left << dataType2Str(layer.dataType) << " ";
         s << std::setw(15) << std::left << safeStr(layer.layerName) << " ";
         s << std::setw(15) << std::left << dims2Str(layer.inferDims) << " ";
-        if (isFullDims)
-        {
+        if (isFullDims) {
             s << "min: " << std::setw(15) << std::left
               << batchDims2Str(layer.profileDims[kSELECTOR_MIN]) << " ";
             s << "opt: " << std::setw(15) << std::left
@@ -611,9 +537,8 @@ TrtEngine::printEngineInfo()
 }
 
 TrtModelBuilder::TrtModelBuilder(int gpuId, nvinfer1::ILogger& logger,
-    const std::shared_ptr<DlLibHandle>& dlHandle)
-    : m_GpuId(gpuId), m_Logger(logger), m_DlLib(dlHandle)
-{
+                                 const std::shared_ptr<DlLibHandle>& dlHandle)
+    : m_GpuId(gpuId), m_Logger(logger), m_DlLib(dlHandle) {
     m_Builder.reset(nvinfer1::createInferBuilder(logger));
     assert(m_Builder);
     m_BuilderConfig.reset(m_Builder->createBuilderConfig());
@@ -623,15 +548,13 @@ TrtModelBuilder::TrtModelBuilder(int gpuId, nvinfer1::ILogger& logger,
 /* Get already built CUDA Engine from custom library. */
 std::unique_ptr<TrtEngine>
 TrtModelBuilder::getCudaEngineFromCustomLib(NvDsInferCudaEngineGetFcnDeprecated cudaEngineGetDeprecatedFcn,
-        NvDsInferEngineCreateCustomFunc cudaEngineGetFcn,
-        const NvDsInferContextInitParams& initParams,
-        NvDsInferNetworkMode &networkMode)
-{
+                                            NvDsInferEngineCreateCustomFunc cudaEngineGetFcn,
+                                            const NvDsInferContextInitParams& initParams,
+                                            NvDsInferNetworkMode& networkMode) {
     networkMode = initParams.networkMode;
     nvinfer1::DataType modelDataType;
 
-    switch (initParams.networkMode)
-    {
+    switch (initParams.networkMode) {
         case NvDsInferNetworkMode_FP32:
         case NvDsInferNetworkMode_FP16:
         case NvDsInferNetworkMode_INT8:
@@ -641,55 +564,42 @@ TrtModelBuilder::getCudaEngineFromCustomLib(NvDsInferCudaEngineGetFcnDeprecated 
             return nullptr;
     }
 
-    if (networkMode == NvDsInferNetworkMode_INT8)
-    {
+    if (networkMode == NvDsInferNetworkMode_INT8) {
         /* Check if platform supports INT8 else use FP16 */
-        if (m_Builder->platformHasFastInt8())
-        {
-            if (m_Int8Calibrator != nullptr)
-            {
+        if (m_Builder->platformHasFastInt8()) {
+            if (m_Int8Calibrator != nullptr) {
                 /* Set INT8 mode and set the INT8 Calibrator */
                 m_BuilderConfig->setFlag(nvinfer1::BuilderFlag::kINT8);
                 m_BuilderConfig->setInt8Calibrator(m_Int8Calibrator.get());
                 /* modelDataType should be FLOAT for INT8 */
                 modelDataType = nvinfer1::DataType::kFLOAT;
-            }
-            else if (cudaEngineGetFcn != nullptr || cudaEngineGetDeprecatedFcn != nullptr)
-            {
-                dsInferWarning("INT8 calibration file not specified/accessible. "
-                        "INT8 calibration can be done through setDynamicRange "
-                        "API in 'NvDsInferCreateNetwork' implementation");
-            }
-            else
-            {
+            } else if (cudaEngineGetFcn != nullptr || cudaEngineGetDeprecatedFcn != nullptr) {
+                dsInferWarning(
+                    "INT8 calibration file not specified/accessible. "
+                    "INT8 calibration can be done through setDynamicRange "
+                    "API in 'NvDsInferCreateNetwork' implementation");
+            } else {
                 dsInferWarning("INT8 calibration file not specified. Trying FP16 mode.");
                 networkMode = NvDsInferNetworkMode_FP16;
             }
-        }
-        else
-        {
+        } else {
             dsInferWarning("INT8 not supported by platform. Trying FP16 mode.");
             networkMode = NvDsInferNetworkMode_FP16;
         }
     }
 
-    if (networkMode == NvDsInferNetworkMode_FP16)
-    {
+    if (networkMode == NvDsInferNetworkMode_FP16) {
         /* Check if platform supports FP16 else use FP32 */
-        if (m_Builder->platformHasFastFp16())
-        {
+        if (m_Builder->platformHasFastFp16()) {
             m_BuilderConfig->setFlag(nvinfer1::BuilderFlag::kFP16);
             modelDataType = nvinfer1::DataType::kHALF;
-        }
-        else
-        {
+        } else {
             dsInferWarning("FP16 not supported by platform. Using FP32 mode.");
             networkMode = NvDsInferNetworkMode_FP32;
         }
     }
 
-    if (networkMode == NvDsInferNetworkMode_FP32)
-    {
+    if (networkMode == NvDsInferNetworkMode_FP32) {
         modelDataType = nvinfer1::DataType::kFLOAT;
     }
 
@@ -699,38 +609,37 @@ TrtModelBuilder::getCudaEngineFromCustomLib(NvDsInferCudaEngineGetFcnDeprecated 
 
     int dla = -1;
     /* Use DLA if specified. */
-    if (initParams.useDLA)
-    {
+    if (initParams.useDLA) {
         m_BuilderConfig->setDefaultDeviceType(nvinfer1::DeviceType::kDLA);
         m_BuilderConfig->setDLACore(initParams.dlaCore);
         m_BuilderConfig->setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
         dla = initParams.dlaCore;
 
-        if (networkMode == NvDsInferNetworkMode_FP32)
-        {
-            dsInferWarning("FP32 mode requested with DLA. DLA may execute "
-                    "in FP16 mode instead.");
+        if (networkMode == NvDsInferNetworkMode_FP32) {
+            dsInferWarning(
+                "FP32 mode requested with DLA. DLA may execute "
+                "in FP16 mode instead.");
         }
     }
 
     /* Get the  cuda engine from the library */
-    nvinfer1::ICudaEngine *engine = nullptr;
-    if (cudaEngineGetFcn && (!cudaEngineGetFcn (m_Builder.get(), m_BuilderConfig.get(),
-                (NvDsInferContextInitParams *)&initParams,
-                modelDataType, engine) ||
-            engine == nullptr))
-    {
-        dsInferError("Failed to create network using custom network creation"
-                " function");
+    nvinfer1::ICudaEngine* engine = nullptr;
+    if (cudaEngineGetFcn && (!cudaEngineGetFcn(m_Builder.get(), m_BuilderConfig.get(),
+                                               (NvDsInferContextInitParams*)&initParams,
+                                               modelDataType, engine) ||
+                             engine == nullptr)) {
+        dsInferError(
+            "Failed to create network using custom network creation"
+            " function");
         return nullptr;
     }
-    if (cudaEngineGetDeprecatedFcn && (!cudaEngineGetDeprecatedFcn (m_Builder.get(),
-                (NvDsInferContextInitParams *)&initParams,
-                modelDataType, engine) ||
-            engine == nullptr))
-    {
-        dsInferError("Failed to create network using custom network creation"
-                " function");
+    if (cudaEngineGetDeprecatedFcn && (!cudaEngineGetDeprecatedFcn(m_Builder.get(),
+                                                                   (NvDsInferContextInitParams*)&initParams,
+                                                                   modelDataType, engine) ||
+                                       engine == nullptr)) {
+        dsInferError(
+            "Failed to create network using custom network creation"
+            " function");
         return nullptr;
     }
 
@@ -740,8 +649,7 @@ TrtModelBuilder::getCudaEngineFromCustomLib(NvDsInferCudaEngineGetFcnDeprecated 
 /* Build the model and return the generated engine. */
 std::unique_ptr<TrtEngine>
 TrtModelBuilder::buildModel(const NvDsInferContextInitParams& initParams,
-    std::string& suggestedPathName)
-{
+                            std::string& suggestedPathName) {
     std::unique_ptr<TrtEngine> engine;
     std::string modelPath;
     NvDsInferNetworkMode networkMode;
@@ -749,53 +657,43 @@ TrtModelBuilder::buildModel(const NvDsInferContextInitParams& initParams,
     /* check if custom library provides NvDsInferCudaEngineGet interface. */
     NvDsInferEngineCreateCustomFunc cudaEngineGetFcn = nullptr;
     NvDsInferCudaEngineGetFcnDeprecated cudaEngineGetDeprecatedFcn = nullptr;
-    if (m_DlLib && !string_empty(initParams.customEngineCreateFuncName))
-    {
+    if (m_DlLib && !string_empty(initParams.customEngineCreateFuncName)) {
         cudaEngineGetFcn = m_DlLib->symbol<NvDsInferEngineCreateCustomFunc>(
-                initParams.customEngineCreateFuncName);
-        if (!cudaEngineGetFcn)
-        {
+            initParams.customEngineCreateFuncName);
+        if (!cudaEngineGetFcn) {
             dsInferError("Could not find Custom Engine Creation Function '%s' in custom lib",
-                    initParams.customEngineCreateFuncName);
+                         initParams.customEngineCreateFuncName);
             return nullptr;
         }
     }
     if (m_DlLib && cudaEngineGetFcn == nullptr)
         cudaEngineGetDeprecatedFcn = m_DlLib->symbol<NvDsInferCudaEngineGetFcnDeprecated>(
-                "NvDsInferCudaEngineGet");
+            "NvDsInferCudaEngineGet");
 
     if (cudaEngineGetFcn || cudaEngineGetDeprecatedFcn ||
-            !string_empty(initParams.tltEncodedModelFilePath))
-    {
-        if (cudaEngineGetFcn || cudaEngineGetDeprecatedFcn)
-        {
+        !string_empty(initParams.tltEncodedModelFilePath)) {
+        if (cudaEngineGetFcn || cudaEngineGetDeprecatedFcn) {
             /* NvDsInferCudaEngineGet interface provided. */
-            char *cwd = getcwd(NULL, 0);
+            char* cwd = getcwd(NULL, 0);
             modelPath = std::string(cwd) + "/model";
             free(cwd);
-        }
-        else
-        {
+        } else {
             /* TLT model. Use NvDsInferCudaEngineGetFromTltModel function
              * provided by nvdsinferutils. */
             cudaEngineGetFcn = NvDsInferCudaEngineGetFromTltModel;
             modelPath = safeStr(initParams.tltEncodedModelFilePath);
         }
 
-        engine = getCudaEngineFromCustomLib (cudaEngineGetDeprecatedFcn,
-                cudaEngineGetFcn, initParams, networkMode);
-        if (engine == nullptr)
-        {
+        engine = getCudaEngineFromCustomLib(cudaEngineGetDeprecatedFcn,
+                                            cudaEngineGetFcn, initParams, networkMode);
+        if (engine == nullptr) {
             dsInferError("Failed to get cuda engine from custom library API");
             return nullptr;
         }
-    }
-    else
-    {
+    } else {
         /* Parse the network. */
         NvDsInferStatus status = buildNetwork(initParams);
-        if (status != NVDSINFER_SUCCESS)
-        {
+        if (status != NVDSINFER_SUCCESS) {
             dsInferError("failed to build network.");
             return nullptr;
         }
@@ -806,8 +704,7 @@ TrtModelBuilder::buildModel(const NvDsInferContextInitParams& initParams,
 
         /* Build the engine from the parsed network and build parameters. */
         engine = buildEngine();
-        if (engine == nullptr)
-        {
+        if (engine == nullptr) {
             dsInferError("failed to build trt engine.");
             return nullptr;
         }
@@ -816,8 +713,7 @@ TrtModelBuilder::buildModel(const NvDsInferContextInitParams& initParams,
     }
 
     std::string devId = std::string("gpu") + std::to_string(m_GpuId);
-    if (initParams.useDLA && initParams.dlaCore >= 0)
-    {
+    if (initParams.useDLA && initParams.dlaCore >= 0) {
         devId = std::string("dla") + std::to_string(initParams.dlaCore);
     }
 
@@ -829,112 +725,102 @@ TrtModelBuilder::buildModel(const NvDsInferContextInitParams& initParams,
 }
 
 NvDsInferStatus
-TrtModelBuilder::buildNetwork(const NvDsInferContextInitParams& initParams)
-{
+TrtModelBuilder::buildNetwork(const NvDsInferContextInitParams& initParams) {
     std::unique_ptr<BaseModelParser> parser;
     assert(m_Builder);
 
     /* check custom model parser first */
-    if (m_DlLib && READ_SYMBOL(m_DlLib, NvDsInferCreateModelParser))
-    {
+    if (m_DlLib && READ_SYMBOL(m_DlLib, NvDsInferCreateModelParser)) {
         parser.reset(new CustomModelParser(initParams, m_DlLib));
     }
     /* Check for caffe model files. */
     else if (!string_empty(initParams.modelFilePath) &&
-             !string_empty(initParams.protoFilePath))
-    {
+             !string_empty(initParams.protoFilePath)) {
         parser.reset(new CaffeModelParser(initParams, m_DlLib));
     }
     /* Check for UFF model. */
-    else if (!string_empty(initParams.uffFilePath))
-    {
+    else if (!string_empty(initParams.uffFilePath)) {
         parser.reset(new UffModelParser(initParams, m_DlLib));
     }
     /* Check for Onnx model. */
-    else if (!string_empty(initParams.onnxFilePath))
-    {
+    else if (!string_empty(initParams.onnxFilePath)) {
         parser.reset(new OnnxModelParser(initParams, m_DlLib));
-    }
-    else
-    {
+    } else {
         dsInferError(
             "failed to build network since there is no model file matched.");
         return NVDSINFER_CONFIG_FAILED;
     }
 
-    if (!parser || !parser->isValid())
-    {
+    if (!parser || !parser->isValid()) {
         dsInferError("failed to build network because of invalid parsers.");
         return NVDSINFER_CONFIG_FAILED;
     }
 
-    for(unsigned int i = 0; i < initParams.numOutputIOFormats; ++i)
-    {
+    for (unsigned int i = 0; i < initParams.numOutputIOFormats; ++i) {
         assert(initParams.outputIOFormats[i]);
         std::string outputIOFormat(initParams.outputIOFormats[i]);
         size_t pos1 = outputIOFormat.find(":");
-        if(pos1 == std::string::npos)
-        {
-            dsInferError("failed to parse outputIOFormart %s."
-            "Expected layerName:type:fmt", initParams.outputIOFormats[i]);
+        if (pos1 == std::string::npos) {
+            dsInferError(
+                "failed to parse outputIOFormart %s."
+                "Expected layerName:type:fmt",
+                initParams.outputIOFormats[i]);
             return NVDSINFER_CONFIG_FAILED;
         }
-        size_t pos2 = outputIOFormat.find(":", pos1+1);
-        if(pos2 == std::string::npos)
-        {
-            dsInferError("failed to parse outputIOFormart %s."
-            "Expected layerName:type:fmt", initParams.outputIOFormats[i]);
+        size_t pos2 = outputIOFormat.find(":", pos1 + 1);
+        if (pos2 == std::string::npos) {
+            dsInferError(
+                "failed to parse outputIOFormart %s."
+                "Expected layerName:type:fmt",
+                initParams.outputIOFormats[i]);
             return NVDSINFER_CONFIG_FAILED;
         }
-        std::string layerName = outputIOFormat.substr(0,pos1);
-        std::string dataType = outputIOFormat.substr(pos1+1,pos2-pos1-1);
-        if(!isValidOutputDataType(dataType))
-        {
+        std::string layerName = outputIOFormat.substr(0, pos1);
+        std::string dataType = outputIOFormat.substr(pos1 + 1, pos2 - pos1 - 1);
+        if (!isValidOutputDataType(dataType)) {
             dsInferError("Invalid data output datatype specified %s",
-            dataType.c_str());
+                         dataType.c_str());
             return NVDSINFER_CONFIG_FAILED;
         }
-        std::string format = outputIOFormat.substr(pos2+1);
-        if(!isValidOutputFormat(format))
-        {
+        std::string format = outputIOFormat.substr(pos2 + 1);
+        if (!isValidOutputFormat(format)) {
             dsInferError("Invalid output data format specified %s",
-            format.c_str());
+                         format.c_str());
             return NVDSINFER_CONFIG_FAILED;
         }
     }
-    for(unsigned int i = 0; i < initParams.numLayerDevicePrecisions; ++i)
-    {
-      assert(initParams.layerDevicePrecisions[i]);
-      std::string outputDevicePrecision(initParams.layerDevicePrecisions[i]);
-      size_t pos1 = outputDevicePrecision.find(":");
-      if(pos1 == std::string::npos)
-      {
-        dsInferError("failed to parse outputDevicePrecision %s."
-          "Expected layerName:precisionType:deviceType", initParams.layerDevicePrecisions[i]);
-        return NVDSINFER_CONFIG_FAILED;
-      }
-      size_t pos2 = outputDevicePrecision.find(":", pos1+1);
-      if(pos2 == std::string::npos)
-      {
-        dsInferError("failed to parse outputDevicePrecision %s."
-          "Expected layerName:precisionType:deviceType", initParams.layerDevicePrecisions[i]);
-        return NVDSINFER_CONFIG_FAILED;
-      }
-      std::string layerName = outputDevicePrecision.substr(0,pos1);
-      std::string precisionType = outputDevicePrecision.substr(pos1+1,pos2-pos1-1);
-      if(!isValidPrecisionType(precisionType))
-      {
-        dsInferError("Invalid output precisionType specified %s",
-          precisionType.c_str());
-        return NVDSINFER_CONFIG_FAILED;
-      }
-      std::string deviceType = outputDevicePrecision.substr(pos2+1);
-      if(!isValidDeviceType(deviceType))
-      {
-        dsInferError("Invalid deviceType specified %s",
-          deviceType.c_str());
-        return NVDSINFER_CONFIG_FAILED;
-      }
+    for (unsigned int i = 0; i < initParams.numLayerDevicePrecisions; ++i) {
+        assert(initParams.layerDevicePrecisions[i]);
+        std::string outputDevicePrecision(initParams.layerDevicePrecisions[i]);
+        size_t pos1 = outputDevicePrecision.find(":");
+        if (pos1 == std::string::npos) {
+            dsInferError(
+                "failed to parse outputDevicePrecision %s."
+                "Expected layerName:precisionType:deviceType",
+                initParams.layerDevicePrecisions[i]);
+            return NVDSINFER_CONFIG_FAILED;
+        }
+        size_t pos2 = outputDevicePrecision.find(":", pos1 + 1);
+        if (pos2 == std::string::npos) {
+            dsInferError(
+                "failed to parse outputDevicePrecision %s."
+                "Expected layerName:precisionType:deviceType",
+                initParams.layerDevicePrecisions[i]);
+            return NVDSINFER_CONFIG_FAILED;
+        }
+        std::string layerName = outputDevicePrecision.substr(0, pos1);
+        std::string precisionType = outputDevicePrecision.substr(pos1 + 1, pos2 - pos1 - 1);
+        if (!isValidPrecisionType(precisionType)) {
+            dsInferError("Invalid output precisionType specified %s",
+                         precisionType.c_str());
+            return NVDSINFER_CONFIG_FAILED;
+        }
+        std::string deviceType = outputDevicePrecision.substr(pos2 + 1);
+        if (!isValidDeviceType(deviceType)) {
+            dsInferError("Invalid deviceType specified %s",
+                         deviceType.c_str());
+            return NVDSINFER_CONFIG_FAILED;
+        }
     }
 
     std::unique_ptr<BuildParams> buildOptions;
@@ -943,15 +829,12 @@ TrtModelBuilder::buildNetwork(const NvDsInferContextInitParams& initParams)
      * only if the parser supports it and DLA is not to be used. Otherwise build
      * the network as an implicit batch dim network. */
     if (parser->hasFullDimsSupported() &&
-            !initParams.forceImplicitBatchDimension)
-    {
+        !initParams.forceImplicitBatchDimension) {
         netDefFlags |=
             (1U << static_cast<uint32_t>(
                  nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
         buildOptions = createDynamicParams(initParams);
-    }
-    else
-    {
+    } else {
         buildOptions = createImplicitParams(initParams);
     }
 
@@ -961,8 +844,7 @@ TrtModelBuilder::buildNetwork(const NvDsInferContextInitParams& initParams)
 
     /* Parse the model using IModelParser interface. */
     NvDsInferStatus status = parser->parseModel(*network);
-    if (status != NVDSINFER_SUCCESS)
-    {
+    if (status != NVDSINFER_SUCCESS) {
         dsInferError("failed to build network since parsing model errors.");
         return status;
     }
@@ -976,13 +858,11 @@ TrtModelBuilder::buildNetwork(const NvDsInferContextInitParams& initParams)
 
 /* Create build parameters for implicit batch dim network. */
 std::unique_ptr<BuildParams>
-TrtModelBuilder::createImplicitParams(const NvDsInferContextInitParams& initParams)
-{
+TrtModelBuilder::createImplicitParams(const NvDsInferContextInitParams& initParams) {
     auto params = std::make_unique<ImplicitBuildParams>();
 
     if (initParams.inferInputDims.c && initParams.inferInputDims.h &&
-            initParams.inferInputDims.w)
-    {
+        initParams.inferInputDims.w) {
         params->inputDims.emplace_back(ds2TrtDims(initParams.inferInputDims));
     }
 
@@ -994,16 +874,12 @@ TrtModelBuilder::createImplicitParams(const NvDsInferContextInitParams& initPara
 
 /* Create build parameters for full dims network. */
 std::unique_ptr<BuildParams>
-TrtModelBuilder::createDynamicParams(const NvDsInferContextInitParams& initParams)
-{
+TrtModelBuilder::createDynamicParams(const NvDsInferContextInitParams& initParams) {
     auto params = std::make_unique<ExplicitBuildParams>();
-    if (initParams.dlaCore < 0 || !initParams.useDLA)
-    {
+    if (initParams.dlaCore < 0 || !initParams.useDLA) {
         /* Using GPU */
         params->minBatchSize = 1;
-    }
-    else
-    {
+    } else {
         /* Using DLA */
         params->minBatchSize = initParams.maxBatchSize;
     }
@@ -1012,16 +888,14 @@ TrtModelBuilder::createDynamicParams(const NvDsInferContextInitParams& initParam
     params->maxBatchSize = initParams.maxBatchSize;
     params->inputOrder = initParams.netInputOrder;
 
-    dsInferDebug ("%s: c, h, w = %d, %d, %d, order = %s\n", __func__,
-            initParams.inferInputDims.c,
-            initParams.inferInputDims.h,
-            initParams.inferInputDims.w,
-            (params->inputOrder == NvDsInferTensorOrder_kNCHW) ?
-            "NCHW" : "NHWC");
+    dsInferDebug("%s: c, h, w = %d, %d, %d, order = %s\n", __func__,
+                 initParams.inferInputDims.c,
+                 initParams.inferInputDims.h,
+                 initParams.inferInputDims.w,
+                 (params->inputOrder == NvDsInferTensorOrder_kNCHW) ? "NCHW" : "NHWC");
 
     if (initParams.inferInputDims.c && initParams.inferInputDims.h &&
-        initParams.inferInputDims.w)
-    {
+        initParams.inferInputDims.w) {
         nvinfer1::Dims dims = ds2TrtDims(initParams.inferInputDims);
         ProfileDims profileDims = {{dims, dims, dims}};
         params->inputProfileDims.emplace_back(profileDims);
@@ -1031,13 +905,10 @@ TrtModelBuilder::createDynamicParams(const NvDsInferContextInitParams& initParam
     return params;
 }
 
-void
-TrtModelBuilder::initCommonParams(BuildParams& params,
-        const NvDsInferContextInitParams& initParams)
-{
+void TrtModelBuilder::initCommonParams(BuildParams& params,
+                                       const NvDsInferContextInitParams& initParams) {
     params.networkMode = initParams.networkMode;
-    if (initParams.workspaceSize)
-    {
+    if (initParams.workspaceSize) {
         params.workspaceSize =
             initParams.workspaceSize * UINT64_C(1024) * UINT64_C(1024);
     }
@@ -1048,42 +919,39 @@ TrtModelBuilder::initCommonParams(BuildParams& params,
     else
         params.dlaCore = -1;
 
-    for(unsigned int i=0; i < initParams.numOutputIOFormats; ++i)
-    {
+    for (unsigned int i = 0; i < initParams.numOutputIOFormats; ++i) {
         assert(initParams.outputIOFormats[i]);
         std::string outputIOFormat(initParams.outputIOFormats[i]);
         size_t pos1 = outputIOFormat.find(":");
-        size_t pos2 = outputIOFormat.find(":", pos1+1);
-        std::string layerName = outputIOFormat.substr(0,pos1);
-        std::string dataType = outputIOFormat.substr(pos1+1,pos2-pos1-1);
-        std::string format = outputIOFormat.substr(pos2+1);
+        size_t pos2 = outputIOFormat.find(":", pos1 + 1);
+        std::string layerName = outputIOFormat.substr(0, pos1);
+        std::string dataType = outputIOFormat.substr(pos1 + 1, pos2 - pos1 - 1);
+        std::string format = outputIOFormat.substr(pos2 + 1);
         BuildParams::TensorIOFormat fmt =
-        std::make_tuple(str2DataType(dataType),str2TensorFormat(format));
+            std::make_tuple(str2DataType(dataType), str2TensorFormat(format));
         std::pair<std::string, BuildParams::TensorIOFormat>
             outputFmt{layerName, fmt};
         params.outputFormats.insert(outputFmt);
     }
 
-    for(unsigned int i=0; i < initParams.numLayerDevicePrecisions; ++i)
-    {
-      assert(initParams.layerDevicePrecisions[i]);
-      std::string outputDevicePrecision(initParams.layerDevicePrecisions[i]);
-      size_t pos1 = outputDevicePrecision.find(":");
-      size_t pos2 = outputDevicePrecision.find(":", pos1+1);
-      std::string layerName = outputDevicePrecision.substr(0, pos1);
-      std::string precisionType = outputDevicePrecision.substr(pos1+1, pos2-pos1-1);
-      std::string deviceType = outputDevicePrecision.substr(pos2+1);
-      BuildParams::LayerDevicePrecision fmt =
-      std::make_tuple(str2PrecisionType(precisionType),str2DeviceType(deviceType));
-      std::pair<std::string, BuildParams::LayerDevicePrecision>
-        outputFmt{layerName, fmt};
-      params.layerDevicePrecisions.insert(outputFmt);
+    for (unsigned int i = 0; i < initParams.numLayerDevicePrecisions; ++i) {
+        assert(initParams.layerDevicePrecisions[i]);
+        std::string outputDevicePrecision(initParams.layerDevicePrecisions[i]);
+        size_t pos1 = outputDevicePrecision.find(":");
+        size_t pos2 = outputDevicePrecision.find(":", pos1 + 1);
+        std::string layerName = outputDevicePrecision.substr(0, pos1);
+        std::string precisionType = outputDevicePrecision.substr(pos1 + 1, pos2 - pos1 - 1);
+        std::string deviceType = outputDevicePrecision.substr(pos2 + 1);
+        BuildParams::LayerDevicePrecision fmt =
+            std::make_tuple(str2PrecisionType(precisionType), str2DeviceType(deviceType));
+        std::pair<std::string, BuildParams::LayerDevicePrecision>
+            outputFmt{layerName, fmt};
+        params.layerDevicePrecisions.insert(outputFmt);
     }
 }
 
 std::unique_ptr<TrtEngine>
-TrtModelBuilder::buildEngine()
-{
+TrtModelBuilder::buildEngine() {
     assert(m_Builder);
     assert(m_Network);
     assert(m_Options);
@@ -1093,11 +961,9 @@ TrtModelBuilder::buildEngine()
 
 std::unique_ptr<TrtEngine>
 TrtModelBuilder::buildEngine(nvinfer1::INetworkDefinition& network,
-        BuildParams& options)
-{
+                             BuildParams& options) {
     assert(m_Builder);
-    if (!options.sanityCheck())
-    {
+    if (!options.sanityCheck()) {
         dsInferError("build param sanity check failed.");
         return nullptr;
     }
@@ -1105,8 +971,7 @@ TrtModelBuilder::buildEngine(nvinfer1::INetworkDefinition& network,
     /* Configure m_BuilderConfig with one of ImplicitBuildParams (configImplicitOptions())
      * or ExplicitBuildParams (configExplicitOptions()).*/
     NvDsInferStatus status = options.configBuilder(*this);
-    if (status != NVDSINFER_SUCCESS)
-    {
+    if (status != NVDSINFER_SUCCESS) {
         dsInferError("Failed to configure builder options");
         return nullptr;
     }
@@ -1114,8 +979,7 @@ TrtModelBuilder::buildEngine(nvinfer1::INetworkDefinition& network,
     UniquePtrWDestroy<nvinfer1::ICudaEngine> engine =
         m_Builder->buildEngineWithConfig(network, *m_BuilderConfig);
 
-    if (!engine)
-    {
+    if (!engine) {
         dsInferError("Build engine failed from config file");
         return nullptr;
     }
@@ -1123,8 +987,7 @@ TrtModelBuilder::buildEngine(nvinfer1::INetworkDefinition& network,
 }
 
 NvDsInferStatus
-TrtModelBuilder::configCommonOptions(BuildParams& params)
-{
+TrtModelBuilder::configCommonOptions(BuildParams& params) {
     assert(m_Builder && m_Network && m_BuilderConfig);
     nvinfer1::IBuilder& builder = *m_Builder;
     nvinfer1::INetworkDefinition& network = *m_Network;
@@ -1133,112 +996,88 @@ TrtModelBuilder::configCommonOptions(BuildParams& params)
     int inputLayerNum = network.getNbInputs();
     int outputLayerNum = network.getNbOutputs();
 
-    if(!validateIOTensorNames(params, network))
-    {
+    if (!validateIOTensorNames(params, network)) {
         dsInferError("Invalid layer name specified for TensorIOFormats");
         return NVDSINFER_CONFIG_FAILED;
     }
 
     /* Set default datatype and tensor formats for input layers */
-    for (int iL = 0; iL < inputLayerNum; iL++)
-    {
+    for (int iL = 0; iL < inputLayerNum; iL++) {
         nvinfer1::ITensor* input = network.getInput(iL);
         input->setType(kDefaultTensorDataType);
         input->setAllowedFormats(kDefaultTensorFormats);
     }
 
     /* Set user defined data type and tensor formats for all bound output layers. */
-    for (int oL = 0; oL < outputLayerNum; oL++)
-    {
+    for (int oL = 0; oL < outputLayerNum; oL++) {
         nvinfer1::ITensor* output = network.getOutput(oL);
-        if(params.outputFormats.find(output->getName())
-            != params.outputFormats.end())
-            {
-                auto curFmt = params.outputFormats.at(output->getName());
-                output->setType(std::get<0>(curFmt));
-                output->setAllowedFormats(std::get<1>(curFmt));
-            }
+        if (params.outputFormats.find(output->getName()) != params.outputFormats.end()) {
+            auto curFmt = params.outputFormats.at(output->getName());
+            output->setType(std::get<0>(curFmt));
+            output->setAllowedFormats(std::get<1>(curFmt));
+        }
     }
 
-    if(!params.layerDevicePrecisions.empty())
-    {
-      builderConfig.setFlag(nvinfer1::BuilderFlag::kSTRICT_TYPES);
+    if (!params.layerDevicePrecisions.empty()) {
+        builderConfig.setFlag(nvinfer1::BuilderFlag::kSTRICT_TYPES);
 
-      for(int idx = 0; idx < network.getNbLayers(); ++idx)
-      {
-        nvinfer1::ILayer* layer = network.getLayer(idx);
+        for (int idx = 0; idx < network.getNbLayers(); ++idx) {
+            nvinfer1::ILayer* layer = network.getLayer(idx);
 
-        if(params.layerDevicePrecisions.find(layer->getName())
-          != params.layerDevicePrecisions.end())
-        {
-          auto curType = params.layerDevicePrecisions.at(layer->getName());
-          builderConfig.setDeviceType(layer, std::get<1>(curType));
-          layer->setPrecision(std::get<0>(curType));
+            if (params.layerDevicePrecisions.find(layer->getName()) != params.layerDevicePrecisions.end()) {
+                auto curType = params.layerDevicePrecisions.at(layer->getName());
+                builderConfig.setDeviceType(layer, std::get<1>(curType));
+                layer->setPrecision(std::get<0>(curType));
+            }
         }
-      }
     }
 
     /* Set workspace size. */
     builderConfig.setMaxWorkspaceSize(params.workspaceSize);
 
     /* Set the network data type */
-    if (params.networkMode == NvDsInferNetworkMode_INT8)
-    {
+    if (params.networkMode == NvDsInferNetworkMode_INT8) {
         /* Check if platform supports INT8 else use FP16 */
-        if (builder.platformHasFastInt8())
-        {
-            if (m_Int8Calibrator != nullptr)
-            {
+        if (builder.platformHasFastInt8()) {
+            if (m_Int8Calibrator != nullptr) {
                 /* Set INT8 mode and set the INT8 Calibrator */
                 builderConfig.setFlag(nvinfer1::BuilderFlag::kINT8);
-                if (!m_Int8Calibrator)
-                {
+                if (!m_Int8Calibrator) {
                     dsInferError("INT8 calibrator not specified.");
                     return NVDSINFER_CONFIG_FAILED;
                 }
                 builderConfig.setInt8Calibrator(m_Int8Calibrator.get());
-            }
-            else
-            {
+            } else {
                 dsInferWarning(
                     "INT8 calibration file not specified. Trying FP16 mode.");
                 params.networkMode = NvDsInferNetworkMode_FP16;
             }
-        }
-        else
-        {
+        } else {
             dsInferWarning("INT8 not supported by platform. Trying FP16 mode.");
             params.networkMode = NvDsInferNetworkMode_FP16;
         }
     }
 
-    if (params.networkMode == NvDsInferNetworkMode_FP16)
-    {
+    if (params.networkMode == NvDsInferNetworkMode_FP16) {
         /* Check if platform supports FP16 else use FP32 */
-        if (builder.platformHasFastFp16())
-        {
+        if (builder.platformHasFastFp16()) {
             builderConfig.setFlag(nvinfer1::BuilderFlag::kFP16);
-        }
-        else
-        {
+        } else {
             dsInferWarning("FP16 not supported by platform. Using FP32 mode.");
             params.networkMode = NvDsInferNetworkMode_FP32;
         }
     }
 
     /* Set DLA parameters if specified. */
-    if (params.dlaCore >= 0)
-    {
-        if (params.dlaCore >= builder.getNbDLACores())
-        {
+    if (params.dlaCore >= 0) {
+        if (params.dlaCore >= builder.getNbDLACores()) {
             dsInferError("DLA core id is not valid, check nvinfer params.");
             return NVDSINFER_CONFIG_FAILED;
         }
         builderConfig.setDefaultDeviceType(nvinfer1::DeviceType::kDLA);
         builderConfig.setDLACore(params.dlaCore);
         builderConfig.setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
-        if (params.networkMode != NvDsInferNetworkMode_INT8)
-        {
+        if (params.networkMode != NvDsInferNetworkMode_INT8) {
             // DLA supports only INT8 or FP16
             dsInferWarning("DLA does not support FP32 precision type, using FP16 mode.");
             builderConfig.setFlag(nvinfer1::BuilderFlag::kFP16);
@@ -1249,8 +1088,7 @@ TrtModelBuilder::configCommonOptions(BuildParams& params)
 }
 
 NvDsInferStatus
-TrtModelBuilder::configImplicitOptions(ImplicitBuildParams& params)
-{
+TrtModelBuilder::configImplicitOptions(ImplicitBuildParams& params) {
     assert(m_Builder && m_Network && m_BuilderConfig);
     assert(params.inputDims.size() <= 1);
 
@@ -1259,18 +1097,16 @@ TrtModelBuilder::configImplicitOptions(ImplicitBuildParams& params)
     nvinfer1::IBuilderConfig& builderConfig = *m_BuilderConfig;
 
     RETURN_NVINFER_ERROR(configCommonOptions(params),
-        "config implicit params failed because of common option's error");
+                         "config implicit params failed because of common option's error");
 
-    if (!network.hasImplicitBatchDimension())
-    {
+    if (!network.hasImplicitBatchDimension()) {
         dsInferError(
             "build model failed due to BuildParams(implict) doesn't match "
             "(explicit)network.");
         return NVDSINFER_CONFIG_FAILED;
     }
 
-    if (params.maxBatchSize <= 0)
-    {
+    if (params.maxBatchSize <= 0) {
         dsInferError(
             "build model failed due to maxBatchSize not set for implicit "
             "builder.");
@@ -1280,16 +1116,13 @@ TrtModelBuilder::configImplicitOptions(ImplicitBuildParams& params)
     builder.setMaxBatchSize(params.maxBatchSize);
     builderConfig.setMaxWorkspaceSize(params.workspaceSize);
 
-    if (!params.inputDims.empty())
-    {
+    if (!params.inputDims.empty()) {
         int inputLayerNum = network.getNbInputs();
-        for (int iL = 0; iL < inputLayerNum; iL++)
-        {
+        for (int iL = 0; iL < inputLayerNum; iL++) {
             nvinfer1::ITensor* input = network.getInput(iL);
             // TODO, other input layer dims should not be changed
             // suppose others can be called through initNonImageInputLayers
-            if ((int)params.inputDims.size() > iL)
-            {
+            if ((int)params.inputDims.size() > iL) {
                 input->setDimensions(params.inputDims[iL]);
             }
         }
@@ -1298,18 +1131,16 @@ TrtModelBuilder::configImplicitOptions(ImplicitBuildParams& params)
 }
 
 NvDsInferStatus
-TrtModelBuilder::configExplicitOptions(ExplicitBuildParams& params)
-{
+TrtModelBuilder::configExplicitOptions(ExplicitBuildParams& params) {
     assert(m_Builder && m_Network && m_BuilderConfig);
     nvinfer1::IBuilder& builder = *m_Builder;
     nvinfer1::INetworkDefinition& network = *m_Network;
     nvinfer1::IBuilderConfig& builderConfig = *m_BuilderConfig;
 
     RETURN_NVINFER_ERROR(configCommonOptions(params),
-        "config explicit params failed because of common option's error");
+                         "config explicit params failed because of common option's error");
 
-    if (network.hasImplicitBatchDimension())
-    {
+    if (network.hasImplicitBatchDimension()) {
         dsInferError(
             "build model failed due to BuildParams(explicit) doesn't match "
             "(implict)network.");
@@ -1322,43 +1153,36 @@ TrtModelBuilder::configExplicitOptions(ExplicitBuildParams& params)
 
     /* For input layers, set the min/optimal/max dims. */
     int iL = 0;
-    for (; iL < (int)params.inputProfileDims.size(); iL++)
-    {
+    for (; iL < (int)params.inputProfileDims.size(); iL++) {
         nvinfer1::ITensor* input = network.getInput(iL);
-        nvinfer1::Dims modelDims = input->getDimensions(); // include batchSize
+        nvinfer1::Dims modelDims = input->getDimensions();  // include batchSize
 
         nvinfer1::Dims minDims = params.inputProfileDims.at(
             iL)[(int)nvinfer1::OptProfileSelector::kMIN];
 
-        if (minDims.nbDims + 1 != modelDims.nbDims)
-        {
+        if (minDims.nbDims + 1 != modelDims.nbDims) {
             dsInferError(
                 "explict dims.nbDims in config does not match model dims.");
             return NVDSINFER_CONFIG_FAILED;
         }
 
-        if (params.inputOrder == NvDsInferTensorOrder_kNCHW)
-        {
+        if (params.inputOrder == NvDsInferTensorOrder_kNCHW) {
             std::move_backward(minDims.d, minDims.d + modelDims.nbDims - 1,
-                minDims.d + modelDims.nbDims);
-        }
-        else if (params.inputOrder == NvDsInferTensorOrder_kNHWC)
-        {
+                               minDims.d + modelDims.nbDims);
+        } else if (params.inputOrder == NvDsInferTensorOrder_kNHWC) {
             /* For Infer config accept Dims as CHW order by default,
             we need to change it to HWC */
-            dsInferDebug ("Switch Dims for NHWC\n");
+            dsInferDebug("Switch Dims for NHWC\n");
             minDims.d[3] = minDims.d[0];
-        }
-        else
-        {
-            dsInferError ("Unexpected Input Tensor Order\n");
+        } else {
+            dsInferError("Unexpected Input Tensor Order\n");
             return NVDSINFER_CONFIG_FAILED;
         }
 
         minDims.d[0] = params.minBatchSize;
         minDims.nbDims = modelDims.nbDims;
         assert(std::none_of(minDims.d, minDims.d + minDims.nbDims,
-            [](int d) { return d < 0; }));
+                            [](int d) { return d < 0; }));
         profile->setDimensions(
             input->getName(), nvinfer1::OptProfileSelector::kMIN, minDims);
 
@@ -1366,19 +1190,16 @@ TrtModelBuilder::configExplicitOptions(ExplicitBuildParams& params)
             iL)[(int)nvinfer1::OptProfileSelector::kOPT];
         assert(optDims.nbDims + 1 == modelDims.nbDims);
 
-        if (params.inputOrder == NvDsInferTensorOrder_kNCHW)
-        {
+        if (params.inputOrder == NvDsInferTensorOrder_kNCHW) {
             std::move_backward(optDims.d, optDims.d + modelDims.nbDims - 1,
-                optDims.d + modelDims.nbDims);
-        }
-        else
-        {   // must be NHWC as already checked above
+                               optDims.d + modelDims.nbDims);
+        } else {  // must be NHWC as already checked above
             optDims.d[3] = optDims.d[0];
         }
         optDims.d[0] = params.optBatchSize;
         optDims.nbDims = modelDims.nbDims;
         assert(std::none_of(optDims.d, optDims.d + optDims.nbDims,
-            [](int d) { return d < 0; }));
+                            [](int d) { return d < 0; }));
         profile->setDimensions(
             input->getName(), nvinfer1::OptProfileSelector::kOPT, optDims);
 
@@ -1387,13 +1208,13 @@ TrtModelBuilder::configExplicitOptions(ExplicitBuildParams& params)
         assert(maxDims.nbDims + 1 == modelDims.nbDims);
         if (params.inputOrder == NvDsInferTensorOrder_kNCHW)
             std::move_backward(maxDims.d, maxDims.d + modelDims.nbDims - 1,
-                maxDims.d + modelDims.nbDims);
+                               maxDims.d + modelDims.nbDims);
         else
             maxDims.d[3] = maxDims.d[0];
         maxDims.d[0] = params.maxBatchSize;
         maxDims.nbDims = modelDims.nbDims;
         assert(std::none_of(maxDims.d, maxDims.d + maxDims.nbDims,
-            [](int d) { return d < 0; }));
+                            [](int d) { return d < 0; }));
         profile->setDimensions(
             input->getName(), nvinfer1::OptProfileSelector::kMAX, maxDims);
 
@@ -1403,10 +1224,9 @@ TrtModelBuilder::configExplicitOptions(ExplicitBuildParams& params)
 
     // Todo, just set the other layers same dims as originals
     // Maybe need ask dllib to set other dims and input data
-    for (; iL < network.getNbInputs(); ++iL)
-    {
+    for (; iL < network.getNbInputs(); ++iL) {
         nvinfer1::ITensor* input = network.getInput(iL);
-        nvinfer1::Dims modelDims = input->getDimensions(); // include batchSize
+        nvinfer1::Dims modelDims = input->getDimensions();  // include batchSize
 
         nvinfer1::Dims dims = modelDims;
         dims.d[0] = params.minBatchSize;
@@ -1422,8 +1242,7 @@ TrtModelBuilder::configExplicitOptions(ExplicitBuildParams& params)
             input->getName(), nvinfer1::OptProfileSelector::kMAX, dims);
 
         if (std::any_of(
-                dims.d, dims.d + dims.nbDims, [](int d) { return d < 0; }))
-        {
+                dims.d, dims.d + dims.nbDims, [](int d) { return d < 0; })) {
             dsInferError("Explicit config dims is invalid");
             return NVDSINFER_CONFIG_FAILED;
         }
@@ -1434,8 +1253,7 @@ TrtModelBuilder::configExplicitOptions(ExplicitBuildParams& params)
 
     builderConfig.addOptimizationProfile(profile);
 
-    if (!profile->isValid())
-    {
+    if (!profile->isValid()) {
         dsInferError("Explicit Build optimization profile is invalid");
         return NVDSINFER_CONFIG_FAILED;
     }
@@ -1446,11 +1264,9 @@ TrtModelBuilder::configExplicitOptions(ExplicitBuildParams& params)
 /* Serialize engine and write to file.*/
 NvDsInferStatus
 TrtModelBuilder::serializeEngine(const std::string& path,
-        nvinfer1::ICudaEngine& engine)
-{
+                                 nvinfer1::ICudaEngine& engine) {
     std::ofstream fileOut(path, std::ios::binary);
-    if (!fileOut.is_open())
-    {
+    if (!fileOut.is_open()) {
         dsInferError(
             "Serialize engine failed because of file path: %s opened error",
             safeStr(path));
@@ -1458,15 +1274,13 @@ TrtModelBuilder::serializeEngine(const std::string& path,
     }
 
     UniquePtrWDestroy<nvinfer1::IHostMemory> memEngine(engine.serialize());
-    if (!memEngine)
-    {
+    if (!memEngine) {
         dsInferError("Serialize engine failed to file: %s", safeStr(path));
         return NVDSINFER_TENSORRT_ERROR;
     }
 
     fileOut.write(static_cast<char*>(memEngine->data()), memEngine->size());
-    if (fileOut.fail())
-    {
+    if (fileOut.fail()) {
         return NVDSINFER_TENSORRT_ERROR;
     }
     return NVDSINFER_SUCCESS;
@@ -1474,11 +1288,9 @@ TrtModelBuilder::serializeEngine(const std::string& path,
 
 /* Deserialize engine from file */
 std::unique_ptr<TrtEngine>
-TrtModelBuilder::deserializeEngine(const std::string& path, int dla)
-{
+TrtModelBuilder::deserializeEngine(const std::string& path, int dla) {
     std::ifstream fileIn(path, std::ios::binary);
-    if (!fileIn.is_open())
-    {
+    if (!fileIn.is_open()) {
         dsInferError(
             "Deserialize engine failed because file path: %s open error",
             safeStr(path));
@@ -1491,27 +1303,23 @@ TrtModelBuilder::deserializeEngine(const std::string& path, int dla)
 
     std::vector<char> data(size);
     fileIn.read(data.data(), size);
-    if (fileIn.fail())
-    {
+    if (fileIn.fail()) {
         dsInferError("Deserialize engine failed, file path: %s", safeStr(path));
         return nullptr;
     }
 
     SharedPtrWDestroy<nvinfer1::IRuntime> runtime(
-            nvinfer1::createInferRuntime(m_Logger));
+        nvinfer1::createInferRuntime(m_Logger));
     assert(runtime);
 
-    if (dla > 0)
-    {
+    if (dla > 0) {
         runtime->setDLACore(dla);
     }
 
     nvinfer1::IPluginFactory* factory = nullptr;
-    if (m_DlLib)
-    {
+    if (m_DlLib) {
         auto fcn = READ_SYMBOL(m_DlLib, NvDsInferPluginFactoryRuntimeGet);
-        if (fcn && !fcn(factory))
-        {
+        if (fcn && !fcn(factory)) {
             dsInferError(
                 "Deserialize engine failed from file: %s,"
                 "because of NvDsInferPluginFactoryRuntimeGet errors",
@@ -1523,8 +1331,7 @@ TrtModelBuilder::deserializeEngine(const std::string& path, int dla)
     UniquePtrWDestroy<nvinfer1::ICudaEngine> engine =
         runtime->deserializeCudaEngine(data.data(), size, factory);
 
-    if (!engine)
-    {
+    if (!engine) {
         dsInferError("Deserialize engine failed from file: %s", safeStr(path));
         return nullptr;
     }
@@ -1532,4 +1339,4 @@ TrtModelBuilder::deserializeEngine(const std::string& path, int dla)
         std::move(engine), runtime, dla, m_DlLib, factory);
 }
 
-} // namespace nvdsinfer
+}  // namespace nvdsinfer

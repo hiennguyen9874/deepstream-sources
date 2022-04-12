@@ -20,9 +20,8 @@ namespace cvcore {
 /**
  * Base implementation of Array.
  */
-class ArrayBase
-{
-public:
+class ArrayBase {
+   public:
     /**
      * Constructor of a non-owning arrays.
      * @param capacity capacity of the array.
@@ -114,7 +113,7 @@ public:
      */
     void *getData() const;
 
-private:
+   private:
     ArrayBase();
 
     void *m_data;
@@ -129,16 +128,14 @@ private:
  * Implementation of Array class.
  * @tparam T type of element in array.
  */
-template<typename T>
-class Array : public ArrayBase
-{
-public:
+template <typename T>
+class Array : public ArrayBase {
+   public:
     /**
      * Default constructor of an array.
      */
     Array()
-        : ArrayBase{0, sizeof(T), nullptr, true}
-    {
+        : ArrayBase{0, sizeof(T), nullptr, true} {
     }
 
     /**
@@ -149,8 +146,7 @@ public:
      * @param isCPU whether to allocate array on CPU or GPU.
      */
     Array(std::size_t size, std::size_t capacity, void *dataPtr, bool isCPU = true)
-        : ArrayBase{capacity, sizeof(T), dataPtr, isCPU}
-    {
+        : ArrayBase{capacity, sizeof(T), dataPtr, isCPU} {
         ArrayBase::setSize(size);
     }
 
@@ -160,15 +156,13 @@ public:
      * @param isCPU whether to allocate array on CPU or GPU.
      */
     Array(std::size_t capacity, bool isCPU = true)
-        : ArrayBase{capacity, sizeof(T), isCPU}
-    {
+        : ArrayBase{capacity, sizeof(T), isCPU} {
     }
 
     /**
      * Destructor of the Array.
      */
-    ~Array()
-    {
+    ~Array() {
         // call resize here such that CPU-based destructor
         // will call destructors of the objects stored
         // in the array before deallocating the storage
@@ -189,16 +183,14 @@ public:
      * Move constructor of Array.
      */
     Array(Array &&t)
-        : Array()
-    {
+        : Array() {
         *this = std::move(t);
     }
 
     /**
      * Move assignment operator of Array.
      */
-    Array &operator=(Array &&t)
-    {
+    Array &operator=(Array &&t) {
         static_cast<ArrayBase &>(*this) = std::move(t);
         return *this;
     }
@@ -207,20 +199,16 @@ public:
      * Set size of the Array.
      * @param size size of the Array.
      */
-    void setSize(std::size_t size)
-    {
+    void setSize(std::size_t size) {
         const std::size_t oldSize = getSize();
         ArrayBase::setSize(size);
-        if (isCPU())
-        {
+        if (isCPU()) {
             // shrinking case
-            for (std::size_t i = size; i < oldSize; ++i)
-            {
+            for (std::size_t i = size; i < oldSize; ++i) {
                 reinterpret_cast<T *>(getElement(i))->~T();
             }
             // expanding case
-            for (std::size_t i = oldSize; i < size; ++i)
-            {
+            for (std::size_t i = oldSize; i < size; ++i) {
                 new (getElement(i)) T;
             }
         }
@@ -231,8 +219,7 @@ public:
      * @param idx index of element.
      * @return const reference to the specified element.
      */
-    const T &operator[](int idx) const
-    {
+    const T &operator[](int idx) const {
         assert(idx >= 0 && idx < getSize());
         return *reinterpret_cast<T *>(getElement(idx));
     }
@@ -242,8 +229,7 @@ public:
      * @param idx index of element.
      * @return reference to the specified element.
      */
-    T &operator[](int idx)
-    {
+    T &operator[](int idx) {
         assert(idx >= 0 && idx < getSize());
         return *reinterpret_cast<T *>(getElement(idx));
     }
@@ -254,16 +240,14 @@ public:
  * @tparam T type of element in array.
  * @tparam N capacity of array.
  */
-template<typename T, std::size_t N>
-class ArrayN : public ArrayBase
-{
-public:
+template <typename T, std::size_t N>
+class ArrayN : public ArrayBase {
+   public:
     /**
      * Default constructor of ArrayN (create an owning Tensor with capacity N).
      */
     ArrayN()
-        : ArrayBase{N, sizeof(T), true}
-    {
+        : ArrayBase{N, sizeof(T), true} {
         setSize(N);
     }
 
@@ -274,8 +258,7 @@ public:
      * @param isCPU whether to allocate array on CPU or GPU.
      */
     ArrayN(std::size_t size, void *dataPtr, bool isCPU = true)
-        : ArrayBase{N, sizeof(T), dataPtr, isCPU}
-    {
+        : ArrayBase{N, sizeof(T), dataPtr, isCPU} {
         ArrayBase::setSize(size);
     }
 
@@ -284,16 +267,14 @@ public:
      * @param isCPU whether to allocate array on CPU or GPU.
      */
     ArrayN(bool isCPU)
-        : ArrayBase{N, sizeof(T), isCPU}
-    {
+        : ArrayBase{N, sizeof(T), isCPU} {
         setSize(N);
     }
 
     /**
      * Destructor of the ArrayN.
      */
-    ~ArrayN()
-    {
+    ~ArrayN() {
         // call resize here such that CPU-based destructor
         // will call destructors of the objects stored
         // in the array before deallocating the storage
@@ -314,16 +295,14 @@ public:
      * Move constructor of ArrayN.
      */
     ArrayN(ArrayN &&t)
-        : ArrayN()
-    {
+        : ArrayN() {
         *this = std::move(t);
     }
 
     /**
      * Move assignment operator of ArrayN.
      */
-    ArrayN &operator=(ArrayN &&t)
-    {
+    ArrayN &operator=(ArrayN &&t) {
         static_cast<ArrayBase &>(*this) = std::move(t);
         return *this;
     }
@@ -332,20 +311,16 @@ public:
      * Set size of the ArrayN.
      * @param size size of the ArrayN.
      */
-    void setSize(std::size_t size)
-    {
+    void setSize(std::size_t size) {
         const std::size_t oldSize = getSize();
         ArrayBase::setSize(size);
-        if (isCPU())
-        {
+        if (isCPU()) {
             // shrinking case
-            for (std::size_t i = size; i < oldSize; ++i)
-            {
+            for (std::size_t i = size; i < oldSize; ++i) {
                 reinterpret_cast<T *>(getElement(i))->~T();
             }
             // expanding case
-            for (std::size_t i = oldSize; i < size; ++i)
-            {
+            for (std::size_t i = oldSize; i < size; ++i) {
                 new (getElement(i)) T;
             }
         }
@@ -356,8 +331,7 @@ public:
      * @param idx index of element.
      * @return const reference to the specified element.
      */
-    const T &operator[](int idx) const
-    {
+    const T &operator[](int idx) const {
         assert(idx >= 0 && idx < getSize());
         return *reinterpret_cast<T *>(getElement(idx));
     }
@@ -367,13 +341,12 @@ public:
      * @param idx index of element.
      * @return reference to the specified element.
      */
-    T &operator[](int idx)
-    {
+    T &operator[](int idx) {
         assert(idx >= 0 && idx < getSize());
         return *reinterpret_cast<T *>(getElement(idx));
     }
 };
 
-} // namespace cvcore
+}  // namespace cvcore
 
-#endif // CVCORE_ARRAY_H
+#endif  // CVCORE_ARRAY_H

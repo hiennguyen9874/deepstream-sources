@@ -25,6 +25,7 @@
 
 #include <gst/base/gstbasetransform.h>
 #include <gst/gstbuffer.h>
+
 #include <string>
 
 #define NVDS_CONFIG_FILE_PROPERTY "config-file"
@@ -32,11 +33,11 @@
 namespace nvdsspeech {
 
 enum class BufferResult {
-    Buffer_Ok,  // Push the buffer from submit_input function
-    Buffer_Drop,  // Drop the buffer inside submit_input function
+    Buffer_Ok,     // Push the buffer from submit_input function
+    Buffer_Drop,   // Drop the buffer inside submit_input function
     Buffer_Async,  // Return from submit_input function, custom lib to push the
                    // buffer
-    Buffer_Error  // Error occured
+    Buffer_Error   // Error occured
 };
 
 struct DSCustom_CreateParams {
@@ -47,8 +48,7 @@ struct DSCustom_CreateParams {
 
 struct Property {
     Property(std::string arg_key, std::string arg_value)
-        : key(arg_key), value(arg_value)
-    {
+        : key(arg_key), value(arg_value) {
     }
 
     std::string key;
@@ -62,7 +62,7 @@ enum class CapsType : int {
 };
 
 class IDSCustomLibrary {
-public:
+   public:
     virtual bool SetProperty(const Property& prop) = 0;
     virtual bool Initialize() = 0;
     virtual GstCaps* GetCompatibleCaps(

@@ -13,10 +13,7 @@
 #ifndef CVCORE_GAZENET_H_
 #define CVCORE_GAZENET_H_
 
-#include <memory>
-
 #include <cuda_runtime.h>
-
 #include <cv/core/Array.h>
 #include <cv/core/BBox.h>
 #include <cv/core/Core.h>
@@ -25,7 +22,10 @@
 #include <cv/core/Model.h>
 #include <cv/core/Tensor.h>
 
-namespace cvcore { namespace gazenet {
+#include <memory>
+
+namespace cvcore {
+namespace gazenet {
 
 /**
  *  Default parameters for the preprocessing pipeline.
@@ -45,8 +45,7 @@ CVCORE_API extern const ModelInferenceParams defaultInferenceParams;
 /**
  * Describes the type of model for Gazenet.
  */
-enum class FeatureType
-{
+enum class FeatureType {
     FACEGRID,
     LANDMARKS
 };
@@ -54,9 +53,8 @@ enum class FeatureType
 /**
  * Interface for running pre-processing on GazeNet.
  */
-class CVCORE_API GazeNetPreProcessor
-{
-public:
+class CVCORE_API GazeNetPreProcessor {
+   public:
     /**
      * Number of landmarks needed for the model.
      */
@@ -124,7 +122,7 @@ public:
                  const Array<ArrayN<Vector2f, GazeNetPreProcessor::NUM_LANDMARKS>> &inputLandmarks,
                  FeatureType type = FeatureType::FACEGRID, cudaStream_t stream = 0);
 
-private:
+   private:
     /**
      * Implementation of GazeNetPreProcessor.
      */
@@ -135,9 +133,8 @@ private:
 /**
  * Interface for loading and running GazeNet.
  */
-class CVCORE_API GazeNet
-{
-public:
+class CVCORE_API GazeNet {
+   public:
     /**
      * Number of elements in network output.
      */
@@ -213,7 +210,7 @@ public:
                  const Array<ArrayN<Vector2f, GazeNetPreProcessor::NUM_LANDMARKS>> &inputLandmarks,
                  FeatureType type = FeatureType::FACEGRID, cudaStream_t stream = 0);
 
-private:
+   private:
     /**
     * Implementation of GazeNet.
     */
@@ -221,6 +218,7 @@ private:
     std::unique_ptr<GazeNetImpl> m_pImpl;
 };
 
-}} // namespace cvcore::gazenet
+}  // namespace gazenet
+}  // namespace cvcore
 
 #endif

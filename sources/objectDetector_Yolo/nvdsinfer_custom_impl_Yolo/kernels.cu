@@ -15,9 +15,9 @@
 #include <stdio.h>
 #include <string.h>
 
-inline __device__ float sigmoidGPU(const float& x) { return 1.0f / (1.0f + __expf(-x)); }
+inline __device__ float sigmoidGPU(const float &x) { return 1.0f / (1.0f + __expf(-x)); }
 
-__global__ void gpuYoloLayerV3(const float* input, float* output, const uint gridSize, const uint numOutputClasses,
+__global__ void gpuYoloLayerV3(const float *input, float *output, const uint gridSize, const uint numOutputClasses,
                                const uint numBBoxes)
 {
     uint x_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -32,34 +32,28 @@ __global__ void gpuYoloLayerV3(const float* input, float* output, const uint gri
     const int numGridCells = gridSize * gridSize;
     const int bbindex = y_id * gridSize + x_id;
 
-    output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 0)]
-        = sigmoidGPU(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 0)]);
+    output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 0)] = sigmoidGPU(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 0)]);
 
-    output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 1)]
-        = sigmoidGPU(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 1)]);
+    output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 1)] = sigmoidGPU(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 1)]);
 
-    output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 2)]
-        = __expf(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 2)]);
+    output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 2)] = __expf(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 2)]);
 
-    output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 3)]
-        = __expf(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 3)]);
+    output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 3)] = __expf(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 3)]);
 
-    output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 4)]
-        = sigmoidGPU(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 4)]);
+    output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 4)] = sigmoidGPU(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + 4)]);
 
     for (uint i = 0; i < numOutputClasses; ++i)
     {
-        output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + (5 + i))]
-            = sigmoidGPU(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + (5 + i))]);
+        output[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + (5 + i))] = sigmoidGPU(input[bbindex + numGridCells * (z_id * (5 + numOutputClasses) + (5 + i))]);
     }
 }
 
-cudaError_t cudaYoloLayerV3(const void* input, void* output, const uint& batchSize, const uint& gridSize,
-                            const uint& numOutputClasses, const uint& numBBoxes,
+cudaError_t cudaYoloLayerV3(const void *input, void *output, const uint &batchSize, const uint &gridSize,
+                            const uint &numOutputClasses, const uint &numBBoxes,
                             uint64_t outputSize, cudaStream_t stream);
 
-cudaError_t cudaYoloLayerV3(const void* input, void* output, const uint& batchSize, const uint& gridSize,
-                            const uint& numOutputClasses, const uint& numBBoxes,
+cudaError_t cudaYoloLayerV3(const void *input, void *output, const uint &batchSize, const uint &gridSize,
+                            const uint &numOutputClasses, const uint &numBBoxes,
                             uint64_t outputSize, cudaStream_t stream)
 {
     dim3 threads_per_block(16, 16, 4);
@@ -69,8 +63,8 @@ cudaError_t cudaYoloLayerV3(const void* input, void* output, const uint& batchSi
     for (unsigned int batch = 0; batch < batchSize; ++batch)
     {
         gpuYoloLayerV3<<<number_of_blocks, threads_per_block, 0, stream>>>(
-            reinterpret_cast<const float*>(input) + (batch * outputSize),
-            reinterpret_cast<float*>(output) + (batch * outputSize), gridSize, numOutputClasses,
+            reinterpret_cast<const float *>(input) + (batch * outputSize),
+            reinterpret_cast<float *>(output) + (batch * outputSize), gridSize, numOutputClasses,
             numBBoxes);
     }
     return cudaGetLastError();

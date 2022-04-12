@@ -11,23 +11,22 @@
 #ifndef NV_GESTURES_H_
 #define NV_GESTURES_H_
 
-#include <memory>
-
 #include <cuda_runtime.h>
-
 #include <cv/core/Array.h>
 #include <cv/core/BBox.h>
 #include <cv/core/Core.h>
 #include <cv/core/Model.h>
 #include <cv/core/Tensor.h>
 
-namespace cvcore { namespace gestures {
+#include <memory>
+
+namespace cvcore {
+namespace gestures {
 
 /**
  * Describes the parameters for filtering the gesture detections.
  */
-struct GesturesPostProcessorParams
-{
+struct GesturesPostProcessorParams {
     /**< Number of gestures */
     uint32_t numGestures;
     /**< Smoothing window size for filtering the detections. Set to 1 for no filtering */
@@ -59,9 +58,8 @@ CVCORE_API extern const GesturesPostProcessorParams defaultPostProcessorParams;
 /*
  * Interface for running pre-processing on gestures model.
  */
-class CVCORE_API GesturesPreProcessor
-{
-public:
+class CVCORE_API GesturesPreProcessor {
+   public:
     /**
    * Default constructor is deleted
    */
@@ -88,7 +86,7 @@ public:
     void execute(Tensor<NCHW, C3, F32> &output, const Tensor<NHWC, C3, U8> &input,
                  const Array<BBox> &inputBBoxes, cudaStream_t stream = 0);
 
-private:
+   private:
     /**
    * Implementation of GesturesPreProcessor.
    */
@@ -99,9 +97,8 @@ private:
 /**
  * Gestures parameters and implementation
  */
-class CVCORE_API Gestures
-{
-public:
+class CVCORE_API Gestures {
+   public:
     /**
    * Top gestures detected in order of likelihood.
    */
@@ -138,7 +135,7 @@ public:
     void execute(Array<GesturesLikelihood> &gestures, const Tensor<NHWC, C3, U8> &input,
                  const Array<BBox> &inputBBox, cudaStream_t stream = 0);
 
-private:
+   private:
     struct GesturesImpl;
     std::unique_ptr<GesturesImpl> m_pImpl;
 };
@@ -146,9 +143,8 @@ private:
 /**
  * Interface for running post-processing on gestures network.
  */
-class CVCORE_API GesturesPostProcessor
-{
-public:
+class CVCORE_API GesturesPostProcessor {
+   public:
     GesturesPostProcessor() = delete;
     /**
    * Constructor of GesturesPostProcessor.
@@ -177,7 +173,7 @@ public:
     void execute(Array<Gestures::GesturesLikelihood> &gestures, const Tensor<CL, CX, F32> &input,
                  cudaStream_t stream = 0);
 
-private:
+   private:
     /**
    * Implementation of Pose2DPostProcessor.
    */
@@ -185,5 +181,6 @@ private:
     std::unique_ptr<GesturesPostProcessorImpl> m_pImpl;
 };
 
-}} // namespace cvcore::gestures
+}  // namespace gestures
+}  // namespace cvcore
 #endif

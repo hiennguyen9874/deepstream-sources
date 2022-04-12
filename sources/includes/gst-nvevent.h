@@ -41,23 +41,18 @@ extern "C" {
 
 /** Defines supported types of custom events. */
 typedef enum {
-  /** Specifies a custom event to indicate Pad Added. */
-  GST_NVEVENT_PAD_ADDED
-    = GST_EVENT_MAKE_TYPE (400, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
-  /** Specifies a custom event to indicate Pad Deleted. */
-  GST_NVEVENT_PAD_DELETED
-    = GST_EVENT_MAKE_TYPE (401, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
-  /** Specifies a custom event to indicate EOS of a particular stream
+    /** Specifies a custom event to indicate Pad Added. */
+    GST_NVEVENT_PAD_ADDED = GST_EVENT_MAKE_TYPE(400, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    /** Specifies a custom event to indicate Pad Deleted. */
+    GST_NVEVENT_PAD_DELETED = GST_EVENT_MAKE_TYPE(401, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    /** Specifies a custom event to indicate EOS of a particular stream
    in a batch. */
-  GST_NVEVENT_STREAM_EOS
-    = GST_EVENT_MAKE_TYPE (402, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
-  /** Specifies a custom event to indicate a stream segment. */
-  GST_NVEVENT_STREAM_SEGMENT
-    = GST_EVENT_MAKE_TYPE (403, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
-  /** Specifies a custom event to indicate reset of a particular stream
+    GST_NVEVENT_STREAM_EOS = GST_EVENT_MAKE_TYPE(402, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    /** Specifies a custom event to indicate a stream segment. */
+    GST_NVEVENT_STREAM_SEGMENT = GST_EVENT_MAKE_TYPE(403, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    /** Specifies a custom event to indicate reset of a particular stream
    in a batch. */
-  GST_NVEVENT_STREAM_RESET
-    = GST_EVENT_MAKE_TYPE (404, FLAG(DOWNSTREAM) | FLAG(SERIALIZED))
+    GST_NVEVENT_STREAM_RESET = GST_EVENT_MAKE_TYPE(404, FLAG(DOWNSTREAM) | FLAG(SERIALIZED))
 } GstNvEventType;
 #undef FLAG
 
@@ -71,7 +66,7 @@ typedef enum {
  * @return  A pointer to the event corresponding to the request if successful,
  *  or NULL otherwise.
  */
-GstEvent * gst_nvevent_new_pad_added (guint source_id);
+GstEvent *gst_nvevent_new_pad_added(guint source_id);
 
 /**
  * Creates a "custom pad deleted" event for the specified source.
@@ -83,7 +78,7 @@ GstEvent * gst_nvevent_new_pad_added (guint source_id);
  * @return  A pointer to the event corresponding to the request if successful,
  *  or NULL otherwise.
  */
-GstEvent * gst_nvevent_new_pad_deleted (guint source_id);
+GstEvent *gst_nvevent_new_pad_deleted(guint source_id);
 
 /**
  * Creates a "custom EOS" event for the specified source.
@@ -95,7 +90,7 @@ GstEvent * gst_nvevent_new_pad_deleted (guint source_id);
  * @return  A pointer to the event corresponding to request if sucxessful,
  *  or NULL otherwise.
  */
-GstEvent * gst_nvevent_new_stream_eos (guint source_id);
+GstEvent *gst_nvevent_new_stream_eos(guint source_id);
 
 /**
  * Creates a "custom segment" event for the specified source.
@@ -110,7 +105,7 @@ GstEvent * gst_nvevent_new_stream_eos (guint source_id);
  * @return  A pointer to the event corresponding to the request if successful,
  *  or NULL otherwise.
  */
-GstEvent * gst_nvevent_new_stream_segment (guint source_id, GstSegment *segment);
+GstEvent *gst_nvevent_new_stream_segment(guint source_id, GstSegment *segment);
 
 /**
  * Creates a "custom reset" event for the specified source.
@@ -122,7 +117,7 @@ GstEvent * gst_nvevent_new_stream_segment (guint source_id, GstSegment *segment)
  * @return  A pointer to the event corresponding to request if sucxessful,
  *  or NULL otherwise.
  */
-GstEvent * gst_nvevent_new_stream_reset (guint source_id);
+GstEvent *gst_nvevent_new_stream_reset(guint source_id);
 
 /**
  * Parses a "pad added" event received on the sinkpad.
@@ -131,7 +126,7 @@ GstEvent * gst_nvevent_new_stream_reset (guint source_id);
  *                          when the pad is added to Gst-nvstreammux.
  * @param[out] source_id    A pointer to the parsed source ID for the event.
  */
-void gst_nvevent_parse_pad_added (GstEvent * event, guint * source_id);
+void gst_nvevent_parse_pad_added(GstEvent *event, guint *source_id);
 
 /**
  * Parses a "pad deleted" event received on the sinkpad.
@@ -140,7 +135,7 @@ void gst_nvevent_parse_pad_added (GstEvent * event, guint * source_id);
  *                          when the pad is deleted from Gst-nvstreammux.
  * @param[out] source_id    A pointer to the parsed source ID for the event.
  */
-void gst_nvevent_parse_pad_deleted (GstEvent * event, guint * source_id);
+void gst_nvevent_parse_pad_deleted(GstEvent *event, guint *source_id);
 
 /**
  * Parses a "stream EOS" event received on the sinkpad.
@@ -149,7 +144,7 @@ void gst_nvevent_parse_pad_deleted (GstEvent * event, guint * source_id);
  *                          when the source ID sends the EOS event.
  * @param[out] source_id    A pointer to the parsed source ID for the event.
  */
-void gst_nvevent_parse_stream_eos (GstEvent * event, guint * source_id);
+void gst_nvevent_parse_stream_eos(GstEvent *event, guint *source_id);
 
 /**
  * Parses a "stream segment" event received on the sinkpad.
@@ -161,8 +156,8 @@ void gst_nvevent_parse_stream_eos (GstEvent * event, guint * source_id);
  * @param[out] segment      A double pointer to the parsed segment
  *                          corresponding to source ID for the event.
  */
-void gst_nvevent_parse_stream_segment (GstEvent * event, guint * source_id,
-    GstSegment **segment);
+void gst_nvevent_parse_stream_segment(GstEvent *event, guint *source_id,
+                                      GstSegment **segment);
 
 /**
  * Parses a "stream reset" event received on the sinkpad.
@@ -171,7 +166,7 @@ void gst_nvevent_parse_stream_segment (GstEvent * event, guint * source_id,
  *                          when the source ID sends the reset event.
  * @param[out] source_id    A pointer to the parsed source ID for the event.
  */
-void gst_nvevent_parse_stream_reset (GstEvent * event, guint * source_id);
+void gst_nvevent_parse_stream_reset(GstEvent *event, guint *source_id);
 
 #ifdef __cplusplus
 }

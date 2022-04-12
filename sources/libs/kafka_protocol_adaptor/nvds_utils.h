@@ -13,14 +13,13 @@
 #define __NVDS_COMMON_UTILS_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /*
  * Release memory allocated for gobjects
  */
-void free_gobjs(GKeyFile *gcfg_file, GError *error, gchar **keys,  gchar *key_name);
+void free_gobjs(GKeyFile *gcfg_file, GError *error, gchar **keys, gchar *key_name);
 
 /*
  * Internal function to verify if the config string value is a quoted string

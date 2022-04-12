@@ -39,10 +39,10 @@ const float anchorsRatios[anchorsRatioCount] = {0.5f, 1.0f, 2.0f};
 const float anchorsScales[anchorsScaleCount] = {8.0f, 16.0f, 32.0f};
 
 extern "C" {
-bool NvDsInferParseCustomFasterRCNN (std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-        NvDsInferNetworkInfo  const &networkInfo,
-        NvDsInferParseDetectionParams const &detectionParams,
-        std::vector<NvDsInferObjectDetectionInfo> &objectList);
+bool NvDsInferParseCustomFasterRCNN(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+                                    NvDsInferNetworkInfo const &networkInfo,
+                                    NvDsInferParseDetectionParams const &detectionParams,
+                                    std::vector<NvDsInferObjectDetectionInfo> &objectList);
 }
 
 #endif

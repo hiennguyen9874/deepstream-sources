@@ -24,7 +24,7 @@
 
 #include <gst/gst.h>
 
-#define _DS_DEPRECATED_(STR) __attribute__ ((deprecated (STR)))
+#define _DS_DEPRECATED_(STR) __attribute__((deprecated(STR)))
 
 /**
  *
@@ -36,13 +36,12 @@
  * @{
  */
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 typedef struct NvDsSRRecordingInfo NvDsSRRecordingInfo;
 
-typedef gpointer (*NvDsSRCallbackFunc) (NvDsSRRecordingInfo *info, gpointer userData);
+typedef gpointer (*NvDsSRCallbackFunc)(NvDsSRRecordingInfo *info, gpointer userData);
 
 typedef guint32 NvDsSRSessionId;
 
@@ -50,113 +49,110 @@ typedef guint32 NvDsSRSessionId;
  * Specifies container types.
  */
 typedef enum {
-  NVDSSR_CONTAINER_MP4,
-  NVDSSR_CONTAINER_MKV
+    NVDSSR_CONTAINER_MP4,
+    NVDSSR_CONTAINER_MKV
 } NvDsSRContainerType;
 
 /**
  * Specifies API return status.
  */
 typedef enum {
-  NVDSSR_STATUS_OK,
-  NVDSSR_STATUS_INVALID_VAL,
-  NVDSSR_STATUS_INVALID_OP,
-  NVDSSR_STATUS_ERROR,
+    NVDSSR_STATUS_OK,
+    NVDSSR_STATUS_INVALID_VAL,
+    NVDSSR_STATUS_INVALID_OP,
+    NVDSSR_STATUS_ERROR,
 
-  NVDSSR_STATUS_CUSTOM1 = 100,
-  NVDSSR_STATUS_CUSTOM2 = 101,
-  NVDSSR_STATUS_CUSTOM3 = 102
+    NVDSSR_STATUS_CUSTOM1 = 100,
+    NVDSSR_STATUS_CUSTOM2 = 101,
+    NVDSSR_STATUS_CUSTOM3 = 102
 } NvDsSRStatus;
 
 /**
  * Holds initializtion paramerters required to create \ref NvDsSRContext.
  */
-typedef struct NvDsSRInitParams
-{
-  /** callback function gets called once recording is complete */
-  NvDsSRCallbackFunc callback;
-  /** recording video container, MP4 / MKV */
-  NvDsSRContainerType containerType;
-  /** optional, recording video width, 0 means no transcode */
-  guint width;
-  /** optional, recording video height, 0 means no transcode */
-  guint height;
-  /** recorded file name prefix */
-  gchar *fileNamePrefix;
-  /** store recorded file under directory path */
-  gchar *dirpath;
-   /** default recording duration in seconds */
-  guint defaultDuration;
-  union {
-    /** size of video cache in seconds. */
-    guint videoCacheSize _DS_DEPRECATED_("videoCacheSize is deprecated. Use cacheSize instead");
-    /** size of cache in seconds, applies to video and audio. */
-    guint cacheSize;
-  };
+typedef struct NvDsSRInitParams {
+    /** callback function gets called once recording is complete */
+    NvDsSRCallbackFunc callback;
+    /** recording video container, MP4 / MKV */
+    NvDsSRContainerType containerType;
+    /** optional, recording video width, 0 means no transcode */
+    guint width;
+    /** optional, recording video height, 0 means no transcode */
+    guint height;
+    /** recorded file name prefix */
+    gchar *fileNamePrefix;
+    /** store recorded file under directory path */
+    gchar *dirpath;
+    /** default recording duration in seconds */
+    guint defaultDuration;
+    union {
+        /** size of video cache in seconds. */
+        guint videoCacheSize _DS_DEPRECATED_("videoCacheSize is deprecated. Use cacheSize instead");
+        /** size of cache in seconds, applies to video and audio. */
+        guint cacheSize;
+    };
 } NvDsSRInitParams;
 
 /**
  * Holds information about smart record instance.
  */
-typedef struct NvDsSRContext
-{
-  /** parent bin element. */
-  GstElement *recordbin;
-  /** queue element to cache the content. */
-  GstElement *recordQue;
-  /** child bin to save the content to file. */
-  GstElement *encodebin;
-  /** filesink element */
-  GstElement *filesink;
-  /** flag to check the key frame. */
-  gboolean gotKeyFrame;
-  /** flag to check if recording is on */
-  gboolean recordOn;
-  /** flag to check if encodebin is reset */
-  gboolean resetDone;
-  /** flag to check if encodebin is in playing state. */
-  gboolean isPlaying;
-  /** initialization parameters */
-  NvDsSRInitParams initParams;
-  /** mutex to control the flow */
-  GMutex flowLock;
-  /** thread to reset the encodebin */
-  GThread *resetThread;
-  /** pointer to user provided data */
-  gpointer uData;
-  /** pointer to private data */
-  gpointer privData;
+typedef struct NvDsSRContext {
+    /** parent bin element. */
+    GstElement *recordbin;
+    /** queue element to cache the content. */
+    GstElement *recordQue;
+    /** child bin to save the content to file. */
+    GstElement *encodebin;
+    /** filesink element */
+    GstElement *filesink;
+    /** flag to check the key frame. */
+    gboolean gotKeyFrame;
+    /** flag to check if recording is on */
+    gboolean recordOn;
+    /** flag to check if encodebin is reset */
+    gboolean resetDone;
+    /** flag to check if encodebin is in playing state. */
+    gboolean isPlaying;
+    /** initialization parameters */
+    NvDsSRInitParams initParams;
+    /** mutex to control the flow */
+    GMutex flowLock;
+    /** thread to reset the encodebin */
+    GThread *resetThread;
+    /** pointer to user provided data */
+    gpointer uData;
+    /** pointer to private data */
+    gpointer privData;
 } NvDsSRContext;
 
 /**
  * Hold information about video recorded.
  */
-typedef struct NvDsSRRecordingInfo
-{
-  /** SR bin context */
-  NvDsSRContext *ctx;
-  /** recording session-id */
-  NvDsSRSessionId sessionId;
-  /** recorded file name */
-  gchar *filename;
-  /** recorded file dir path */
-  gchar *dirpath;
-  /** duration in milliseconds */
-  guint64 duration;
-  /** recorded video container, MP4 / MKV */
-  NvDsSRContainerType containerType;
-  /** recorded video width*/
-  guint width;
-  /** recorded video height*/
-  guint height;
-  /** Boolean indicating if recorded stream contains video. */
-  gboolean containsVideo;
-  /** channels in recorded audio */
-  guint channels;
-  /** sampling rate of recorded audio  in Hz */
-  guint samplingRate;
-  /** Boolean indicating if recorded stream contains audio. */
-  gboolean containsAudio;
+typedef struct NvDsSRRecordingInfo {
+    /** SR bin context */
+    NvDsSRContext *ctx;
+    /** recording session-id */
+    NvDsSRSessionId sessionId;
+    /** recorded file name */
+    gchar *filename;
+    /** recorded file dir path */
+    gchar *dirpath;
+    /** duration in milliseconds */
+    guint64 duration;
+    /** recorded video container, MP4 / MKV */
+    NvDsSRContainerType containerType;
+    /** recorded video width*/
+    guint width;
+    /** recorded video height*/
+    guint height;
+    /** Boolean indicating if recorded stream contains video. */
+    gboolean containsVideo;
+    /** channels in recorded audio */
+    guint channels;
+    /** sampling rate of recorded audio  in Hz */
+    guint samplingRate;
+    /** Boolean indicating if recorded stream contains audio. */
+    gboolean containsAudio;
 } NvDsSRRecordingInfo;
 
 /**
@@ -177,7 +173,7 @@ typedef struct NvDsSRRecordingInfo
  *
  * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
  */
-NvDsSRStatus NvDsSRCreate (NvDsSRContext **ctx, NvDsSRInitParams *params);
+NvDsSRStatus NvDsSRCreate(NvDsSRContext **ctx, NvDsSRInitParams *params);
 
 /**
  * \brief  Starts the video recording.
@@ -200,8 +196,8 @@ NvDsSRStatus NvDsSRCreate (NvDsSRContext **ctx, NvDsSRInitParams *params);
  *
  * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
  */
-NvDsSRStatus NvDsSRStart (NvDsSRContext *ctx, NvDsSRSessionId *sessionId,
-                          guint startTime, guint duration, gpointer userData);
+NvDsSRStatus NvDsSRStart(NvDsSRContext *ctx, NvDsSRSessionId *sessionId,
+                         guint startTime, guint duration, gpointer userData);
 
 /**
  * \brief  Stops the previously started recording.
@@ -211,7 +207,7 @@ NvDsSRStatus NvDsSRStart (NvDsSRContext *ctx, NvDsSRSessionId *sessionId,
  *
  * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
  */
-NvDsSRStatus NvDsSRStop (NvDsSRContext *ctx, NvDsSRSessionId sessionId);
+NvDsSRStatus NvDsSRStop(NvDsSRContext *ctx, NvDsSRSessionId sessionId);
 
 /**
  * \brief  Destroys the instance of smart record.
@@ -222,7 +218,7 @@ NvDsSRStatus NvDsSRStop (NvDsSRContext *ctx, NvDsSRSessionId sessionId);
  *
  * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
  */
-NvDsSRStatus NvDsSRDestroy (NvDsSRContext *ctx);
+NvDsSRStatus NvDsSRDestroy(NvDsSRContext *ctx);
 
 #ifdef __cplusplus
 }

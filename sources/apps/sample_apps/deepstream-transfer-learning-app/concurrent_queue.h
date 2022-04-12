@@ -22,36 +22,33 @@
 
 #pragma once
 
-#include <queue>
 #include <mutex>
+#include <queue>
 
 /// Simple concurrent Queue class using an stl queue.
 /// Nothing is special here compare to stl queue except
 /// it has only simple operations and it is thread safe.
 template <typename T>
-class ConcurrentQueue
-{
-public:
+class ConcurrentQueue {
+   public:
     void push(const T &elm);
     T pop();
     bool is_empty();
 
-private:
+   private:
     std::queue<T> queue_;
     std::mutex mutex_;
 };
 
 template <typename T>
-void ConcurrentQueue<T>::push(const T &elm)
-{
+void ConcurrentQueue<T>::push(const T &elm) {
     mutex_.lock();
     queue_.push(elm);
     mutex_.unlock();
 }
 
 template <typename T>
-T ConcurrentQueue<T>::pop()
-{
+T ConcurrentQueue<T>::pop() {
     mutex_.lock();
     T elm = queue_.front();
     queue_.pop();
@@ -60,8 +57,7 @@ T ConcurrentQueue<T>::pop()
 }
 
 template <typename T>
-bool ConcurrentQueue<T>::is_empty()
-{
+bool ConcurrentQueue<T>::is_empty() {
     mutex_.lock();
     bool res = queue_.empty();
     mutex_.unlock();

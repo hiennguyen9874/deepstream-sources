@@ -24,132 +24,127 @@
 #define __NVGSTDS_SINKS_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <gst/gst.h>
 
-typedef enum
-{
-  NV_DS_SINK_FAKE = 1,
-  NV_DS_SINK_RENDER_EGL,
-  NV_DS_SINK_ENCODE_FILE,
-  NV_DS_SINK_UDPSINK,
-  NV_DS_SINK_RENDER_OVERLAY,
-  NV_DS_SINK_MSG_CONV_BROKER,
+typedef enum {
+    NV_DS_SINK_FAKE = 1,
+    NV_DS_SINK_RENDER_EGL,
+    NV_DS_SINK_ENCODE_FILE,
+    NV_DS_SINK_UDPSINK,
+    NV_DS_SINK_RENDER_OVERLAY,
+    NV_DS_SINK_MSG_CONV_BROKER,
 } NvDsSinkType;
 
-typedef enum
-{
-  NV_DS_CONTAINER_MP4 = 1,
-  NV_DS_CONTAINER_MKV
+typedef enum {
+    NV_DS_CONTAINER_MP4 = 1,
+    NV_DS_CONTAINER_MKV
 } NvDsContainerType;
 
-typedef enum
-{
-  NV_DS_ENCODER_H264 = 1,
-  NV_DS_ENCODER_H265,
-  NV_DS_ENCODER_MPEG4
+typedef enum {
+    NV_DS_ENCODER_H264 = 1,
+    NV_DS_ENCODER_H265,
+    NV_DS_ENCODER_MPEG4
 } NvDsEncoderType;
 
-typedef enum
-{
-  NV_DS_ENCODER_TYPE_HW,
-  NV_DS_ENCODER_TYPE_SW
-}NvDsEncHwSwType;
+typedef enum {
+    NV_DS_ENCODER_TYPE_HW,
+    NV_DS_ENCODER_TYPE_SW
+} NvDsEncHwSwType;
 
 typedef struct
 {
-  NvDsSinkType type;
-  NvDsContainerType container;
-  NvDsEncoderType codec;
-  NvDsEncHwSwType enc_type;
-  gint bitrate;
-  guint profile;
-  gint sync;
-  gchar *output_file_path;
-  guint gpu_id;
-  guint rtsp_port;
-  guint udp_port;
-  guint64 udp_buffer_size;
-  guint iframeinterval;
+    NvDsSinkType type;
+    NvDsContainerType container;
+    NvDsEncoderType codec;
+    NvDsEncHwSwType enc_type;
+    gint bitrate;
+    guint profile;
+    gint sync;
+    gchar *output_file_path;
+    guint gpu_id;
+    guint rtsp_port;
+    guint udp_port;
+    guint64 udp_buffer_size;
+    guint iframeinterval;
 } NvDsSinkEncoderConfig;
 
 typedef struct
 {
-  NvDsSinkType type;
-  gint width;
-  gint height;
-  gint sync;
-  gboolean qos;
-  gboolean qos_value_specified;
-  guint gpu_id;
-  guint nvbuf_memory_type;
-  guint display_id;
-  guint overlay_id;
-  guint offset_x;
-  guint offset_y;
+    NvDsSinkType type;
+    gint width;
+    gint height;
+    gint sync;
+    gboolean qos;
+    gboolean qos_value_specified;
+    guint gpu_id;
+    guint nvbuf_memory_type;
+    guint display_id;
+    guint overlay_id;
+    guint offset_x;
+    guint offset_y;
 } NvDsSinkRenderConfig;
 
 typedef struct
 {
-  gboolean enable;
-  /** MsgConv settings */
-  gchar*    config_file_path;
-  guint     conv_payload_type;
-  gchar*    conv_msg2p_lib;
-  guint     conv_comp_id;
-  gchar*    debug_payload_dir;
-  gboolean  multiple_payloads;
-  gboolean  conv_msg2p_new_api;
-  guint     conv_frame_interval;
-  /** Broker settings */
-  gchar*    proto_lib;
-  gchar*    conn_str;
-  gchar*    topic;
-  gchar*    broker_config_file_path;
-  guint     broker_comp_id;
-  gboolean  disable_msgconv;
-  gint sync;
-  gboolean  new_api;
+    gboolean enable;
+    /** MsgConv settings */
+    gchar *config_file_path;
+    guint conv_payload_type;
+    gchar *conv_msg2p_lib;
+    guint conv_comp_id;
+    gchar *debug_payload_dir;
+    gboolean multiple_payloads;
+    gboolean conv_msg2p_new_api;
+    guint conv_frame_interval;
+    /** Broker settings */
+    gchar *proto_lib;
+    gchar *conn_str;
+    gchar *topic;
+    gchar *broker_config_file_path;
+    guint broker_comp_id;
+    gboolean disable_msgconv;
+    gint sync;
+    gboolean new_api;
 } NvDsSinkMsgConvBrokerConfig;
 
 typedef struct
 {
-  gboolean enable;
-  guint source_id;
-  gboolean link_to_demux;
-  NvDsSinkType type;
-  gint sync;
-  NvDsSinkEncoderConfig encoder_config;
-  NvDsSinkRenderConfig render_config;
-  NvDsSinkMsgConvBrokerConfig msg_conv_broker_config;
+    gboolean enable;
+    guint source_id;
+    gboolean link_to_demux;
+    NvDsSinkType type;
+    gint sync;
+    NvDsSinkEncoderConfig encoder_config;
+    NvDsSinkRenderConfig render_config;
+    NvDsSinkMsgConvBrokerConfig msg_conv_broker_config;
 } NvDsSinkSubBinConfig;
 
 typedef struct
 {
-  GstElement *bin;
-  GstElement *queue;
-  GstElement *transform;
-  GstElement *cap_filter;
-  GstElement *enc_caps_filter;
-  GstElement *encoder;
-  GstElement *codecparse;
-  GstElement *mux;
-  GstElement *sink;
-  GstElement *rtppay;
-  gulong sink_buffer_probe;
+    GstElement *bin;
+    GstElement *queue;
+    GstElement *transform;
+    GstElement *cap_filter;
+    GstElement *enc_caps_filter;
+    GstElement *encoder;
+    GstElement *codecparse;
+    GstElement *mux;
+    GstElement *sink;
+    GstElement *rtppay;
+    gulong sink_buffer_probe;
 } NvDsSinkBinSubBin;
 
 typedef struct
 {
-  GstElement *bin;
-  GstElement *queue;
-  GstElement *tee;
+    GstElement *bin;
+    GstElement *queue;
+    GstElement *tee;
 
-  gint num_bins;
-  NvDsSinkBinSubBin sub_bins[MAX_SINK_BINS];
+    gint num_bins;
+    NvDsSinkBinSubBin sub_bins[MAX_SINK_BINS];
 } NvDsSinkBin;
 
 /**
@@ -166,14 +161,14 @@ typedef struct
  *
  * @return true if bin created successfully.
  */
-gboolean create_sink_bin (guint num_sub_bins,
-    NvDsSinkSubBinConfig *config_array, NvDsSinkBin *bin, guint index);
+gboolean create_sink_bin(guint num_sub_bins,
+                         NvDsSinkSubBinConfig *config_array, NvDsSinkBin *bin, guint index);
 
-void destroy_sink_bin (void);
-gboolean create_demux_sink_bin (guint num_sub_bins,
-    NvDsSinkSubBinConfig *config_array, NvDsSinkBin *bin, guint index);
+void destroy_sink_bin(void);
+gboolean create_demux_sink_bin(guint num_sub_bins,
+                               NvDsSinkSubBinConfig *config_array, NvDsSinkBin *bin, guint index);
 
-void set_rtsp_udp_port_num (guint rtsp_port_num, guint udp_port_num);
+void set_rtsp_udp_port_num(guint rtsp_port_num, guint udp_port_num);
 
 #ifdef __cplusplus
 }

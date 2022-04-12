@@ -9,7 +9,6 @@
  *
  */
 
-
 #ifndef __NVDS_KAFKA_PROTO_H__
 #define __NVDS_KAFKA_PROTO_H__
 

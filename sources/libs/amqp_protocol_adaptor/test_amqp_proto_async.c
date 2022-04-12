@@ -14,13 +14,14 @@
 //This is a test program to perform connect, disconnect , send messages to amqp broker
 //Use a single thread to connect and perform asynchronous send
 
-#include<stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/syscall.h>
 #include <dlfcn.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
 #include "nvds_msgapi.h"
 
 #define NUM_THREADS 5
@@ -37,29 +38,29 @@ NvDsMsgApiHandle (*nvds_msgapi_connect_ptr)(char *connection_str, nvds_msgapi_co
 NvDsMsgApiErrorType (*nvds_msgapi_send_async_ptr)(NvDsMsgApiHandle conn, char *topic, const uint8_t *payload, size_t nbuf, nvds_msgapi_send_cb_t send_callback, void *user_ptr);
 NvDsMsgApiErrorType (*nvds_msgapi_disconnect_ptr)(NvDsMsgApiHandle h_ptr);
 void (*nvds_msgapi_do_work_ptr)(NvDsMsgApiHandle h_ptr);
-char* (*nvds_msgapi_getversion_ptr)(void);
-char* (*nvds_msgapi_get_protocol_name_ptr)(void);
+char *(*nvds_msgapi_getversion_ptr)(void);
+char *(*nvds_msgapi_get_protocol_name_ptr)(void);
 NvDsMsgApiErrorType (*nvds_msgapi_connection_signature_ptr)(char *connection_str, char *config_path, char *output_str, int max_len);
 
 void connect_cb(NvDsMsgApiHandle h_ptr, NvDsMsgApiEventType evt) {
-    if(evt == NVDS_MSGAPI_EVT_SUCCESS)
+    if (evt == NVDS_MSGAPI_EVT_SUCCESS)
         printf("In sample prog: connect success \n");
     else
         printf("In sample prog: connect failed \n");
 }
 
-void send_callback (void *user_ptr, NvDsMsgApiErrorType completion_flag) {
-    if(completion_flag == NVDS_MSGAPI_OK)
-        printf("Message num %d : send success\n", *((int *) user_ptr));
+void send_callback(void *user_ptr, NvDsMsgApiErrorType completion_flag) {
+    if (completion_flag == NVDS_MSGAPI_OK)
+        printf("Message num %d : send success\n", *((int *)user_ptr));
     else
-        printf("Message num %d : send failed\n", *((int *) user_ptr));
+        printf("Message num %d : send failed\n", *((int *)user_ptr));
 }
 
 int main(int argc, char **argv) {
     void *so_handle;
-    if(argc < 2)
+    if (argc < 2)
         so_handle = dlopen(AMQP_PROTO_PATH, RTLD_LAZY);
-    else if(argc == 2)
+    else if (argc == 2)
         so_handle = dlopen(argv[1], RTLD_LAZY);
     else {
         printf("Invalid arguments to sample applicaiton\n");
@@ -71,15 +72,15 @@ int main(int argc, char **argv) {
         printf("unable to open shared library\n");
         exit(-1);
     }
-    *(void **) (&nvds_msgapi_connect_ptr) = dlsym(so_handle, "nvds_msgapi_connect");
-    *(void **) (&nvds_msgapi_send_async_ptr) = dlsym(so_handle, "nvds_msgapi_send_async");
-    *(void **) (&nvds_msgapi_disconnect_ptr) = dlsym(so_handle, "nvds_msgapi_disconnect");
-    *(void **) (&nvds_msgapi_do_work_ptr) = dlsym(so_handle, "nvds_msgapi_do_work");
-    *(void **) (&nvds_msgapi_getversion_ptr) = dlsym(so_handle, "nvds_msgapi_getversion");
-    *(void **) (&nvds_msgapi_get_protocol_name_ptr) = dlsym(so_handle, "nvds_msgapi_get_protocol_name");
-    *(void **) (&nvds_msgapi_connection_signature_ptr) = dlsym(so_handle, "nvds_msgapi_connection_signature");
+    *(void **)(&nvds_msgapi_connect_ptr) = dlsym(so_handle, "nvds_msgapi_connect");
+    *(void **)(&nvds_msgapi_send_async_ptr) = dlsym(so_handle, "nvds_msgapi_send_async");
+    *(void **)(&nvds_msgapi_disconnect_ptr) = dlsym(so_handle, "nvds_msgapi_disconnect");
+    *(void **)(&nvds_msgapi_do_work_ptr) = dlsym(so_handle, "nvds_msgapi_do_work");
+    *(void **)(&nvds_msgapi_getversion_ptr) = dlsym(so_handle, "nvds_msgapi_getversion");
+    *(void **)(&nvds_msgapi_get_protocol_name_ptr) = dlsym(so_handle, "nvds_msgapi_get_protocol_name");
+    *(void **)(&nvds_msgapi_connection_signature_ptr) = dlsym(so_handle, "nvds_msgapi_connection_signature");
 
-    if ((error = dlerror()) != NULL)  {
+    if ((error = dlerror()) != NULL) {
         fprintf(stderr, "%s\n", error);
         exit(-1);
     }
@@ -87,7 +88,7 @@ int main(int argc, char **argv) {
     printf("Adapter protocol=%s , version=%s\n", nvds_msgapi_get_protocol_name_ptr(), nvds_msgapi_getversion_ptr());
 
     char query_conn_signature[MAX_LEN];
-    if(nvds_msgapi_connection_signature_ptr((char *) AMQP_CONNECT_STR, (char *) AMQP_CFG_FILE, query_conn_signature, MAX_LEN) != NVDS_MSGAPI_OK) {
+    if (nvds_msgapi_connection_signature_ptr((char *)AMQP_CONNECT_STR, (char *)AMQP_CFG_FILE, query_conn_signature, MAX_LEN) != NVDS_MSGAPI_OK) {
         printf("Error querying connection signature string. Exiting\n");
     }
     printf("connection string queried= %s\n", query_conn_signature);
@@ -96,16 +97,16 @@ int main(int argc, char **argv) {
     //option 1: provide connection string as param to nvds_msgapi_connect()
     //option 2: The full connection details in config file and connection params provided in nvds_msgapi_connect() as NULL
 
-    NvDsMsgApiHandle ah = nvds_msgapi_connect_ptr((char *) AMQP_CONNECT_STR, connect_cb, (char *) AMQP_CFG_FILE);
-    if(ah == NULL) {
+    NvDsMsgApiHandle ah = nvds_msgapi_connect_ptr((char *)AMQP_CONNECT_STR, connect_cb, (char *)AMQP_CFG_FILE);
+    if (ah == NULL) {
         printf("Connect to amqp broker failed\n");
         exit(0);
     }
     printf("Connect Success\n");
-    for(int i=0; i < 10; i++) {
+    for (int i = 0; i < 10; i++) {
         char msg[100];
         sprintf(msg, "Hello%d\n", i);
-        if(nvds_msgapi_send_async_ptr(ah, NULL, (const uint8_t *)msg, strlen(msg), send_callback, &i) != NVDS_MSGAPI_OK)
+        if (nvds_msgapi_send_async_ptr(ah, NULL, (const uint8_t *)msg, strlen(msg), send_callback, &i) != NVDS_MSGAPI_OK)
             printf("Message send failed\n");
         nvds_msgapi_do_work_ptr(ah);
     }
