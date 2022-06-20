@@ -31,50 +31,61 @@
 
 #include "nvdscustomlib_interface.hpp"
 
-namespace nvdsspeech {
+namespace nvdsspeech
+{
 
-template <class T>
-T* dlsym_ptr(void* handle, char const* name) {
-    return reinterpret_cast<T*>(dlsym(handle, name));
-}
-
-class DSCustomLibrary_Factory {
-   public:
-    DSCustomLibrary_Factory() = default;
-
-    ~DSCustomLibrary_Factory() {
-        if (m_libHandle) {
-            dlclose(m_libHandle);
-        }
+    template <class T>
+    T *
+    dlsym_ptr(void *handle, char const *name)
+    {
+        return reinterpret_cast<T *>(dlsym(handle, name));
     }
 
-    IDSCustomLibrary* CreateCustomAlgoCtx(
-        const std::string& libName, const std::string& symName) {
-        m_libName.assign(libName);
+    class DSCustomLibrary_Factory
+    {
+    public:
+        DSCustomLibrary_Factory() = default;
 
-        m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW);
-        if (m_libHandle) {
-            std::cout << "Library Opened Successfully" << std::endl;
-
-            m_CreateAlgoCtx =
-                dlsym_ptr<IDSCustomLibrary*()>(m_libHandle, symName.c_str());
-            if (!m_CreateAlgoCtx) {
-                throw std::runtime_error(
-                    "createCustomAlgoCtx function not found in library");
+        ~DSCustomLibrary_Factory()
+        {
+            if (m_libHandle)
+            {
+                dlclose(m_libHandle);
             }
-        } else {
-            throw std::runtime_error(dlerror());
         }
 
-        return m_CreateAlgoCtx();
-    }
+        IDSCustomLibrary *CreateCustomAlgoCtx(
+            const std::string &libName, const std::string &symName)
+        {
+            m_libName.assign(libName);
 
-   public:
-    void* m_libHandle;
-    std::string m_libName;
-    std::function<IDSCustomLibrary*()> m_CreateAlgoCtx;
-};
+            m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW);
+            if (m_libHandle)
+            {
+                std::cout << "Library Opened Successfully" << std::endl;
 
-}  // namespace nvdsspeech
+                m_CreateAlgoCtx =
+                    dlsym_ptr<IDSCustomLibrary *()>(m_libHandle, symName.c_str());
+                if (!m_CreateAlgoCtx)
+                {
+                    throw std::runtime_error(
+                        "createCustomAlgoCtx function not found in library");
+                }
+            }
+            else
+            {
+                throw std::runtime_error(dlerror());
+            }
+
+            return m_CreateAlgoCtx();
+        }
+
+    public:
+        void *m_libHandle;
+        std::string m_libName;
+        std::function<IDSCustomLibrary *()> m_CreateAlgoCtx;
+    };
+
+} // namespace nvdsspeech
 
 #endif

@@ -20,23 +20,22 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <termios.h>
-#include <unistd.h>
-
-#include <cstring>
-#include <string>
-
+#include "gstnvdsmeta.h"
+#include "nvbufsurface.h"
 #include "deepstream_app.h"
 #include "deepstream_config_file_parser.h"
+#include "nvds_version.h"
+#include <cstring>
+#include <unistd.h>
+#include <termios.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <string>
+#include "nvds_obj_encode.h"
 #include "gst-nvmessage.h"
-#include "gstnvdsmeta.h"
+
 #include "image_meta_consumer.h"
 #include "image_meta_producer.h"
-#include "nvbufsurface.h"
-#include "nvds_obj_encode.h"
-#include "nvds_version.h"
 
 constexpr unsigned MAX_INSTANCES = 128;
 #define APP_TITLE "DeepStream Transfer Learning App"
@@ -103,9 +102,11 @@ GOptionEntry entries[] = {
 /// @return true if the image was saved false otherwise.
 static bool save_image(const std::string &path,
                        NvBufSurface *ip_surf, NvDsObjectMeta *obj_meta,
-                       NvDsFrameMeta *frame_meta, unsigned &obj_counter) {
+                       NvDsFrameMeta *frame_meta, unsigned &obj_counter)
+{
     NvDsObjEncUsrArgs userData = {0};
-    if (path.size() >= sizeof(userData.fileNameImg)) {
+    if (path.size() >= sizeof(userData.fileNameImg))
+    {
         std::cerr << "Folder path too long (path: " << path
                   << ", size: " << path.size() << ") could not save image.\n"
                   << "Should be less than " << sizeof(userData.fileNameImg) << " characters.";
@@ -132,7 +133,8 @@ static bool save_image(const std::string &path,
 /// for an ImageMetaProducer
 static ImageMetaProducer::IPData make_ipdata(const AppCtx *appCtx,
                                              const NvDsFrameMeta *frame_meta,
-                                             const NvDsObjectMeta *obj_meta) {
+                                             const NvDsObjectMeta *obj_meta)
+{
     ImageMetaProducer::IPData ipdata;
     ipdata.confidence = obj_meta->confidence;
     ipdata.within_confidence = ipdata.confidence > g_img_meta_consumer.get_min_confidence() && ipdata.confidence < g_img_meta_consumer.get_max_confidence();
@@ -155,23 +157,28 @@ static ImageMetaProducer::IPData make_ipdata(const AppCtx *appCtx,
     return ipdata;
 }
 
-static void display_bad_confidence(float confidence) {
-    if (confidence < 0.0 || confidence > 1.0) {
+static void display_bad_confidence(float confidence)
+{
+    if (confidence < 0.0 || confidence > 1.0)
+    {
         std::cerr << "Confidence (" << confidence << ") provided by neural network output is invalid."
                   << " ( 0.0 < confidence < 1.0 is required.)\n"
                   << "Please verify the content of the config files.\n";
     }
 }
 
-static bool obj_meta_is_within_confidence(const NvDsObjectMeta *obj_meta) {
+static bool obj_meta_is_within_confidence(const NvDsObjectMeta *obj_meta)
+{
     return obj_meta->confidence > g_img_meta_consumer.get_min_confidence() && obj_meta->confidence < g_img_meta_consumer.get_max_confidence();
 }
 
-static bool obj_meta_is_above_min_confidence(const NvDsObjectMeta *obj_meta) {
+static bool obj_meta_is_above_min_confidence(const NvDsObjectMeta *obj_meta)
+{
     return obj_meta->confidence > g_img_meta_consumer.get_min_confidence();
 }
 
-static bool obj_meta_box_is_above_minimum_dimension(const NvDsObjectMeta *obj_meta) {
+static bool obj_meta_box_is_above_minimum_dimension(const NvDsObjectMeta *obj_meta)
+{
     return obj_meta->rect_params.width > g_img_meta_consumer.get_min_box_width() && obj_meta->rect_params.height > g_img_meta_consumer.get_min_box_height();
 }
 
@@ -187,15 +194,18 @@ static bool obj_meta_box_is_above_minimum_dimension(const NvDsObjectMeta *obj_me
 ///
 static void
 after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
-                           NvDsBatchMeta *batch_meta, guint index) {
-    if (g_img_meta_consumer.get_is_stopped()) {
+                           NvDsBatchMeta *batch_meta, guint index)
+{
+    if (g_img_meta_consumer.get_is_stopped())
+    {
         std::cerr << "Could not save image and metadata: "
                   << "Consumer is stopped.\n";
         return;
     }
 
     GstMapInfo inmap = GST_MAP_INFO_INIT;
-    if (!gst_buffer_map(buf, &inmap, GST_MAP_READ)) {
+    if (!gst_buffer_map(buf, &inmap, GST_MAP_READ))
+    {
         std::cerr << "input buffer mapinfo failed\n";
         return;
     }
@@ -208,16 +218,20 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
     bool at_least_one_image_saved = false;
 
     for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != nullptr;
-         l_frame = l_frame->next) {
+         l_frame = l_frame->next)
+    {
         NvDsFrameMeta *frame_meta = static_cast<NvDsFrameMeta *>(l_frame->data);
         unsigned source_number = frame_meta->pad_index;
-        if (g_img_meta_consumer.should_save_data(source_number)) {
+        if (g_img_meta_consumer.should_save_data(source_number))
+        {
             g_img_meta_consumer.lock_source_nb(source_number);
-            if (!g_img_meta_consumer.should_save_data(source_number)) {
+            if (!g_img_meta_consumer.should_save_data(source_number))
+            {
                 g_img_meta_consumer.unlock_source_nb(source_number);
                 continue;
             }
-        } else
+        }
+        else
             continue;
 
         /// required for `get_save_full_frame_enabled()`
@@ -232,18 +246,22 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
         bool at_least_one_confidence_is_within_range = false;
         /// first loop to check if it is usefull to save metadata for the current frame
         for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != nullptr;
-             l_obj = l_obj->next) {
+             l_obj = l_obj->next)
+        {
             NvDsObjectMeta *obj_meta = static_cast<NvDsObjectMeta *>(l_obj->data);
             display_bad_confidence(obj_meta->confidence);
-            if (obj_meta_is_within_confidence(obj_meta) && obj_meta_box_is_above_minimum_dimension(obj_meta)) {
+            if (obj_meta_is_within_confidence(obj_meta) && obj_meta_box_is_above_minimum_dimension(obj_meta))
+            {
                 at_least_one_confidence_is_within_range = true;
                 break;
             }
         }
 
-        if (at_least_one_confidence_is_within_range) {
+        if (at_least_one_confidence_is_within_range)
+        {
             for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != nullptr;
-                 l_obj = l_obj->next) {
+                 l_obj = l_obj->next)
+            {
                 NvDsObjectMeta *obj_meta = static_cast<NvDsObjectMeta *>(l_obj->data);
                 if (!obj_meta_is_above_min_confidence(obj_meta) || !obj_meta_box_is_above_minimum_dimension(obj_meta))
                     continue;
@@ -256,7 +274,8 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
                 if (data_was_stacked && g_img_meta_consumer.get_save_cropped_images_enabled())
                     at_least_one_image_saved |= save_image(ipdata.image_cropped_obj_path_saved,
                                                            ip_surf, obj_meta, frame_meta, obj_counter);
-                if (data_was_stacked && !full_frame_written && g_img_meta_consumer.get_save_full_frame_enabled()) {
+                if (data_was_stacked && !full_frame_written && g_img_meta_consumer.get_save_full_frame_enabled())
+                {
                     unsigned dummy_counter = 0;
                     /// Creating a special object meta in order to save a full frame
                     NvDsObjectMeta dummy_obj_meta;
@@ -272,7 +291,8 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
             }
         }
         /// Send information contained in the producer and empty it.
-        if (at_least_one_metadata_saved) {
+        if (at_least_one_metadata_saved)
+        {
             img_producer.send_and_flush_obj_data();
             g_img_meta_consumer.data_was_saved_for_source(source_number);
         }
@@ -288,7 +308,8 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
  * It installs default handler after handling the interrupt.
  */
 static void
-_intr_handler(int signum) {
+_intr_handler(int signum)
+{
     struct sigaction action;
 
     NVGSTDS_ERR_MSG_V("User Interrupted.. \n");
@@ -305,34 +326,42 @@ _intr_handler(int signum) {
  * callback function to print the performance numbers of each stream.
  */
 static void
-perf_cb(gpointer context, NvDsAppPerfStruct *str) {
+perf_cb(gpointer context, NvDsAppPerfStruct *str)
+{
     static guint header_print_cnt = 0;
     guint i;
     AppCtx *appCtx = (AppCtx *)context;
     guint numf = (num_instances == 1) ? str->num_instances : num_instances;
 
     g_mutex_lock(&fps_lock);
-    if (num_instances > 1) {
+    if (num_instances > 1)
+    {
         fps[appCtx->index] = str->fps[0];
         fps_avg[appCtx->index] = str->fps_avg[0];
-    } else {
-        for (i = 0; i < numf; i++) {
+    }
+    else
+    {
+        for (i = 0; i < numf; i++)
+        {
             fps[i] = str->fps[i];
             fps_avg[i] = str->fps_avg[i];
         }
     }
 
     num_fps_inst++;
-    if (num_fps_inst < num_instances) {
+    if (num_fps_inst < num_instances)
+    {
         g_mutex_unlock(&fps_lock);
         return;
     }
 
     num_fps_inst = 0;
 
-    if (header_print_cnt % 20 == 0) {
+    if (header_print_cnt % 20 == 0)
+    {
         g_print("\n**PERF: ");
-        for (i = 0; i < numf; i++) {
+        for (i = 0; i < numf; i++)
+        {
             g_print("FPS %d (Avg)\t", i);
         }
         g_print("\n");
@@ -340,7 +369,8 @@ perf_cb(gpointer context, NvDsAppPerfStruct *str) {
     }
     header_print_cnt++;
     g_print("**PERF: ");
-    for (i = 0; i < numf; i++) {
+    for (i = 0; i < numf; i++)
+    {
         g_print("%.2f (%.2f)\t", fps[i], fps_avg[i]);
     }
     g_print("\n");
@@ -352,12 +382,15 @@ perf_cb(gpointer context, NvDsAppPerfStruct *str) {
  * It comes out of loop if application got interrupted.
  */
 static gboolean
-check_for_interrupt(gpointer data) {
-    if (quit) {
+check_for_interrupt(gpointer data)
+{
+    if (quit)
+    {
         return FALSE;
     }
 
-    if (cintr) {
+    if (cintr)
+    {
         cintr = FALSE;
 
         quit = TRUE;
@@ -372,7 +405,8 @@ check_for_interrupt(gpointer data) {
  * Function to install custom handler for program interrupt signal.
  */
 static void
-_intr_setup(void) {
+_intr_setup(void)
+{
     struct sigaction action;
 
     memset(&action, 0, sizeof(action));
@@ -382,7 +416,8 @@ _intr_setup(void) {
 }
 
 static gboolean
-kbhit(void) {
+kbhit(void)
+{
     struct timeval tv;
     fd_set rdfs;
 
@@ -402,32 +437,35 @@ kbhit(void) {
  * having to type a line-delimiter character).
  */
 static void
-changemode(int dir) {
+changemode(int dir)
+{
     static struct termios oldt, newt;
 
-    if (dir == 1) {
+    if (dir == 1)
+    {
         tcgetattr(STDIN_FILENO, &oldt);
         newt = oldt;
         newt.c_lflag &= ~(ICANON);
         tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    } else
+    }
+    else
         tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 }
 
 static void
-print_runtime_commands(void) {
-    g_print(
-        "\nRuntime commands:\n"
-        "\th: Print this help\n"
-        "\tq: Quit\n\n"
-        "\tp: Pause\n"
-        "\tr: Resume\n\n");
+print_runtime_commands(void)
+{
+    g_print("\nRuntime commands:\n"
+            "\th: Print this help\n"
+            "\tq: Quit\n\n"
+            "\tp: Pause\n"
+            "\tr: Resume\n\n");
 
-    if (appCtx[0]->config.tiled_display_config.enable) {
-        g_print(
-            "NOTE: To expand a source in the 2D tiled display and view object details,"
-            " left-click on the source.\n"
-            "      To go back to the tiled display, right-click anywhere on the window.\n\n");
+    if (appCtx[0]->config.tiled_display_config.enable)
+    {
+        g_print("NOTE: To expand a source in the 2D tiled display and view object details,"
+                " left-click on the source.\n"
+                "      To go back to the tiled display, right-click anywhere on the window.\n\n");
     }
 }
 
@@ -438,24 +476,28 @@ static gboolean rrowsel = FALSE, selecting = FALSE;
  * Loop function to check keyboard inputs and status of each pipeline.
  */
 static gboolean
-event_thread_func(gpointer arg) {
+event_thread_func(gpointer arg)
+{
     guint i;
     gboolean ret = TRUE;
 
     // Check if all instances have quit
-    for (i = 0; i < num_instances; i++) {
+    for (i = 0; i < num_instances; i++)
+    {
         if (!appCtx[i]->quit)
             break;
     }
 
-    if (i == num_instances) {
+    if (i == num_instances)
+    {
         quit = TRUE;
         g_main_loop_quit(main_loop);
         return FALSE;
     }
     // Check for keyboard input
-    if (!kbhit()) {
-        //continue;
+    if (!kbhit())
+    {
+        // continue;
         return TRUE;
     }
     int c = fgetc(stdin);
@@ -465,70 +507,88 @@ event_thread_func(gpointer arg) {
     GstElement *tiler = appCtx[0]->pipeline.tiled_display_bin.tiler;
     g_object_get(G_OBJECT(tiler), "show-source", &source_id, nullptr);
 
-    if (selecting) {
-        if (rrowsel == FALSE) {
-            if (c >= '0' && c <= '9') {
+    if (selecting)
+    {
+        if (rrowsel == FALSE)
+        {
+            if (c >= '0' && c <= '9')
+            {
                 rrow = c - '0';
-                if (rrow < appCtx[0]->config.tiled_display_config.rows) {
+                if (rrow < appCtx[0]->config.tiled_display_config.rows)
+                {
                     g_print("--selecting source  row %d--\n", rrow);
                     rrowsel = TRUE;
-                } else {
+                }
+                else
+                {
                     g_print("--selected source  row %d out of bound, reenter\n", rrow);
                 }
             }
-        } else {
-            if (c >= '0' && c <= '9') {
+        }
+        else
+        {
+            if (c >= '0' && c <= '9')
+            {
                 unsigned int tile_num_columns = appCtx[0]->config.tiled_display_config.columns;
                 rcol = c - '0';
-                if (rcol < tile_num_columns) {
+                if (rcol < tile_num_columns)
+                {
                     selecting = FALSE;
                     rrowsel = FALSE;
                     source_id = tile_num_columns * rrow + rcol;
                     g_print("--selecting source  col %d sou=%d--\n", rcol, source_id);
-                    if (source_id >= (gint)appCtx[0]->config.num_source_sub_bins) {
+                    if (source_id >= (gint)appCtx[0]->config.num_source_sub_bins)
+                    {
                         source_id = -1;
-                    } else {
+                    }
+                    else
+                    {
                         source_ids[0] = source_id;
                         appCtx[0]->show_bbox_text = TRUE;
                         g_object_set(G_OBJECT(tiler), "show-source", source_id, nullptr);
                     }
-                } else {
+                }
+                else
+                {
                     g_print("--selected source  col %d out of bound, reenter\n", rcol);
                 }
             }
         }
     }
-    switch (c) {
-        case 'h':
-            print_runtime_commands();
-            break;
-        case 'p':
-            for (i = 0; i < num_instances; i++)
-                pause_pipeline(appCtx[i]);
-            break;
-        case 'r':
-            for (i = 0; i < num_instances; i++)
-                resume_pipeline(appCtx[i]);
-            break;
-        case 'q':
-            quit = TRUE;
-            g_main_loop_quit(main_loop);
-            ret = FALSE;
-            break;
-        case 'z':
-            if (source_id == -1 && selecting == FALSE) {
-                g_print("--selecting source --\n");
-                selecting = TRUE;
-            }
-            break;
-        default:
-            break;
+    switch (c)
+    {
+    case 'h':
+        print_runtime_commands();
+        break;
+    case 'p':
+        for (i = 0; i < num_instances; i++)
+            pause_pipeline(appCtx[i]);
+        break;
+    case 'r':
+        for (i = 0; i < num_instances; i++)
+            resume_pipeline(appCtx[i]);
+        break;
+    case 'q':
+        quit = TRUE;
+        g_main_loop_quit(main_loop);
+        ret = FALSE;
+        break;
+    case 'z':
+        if (source_id == -1 && selecting == FALSE)
+        {
+            g_print("--selecting source --\n");
+            selecting = TRUE;
+        }
+        break;
+    default:
+        break;
     }
     return ret;
 }
 
 static int
-get_source_id_from_coordinates(float x_rel, float y_rel) {
+get_source_id_from_coordinates(float x_rel, float y_rel)
+{
     int tile_num_rows = appCtx[0]->config.tiled_display_config.rows;
     int tile_num_columns = appCtx[0]->config.tiled_display_config.columns;
 
@@ -546,79 +606,97 @@ get_source_id_from_coordinates(float x_rel, float y_rel) {
  * Thread to monitor X window events.
  */
 static gpointer
-nvds_x_event_thread(gpointer data) {
+nvds_x_event_thread(gpointer data)
+{
     g_mutex_lock(&disp_lock);
-    while (display) {
+    while (display)
+    {
         XEvent e;
         guint index;
-        while (XPending(display)) {
+        while (XPending(display))
+        {
             XNextEvent(display, &e);
-            switch (e.type) {
-                case ButtonPress: {
-                    XWindowAttributes win_attr;
-                    XButtonEvent ev = e.xbutton;
-                    gint source_id;
-                    GstElement *tiler;
+            switch (e.type)
+            {
+            case ButtonPress:
+            {
+                XWindowAttributes win_attr;
+                XButtonEvent ev = e.xbutton;
+                gint source_id;
+                GstElement *tiler;
 
-                    XGetWindowAttributes(display, ev.window, &win_attr);
+                XGetWindowAttributes(display, ev.window, &win_attr);
 
-                    for (index = 0; index < MAX_INSTANCES; index++)
-                        if (ev.window == windows[index])
-                            break;
-
-                    tiler = appCtx[index]->pipeline.tiled_display_bin.tiler;
-                    g_object_get(G_OBJECT(tiler), "show-source", &source_id, nullptr);
-
-                    if (ev.button == Button1 && source_id == -1) {
-                        source_id =
-                            get_source_id_from_coordinates(ev.x * 1.0 / win_attr.width,
-                                                           ev.y * 1.0 / win_attr.height);
-                        if (source_id > -1) {
-                            g_object_set(G_OBJECT(tiler), "show-source", source_id, nullptr);
-                            source_ids[index] = source_id;
-                            appCtx[index]->show_bbox_text = TRUE;
-                        }
-                    } else if (ev.button == Button3) {
-                        g_object_set(G_OBJECT(tiler), "show-source", -1, nullptr);
-                        source_ids[index] = -1;
-                        if (!show_bbox_text)
-                            appCtx[index]->show_bbox_text = FALSE;
-                    }
-                } break;
-                case KeyRelease:
-                case KeyPress: {
-                    KeySym p, r, q;
-                    guint i;
-                    p = XKeysymToKeycode(display, XK_P);
-                    r = XKeysymToKeycode(display, XK_R);
-                    q = XKeysymToKeycode(display, XK_Q);
-                    if (e.xkey.keycode == p) {
-                        for (i = 0; i < num_instances; i++)
-                            pause_pipeline(appCtx[i]);
+                for (index = 0; index < MAX_INSTANCES; index++)
+                    if (ev.window == windows[index])
                         break;
-                    }
-                    if (e.xkey.keycode == r) {
-                        for (i = 0; i < num_instances; i++)
-                            resume_pipeline(appCtx[i]);
-                        break;
-                    }
-                    if (e.xkey.keycode == q) {
-                        quit = TRUE;
-                        g_main_loop_quit(main_loop);
-                    }
-                } break;
-                case ClientMessage: {
-                    Atom wm_delete;
-                    for (index = 0; index < MAX_INSTANCES; index++)
-                        if (e.xclient.window == windows[index])
-                            break;
 
-                    wm_delete = XInternAtom(display, "WM_DELETE_WINDOW", 1);
-                    if (wm_delete != None && wm_delete == (Atom)e.xclient.data.l[0]) {
-                        quit = TRUE;
-                        g_main_loop_quit(main_loop);
+                tiler = appCtx[index]->pipeline.tiled_display_bin.tiler;
+                g_object_get(G_OBJECT(tiler), "show-source", &source_id, nullptr);
+
+                if (ev.button == Button1 && source_id == -1)
+                {
+                    source_id =
+                        get_source_id_from_coordinates(ev.x * 1.0 / win_attr.width,
+                                                       ev.y * 1.0 / win_attr.height);
+                    if (source_id > -1)
+                    {
+                        g_object_set(G_OBJECT(tiler), "show-source", source_id, nullptr);
+                        source_ids[index] = source_id;
+                        appCtx[index]->show_bbox_text = TRUE;
                     }
-                } break;
+                }
+                else if (ev.button == Button3)
+                {
+                    g_object_set(G_OBJECT(tiler), "show-source", -1, nullptr);
+                    source_ids[index] = -1;
+                    if (!show_bbox_text)
+                        appCtx[index]->show_bbox_text = FALSE;
+                }
+            }
+            break;
+            case KeyRelease:
+            case KeyPress:
+            {
+                KeySym p, r, q;
+                guint i;
+                p = XKeysymToKeycode(display, XK_P);
+                r = XKeysymToKeycode(display, XK_R);
+                q = XKeysymToKeycode(display, XK_Q);
+                if (e.xkey.keycode == p)
+                {
+                    for (i = 0; i < num_instances; i++)
+                        pause_pipeline(appCtx[i]);
+                    break;
+                }
+                if (e.xkey.keycode == r)
+                {
+                    for (i = 0; i < num_instances; i++)
+                        resume_pipeline(appCtx[i]);
+                    break;
+                }
+                if (e.xkey.keycode == q)
+                {
+                    quit = TRUE;
+                    g_main_loop_quit(main_loop);
+                }
+            }
+            break;
+            case ClientMessage:
+            {
+                Atom wm_delete;
+                for (index = 0; index < MAX_INSTANCES; index++)
+                    if (e.xclient.window == windows[index])
+                        break;
+
+                wm_delete = XInternAtom(display, "WM_DELETE_WINDOW", 1);
+                if (wm_delete != None && wm_delete == (Atom)e.xclient.data.l[0])
+                {
+                    quit = TRUE;
+                    g_main_loop_quit(main_loop);
+                }
+            }
+            break;
             }
         }
         g_mutex_unlock(&disp_lock);
@@ -636,7 +714,8 @@ nvds_x_event_thread(gpointer data) {
  */
 static gboolean
 overlay_graphics(AppCtx *appCtx, GstBuffer *buf,
-                 NvDsBatchMeta *batch_meta, guint index) {
+                 NvDsBatchMeta *batch_meta, guint index)
+{
     if (source_ids[index] == -1)
         return TRUE;
 
@@ -660,7 +739,8 @@ overlay_graphics(AppCtx *appCtx, GstBuffer *buf,
     display_meta->text_params[0].text_bg_clr = (NvOSD_ColorParams){
         0, 0, 0, 1.0};
 
-    if (nvds_enable_latency_measurement) {
+    if (nvds_enable_latency_measurement)
+    {
         g_mutex_lock(&appCtx->latency_lock);
         latency_info = &appCtx->latency_info[index];
         display_meta->num_labels++;
@@ -686,7 +766,8 @@ overlay_graphics(AppCtx *appCtx, GstBuffer *buf,
     return TRUE;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     GOptionContext *ctx = nullptr;
     GOptionGroup *group = nullptr;
     GError *error = nullptr;
@@ -701,19 +782,22 @@ int main(int argc, char *argv[]) {
 
     GST_DEBUG_CATEGORY_INIT(NVDS_APP, "NVDS_APP", 0, nullptr);
 
-    if (!g_option_context_parse(ctx, &argc, &argv, &error)) {
+    if (!g_option_context_parse(ctx, &argc, &argv, &error))
+    {
         NVGSTDS_ERR_MSG_V("%s", error->message);
         return -1;
     }
 
-    if (print_version) {
+    if (print_version)
+    {
         g_print("deepstream-app version %d.%d.%d\n",
                 NVDS_APP_VERSION_MAJOR, NVDS_APP_VERSION_MINOR, NVDS_APP_VERSION_MICRO);
         nvds_version_print();
         return 0;
     }
 
-    if (print_dependencies_version) {
+    if (print_dependencies_version)
+    {
         g_print("deepstream-app version %d.%d.%d\n",
                 NVDS_APP_VERSION_MAJOR, NVDS_APP_VERSION_MINOR, NVDS_APP_VERSION_MICRO);
         nvds_version_print();
@@ -721,38 +805,46 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    if (cfg_files) {
+    if (cfg_files)
+    {
         num_instances = g_strv_length(cfg_files);
     }
-    if (input_files) {
+    if (input_files)
+    {
         num_input_files = g_strv_length(input_files);
     }
 
     memset(source_ids, -1, sizeof(source_ids));
-    do {
-        if (!cfg_files || num_instances == 0) {
+    do
+    {
+        if (!cfg_files || num_instances == 0)
+        {
             NVGSTDS_ERR_MSG_V("Specify config file with -c option");
             return_value = -1;
             break;
         }
 
         bool should_goto_done = false;
-        for (i = 0; i < num_instances; i++) {
+        for (i = 0; i < num_instances; i++)
+        {
             appCtx[i] = static_cast<AppCtx *>(g_malloc0(sizeof(AppCtx)));
             appCtx[i]->person_class_id = -1;
             appCtx[i]->car_class_id = -1;
             appCtx[i]->index = i;
-            if (show_bbox_text) {
+            if (show_bbox_text)
+            {
                 appCtx[i]->show_bbox_text = TRUE;
             }
 
-            if (input_files && input_files[i]) {
+            if (input_files && input_files[i])
+            {
                 appCtx[i]->config.multi_source_config[0].uri =
                     g_strdup_printf("file://%s", input_files[i]);
                 g_free(input_files[i]);
             }
 
-            if (!parse_config_file(&appCtx[i]->config, cfg_files[i])) {
+            if (!parse_config_file(&appCtx[i]->config, cfg_files[i]))
+            {
                 NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
                 appCtx[i]->return_value = -1;
                 should_goto_done = true;
@@ -762,9 +854,11 @@ int main(int argc, char *argv[]) {
         if (should_goto_done)
             break;
 
-        for (i = 0; i < num_instances; i++) {
+        for (i = 0; i < num_instances; i++)
+        {
             if (!create_pipeline(appCtx[i], after_pgie_image_meta_save,
-                                 nullptr, perf_cb, overlay_graphics)) {
+                                 nullptr, perf_cb, overlay_graphics))
+            {
                 NVGSTDS_ERR_MSG_V("Failed to create pipeline");
                 return_value = -1;
                 should_goto_done = true;
@@ -774,18 +868,22 @@ int main(int argc, char *argv[]) {
         if (should_goto_done)
             break;
         NvDsImageSave nvds_imgsave = appCtx[0]->config.image_save_config;
-        if (nvds_imgsave.enable) {
+        if (nvds_imgsave.enable)
+        {
             bool can_start = true;
-            if (!nvds_imgsave.output_folder_path) {
+            if (!nvds_imgsave.output_folder_path)
+            {
                 std::cerr << "Consumer not started => consider adding output-folder-path=./my/path to [img-save]\n";
                 can_start = false;
             }
-            if (!nvds_imgsave.frame_to_skip_rules_path) {
+            if (!nvds_imgsave.frame_to_skip_rules_path)
+            {
                 std::cerr
                     << "Consumer not started => consider adding frame-to-skip-rules-path=./my/path/to/file.csv to [img-save]\n";
                 can_start = false;
             }
-            if (can_start) {
+            if (can_start)
+            {
                 g_img_meta_consumer.init(nvds_imgsave.output_folder_path, nvds_imgsave.frame_to_skip_rules_path,
                                          nvds_imgsave.min_confidence, nvds_imgsave.max_confidence,
                                          nvds_imgsave.min_box_width, nvds_imgsave.min_box_height,
@@ -794,13 +892,15 @@ int main(int argc, char *argv[]) {
                                          nvds_imgsave.second_to_skip_interval,
                                          MAX_SOURCE_BINS);
             }
-            if (g_img_meta_consumer.get_is_stopped()) {
+            if (g_img_meta_consumer.get_is_stopped())
+            {
                 std::cerr << "Consumer could not be started => exiting...\n\n";
                 return_value = -1;
                 break;
             }
-
-        } else {
+        }
+        else
+        {
             std::cerr << "Consumer not started => consider setting enable=1 "
                       << "or adding [img-save] part in config file. (example below)\n"
                       << "[img-save]\n"
@@ -826,11 +926,13 @@ int main(int argc, char *argv[]) {
 
         g_mutex_init(&disp_lock);
         display = XOpenDisplay(nullptr);
-        for (i = 0; i < num_instances; i++) {
+        for (i = 0; i < num_instances; i++)
+        {
             guint j;
 
             if (gst_element_set_state(appCtx[i]->pipeline.pipeline,
-                                      GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE) {
+                                      GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
+            {
                 NVGSTDS_ERR_MSG_V("Failed to set pipeline to PAUSED");
                 return_value = -1;
                 should_goto_done = true;
@@ -840,16 +942,19 @@ int main(int argc, char *argv[]) {
             if (!appCtx[i]->config.tiled_display_config.enable)
                 continue;
 
-            for (j = 0; j < appCtx[i]->config.num_sink_sub_bins; j++) {
+            for (j = 0; j < appCtx[i]->config.num_sink_sub_bins; j++)
+            {
                 XTextProperty xproperty;
                 gchar *title;
                 guint width, height;
 
-                if (!GST_IS_VIDEO_OVERLAY(appCtx[i]->pipeline.instance_bins[0].sink_bin.sub_bins[j].sink)) {
+                if (!GST_IS_VIDEO_OVERLAY(appCtx[i]->pipeline.instance_bins[0].sink_bin.sub_bins[j].sink))
+                {
                     continue;
                 }
 
-                if (!display) {
+                if (!display)
+                {
                     NVGSTDS_ERR_MSG_V("Could not open X Display");
                     return_value = -1;
                     should_goto_done = true;
@@ -880,7 +985,8 @@ int main(int argc, char *argv[]) {
                     title = g_strdup_printf(APP_TITLE "-%d", i);
                 else
                     title = g_strdup(APP_TITLE);
-                if (XStringListToTextProperty((char **)&title, 1, &xproperty) != 0) {
+                if (XStringListToTextProperty((char **)&title, 1, &xproperty) != 0)
+                {
                     XSetWMName(display, windows[i], &xproperty);
                     XFree(xproperty.value);
                 }
@@ -891,19 +997,23 @@ int main(int argc, char *argv[]) {
                              appCtx[i]->config.tiled_display_config.columns ==
                          1) ||
                     (appCtx[i]->config.tiled_display_config.enable == 0 &&
-                     appCtx[i]->config.num_source_sub_bins == 1)) {
+                     appCtx[i]->config.num_source_sub_bins == 1))
+                {
                     attr.event_mask = KeyPress;
-                } else {
+                }
+                else
+                {
                     attr.event_mask = ButtonPress | KeyRelease;
                 }
                 XChangeWindowAttributes(display, windows[i], CWEventMask, &attr);
 
                 Atom wmDeleteMessage = XInternAtom(display, "WM_DELETE_WINDOW", False);
-                if (wmDeleteMessage != None) {
+                if (wmDeleteMessage != None)
+                {
                     XSetWMProtocols(display, windows[i], &wmDeleteMessage, 1);
                 }
                 XMapRaised(display, windows[i]);
-                XSync(display, 1);  //discard the events for now
+                XSync(display, 1); // discard the events for now
                 gst_video_overlay_set_window_handle(GST_VIDEO_OVERLAY(appCtx
                                                                           [i]
                                                                               ->pipeline.instance_bins[0]
@@ -922,10 +1032,14 @@ int main(int argc, char *argv[]) {
         if (should_goto_done)
             break;
         /* Dont try to set playing state if error is observed */
-        if (return_value != -1) {
-            for (i = 0; i < num_instances; i++) {
+        if (return_value != -1)
+        {
+            for (i = 0; i < num_instances; i++)
+            {
                 if (gst_element_set_state(appCtx[i]->pipeline.pipeline,
-                                          GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE) {
+                                          GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
+                {
+
                     g_print("\ncan't set pipeline to playing state.\n");
                     return_value = -1;
                     should_goto_done = true;
@@ -948,7 +1062,8 @@ int main(int argc, char *argv[]) {
     } while (false);
 
     g_print("Quitting\n");
-    for (i = 0; i < num_instances; i++) {
+    for (i = 0; i < num_instances; i++)
+    {
         if (appCtx[i]->return_value == -1)
             return_value = -1;
         destroy_pipeline(appCtx[i]);
@@ -969,17 +1084,22 @@ int main(int argc, char *argv[]) {
     g_mutex_unlock(&disp_lock);
     g_mutex_clear(&disp_lock);
 
-    if (main_loop) {
+    if (main_loop)
+    {
         g_main_loop_unref(main_loop);
     }
 
-    if (ctx) {
+    if (ctx)
+    {
         g_option_context_free(ctx);
     }
 
-    if (return_value == 0) {
+    if (return_value == 0)
+    {
         g_print("App run successful\n");
-    } else {
+    }
+    else
+    {
         g_print("App run failed\n");
     }
 

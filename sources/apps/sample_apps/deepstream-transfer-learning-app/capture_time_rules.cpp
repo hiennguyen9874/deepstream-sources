@@ -20,15 +20,15 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "capture_time_rules.h"
-
 #include <fstream>
-#include <iomanip>
 #include <sstream>
+#include <iomanip>
+#include "capture_time_rules.h"
 
 constexpr unsigned seconds_in_day = 86400;
 
-static std::vector<std::string> split_string(const std::string &str, char split_char) {
+static std::vector<std::string> split_string(const std::string &str, char split_char)
+{
     std::vector<std::string> elems;
     std::stringstream ss(str);
     std::string item;
@@ -38,7 +38,8 @@ static std::vector<std::string> split_string(const std::string &str, char split_
 }
 
 CaptureTimeRules::ParseResult
-CaptureTimeRules::stoi_err_handling(unsigned &dst, const std::string &src, unsigned max_bound) {
+CaptureTimeRules::stoi_err_handling(unsigned &dst, const std::string &src, unsigned max_bound)
+{
     if (src.empty())
         return PARSE_RESULT_EMPTY;
     unsigned size_number = 0;
@@ -46,11 +47,13 @@ CaptureTimeRules::stoi_err_handling(unsigned &dst, const std::string &src, unsig
     unsigned idx = 0;
     while (src[idx] == ' ')
         idx++;
-    while (src[idx] == '0') {
+    while (src[idx] == '0')
+    {
         zeros++;
         idx++;
     }
-    while (src[idx] >= '0' && src[idx] <= '9') {
+    while (src[idx] >= '0' && src[idx] <= '9')
+    {
         size_number++;
         idx++;
     }
@@ -73,18 +76,21 @@ CaptureTimeRules::stoi_err_handling(unsigned &dst, const std::string &src, unsig
 bool CaptureTimeRules::parsing_contains_error(const std::vector<ParseResult> &parse_res_list,
                                               const std::vector<std::string> &str_list,
                                               const std::string &curr_line,
-                                              unsigned int line_number) {
+                                              unsigned int line_number)
+{
     static const std::vector<unsigned> max_time_list = {24, 60, 24, 60, 24, 60, 60};
     bool contains_error = false;
     std::stringstream ss;
     int shift = 0;
 
-    for (unsigned i = 0; i < 7; ++i) {
+    for (unsigned i = 0; i < 7; ++i)
+    {
         unsigned tab_nb = 0;
         for (const auto &elm : str_list[i])
             if (elm == '\t')
                 tab_nb++;
-        if (parse_res_list[i] == PARSE_RESULT_OK) {
+        if (parse_res_list[i] == PARSE_RESULT_OK)
+        {
             shift += str_list[i].size() + 1;
             continue;
         }
@@ -96,24 +102,26 @@ bool CaptureTimeRules::parsing_contains_error(const std::vector<ParseResult> &pa
             ss << '^';
         else if (shift > 0)
             ss << ' ';
-        for (unsigned k = 0; k < str_list[i].size(); ++k) {
+        for (unsigned k = 0; k < str_list[i].size(); ++k)
+        {
             ss << '^';
         }
         ss << '\n';
         for (int j = 0; j < shift; ++j)
             ss << ' ';
-        switch (parse_res_list[i]) {
-            case PARSE_RESULT_OK:  // should not happen
-                break;
-            case PARSE_RESULT_BAD_CHARS:
-                ss << "replace this part by ";
-                break;
-            case PARSE_RESULT_OUT_OF_BOUND:
-                ss << "replace this number by ";
-                break;
-            case PARSE_RESULT_EMPTY:
-                ss << "after that character add ";
-                break;
+        switch (parse_res_list[i])
+        {
+        case PARSE_RESULT_OK: // should not happen
+            break;
+        case PARSE_RESULT_BAD_CHARS:
+            ss << "replace this part by ";
+            break;
+        case PARSE_RESULT_OUT_OF_BOUND:
+            ss << "replace this number by ";
+            break;
+        case PARSE_RESULT_EMPTY:
+            ss << "after that character add ";
+            break;
         }
         ss << "a number bounded between 0 (included) and "
            << max_time_list[i] << " (excluded).\n\n";
@@ -124,38 +132,46 @@ bool CaptureTimeRules::parsing_contains_error(const std::vector<ParseResult> &pa
 }
 
 bool CaptureTimeRules::single_time_rule_parser(const std::string &path, const std::string &line,
-                                               unsigned line_number) {
-    if (line.empty()) {
+                                               unsigned line_number)
+{
+    if (line.empty())
+    {
         return true;
     }
     bool parse_error_line = false;
     std::vector<std::string> time1;
     std::vector<std::string> time2;
     std::vector<std::string> time_to_skip;
-    do {
+    do
+    {
         auto split_line = split_string(line, ',');
-        if (split_line.size() != 3) {
+        if (split_line.size() != 3)
+        {
             parse_error_line = true;
             break;
         }
         time1 = split_string(split_line[0], ':');
-        if (time1.size() != 2) {
+        if (time1.size() != 2)
+        {
             parse_error_line = true;
             break;
         }
         time2 = split_string(split_line[1], ':');
-        if (time2.size() != 2) {
+        if (time2.size() != 2)
+        {
             parse_error_line = true;
             break;
         }
         time_to_skip = split_string(split_line[2], ':');
-        if (time_to_skip.size() != 3) {
+        if (time_to_skip.size() != 3)
+        {
             parse_error_line = true;
             break;
         }
     } while (false);
 
-    if (parse_error_line) {
+    if (parse_error_line)
+    {
         std::cerr << "Parsing error " << path << ":" << (line_number) << "\n"
                   << line << "\n"
                   << "Each line from the second one should have the following format:\n"
@@ -178,7 +194,8 @@ bool CaptureTimeRules::single_time_rule_parser(const std::string &path, const st
     std::vector<std::string> elm_list = {time1[0], time1[1], time2[0], time2[1],
                                          time_to_skip[0], time_to_skip[1], time_to_skip[2]};
 
-    if (parsing_contains_error(parse_res_list, elm_list, line, line_number)) {
+    if (parsing_contains_error(parse_res_list, elm_list, line, line_number))
+    {
         return false;
     }
     t.end_time_is_next_day = (t.end_time_hour < t.begin_time_hour || (t.end_time_hour == t.begin_time_hour && t.end_time_minute <= t.begin_time_minute));
@@ -188,11 +205,13 @@ bool CaptureTimeRules::single_time_rule_parser(const std::string &path, const st
     return true;
 }
 
-void CaptureTimeRules::init(const std::string &path, unsigned int default_second_interval) {
+void CaptureTimeRules::init(const std::string &path, unsigned int default_second_interval)
+{
     default_duration_ = std::chrono::seconds(default_second_interval);
     end_of_current_time_interval_ = std::chrono::system_clock::now() - default_duration_;
     std::ifstream file(path);
-    if (!file.good()) {
+    if (!file.good())
+    {
         std::cerr << "Could not open " << path << ".\n";
         return;
     }
@@ -201,23 +220,28 @@ void CaptureTimeRules::init(const std::string &path, unsigned int default_second
     std::getline(file, line);
     bool no_error = true;
     unsigned line_number = 2;
-    while (std::getline(file, line)) {
+    while (std::getline(file, line))
+    {
         no_error &= single_time_rule_parser(path, line, line_number);
         line_number++;
     }
     init_ = no_error;
 }
 
-CaptureTimeRules::t_duration CaptureTimeRules::getCurrentTimeInterval() {
+CaptureTimeRules::t_duration CaptureTimeRules::getCurrentTimeInterval()
+{
     auto now = std::chrono::system_clock::now();
-    if (now < end_of_current_time_interval_) {
+    if (now < end_of_current_time_interval_)
+    {
         return current_time_interval_;
     }
 
     time_t tt = std::chrono::system_clock::to_time_t(now);
     tm local_tm = *localtime(&tt);
-    for (const auto &elm : rules_) {
-        if (isInTimeRule(elm, local_tm)) {
+    for (const auto &elm : rules_)
+    {
+        if (isInTimeRule(elm, local_tm))
+        {
             local_tm.tm_hour = elm.end_time_hour;
             local_tm.tm_min = elm.end_time_minute;
             auto tp = std::chrono::system_clock::from_time_t(std::mktime(&local_tm));
@@ -231,7 +255,8 @@ CaptureTimeRules::t_duration CaptureTimeRules::getCurrentTimeInterval() {
     current_time_interval_ = default_duration_;
     tm tmp_tm = *localtime(&tt);
     t_duration time_diff = std::chrono::seconds(seconds_in_day);
-    for (const auto &elm : rules_) {
+    for (const auto &elm : rules_)
+    {
         tmp_tm.tm_hour = elm.begin_time_hour;
         tmp_tm.tm_min = elm.begin_time_minute;
         auto tp = std::chrono::system_clock::from_time_t(std::mktime(&tmp_tm));
@@ -241,13 +266,15 @@ CaptureTimeRules::t_duration CaptureTimeRules::getCurrentTimeInterval() {
         if (diff < time_diff)
             time_diff = diff;
     }
-    if (time_diff < std::chrono::seconds(seconds_in_day - 1)) {
+    if (time_diff < std::chrono::seconds(seconds_in_day - 1))
+    {
         end_of_current_time_interval_ = now + time_diff;
     }
     return current_time_interval_;
 }
 
-bool CaptureTimeRules::isInTimeRule(const CaptureTimeRules::TimeRule &t, const tm &now) {
+bool CaptureTimeRules::isInTimeRule(const CaptureTimeRules::TimeRule &t, const tm &now)
+{
     unsigned n_h = static_cast<unsigned>(now.tm_hour);
     unsigned n_m = static_cast<unsigned>(now.tm_min);
 
@@ -264,6 +291,7 @@ bool CaptureTimeRules::isInTimeRule(const CaptureTimeRules::TimeRule &t, const t
     return next_day_condition;
 }
 
-bool CaptureTimeRules::is_init_() {
+bool CaptureTimeRules::is_init_()
+{
     return init_;
 }

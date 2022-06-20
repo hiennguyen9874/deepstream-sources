@@ -24,7 +24,6 @@
 #define NVDSPREPROCESS_PROPERTY_FILE_PARSER_H_
 
 #include <gst/gst.h>
-
 #include "gstnvdspreprocess.h"
 
 /**

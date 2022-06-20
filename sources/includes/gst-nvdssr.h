@@ -48,10 +48,7 @@ typedef guint32 NvDsSRSessionId;
 /**
  * Specifies container types.
  */
-typedef enum {
-    NVDSSR_CONTAINER_MP4,
-    NVDSSR_CONTAINER_MKV
-} NvDsSRContainerType;
+typedef enum { NVDSSR_CONTAINER_MP4, NVDSSR_CONTAINER_MKV } NvDsSRContainerType;
 
 /**
  * Specifies API return status.
@@ -196,8 +193,11 @@ NvDsSRStatus NvDsSRCreate(NvDsSRContext **ctx, NvDsSRInitParams *params);
  *
  * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
  */
-NvDsSRStatus NvDsSRStart(NvDsSRContext *ctx, NvDsSRSessionId *sessionId,
-                         guint startTime, guint duration, gpointer userData);
+NvDsSRStatus NvDsSRStart(NvDsSRContext *ctx,
+                         NvDsSRSessionId *sessionId,
+                         guint startTime,
+                         guint duration,
+                         gpointer userData);
 
 /**
  * \brief  Stops the previously started recording.

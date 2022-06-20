@@ -24,13 +24,14 @@
 #define __NVGSTDS_SECONDARY_GIE_H__
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #include "deepstream_gie.h"
 
-typedef struct
-{
+  typedef struct
+  {
     GstElement *queue;
     GstElement *secondary_gie;
     GstElement *tee;
@@ -38,10 +39,10 @@ typedef struct
     gboolean create;
     guint num_children;
     gint parent_index;
-} NvDsSecondaryGieBinSubBin;
+  } NvDsSecondaryGieBinSubBin;
 
-typedef struct
-{
+  typedef struct
+  {
     GstElement *bin;
     GstElement *tee;
     GstElement *queue;
@@ -51,30 +52,30 @@ typedef struct
     NvDsSecondaryGieBinSubBin sub_bins[MAX_SECONDARY_GIE_BINS];
     GMutex wait_lock;
     GCond wait_cond;
-} NvDsSecondaryGieBin;
+  } NvDsSecondaryGieBin;
 
-/**
- * Initialize @ref NvDsSecondaryGieBin. It creates and adds secondary infer and
- * other elements needed for processing to the bin.
- * It also sets properties mentioned in the configuration file under
- * group @ref CONFIG_GROUP_SECONDARY_GIE
- *
- * @param[in] num_secondary_gie number of secondary infers.
- * @param[in] primary_gie_unique_id Unique id of primary infer to work on.
- * @param[in] config_array array of pointers of type @ref NvDsGieConfig
- *            parsed from configuration file.
- * @param[in] bin pointer to @ref NvDsSecondaryGieBin to be filled.
- *
- * @return true if bin created successfully.
- */
-gboolean create_secondary_gie_bin(guint num_secondary_gie,
-                                  guint primary_gie_unique_id, NvDsGieConfig *config_array,
-                                  NvDsSecondaryGieBin *bin);
+  /**
+   * Initialize @ref NvDsSecondaryGieBin. It creates and adds secondary infer and
+   * other elements needed for processing to the bin.
+   * It also sets properties mentioned in the configuration file under
+   * group @ref CONFIG_GROUP_SECONDARY_GIE
+   *
+   * @param[in] num_secondary_gie number of secondary infers.
+   * @param[in] primary_gie_unique_id Unique id of primary infer to work on.
+   * @param[in] config_array array of pointers of type @ref NvDsGieConfig
+   *            parsed from configuration file.
+   * @param[in] bin pointer to @ref NvDsSecondaryGieBin to be filled.
+   *
+   * @return true if bin created successfully.
+   */
+  gboolean create_secondary_gie_bin(guint num_secondary_gie,
+                                    guint primary_gie_unique_id, NvDsGieConfig *config_array,
+                                    NvDsSecondaryGieBin *bin);
 
-/**
- * Release the resources.
- */
-void destroy_secondary_gie_bin(NvDsSecondaryGieBin *bin);
+  /**
+   * Release the resources.
+   */
+  void destroy_secondary_gie_bin(NvDsSecondaryGieBin *bin);
 
 #ifdef __cplusplus
 }

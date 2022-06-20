@@ -39,11 +39,11 @@
  * @a tltEncodedModelFilePath members of @a initParams. Other parameters
  * applicable to UFF models also apply to TLT encoded models.
  */
-extern "C" bool NvDsInferCudaEngineGetFromTltModel(nvinfer1::IBuilder* const builder,
-                                                   nvinfer1::IBuilderConfig* const builderConfig,
-                                                   const NvDsInferContextInitParams* const initParams,
+extern "C" bool NvDsInferCudaEngineGetFromTltModel(nvinfer1::IBuilder *const builder,
+                                                   nvinfer1::IBuilderConfig *const builderConfig,
+                                                   const NvDsInferContextInitParams *const initParams,
                                                    nvinfer1::DataType dataType,
-                                                   nvinfer1::ICudaEngine*& cudaEngine);
+                                                   nvinfer1::ICudaEngine *&cudaEngine);
 
 #endif
 

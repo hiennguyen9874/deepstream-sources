@@ -20,19 +20,19 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cassert>
-#include <cmath>
 #include <cstring>
 #include <iostream>
-
 #include "nvdsinfer_custom_impl.h"
+#include <cassert>
+#include <cmath>
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define CLIP(a, min, max) (MAX(MIN(a, max), min))
 #define DIVIDE_AND_ROUND_UP(a, b) ((a + b - 1) / b)
 
-struct MrcnnRawDetection {
+struct MrcnnRawDetection
+{
     float y1, x1, y2, x2, class_id, score;
 };
 
@@ -79,7 +79,8 @@ extern "C" bool NvDsInferParseCustomMrcnnTLTV2(std::vector<NvDsInferLayerInfo> c
 extern "C" bool NvDsInferParseCustomResnet(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
                                            NvDsInferNetworkInfo const &networkInfo,
                                            NvDsInferParseDetectionParams const &detectionParams,
-                                           std::vector<NvDsInferObjectDetectionInfo> &objectList) {
+                                           std::vector<NvDsInferObjectDetectionInfo> &objectList)
+{
     static NvDsInferDimsCHW covLayerDims;
     static NvDsInferDimsCHW bboxLayerDims;
     static int bboxLayerIndex = -1;
@@ -88,38 +89,48 @@ extern "C" bool NvDsInferParseCustomResnet(std::vector<NvDsInferLayerInfo> const
     int numClassesToParse;
 
     /* Find the bbox layer */
-    if (bboxLayerIndex == -1) {
-        for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
-            if (strcmp(outputLayersInfo[i].layerName, "conv2d_bbox") == 0) {
+    if (bboxLayerIndex == -1)
+    {
+        for (unsigned int i = 0; i < outputLayersInfo.size(); i++)
+        {
+            if (strcmp(outputLayersInfo[i].layerName, "conv2d_bbox") == 0)
+            {
                 bboxLayerIndex = i;
                 getDimsCHWFromDims(bboxLayerDims, outputLayersInfo[i].inferDims);
                 break;
             }
         }
-        if (bboxLayerIndex == -1) {
+        if (bboxLayerIndex == -1)
+        {
             std::cerr << "Could not find bbox layer buffer while parsing" << std::endl;
             return false;
         }
     }
 
     /* Find the cov layer */
-    if (covLayerIndex == -1) {
-        for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
-            if (strcmp(outputLayersInfo[i].layerName, "conv2d_cov/Sigmoid") == 0) {
+    if (covLayerIndex == -1)
+    {
+        for (unsigned int i = 0; i < outputLayersInfo.size(); i++)
+        {
+            if (strcmp(outputLayersInfo[i].layerName, "conv2d_cov/Sigmoid") == 0)
+            {
                 covLayerIndex = i;
                 getDimsCHWFromDims(covLayerDims, outputLayersInfo[i].inferDims);
                 break;
             }
         }
-        if (covLayerIndex == -1) {
+        if (covLayerIndex == -1)
+        {
             std::cerr << "Could not find bbox layer buffer while parsing" << std::endl;
             return false;
         }
     }
 
     /* Warn in case of mismatch in number of classes */
-    if (!classMismatchWarn) {
-        if (covLayerDims.c != detectionParams.numClassesConfigured) {
+    if (!classMismatchWarn)
+    {
+        if (covLayerDims.c != detectionParams.numClassesConfigured)
+        {
             std::cerr << "WARNING: Num classes mismatch. Configured:" << detectionParams.numClassesConfigured << ", detected by network: " << covLayerDims.c << std::endl;
         }
         classMismatchWarn = true;
@@ -140,16 +151,19 @@ extern "C" bool NvDsInferParseCustomResnet(std::vector<NvDsInferLayerInfo> const
     int strideX = DIVIDE_AND_ROUND_UP(networkInfo.width, bboxLayerDims.w);
     int strideY = DIVIDE_AND_ROUND_UP(networkInfo.height, bboxLayerDims.h);
 
-    for (int i = 0; i < gridW; i++) {
+    for (int i = 0; i < gridW; i++)
+    {
         gcCentersX[i] = (float)(i * strideX + 0.5);
         gcCentersX[i] /= (float)bboxNormX;
     }
-    for (int i = 0; i < gridH; i++) {
+    for (int i = 0; i < gridH; i++)
+    {
         gcCentersY[i] = (float)(i * strideY + 0.5);
         gcCentersY[i] /= (float)bboxNormY;
     }
 
-    for (int c = 0; c < numClassesToParse; c++) {
+    for (int c = 0; c < numClassesToParse; c++)
+    {
         float *outputX1 = outputBboxBuf + (c * 4 * bboxLayerDims.h * bboxLayerDims.w);
 
         float *outputY1 = outputX1 + gridSize;
@@ -157,10 +171,13 @@ extern "C" bool NvDsInferParseCustomResnet(std::vector<NvDsInferLayerInfo> const
         float *outputY2 = outputX2 + gridSize;
 
         float threshold = detectionParams.perClassPreclusterThreshold[c];
-        for (int h = 0; h < gridH; h++) {
-            for (int w = 0; w < gridW; w++) {
+        for (int h = 0; h < gridH; h++)
+        {
+            for (int w = 0; w < gridW; w++)
+            {
                 int i = w + h * gridW;
-                if (outputCovBuf[c * gridSize + i] >= threshold) {
+                if (outputCovBuf[c * gridSize + i] >= threshold)
+                {
                     NvDsInferObjectDetectionInfo object;
                     float rectX1f, rectY1f, rectX2f, rectY2f;
 
@@ -191,12 +208,16 @@ extern "C" bool NvDsInferParseCustomResnet(std::vector<NvDsInferLayerInfo> const
 extern "C" bool NvDsInferParseCustomTfSSD(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
                                           NvDsInferNetworkInfo const &networkInfo,
                                           NvDsInferParseDetectionParams const &detectionParams,
-                                          std::vector<NvDsInferObjectDetectionInfo> &objectList) {
+                                          std::vector<NvDsInferObjectDetectionInfo> &objectList)
+{
     auto layerFinder = [&outputLayersInfo](const std::string &name)
-        -> const NvDsInferLayerInfo * {
-        for (auto &layer : outputLayersInfo) {
+        -> const NvDsInferLayerInfo *
+    {
+        for (auto &layer : outputLayersInfo)
+        {
             if (layer.dataType == FLOAT &&
-                (layer.layerName && name == layer.layerName)) {
+                (layer.layerName && name == layer.layerName))
+            {
                 return &layer;
             }
         }
@@ -207,33 +228,41 @@ extern "C" bool NvDsInferParseCustomTfSSD(std::vector<NvDsInferLayerInfo> const 
     const NvDsInferLayerInfo *scoreLayer = layerFinder("detection_scores");
     const NvDsInferLayerInfo *classLayer = layerFinder("detection_classes");
     const NvDsInferLayerInfo *boxLayer = layerFinder("detection_boxes");
-    if (!scoreLayer || !classLayer || !boxLayer) {
+    if (!scoreLayer || !classLayer || !boxLayer)
+    {
         std::cerr << "ERROR: some layers missing or unsupported data types "
                   << "in output tensors" << std::endl;
         return false;
     }
 
     unsigned int numDetections = classLayer->inferDims.d[0];
-    if (numDetectionLayer && numDetectionLayer->buffer) {
+    if (numDetectionLayer && numDetectionLayer->buffer)
+    {
         numDetections = (int)((float *)numDetectionLayer->buffer)[0];
     }
-    if (numDetections > classLayer->inferDims.d[0]) {
+    if (numDetections > classLayer->inferDims.d[0])
+    {
         numDetections = classLayer->inferDims.d[0];
     }
     numDetections = std::max<int>(0, numDetections);
-    for (unsigned int i = 0; i < numDetections; ++i) {
+    for (unsigned int i = 0; i < numDetections; ++i)
+    {
         NvDsInferObjectDetectionInfo res;
         res.detectionConfidence = ((float *)scoreLayer->buffer)[i];
         res.classId = ((float *)classLayer->buffer)[i];
         if (res.classId >= detectionParams.perClassPreclusterThreshold.size() ||
             res.detectionConfidence <
-                detectionParams.perClassPreclusterThreshold[res.classId]) {
+                detectionParams.perClassPreclusterThreshold[res.classId])
+        {
             continue;
         }
-        enum { y1,
-               x1,
-               y2,
-               x2 };
+        enum
+        {
+            y1,
+            x1,
+            y2,
+            x2
+        };
         float rectX1f, rectY1f, rectX2f, rectY2f;
         rectX1f = ((float *)boxLayer->buffer)[i * 4 + x1] * networkInfo.width;
         rectY1f = ((float *)boxLayer->buffer)[i * 4 + y1] * networkInfo.height;
@@ -244,14 +273,16 @@ extern "C" bool NvDsInferParseCustomTfSSD(std::vector<NvDsInferLayerInfo> const 
         rectX2f = CLIP(rectX2f, 0.0f, networkInfo.width - 1);
         rectY1f = CLIP(rectY1f, 0.0f, networkInfo.height - 1);
         rectY2f = CLIP(rectY2f, 0.0f, networkInfo.height - 1);
-        if (rectX2f <= rectX1f || rectY2f <= rectY1f) {
+        if (rectX2f <= rectX1f || rectY2f <= rectY1f)
+        {
             continue;
         }
         res.left = rectX1f;
         res.top = rectY1f;
         res.width = rectX2f - rectX1f;
         res.height = rectY2f - rectY1f;
-        if (res.width && res.height) {
+        if (res.width && res.height)
+        {
             objectList.emplace_back(res);
         }
     }
@@ -262,12 +293,16 @@ extern "C" bool NvDsInferParseCustomTfSSD(std::vector<NvDsInferLayerInfo> const 
 extern "C" bool NvDsInferParseCustomMrcnnTLT(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
                                              NvDsInferNetworkInfo const &networkInfo,
                                              NvDsInferParseDetectionParams const &detectionParams,
-                                             std::vector<NvDsInferInstanceMaskInfo> &objectList) {
+                                             std::vector<NvDsInferInstanceMaskInfo> &objectList)
+{
     auto layerFinder = [&outputLayersInfo](const std::string &name)
-        -> const NvDsInferLayerInfo * {
-        for (auto &layer : outputLayersInfo) {
+        -> const NvDsInferLayerInfo *
+    {
+        for (auto &layer : outputLayersInfo)
+        {
             if (layer.dataType == FLOAT &&
-                (layer.layerName && name == layer.layerName)) {
+                (layer.layerName && name == layer.layerName))
+            {
                 return &layer;
             }
         }
@@ -277,20 +312,23 @@ extern "C" bool NvDsInferParseCustomMrcnnTLT(std::vector<NvDsInferLayerInfo> con
     const NvDsInferLayerInfo *detectionLayer = layerFinder("generate_detections");
     const NvDsInferLayerInfo *maskLayer = layerFinder("mask_head/mask_fcn_logits/BiasAdd");
 
-    if (!detectionLayer || !maskLayer) {
+    if (!detectionLayer || !maskLayer)
+    {
         std::cerr << "ERROR: some layers missing or unsupported data types "
                   << "in output tensors" << std::endl;
         return false;
     }
 
-    if (maskLayer->inferDims.numDims != 4U) {
+    if (maskLayer->inferDims.numDims != 4U)
+    {
         std::cerr << "Network output number of dims is : " << maskLayer->inferDims.numDims << " expect is 4" << std::endl;
         return false;
     }
 
     const unsigned int det_max_instances = maskLayer->inferDims.d[0];
     const unsigned int num_classes = maskLayer->inferDims.d[1];
-    if (num_classes != detectionParams.numClassesConfigured) {
+    if (num_classes != detectionParams.numClassesConfigured)
+    {
         std::cerr << "WARNING: Num classes mismatch. Configured:" << detectionParams.numClassesConfigured << ", detected by network: " << num_classes << std::endl;
     }
     const unsigned int mask_instance_height = maskLayer->inferDims.d[2];
@@ -300,7 +338,8 @@ extern "C" bool NvDsInferParseCustomMrcnnTLT(std::vector<NvDsInferLayerInfo> con
     auto out_mask = reinterpret_cast<float(*)[mask_instance_width *
                                               mask_instance_height]>(maskLayer->buffer);
 
-    for (auto i = 0U; i < det_max_instances; i++) {
+    for (auto i = 0U; i < det_max_instances; i++)
+    {
         MrcnnRawDetection &rawDec = out_det[i];
 
         if (rawDec.score < detectionParams.perClassPreclusterThreshold[0])
@@ -333,8 +372,10 @@ extern "C" bool NvDsInferParseCustomMrcnnTLT(std::vector<NvDsInferLayerInfo> con
 extern "C" bool NvDsInferParseCustomNMSTLT(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
                                            NvDsInferNetworkInfo const &networkInfo,
                                            NvDsInferParseDetectionParams const &detectionParams,
-                                           std::vector<NvDsInferObjectDetectionInfo> &objectList) {
-    if (outputLayersInfo.size() != 2) {
+                                           std::vector<NvDsInferObjectDetectionInfo> &objectList)
+{
+    if (outputLayersInfo.size() != 2)
+    {
         std::cerr << "Mismatch in the number of output buffers."
                   << "Expected 2 output buffers, detected in the network :"
                   << outputLayersInfo.size() << std::endl;
@@ -349,12 +390,14 @@ extern "C" bool NvDsInferParseCustomNMSTLT(std::vector<NvDsInferLayerInfo> const
 
     float *det;
 
-    for (int i = 0; i < p_keep_count[0]; i++) {
+    for (int i = 0; i < p_keep_count[0]; i++)
+    {
         det = out_nms + i * 7;
 
         // Output format for each detection is stored in the below order
         // [image_id, label, confidence, xmin, ymin, xmax, ymax]
-        if (det[2] < threshold) continue;
+        if (det[2] < threshold)
+            continue;
         assert((unsigned int)det[1] < detectionParams.numClassesConfigured);
 
 #if 0
@@ -382,8 +425,11 @@ extern "C" bool NvDsInferParseCustomBatchedNMSTLT(
     std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
     NvDsInferNetworkInfo const &networkInfo,
     NvDsInferParseDetectionParams const &detectionParams,
-    std::vector<NvDsInferObjectDetectionInfo> &objectList) {
-    if (outputLayersInfo.size() != 4) {
+    std::vector<NvDsInferObjectDetectionInfo> &objectList)
+{
+
+    if (outputLayersInfo.size() != 4)
+    {
         std::cerr << "Mismatch in the number of output buffers."
                   << "Expected 4 output buffers, detected in the network :"
                   << outputLayersInfo.size() << std::endl;
@@ -404,22 +450,29 @@ extern "C" bool NvDsInferParseCustomBatchedNMSTLT(
     const int keep_top_k = 200;
     const char *log_enable = std::getenv("ENABLE_DEBUG");
 
-    if (log_enable != NULL && std::stoi(log_enable)) {
+    if (log_enable != NULL && std::stoi(log_enable))
+    {
         std::cout << "keep cout"
                   << p_keep_count[0] << std::endl;
     }
 
-    for (int i = 0; i < p_keep_count[0] && objectList.size() <= keep_top_k; i++) {
-        if (p_scores[i] < threshold) continue;
+    for (int i = 0; i < p_keep_count[0] && objectList.size() <= keep_top_k; i++)
+    {
 
-        if (log_enable != NULL && std::stoi(log_enable)) {
+        if (p_scores[i] < threshold)
+            continue;
+
+        if (log_enable != NULL && std::stoi(log_enable))
+        {
             std::cout << "label/conf/ x/y x/y -- "
                       << p_classes[i] << " " << p_scores[i] << " "
                       << p_bboxes[4 * i] << " " << p_bboxes[4 * i + 1] << " " << p_bboxes[4 * i + 2] << " " << p_bboxes[4 * i + 3] << " " << std::endl;
         }
 
-        if ((unsigned int)p_classes[i] >= detectionParams.numClassesConfigured) continue;
-        if (p_bboxes[4 * i + 2] < p_bboxes[4 * i] || p_bboxes[4 * i + 3] < p_bboxes[4 * i + 1]) continue;
+        if ((unsigned int)p_classes[i] >= detectionParams.numClassesConfigured)
+            continue;
+        if (p_bboxes[4 * i + 2] < p_bboxes[4 * i] || p_bboxes[4 * i + 3] < p_bboxes[4 * i + 1])
+            continue;
 
         NvDsInferObjectDetectionInfo object;
         object.classId = (int)p_classes[i];
@@ -441,12 +494,16 @@ extern "C" bool NvDsInferParseCustomBatchedNMSTLT(
 extern "C" bool NvDsInferParseCustomMrcnnTLTV2(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
                                                NvDsInferNetworkInfo const &networkInfo,
                                                NvDsInferParseDetectionParams const &detectionParams,
-                                               std::vector<NvDsInferInstanceMaskInfo> &objectList) {
+                                               std::vector<NvDsInferInstanceMaskInfo> &objectList)
+{
     auto layerFinder = [&outputLayersInfo](const std::string &name)
-        -> const NvDsInferLayerInfo * {
-        for (auto &layer : outputLayersInfo) {
+        -> const NvDsInferLayerInfo *
+    {
+        for (auto &layer : outputLayersInfo)
+        {
             if (layer.dataType == FLOAT &&
-                (layer.layerName && name == layer.layerName)) {
+                (layer.layerName && name == layer.layerName))
+            {
                 return &layer;
             }
         }
@@ -456,20 +513,23 @@ extern "C" bool NvDsInferParseCustomMrcnnTLTV2(std::vector<NvDsInferLayerInfo> c
     const NvDsInferLayerInfo *detectionLayer = layerFinder("generate_detections");
     const NvDsInferLayerInfo *maskLayer = layerFinder("mask_fcn_logits/BiasAdd");
 
-    if (!detectionLayer || !maskLayer) {
+    if (!detectionLayer || !maskLayer)
+    {
         std::cerr << "ERROR: some layers missing or unsupported data types "
                   << "in output tensors" << std::endl;
         return false;
     }
 
-    if (maskLayer->inferDims.numDims != 4U) {
+    if (maskLayer->inferDims.numDims != 4U)
+    {
         std::cerr << "Network output number of dims is : " << maskLayer->inferDims.numDims << " expect is 4" << std::endl;
         return false;
     }
 
     const unsigned int det_max_instances = maskLayer->inferDims.d[0];
     const unsigned int num_classes = maskLayer->inferDims.d[1];
-    if (num_classes != detectionParams.numClassesConfigured) {
+    if (num_classes != detectionParams.numClassesConfigured)
+    {
         std::cerr << "WARNING: Num classes mismatch. Configured:" << detectionParams.numClassesConfigured << ", detected by network: " << num_classes << std::endl;
     }
     const unsigned int mask_instance_height = maskLayer->inferDims.d[2];
@@ -479,7 +539,8 @@ extern "C" bool NvDsInferParseCustomMrcnnTLTV2(std::vector<NvDsInferLayerInfo> c
     auto out_mask = reinterpret_cast<float(*)[mask_instance_width *
                                               mask_instance_height]>(maskLayer->buffer);
 
-    for (auto i = 0U; i < det_max_instances; i++) {
+    for (auto i = 0U; i < det_max_instances; i++)
+    {
         MrcnnRawDetection &rawDec = out_det[i];
 
         if (rawDec.score < detectionParams.perClassPreclusterThreshold[0])

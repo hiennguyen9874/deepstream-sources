@@ -24,29 +24,36 @@
 
 constexpr unsigned seconds_in_one_day = 86400;
 
-static int is_dir(const char *path) {
+static int is_dir(const char *path)
+{
     struct stat path_stat;
     stat(path, &path_stat);
     return S_ISDIR(path_stat.st_mode);
 }
 
 ImageMetaConsumer::ImageMetaConsumer()
-    : is_stopped_(true), save_full_frame_enabled_(true), save_cropped_obj_enabled_(false), obj_ctx_handle_((NvDsObjEncCtxHandle)0), image_saving_library_is_init_(false) {
+    : is_stopped_(true), save_full_frame_enabled_(true), save_cropped_obj_enabled_(false),
+      obj_ctx_handle_((NvDsObjEncCtxHandle)0), image_saving_library_is_init_(false)
+{
 }
 
-ImageMetaConsumer::~ImageMetaConsumer() {
+ImageMetaConsumer::~ImageMetaConsumer()
+{
     stop();
 }
 
-unsigned int ImageMetaConsumer::get_unique_id() {
+unsigned int ImageMetaConsumer::get_unique_id()
+{
     mutex_unique_index_.lock();
     auto res = unique_index_++;
     mutex_unique_index_.unlock();
     return res;
 }
 
-void ImageMetaConsumer::add_meta_csv(const std::string &meta) {
-    if (is_stopped_) {
+void ImageMetaConsumer::add_meta_csv(const std::string &meta)
+{
+    if (is_stopped_)
+    {
         std::cerr << __func__ << ": Could not add meta when Consumer is stopped.\n";
         return;
     }
@@ -55,8 +62,10 @@ void ImageMetaConsumer::add_meta_csv(const std::string &meta) {
     cv_csv_.notify_one();
 }
 
-void ImageMetaConsumer::add_meta_json(const std::string &meta) {
-    if (is_stopped_) {
+void ImageMetaConsumer::add_meta_json(const std::string &meta)
+{
+    if (is_stopped_)
+    {
         std::cerr << __func__ << ": Could not add meta when Consumer is stopped.\n";
         return;
     }
@@ -65,8 +74,10 @@ void ImageMetaConsumer::add_meta_json(const std::string &meta) {
     cv_json_.notify_one();
 }
 
-void ImageMetaConsumer::add_meta_kitti(const std::pair<std::string, std::string> &meta) {
-    if (is_stopped_) {
+void ImageMetaConsumer::add_meta_kitti(const std::pair<std::string, std::string> &meta)
+{
+    if (is_stopped_)
+    {
         std::cerr << __func__ << ": Could not add meta when Consumer is stopped.\n";
         return;
     }
@@ -75,7 +86,8 @@ void ImageMetaConsumer::add_meta_kitti(const std::pair<std::string, std::string>
     cv_kitti_.notify_one();
 }
 
-void ImageMetaConsumer::stop() {
+void ImageMetaConsumer::stop()
+{
     if (is_stopped_)
         return;
     is_stopped_ = true;
@@ -94,12 +106,15 @@ void ImageMetaConsumer::init(const std::string &output_folder_path, const std::s
                              const float min_box_confidence, const float max_box_confidence,
                              const unsigned min_box_width, const unsigned min_box_height,
                              const bool save_full_frame_enabled, const bool save_cropped_obj_enabled,
-                             const unsigned seconds_to_skip_interval, const unsigned source_nb) {
-    if (!is_stopped_) {
+                             const unsigned seconds_to_skip_interval, const unsigned source_nb)
+{
+    if (!is_stopped_)
+    {
         std::cerr << "Consummer already running.\n";
         return;
     }
-    if (!is_dir(output_folder_path.c_str())) {
+    if (!is_dir(output_folder_path.c_str()))
+    {
         std::cerr << "Missing directory: " << output_folder_path << ".\n";
         return;
     }
@@ -111,14 +126,16 @@ void ImageMetaConsumer::init(const std::string &output_folder_path, const std::s
     if (!ctr_.is_init_())
         return;
 
-    if (!setup_folders()) {
+    if (!setup_folders())
+    {
         std::cerr << "Could not create " << images_cropped_obj_output_folder_
                   << " , " << images_full_frame_output_folder_
                   << " and " << labels_output_folder_ << "\n";
         return;
     }
 
-    if (!setup_files()) {
+    if (!setup_files())
+    {
         std::cerr << "Could not create metadata.json and metadata.csv\n";
         return;
     }
@@ -138,7 +155,8 @@ void ImageMetaConsumer::init(const std::string &output_folder_path, const std::s
     run();
 }
 
-bool ImageMetaConsumer::setup_folders() {
+bool ImageMetaConsumer::setup_folders()
+{
     images_cropped_obj_output_folder_ = output_folder_path_ + "images_cropped/";
     images_full_frame_output_folder_ = output_folder_path_ + "images/";
     labels_output_folder_ = output_folder_path_ + "labels/";
@@ -149,70 +167,78 @@ bool ImageMetaConsumer::setup_folders() {
     return is_dir(images_cropped_obj_output_folder_.c_str()) && is_dir(images_full_frame_output_folder_.c_str()) && is_dir(labels_output_folder_.c_str());
 }
 
-void ImageMetaConsumer::write_intro(std::ofstream &os, OutputType &ot) {
-    switch (ot) {
-        case OutputType::JSON:
-            os << "{\n";
-            os << "\"meta_array\" : {\n";
-            break;
-        case OutputType::CSV:
-            os << "class_id,";
-            os << "class_name,";
-            os << "confidence,";
-            os << "within_confidence,";
-            os << "current_frame,";
-            os << "image_cropped_obj_path_saved,";
-            os << "image_full_frame_path_saved,";
-            os << "datetime,";
-            os << "img_height,";
-            os << "img_width,";
-            os << "img_top,";
-            os << "img_left,";
-            os << "video_path,";
-            os << "video_stream_nb";
-            os << "\n";
-            break;
-        case KITTI:
-            break;
+void ImageMetaConsumer::write_intro(std::ofstream &os, OutputType &ot)
+{
+    switch (ot)
+    {
+    case OutputType::JSON:
+        os << "{\n";
+        os << "\"meta_array\" : {\n";
+        break;
+    case OutputType::CSV:
+        os << "class_id,";
+        os << "class_name,";
+        os << "confidence,";
+        os << "within_confidence,";
+        os << "current_frame,";
+        os << "image_cropped_obj_path_saved,";
+        os << "image_full_frame_path_saved,";
+        os << "datetime,";
+        os << "img_height,";
+        os << "img_width,";
+        os << "img_top,";
+        os << "img_left,";
+        os << "video_path,";
+        os << "video_stream_nb";
+        os << "\n";
+        break;
+    case KITTI:
+        break;
     }
 }
 
-void ImageMetaConsumer::write_mid_separator(std::ofstream &os, OutputType &ot) {
-    switch (ot) {
-        case JSON:
-            os << ",\n";
-            break;
-        case CSV:
-            os << "\n";
-            break;
-        case KITTI:
-            break;
+void ImageMetaConsumer::write_mid_separator(std::ofstream &os, OutputType &ot)
+{
+    switch (ot)
+    {
+    case JSON:
+        os << ",\n";
+        break;
+    case CSV:
+        os << "\n";
+        break;
+    case KITTI:
+        break;
     }
 }
 
-void ImageMetaConsumer::write_end(std::ofstream &os, OutputType &ot, unsigned total_nb) {
-    switch (ot) {
-        case JSON:
-            os << "},\n";
-            os << "\"medatada_nb\" : " << total_nb << ",\n";
-            os << "\"min_confidence\" : " << get_min_confidence() << ",\n";
-            os << "\"max_confidence\" : " << get_max_confidence() << "\n";
-            os << "}\n";
-            break;
-        case CSV:
-            break;
-        case KITTI:
-            break;
+void ImageMetaConsumer::write_end(std::ofstream &os, OutputType &ot, unsigned total_nb)
+{
+    switch (ot)
+    {
+    case JSON:
+        os << "},\n";
+        os << "\"medatada_nb\" : " << total_nb << ",\n";
+        os << "\"min_confidence\" : " << get_min_confidence() << ",\n";
+        os << "\"max_confidence\" : " << get_max_confidence() << "\n";
+        os << "}\n";
+        break;
+    case CSV:
+        break;
+    case KITTI:
+        break;
     }
 }
 
 void ImageMetaConsumer::single_metadata_maker(const std::string &extension,
                                               ConcurrentQueue<std::string> &queue,
                                               std::mutex &mutex, std::condition_variable &cv,
-                                              OutputType ot) {
+                                              OutputType ot)
+{
     std::string meta_path = output_folder_path_ + "metadata." + extension;
     std::ofstream output(meta_path, std::ios::trunc);
-    if (!output.good()) {
+    if (!output.good())
+    {
         std::cerr << "Could not create " << meta_path << std::endl;
         is_stopped_ = true;
         return;
@@ -221,12 +247,14 @@ void ImageMetaConsumer::single_metadata_maker(const std::string &extension,
 
     bool first_time = true;
     unsigned long meta_nb = 0;
-    while (!is_stopped_) {
+    while (!is_stopped_)
+    {
         {
             std::unique_lock<std::mutex> lk(mutex);
             cv.wait(lk);
         }
-        while (!queue.is_empty()) {
+        while (!queue.is_empty())
+        {
             auto meta = queue.pop();
 
             if (first_time)
@@ -240,7 +268,8 @@ void ImageMetaConsumer::single_metadata_maker(const std::string &extension,
     write_end(output, ot, meta_nb);
 }
 
-bool ImageMetaConsumer::setup_files() {
+bool ImageMetaConsumer::setup_files()
+{
     std::string p1 = output_folder_path_ + "metadata.csv";
     std::ofstream output1(p1, std::ios::trunc);
     std::string p2 = output_folder_path_ + "metadata.json";
@@ -249,16 +278,21 @@ bool ImageMetaConsumer::setup_files() {
 }
 
 void ImageMetaConsumer::multi_metadata_maker(ConcurrentQueue<std::pair<std::string, std::string>> &queue,
-                                             std::mutex &mutex, std::condition_variable &cv) {
-    while (!is_stopped_) {
+                                             std::mutex &mutex, std::condition_variable &cv)
+{
+
+    while (!is_stopped_)
+    {
         {
             std::unique_lock<std::mutex> lk(mutex);
             cv.wait(lk);
         }
-        while (!queue.is_empty()) {
+        while (!queue.is_empty())
+        {
             auto meta = queue.pop();
             std::ofstream output(labels_output_folder_ + meta.first, std::ios::trunc);
-            if (!output.good()) {
+            if (!output.good())
+            {
                 std::cerr << "Could not create " << labels_output_folder_ << meta.first << std::endl;
                 is_stopped_ = true;
                 return;
@@ -268,30 +302,30 @@ void ImageMetaConsumer::multi_metadata_maker(ConcurrentQueue<std::pair<std::stri
     }
 }
 
-void ImageMetaConsumer::run() {
-    th_kitti_ = std::thread([this]() {
-        multi_metadata_maker(queue_kitti_, m_kitti_, cv_kitti_);
-    });
-    th_json_ = std::thread([this]() {
-        single_metadata_maker("json", queue_json_, m_json_, cv_json_, JSON);
-    });
-    th_csv_ = std::thread([this]() {
-        single_metadata_maker("csv", queue_csv_, m_csv_, cv_csv_, CSV);
-    });
+void ImageMetaConsumer::run()
+{
+    th_kitti_ = std::thread([this]()
+                            { multi_metadata_maker(queue_kitti_, m_kitti_, cv_kitti_); });
+    th_json_ = std::thread([this]()
+                           { single_metadata_maker("json", queue_json_, m_json_, cv_json_, JSON); });
+    th_csv_ = std::thread([this]()
+                          { single_metadata_maker("csv", queue_csv_, m_csv_, cv_csv_, CSV); });
 }
 
 std::string ImageMetaConsumer::make_img_path(const ImageMetaConsumer::ImageSizeType ist,
                                              const unsigned stream_source_id,
-                                             const std::string &datetime_iso8601) {
+                                             const std::string &datetime_iso8601)
+{
     unsigned long id = get_unique_id();
     std::stringstream ss;
-    switch (ist) {
-        case FULL_FRAME:
-            ss << images_full_frame_output_folder_;
-            break;
-        case CROPPED_TO_OBJECT:
-            ss << images_cropped_obj_output_folder_;
-            break;
+    switch (ist)
+    {
+    case FULL_FRAME:
+        ss << images_full_frame_output_folder_;
+        break;
+    case CROPPED_TO_OBJECT:
+        ss << images_cropped_obj_output_folder_;
+        break;
     }
     ss << "camera-" << stream_source_id << "_";
     ss << datetime_iso8601 << "_";
@@ -300,44 +334,55 @@ std::string ImageMetaConsumer::make_img_path(const ImageMetaConsumer::ImageSizeT
     return ss.str();
 }
 
-NvDsObjEncCtxHandle ImageMetaConsumer::get_obj_ctx_handle() {
+NvDsObjEncCtxHandle ImageMetaConsumer::get_obj_ctx_handle()
+{
     return obj_ctx_handle_;
 }
 
-float ImageMetaConsumer::get_min_confidence() const {
+float ImageMetaConsumer::get_min_confidence() const
+{
     return min_confidence_;
 }
 
-float ImageMetaConsumer::get_max_confidence() const {
+float ImageMetaConsumer::get_max_confidence() const
+{
     return max_confidence_;
 }
 
-unsigned ImageMetaConsumer::get_min_box_width() const {
+unsigned ImageMetaConsumer::get_min_box_width() const
+{
     return min_box_width_;
 }
 
-unsigned ImageMetaConsumer::get_min_box_height() const {
+unsigned ImageMetaConsumer::get_min_box_height() const
+{
     return min_box_height_;
 }
 
-bool ImageMetaConsumer::get_is_stopped() const {
+bool ImageMetaConsumer::get_is_stopped() const
+{
     return is_stopped_;
 }
 
-bool ImageMetaConsumer::get_save_full_frame_enabled() const {
+bool ImageMetaConsumer::get_save_full_frame_enabled() const
+{
     return save_full_frame_enabled_;
 }
 
-bool ImageMetaConsumer::get_save_cropped_images_enabled() const {
+bool ImageMetaConsumer::get_save_cropped_images_enabled() const
+{
     return save_cropped_obj_enabled_;
 }
 
-void ImageMetaConsumer::init_image_save_library_on_first_time() {
-    if (!image_saving_library_is_init_) {
+void ImageMetaConsumer::init_image_save_library_on_first_time()
+{
+    if (!image_saving_library_is_init_)
+    {
         m_kitti_.lock();
         m_json_.lock();
         m_csv_.lock();
-        if (!image_saving_library_is_init_ && (save_cropped_obj_enabled_ || save_full_frame_enabled_)) {
+        if (!image_saving_library_is_init_ && (save_cropped_obj_enabled_ || save_full_frame_enabled_))
+        {
             obj_ctx_handle_ = nvds_obj_enc_create_context();
             if (obj_ctx_handle_)
                 image_saving_library_is_init_ = true;
@@ -350,10 +395,12 @@ void ImageMetaConsumer::init_image_save_library_on_first_time() {
     }
 }
 
-bool ImageMetaConsumer::should_save_data(unsigned source_id) {
+bool ImageMetaConsumer::should_save_data(unsigned source_id)
+{
     auto time_interval = ctr_.getCurrentTimeInterval();
     auto now = std::chrono::system_clock::now();
-    if (now < time_last_frame_saved_list_[source_id]) {
+    if (now < time_last_frame_saved_list_[source_id])
+    {
         std::cerr << "The current time seems to have moved to the past\n"
                   << "Reseting time for last frame save for source" << source_id << "\n";
         time_last_frame_saved_list_[source_id] = now;
@@ -361,14 +408,17 @@ bool ImageMetaConsumer::should_save_data(unsigned source_id) {
     return now > time_interval + time_last_frame_saved_list_[source_id];
 }
 
-void ImageMetaConsumer::lock_source_nb(unsigned source_id) {
+void ImageMetaConsumer::lock_source_nb(unsigned source_id)
+{
     mutex_frame_saved_list_[source_id].lock();
 }
 
-void ImageMetaConsumer::data_was_saved_for_source(unsigned source_id) {
+void ImageMetaConsumer::data_was_saved_for_source(unsigned source_id)
+{
     time_last_frame_saved_list_[source_id] = std::chrono::system_clock::now();
 }
 
-void ImageMetaConsumer::unlock_source_nb(unsigned source_id) {
+void ImageMetaConsumer::unlock_source_nb(unsigned source_id)
+{
     mutex_frame_saved_list_[source_id].unlock();
 }

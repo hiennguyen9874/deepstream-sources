@@ -63,10 +63,11 @@ constexpr auto LABELS_AUDIO = {
 
 /* This is a sample audio neural network parsing function. */
 
-extern "C" {
-bool NvDsInferParseCustomAudio(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-                               NvDsInferNetworkInfo const &networkInfo, float classifierThreshold,
-                               std::vector<NvDsInferAttribute> &attrList, std::string &attrString);
+extern "C"
+{
+    bool NvDsInferParseCustomAudio(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+                                   NvDsInferNetworkInfo const &networkInfo, float classifierThreshold,
+                                   std::vector<NvDsInferAttribute> &attrList, std::string &attrString);
 }
 
 std::vector<unsigned int> index_giver_subcategory(const char *label);

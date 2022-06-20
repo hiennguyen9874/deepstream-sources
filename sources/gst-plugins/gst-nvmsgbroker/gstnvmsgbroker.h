@@ -13,7 +13,6 @@
 #define _GST_NVMSGBROKER_H_
 
 #include <gst/base/gstbasesink.h>
-
 #include "nvds_msgapi.h"
 #include "nvmsgbroker.h"
 
@@ -42,43 +41,45 @@ typedef void (*nvds_msgapi_do_work_ptr)(NvDsMsgApiHandle h_ptr);
 
 typedef NvDsMsgApiErrorType (*nvds_msgapi_disconnect_ptr)(NvDsMsgApiHandle conn);
 
-struct _GstNvMsgBroker {
-    GstBaseSink parent;
+struct _GstNvMsgBroker
+{
+  GstBaseSink parent;
 
-    GQuark dsMetaQuark;
+  GQuark dsMetaQuark;
 
-    // Classic support via NvDsMsgApi
-    gpointer libHandle;
-    gchar *configFile;
-    gchar *protoLib;
-    gchar *connStr;
-    gchar *topic;
-    guint compId;
-    NvMsgBrokerClientHandle connHandle;
-    /** Identifies from input cap capability if the incoming data
+  // Classic support via NvDsMsgApi
+  gpointer libHandle;
+  gchar *configFile;
+  gchar *protoLib;
+  gchar *connStr;
+  gchar *topic;
+  guint compId;
+  NvMsgBrokerClientHandle connHandle;
+  /** Identifies from input cap capability if the incoming data
    * is video/audio */
-    gboolean is_video;
-    GMutex flowLock;
-    GCond flowCond;
-    GThread *doWorkThread;
-    gboolean isRunning;
-    gboolean asyncSend;
-    gint pendingCbCount;
-    NvDsMsgApiErrorType lastError;
-    nvds_msgapi_connect_ptr nvds_msgapi_connect;
-    nvds_msgapi_send_ptr nvds_msgapi_send;
-    nvds_msgapi_send_async_ptr nvds_msgapi_send_async;
-    nvds_msgapi_do_work_ptr nvds_msgapi_do_work;
-    nvds_msgapi_disconnect_ptr nvds_msgapi_disconnect;
+  gboolean is_video;
+  GMutex flowLock;
+  GCond flowCond;
+  GThread *doWorkThread;
+  gboolean isRunning;
+  gboolean asyncSend;
+  gint pendingCbCount;
+  NvDsMsgApiErrorType lastError;
+  nvds_msgapi_connect_ptr nvds_msgapi_connect;
+  nvds_msgapi_send_ptr nvds_msgapi_send;
+  nvds_msgapi_send_async_ptr nvds_msgapi_send_async;
+  nvds_msgapi_do_work_ptr nvds_msgapi_do_work;
+  nvds_msgapi_disconnect_ptr nvds_msgapi_disconnect;
 
-    // New experimental support via NvMsgBroker lib
-    gboolean newAPI;
-    NvMsgBrokerClientHandle newConnHandle;
-    NvMsgBrokerErrorType newLastError;
+  // New experimental support via NvMsgBroker lib
+  gboolean newAPI;
+  NvMsgBrokerClientHandle newConnHandle;
+  NvMsgBrokerErrorType newLastError;
 };
 
-struct _GstNvMsgBrokerClass {
-    GstBaseSinkClass parent_class;
+struct _GstNvMsgBrokerClass
+{
+  GstBaseSinkClass parent_class;
 };
 
 GType gst_nvmsgbroker_get_type(void);

@@ -69,24 +69,24 @@ typedef void (*gst_nvinfer_raw_output_generated_callback)(GstBuffer *buf,
  */
 typedef struct
 {
-    /** Unique ID of the gst-nvinfer instance which attached this meta. */
-    guint unique_id;
-    /** Number of bound output layers. */
-    guint num_output_layers;
-    /** Pointer to the array containing information for the bound output layers.
+  /** Unique ID of the gst-nvinfer instance which attached this meta. */
+  guint unique_id;
+  /** Number of bound output layers. */
+  guint num_output_layers;
+  /** Pointer to the array containing information for the bound output layers.
    * Size of the array will be equal to num_output_layers. Pointers inside
    * the NvDsInferLayerInfo structure are not valid for this array. */
-    NvDsInferLayerInfo *output_layers_info;
-    /** Array of pointers to the output host buffers for the batch / frame / object. */
-    void **out_buf_ptrs_host;
-    /** Array of pointers to the output device buffers for the batch / frame / object. */
-    void **out_buf_ptrs_dev;
-    /** GPU device ID on which the device buffers have been allocated. */
-    gint gpu_id;
-    /** Private data used for the meta producer's internal memory management. */
-    void *priv_data;
-    /** Network information for the model specified for the nvinfer element instance. */
-    NvDsInferNetworkInfo network_info;
+  NvDsInferLayerInfo *output_layers_info;
+  /** Array of pointers to the output host buffers for the batch / frame / object. */
+  void **out_buf_ptrs_host;
+  /** Array of pointers to the output device buffers for the batch / frame / object. */
+  void **out_buf_ptrs_dev;
+  /** GPU device ID on which the device buffers have been allocated. */
+  gint gpu_id;
+  /** Private data used for the meta producer's internal memory management. */
+  void *priv_data;
+  /** Network information for the model specified for the nvinfer element instance. */
+  NvDsInferNetworkInfo network_info;
 } NvDsInferTensorMeta;
 
 /**
@@ -100,20 +100,20 @@ typedef struct
  */
 typedef struct
 {
-    /** Number of classes in the segmentation output. */
-    guint classes;
-    /** Width of the segmentation output class map. */
-    guint width;
-    /** Height of the segmentation output class map. */
-    guint height;
-    /** Pointer to the array for 2D pixel class map. The output for pixel (x,y)
+  /** Number of classes in the segmentation output. */
+  guint classes;
+  /** Width of the segmentation output class map. */
+  guint width;
+  /** Height of the segmentation output class map. */
+  guint height;
+  /** Pointer to the array for 2D pixel class map. The output for pixel (x,y)
    * will be at index (y * width + x). */
-    gint *class_map;
-    /** Pointer to the raw array containing the probabilities. The probability for
+  gint *class_map;
+  /** Pointer to the raw array containing the probabilities. The probability for
    * class c and pixel (x,y) will be at index (c * width *height + y * width + x). */
-    gfloat *class_probabilities_map;
-    /** Private data used for the meta producer's internal memory management. */
-    void *priv_data;
+  gfloat *class_probabilities_map;
+  /** Private data used for the meta producer's internal memory management. */
+  void *priv_data;
 } NvDsInferSegmentationMeta;
 
 G_END_DECLS

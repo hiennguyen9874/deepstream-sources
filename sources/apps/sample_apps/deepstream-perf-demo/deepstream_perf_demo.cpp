@@ -20,18 +20,18 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
-#include <dirent.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <gst/gstpipeline.h>
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <dirent.h>
 #include <string.h>
-#include <sys/time.h>
-
-#include <iostream>
 #include <vector>
+#include <iostream>
+#include <sys/time.h>
+#include <cuda_runtime_api.h>
 
 #define PGIE_CONFIG_FILE "perf_demo_pgie_config.txt"
 #define SGIE1_CONFIG_FILE "perf_demo_sgie1_config.txt"
@@ -58,7 +58,7 @@ guint sgie1_unique_id = 2;
 guint sgie2_unique_id = 3;
 guint sgie3_unique_id = 4;
 
-static GMainLoop* loop = NULL;
+static GMainLoop *loop = NULL;
 std::vector<std::string> file_list;
 
 #if defined(ENABLE_PROFILING)
@@ -67,15 +67,18 @@ static struct timeval g_start;
 static struct timeval g_end;
 static float g_accumulated_time_macro = 0;
 
-static void profile_start() {
+static void profile_start()
+{
     gettimeofday(&g_start, 0);
 }
 
-static void profile_end() {
+static void profile_end()
+{
     gettimeofday(&g_end, 0);
 }
 
-static void profile_result() {
+static void profile_result()
+{
     g_accumulated_time_macro += 1000000 * (g_end.tv_sec - g_start.tv_sec) + g_end.tv_usec - g_start.tv_usec;
     // Be careful 1000000 * g_accumulated_time_macro may be overflow.
     float fps = (float)((frame_number - 100) / (float)(g_accumulated_time_macro / 1000000));
@@ -86,22 +89,32 @@ static void profile_result() {
 }
 #endif
 
-static char* getOneFileName(DIR* pDir, int& isFile) {
-    struct dirent* ent;
+static char *getOneFileName(DIR *pDir, int &isFile)
+{
+    struct dirent *ent;
 
-    while (1) {
+    while (1)
+    {
         ent = readdir(pDir);
-        if (ent == NULL) {
+        if (ent == NULL)
+        {
             isFile = 0;
             return NULL;
-        } else {
-            if (ent->d_type & DT_REG) {
+        }
+        else
+        {
+            if (ent->d_type & DT_REG)
+            {
                 isFile = 1;
                 return ent->d_name;
-            } else if (strcmp(ent->d_name, ".") == 0 ||
-                       strcmp(ent->d_name, "..") == 0) {
+            }
+            else if (strcmp(ent->d_name, ".") == 0 ||
+                     strcmp(ent->d_name, "..") == 0)
+            {
                 continue;
-            } else {
+            }
+            else
+            {
                 isFile = 0;
                 return ent->d_name;
             }
@@ -109,42 +122,50 @@ static char* getOneFileName(DIR* pDir, int& isFile) {
     }
 }
 
-static void get_file_list(char* inputDir) {
-    if (inputDir == NULL) return;
+static void get_file_list(char *inputDir)
+{
+    if (inputDir == NULL)
+        return;
 
-    char* fn = NULL;
+    char *fn = NULL;
     int isFile = 1;
     std::string fnStd;
     std::string dirNameStd(inputDir);
     std::string fullName;
 
-    DIR* dir = opendir(inputDir);
+    DIR *dir = opendir(inputDir);
 
-    while (1) {
+    while (1)
+    {
         fn = getOneFileName(dir, isFile);
 
-        if (isFile) {
+        if (isFile)
+        {
             fnStd = fn;
             fullName = dirNameStd + "/" + fnStd;
             file_list.push_back(fullName);
-        } else {
+        }
+        else
+        {
             break;
         }
     }
 }
 
-static gboolean source_switch_thread(gpointer* data) {
+static gboolean source_switch_thread(gpointer *data)
+{
     static guint stream_num = 0;
-    const char* location = file_list[stream_num % file_list.size()].c_str();
+    const char *location = file_list[stream_num % file_list.size()].c_str();
 
-    GstElement* pipeline = (GstElement*)data;
-    GstElement* source = gst_bin_get_by_name(GST_BIN(pipeline), "file-source");
-    GstElement* h264parser = gst_bin_get_by_name(GST_BIN(pipeline), "h264-parser");
-    GstElement* sink = gst_bin_get_by_name(GST_BIN(pipeline), "nvvideo-renderer");
+    GstElement *pipeline = (GstElement *)data;
+    GstElement *source = gst_bin_get_by_name(GST_BIN(pipeline), "file-source");
+    GstElement *h264parser = gst_bin_get_by_name(GST_BIN(pipeline), "h264-parser");
+    GstElement *sink = gst_bin_get_by_name(GST_BIN(pipeline), "nvvideo-renderer");
     gst_element_set_state(pipeline, GST_STATE_PAUSED);
     GstStateChangeReturn ret = GST_STATE_CHANGE_FAILURE;
     ret = gst_element_set_state(source, GST_STATE_NULL);
-    if (ret == GST_STATE_CHANGE_FAILURE) {
+    if (ret == GST_STATE_CHANGE_FAILURE)
+    {
         g_print("Unable to set state change for source element \n");
         g_main_loop_quit(loop);
     }
@@ -155,7 +176,7 @@ static gboolean source_switch_thread(gpointer* data) {
     gst_element_sync_state_with_parent(source);
     gst_element_sync_state_with_parent(sink);
 
-#if 0  // Change rows/colums dynamically here
+#if 0 // Change rows/colums dynamically here
     guint rows = 0;
     guint columns = 0;
     g_object_get(G_OBJECT(sink), "rows", &rows, NULL);
@@ -172,20 +193,24 @@ static gboolean source_switch_thread(gpointer* data) {
     return FALSE;
 }
 
-static GstPadProbeReturn eos_probe_cb(GstPad* pad, GstPadProbeInfo* info, gpointer u_data) {
+static GstPadProbeReturn eos_probe_cb(GstPad *pad, GstPadProbeInfo *info, gpointer u_data)
+{
     gboolean ret = TRUE;
-    GstEvent* event = GST_EVENT(info->data);
+    GstEvent *event = GST_EVENT(info->data);
 
     static guint64 prev_accumulated_base = 0;
     static guint64 accumulated_base = 0;
 
-    if ((info->type & GST_PAD_PROBE_TYPE_BUFFER)) {
+    if ((info->type & GST_PAD_PROBE_TYPE_BUFFER))
+    {
         GST_BUFFER_PTS(GST_BUFFER(info->data)) += prev_accumulated_base;
     }
 
-    if ((info->type & GST_PAD_PROBE_TYPE_EVENT_BOTH)) {
-        if (GST_EVENT_TYPE(event) == GST_EVENT_EOS) {
-            ret = gst_element_seek((GstElement*)u_data,
+    if ((info->type & GST_PAD_PROBE_TYPE_EVENT_BOTH))
+    {
+        if (GST_EVENT_TYPE(event) == GST_EVENT_EOS)
+        {
+            ret = gst_element_seek((GstElement *)u_data,
                                    1.0,
                                    GST_FORMAT_TIME,
                                    (GstSeekFlags)(GST_SEEK_FLAG_KEY_UNIT | GST_SEEK_FLAG_FLUSH),
@@ -193,70 +218,78 @@ static GstPadProbeReturn eos_probe_cb(GstPad* pad, GstPadProbeInfo* info, gpoint
                                    0,
                                    GST_SEEK_TYPE_NONE,
                                    GST_CLOCK_TIME_NONE);
-            if (!ret) {
+            if (!ret)
+            {
                 g_print("###Error in seeking pipeline\n");
             }
             g_idle_add((GSourceFunc)source_switch_thread, u_data);
         }
     }
 
-    if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT) {
-        GstSegment* segment;
+    if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT)
+    {
+        GstSegment *segment;
 
-        gst_event_parse_segment(event, (const GstSegment**)&segment);
+        gst_event_parse_segment(event, (const GstSegment **)&segment);
         segment->base = accumulated_base;
         prev_accumulated_base = accumulated_base;
         accumulated_base += segment->stop;
     }
 
-    switch (GST_EVENT_TYPE(event)) {
-        case GST_EVENT_EOS:
-        /* QOS events from downstream sink elements cause decoder to drop
+    switch (GST_EVENT_TYPE(event))
+    {
+    case GST_EVENT_EOS:
+    /* QOS events from downstream sink elements cause decoder to drop
      * frames after looping the file since the timestamps reset to 0.
      * We should drop the QOS events since we have custom logic for
      * looping individual sources. */
-        case GST_EVENT_QOS:
-        case GST_EVENT_SEGMENT:
-            return GST_PAD_PROBE_DROP;
-        default:
-            break;
+    case GST_EVENT_QOS:
+    case GST_EVENT_SEGMENT:
+        return GST_PAD_PROBE_DROP;
+    default:
+        break;
     }
 
     return GST_PAD_PROBE_OK;
 }
 
-static gboolean bus_call(GstBus* bus, GstMessage* msg, gpointer data) {
-    GMainLoop* loop = (GMainLoop*)data;
-    switch (GST_MESSAGE_TYPE(msg)) {
-        case GST_MESSAGE_EOS:
-            g_print("End of stream\n");
-            g_main_loop_quit(loop);
-            break;
-        case GST_MESSAGE_ERROR: {
-            gchar* debug;
-            GError* error;
-            gst_message_parse_error(msg, &error, &debug);
-            g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
-            g_free(debug);
-            g_printerr("Error: %s\n", error->message);
-            g_error_free(error);
-            g_main_loop_quit(loop);
-            break;
-        }
-        default:
-            break;
+static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
+{
+    GMainLoop *loop = (GMainLoop *)data;
+    switch (GST_MESSAGE_TYPE(msg))
+    {
+    case GST_MESSAGE_EOS:
+        g_print("End of stream\n");
+        g_main_loop_quit(loop);
+        break;
+    case GST_MESSAGE_ERROR:
+    {
+        gchar *debug;
+        GError *error;
+        gst_message_parse_error(msg, &error, &debug);
+        g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
+        g_free(debug);
+        g_printerr("Error: %s\n", error->message);
+        g_error_free(error);
+        g_main_loop_quit(loop);
+        break;
+    }
+    default:
+        break;
     }
     return TRUE;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[])
+{
+
     GstElement *pipeline = NULL, *source = NULL, *h264parser = NULL, *streammux = NULL,
                *decoder = NULL, *sink = NULL, *nvvidconv = NULL, *nvosd = NULL,
                *pgie = NULL, *sgie1 = NULL, *sgie2 = NULL, *sgie3 = NULL;
-    GstElement* transform = NULL;
-    GstBus* bus = NULL;
+    GstElement *transform = NULL;
+    GstBus *bus = NULL;
     guint bus_watch_id;
-    GstPad* dec_src_pad = NULL;
+    GstPad *dec_src_pad = NULL;
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -264,7 +297,8 @@ int main(int argc, char* argv[]) {
     cudaGetDeviceProperties(&prop, current_device);
 
     /* Check input arguments */
-    if (argc != 4) {
+    if (argc != 4)
+    {
         g_printerr("Usage: %s <rows num> <columns num> <streams dir>\n", argv[0]);
         return -1;
     }
@@ -292,7 +326,8 @@ int main(int argc, char* argv[]) {
     /* Create nvstreammux instance to form batches from one or more sources. */
     streammux = gst_element_factory_make("nvstreammux", "stream-muxer");
 
-    if (!pipeline || !streammux) {
+    if (!pipeline || !streammux)
+    {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
@@ -314,19 +349,22 @@ int main(int argc, char* argv[]) {
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
+    if (prop.integrated)
+    {
         transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
     }
     sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     /* caps filter for nvvidconv to convert NV12 to RGBA as nvosd expects input
      * in RGBA format */
-    if (!source || !h264parser || !decoder || !nvvidconv || !pgie || !sgie1 || !sgie2 || !sgie3 || !nvosd || !sink) {
+    if (!source || !h264parser || !decoder || !nvvidconv || !pgie || !sgie1 || !sgie2 || !sgie3 || !nvosd || !sink)
+    {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    if (!transform && prop.integrated) {
+    if (!transform && prop.integrated)
+    {
         g_printerr("One tegra element could not be created. Exiting.\n");
         return -1;
     }
@@ -370,11 +408,14 @@ int main(int argc, char* argv[]) {
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    if (prop.integrated) {
+    if (prop.integrated)
+    {
         gst_bin_add_many(GST_BIN(pipeline),
                          source, h264parser, decoder, streammux, pgie, sgie1, sgie2, sgie3,
                          nvvidconv, nvosd, transform, sink, NULL);
-    } else {
+    }
+    else
+    {
         gst_bin_add_many(GST_BIN(pipeline),
                          source, h264parser, decoder, streammux, pgie, sgie1, sgie2, sgie3,
                          nvvidconv, nvosd, sink, NULL);
@@ -385,18 +426,21 @@ int main(int argc, char* argv[]) {
     gchar pad_name_src[16] = "src";
 
     sinkpad = gst_element_get_request_pad(streammux, pad_name_sink);
-    if (!sinkpad) {
+    if (!sinkpad)
+    {
         g_printerr("Streammux request sink pad failed. Exiting.\n");
         return -1;
     }
 
     srcpad = gst_element_get_static_pad(decoder, pad_name_src);
-    if (!srcpad) {
+    if (!srcpad)
+    {
         g_printerr("Decoder request src pad failed. Exiting.\n");
         return -1;
     }
 
-    if (gst_pad_link(srcpad, sinkpad) != GST_PAD_LINK_OK) {
+    if (gst_pad_link(srcpad, sinkpad) != GST_PAD_LINK_OK)
+    {
         g_printerr("Failed to link decoder to stream muxer. Exiting.\n");
         return -1;
     }
@@ -405,29 +449,38 @@ int main(int argc, char* argv[]) {
     gst_object_unref(srcpad);
 
     /* Link the elements together */
-    if (!gst_element_link_many(source, h264parser, decoder, NULL)) {
+    if (!gst_element_link_many(source, h264parser, decoder, NULL))
+    {
         g_printerr("Elements could not be linked: 1. Exiting.\n");
         return -1;
     }
 
-    if (prop.integrated) {
+    if (prop.integrated)
+    {
         if (!gst_element_link_many(streammux, pgie, sgie1,
-                                   sgie2, sgie3, nvvidconv, nvosd, transform, sink, NULL)) {
+                                   sgie2, sgie3, nvvidconv, nvosd, transform, sink, NULL))
+        {
             g_printerr("Elements could not be linked. Exiting.\n");
             return -1;
         }
-    } else {
+    }
+    else
+    {
         if (!gst_element_link_many(streammux, pgie, sgie1,
-                                   sgie2, sgie3, nvvidconv, nvosd, sink, NULL)) {
+                                   sgie2, sgie3, nvvidconv, nvosd, sink, NULL))
+        {
             g_printerr("Elements could not be linked. Exiting.\n");
             return -1;
         }
     }
 
     dec_src_pad = gst_element_get_static_pad(decoder, "sink");
-    if (!dec_src_pad) {
+    if (!dec_src_pad)
+    {
         g_print("Unable to get h264parser src pad \n");
-    } else {
+    }
+    else
+    {
         gst_pad_add_probe(dec_src_pad,
                           (GstPadProbeType)(GST_PAD_PROBE_TYPE_EVENT_BOTH |
                                             GST_PAD_PROBE_TYPE_EVENT_FLUSH |

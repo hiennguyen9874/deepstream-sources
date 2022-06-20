@@ -25,10 +25,12 @@
 typedef std::pair<std::string, std::string> string_pair;
 
 ImageMetaProducer::ImageMetaProducer(ImageMetaConsumer &ic)
-    : ic_(ic) {
+    : ic_(ic)
+{
 }
 
-static std::string get_filename(const std::string &filepath) {
+static std::string get_filename(const std::string &filepath)
+{
     std::string filename = filepath;
     const size_t last_slash_idx = filename.find_last_of('/');
     if (std::string::npos != last_slash_idx)
@@ -40,13 +42,16 @@ static std::string get_filename(const std::string &filepath) {
     return filename;
 }
 
-std::string ImageMetaProducer::make_kitti_save_path() const {
+std::string ImageMetaProducer::make_kitti_save_path() const
+{
     std::string name_copy = get_filename(image_full_frame_path_saved_);
     name_copy += ".txt";
     return name_copy;
 }
 
-void ImageMetaProducer::send_and_flush_obj_data() {
+void ImageMetaProducer::send_and_flush_obj_data()
+{
+
     for (const auto &elm : obj_data_json_)
         ic_.add_meta_json(elm);
     obj_data_json_.clear();
@@ -55,9 +60,11 @@ void ImageMetaProducer::send_and_flush_obj_data() {
         ic_.add_meta_csv(elm);
     obj_data_csv_.clear();
 
-    if (!obj_data_kitti_.empty()) {
+    if (!obj_data_kitti_.empty())
+    {
         std::string res;
-        for (const auto &elm : obj_data_kitti_) {
+        for (const auto &elm : obj_data_kitti_)
+        {
             res += elm + "\n";
         }
         string_pair sp(make_kitti_save_path(), res);
@@ -69,17 +76,20 @@ void ImageMetaProducer::send_and_flush_obj_data() {
 }
 
 void ImageMetaProducer::generate_image_full_frame_path(const unsigned stream_source_id,
-                                                       const std::string &datetime_iso8601) {
+                                                       const std::string &datetime_iso8601)
+{
     image_full_frame_path_saved_ = ic_.make_img_path(ImageMetaConsumer::FULL_FRAME,
                                                      stream_source_id,
                                                      datetime_iso8601);
 }
 
-std::string ImageMetaProducer::get_image_full_frame_path_saved() {
+std::string ImageMetaProducer::get_image_full_frame_path_saved()
+{
     return image_full_frame_path_saved_;
 }
 
-bool ImageMetaProducer::stack_obj_data(IPData &data) {
+bool ImageMetaProducer::stack_obj_data(IPData &data)
+{
     if (ic_.get_is_stopped())
         return false;
 
@@ -92,11 +102,13 @@ bool ImageMetaProducer::stack_obj_data(IPData &data) {
     return true;
 }
 
-static std::string format_json_string(const std::string &str) {
+static std::string format_json_string(const std::string &str)
+{
     return "\"" + str + "\"";
 }
 
-std::string ImageMetaProducer::make_json_data(const IPData &data) {
+std::string ImageMetaProducer::make_json_data(const IPData &data)
+{
     const std::string path_full_frame = ic_.get_save_full_frame_enabled() ? data.image_full_frame_path_saved : "";
     const std::string path_cropped_obj = ic_.get_save_cropped_images_enabled() ? data.image_cropped_obj_path_saved : "";
 
@@ -124,7 +136,8 @@ std::string ImageMetaProducer::make_json_data(const IPData &data) {
     return ss.str();
 }
 
-std::string ImageMetaProducer::make_csv_data(const IPData &data) {
+std::string ImageMetaProducer::make_csv_data(const IPData &data)
+{
     const std::string path_full_frame = ic_.get_save_full_frame_enabled() ? data.image_full_frame_path_saved : "";
     const std::string path_cropped_obj = ic_.get_save_cropped_images_enabled() ? data.image_cropped_obj_path_saved : "";
 
@@ -146,27 +159,29 @@ std::string ImageMetaProducer::make_csv_data(const IPData &data) {
     return ss.str();
 }
 
-std::string ImageMetaProducer::make_kitti_data(const IPData &data) {
+std::string ImageMetaProducer::make_kitti_data(const IPData &data)
+{
+
     std::stringstream ss;
     // Please refer to :
     // https://docs.nvidia.com/tao/tao-toolkit/text/data_annotation_format.html#object-detection-kitti-format
-    ss << data.class_name << " ";  // Class names
+    ss << data.class_name << " "; // Class names
     ss << "0.0"
-       << " ";  // Truncation (No data default value)
+       << " "; // Truncation (No data default value)
     ss << "3"
-       << " ";  // Occlusion [ 0 = fully visible, 1 = partly visible, 2 = largely occluded, 3 = unknown].
+       << " "; // Occlusion [ 0 = fully visible, 1 = partly visible, 2 = largely occluded, 3 = unknown].
     ss << "0.0"
-       << " ";  // Alpha (No data default value)
+       << " "; // Alpha (No data default value)
     // Bounding box coordinates:
-    ss << data.img_left << " ";                     // ymin
-    ss << data.img_top << " ";                      // xmin
-    ss << (data.img_left + data.img_width) << " ";  // ymax
-    ss << (data.img_top + data.img_height) << " ";  // xmax
+    ss << data.img_left << " ";                    // ymin
+    ss << data.img_top << " ";                     // xmin
+    ss << (data.img_left + data.img_width) << " "; // ymax
+    ss << (data.img_top + data.img_height) << " "; // xmax
     ss << "0.0 0.0 0.0"
-       << " ";  // 3-D dimension (No data default value)
+       << " "; // 3-D dimension (No data default value)
     ss << "0.0 0.0 0.0"
-       << " ";  // Location (No data default value)
+       << " "; // Location (No data default value)
     ss << "0.0"
-       << " ";  // Rotation_y (No data default value)
+       << " "; // Rotation_y (No data default value)
     return ss.str();
 }

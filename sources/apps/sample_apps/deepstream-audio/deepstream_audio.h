@@ -24,28 +24,29 @@
 #define __NVGSTDS_AUDIO_H__
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #include <gst/gst.h>
 #include <stdio.h>
 
 #include "deepstream_app_version.h"
-#include "deepstream_audio_classifier.h"
 #include "deepstream_common.h"
 #include "deepstream_config.h"
 #include "deepstream_perf.h"
+#include "deepstream_audio_classifier.h"
 #include "deepstream_sinks.h"
 #include "deepstream_sources.h"
 #include "deepstream_streammux.h"
 
-typedef struct _AppCtx AppCtx;
+  typedef struct _AppCtx AppCtx;
 
-typedef void (*bbox_generated_callback)(AppCtx *appCtx, GstBuffer *buf,
-                                        NvDsBatchMeta *batch_meta, guint index);
+  typedef void (*bbox_generated_callback)(AppCtx *appCtx, GstBuffer *buf,
+                                          NvDsBatchMeta *batch_meta, guint index);
 
-typedef struct
-{
+  typedef struct
+  {
     guint index;
     gulong all_bbox_buffer_probe_id;
     gulong primary_bbox_buffer_probe_id;
@@ -54,21 +55,21 @@ typedef struct
     NvDsAudioClassifierBin audio_classifier_bin;
     NvDsSinkBin sink_bin;
     AppCtx *appCtx;
-} NvDsInstanceBin;
+  } NvDsInstanceBin;
 
-typedef struct
-{
+  typedef struct
+  {
     guint bus_id;
     GstElement *pipeline;
     NvDsSrcParentBin multi_src_bin;
-    //NvDsSrcBin src_bin;
+    // NvDsSrcBin src_bin;
     NvDsInstanceBin instance_bin;
     NvDsInstanceBin common_elements;
     AppCtx *appCtx;
-} NvDsPipeline;
+  } NvDsPipeline;
 
-typedef struct
-{
+  typedef struct
+  {
     gboolean enable_perf_measurement;
     gint file_loop;
     gboolean source_list_enabled;
@@ -82,9 +83,10 @@ typedef struct
     NvDsStreammuxConfig streammux_config;
     NvDsGieConfig audio_classifier_config;
     NvDsSinkSubBinConfig sink_bin_sub_bin_config[MAX_SINK_BINS];
-} NvDsConfig;
+  } NvDsConfig;
 
-struct _AppCtx {
+  struct _AppCtx
+  {
     gboolean version;
     gboolean cintr;
     gboolean seeking;
@@ -100,10 +102,10 @@ struct _AppCtx {
     NvDsPipeline pipeline;
     NvDsConfig config;
     NvDsAppPerfStructInt perf_struct;
-};
+  };
 
-typedef struct
-{
+  typedef struct
+  {
     gint anomaly_count;
     gint meta_number;
     struct timespec timespec_first_frame;
@@ -112,40 +114,40 @@ typedef struct
     guint32 id;
     gint frameCount;
     GstClockTime last_ntp_time;
-} StreamSourceInfo;
+  } StreamSourceInfo;
 
-typedef struct
-{
+  typedef struct
+  {
     StreamSourceInfo streams[MAX_SOURCE_BINS];
-} TestAppCtx;
+  } TestAppCtx;
 
-/**
- * @brief  Create DS Anyalytics Pipeline per the appCtx
- *         configurations
- * @param  appCtx [IN/OUT] The application context
- *         providing the config info and where the
- *         pipeline resources are maintained
- * @param  perf_cb [IN]
- */
-gboolean create_pipeline(AppCtx *appCtx, perf_callback perf_cb, bbox_generated_callback bgpa_cb);
+  /**
+   * @brief  Create DS Anyalytics Pipeline per the appCtx
+   *         configurations
+   * @param  appCtx [IN/OUT] The application context
+   *         providing the config info and where the
+   *         pipeline resources are maintained
+   * @param  perf_cb [IN]
+   */
+  gboolean create_pipeline(AppCtx *appCtx, perf_callback perf_cb, bbox_generated_callback bgpa_cb);
 
-gboolean pause_pipeline(AppCtx *appCtx);
-gboolean resume_pipeline(AppCtx *appCtx);
-gboolean seek_pipeline(AppCtx *appCtx, glong milliseconds, gboolean seek_is_relative);
+  gboolean pause_pipeline(AppCtx *appCtx);
+  gboolean resume_pipeline(AppCtx *appCtx);
+  gboolean seek_pipeline(AppCtx *appCtx, glong milliseconds, gboolean seek_is_relative);
 
-void destroy_pipeline(AppCtx *appCtx);
-void restart_pipeline(AppCtx *appCtx);
+  void destroy_pipeline(AppCtx *appCtx);
+  void restart_pipeline(AppCtx *appCtx);
 
-/**
- * Function to read properties from configuration file.
- *
- * @param[in] config pointer to @ref NvDsConfig
- * @param[in] cfg_file_path path of configuration file.
- *
- * @return true if parsed successfully.
- */
-gboolean
-parse_config_file(NvDsConfig *config, gchar *cfg_file_path);
+  /**
+   * Function to read properties from configuration file.
+   *
+   * @param[in] config pointer to @ref NvDsConfig
+   * @param[in] cfg_file_path path of configuration file.
+   *
+   * @return true if parsed successfully.
+   */
+  gboolean
+  parse_config_file(NvDsConfig *config, gchar *cfg_file_path);
 
 #ifdef __cplusplus
 }

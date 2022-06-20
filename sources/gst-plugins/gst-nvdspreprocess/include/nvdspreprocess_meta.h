@@ -38,9 +38,8 @@
 #ifndef __NVDSPREPROCESS_META_H__
 #define __NVDSPREPROCESS_META_H__
 
-#include <string>
 #include <vector>
-
+#include <string>
 #include "nvbufsurface.h"
 #include "nvds_roi_meta.h"
 
@@ -50,26 +49,26 @@
  */
 typedef struct
 {
-    /** raw tensor buffer preprocessed for infer */
-    void *raw_tensor_buffer;
+  /** raw tensor buffer preprocessed for infer */
+  void *raw_tensor_buffer;
 
-    /** size of raw tensor buffer */
-    guint64 buffer_size;
+  /** size of raw tensor buffer */
+  guint64 buffer_size;
 
-    /** raw tensor buffer shape */
-    std::vector<int> tensor_shape;
+  /** raw tensor buffer shape */
+  std::vector<int> tensor_shape;
 
-    /** model datatype for which tensor prepared */
-    NvDsDataType data_type;
+  /** model datatype for which tensor prepared */
+  NvDsDataType data_type;
 
-    /** to be same as model input layer name */
-    std::string tensor_name;
+  /** to be same as model input layer name */
+  std::string tensor_name;
 
-    /** gpu-id on which tensor prepared */
-    guint gpu_id;
+  /** gpu-id on which tensor prepared */
+  guint gpu_id;
 
-    /** pointer to buffer from tensor pool */
-    void *private_data;
+  /** pointer to buffer from tensor pool */
+  void *private_data;
 
 } NvDsPreProcessTensorMeta;
 
@@ -79,17 +78,17 @@ typedef struct
  */
 typedef struct
 {
-    /** target unique ids for which meta is prepared */
-    std::vector<guint64> target_unique_ids;
+  /** target unique ids for which meta is prepared */
+  std::vector<guint64> target_unique_ids;
 
-    /** pointer to tensor meta */
-    NvDsPreProcessTensorMeta *tensor_meta;
+  /** pointer to tensor meta */
+  NvDsPreProcessTensorMeta *tensor_meta;
 
-    /** list of roi vectors per batch */
-    std::vector<NvDsRoiMeta> roi_vector;
+  /** list of roi vectors per batch */
+  std::vector<NvDsRoiMeta> roi_vector;
 
-    /** pointer to buffer from scaling pool*/
-    void *private_data;
+  /** pointer to buffer from scaling pool*/
+  void *private_data;
 
 } GstNvDsPreProcessBatchMeta;
 

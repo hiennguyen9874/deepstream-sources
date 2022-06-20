@@ -23,17 +23,17 @@
 #ifndef __GST_NVDSAUDIOTEMPLATE_H__
 #define __GST_NVDSAUDIOTEMPLATE_H__
 
-#include <cuda_runtime.h>
-#include <glib-object.h>
-#include <gst/audio/audio.h>
 #include <gst/base/gstbasetransform.h>
-
+#include <gst/audio/audio.h>
+#include <glib-object.h>
 #include <vector>
 
+#include <cuda_runtime.h>
 #include "gstnvdsmeta.h"
+#include "nvtx3/nvToolsExt.h"
+
 #include "nvdscustomlib_factory.hpp"
 #include "nvdscustomlib_interface.hpp"
-#include "nvtx3/nvToolsExt.h"
 
 /* Package and library details required for plugin_init */
 #define PACKAGE "nvdsaudiotemplate"
@@ -57,43 +57,45 @@ typedef struct _GstNvDsAudioTemplateClass GstNvDsAudioTemplateClass;
 #define GST_IS_NVDSAUDIOTEMPLATE_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_NVDSAUDIOTEMPLATE))
 #define GST_NVDSAUDIOTEMPLATE_CAST(obj) ((GstNvDsAudioTemplate *)(obj))
 
-struct _GstNvDsAudioTemplate {
-    GstBaseTransform base_trans;
+struct _GstNvDsAudioTemplate
+{
+  GstBaseTransform base_trans;
 
-    /** Custom Library Factory and Interface */
-    DSCustomLibrary_Factory *algo_factory;
-    IDSCustomLibrary *algo_ctx;
+  /** Custom Library Factory and Interface */
+  DSCustomLibrary_Factory *algo_factory;
+  IDSCustomLibrary *algo_ctx;
 
-    /** Custom Library Name and output caps string */
-    gchar *custom_lib_name;
+  /** Custom Library Name and output caps string */
+  gchar *custom_lib_name;
 
-    /* Store custom lib property values */
-    std::vector<Property> *vecProp;
-    gchar *custom_prop_string;
+  /* Store custom lib property values */
+  std::vector<Property> *vecProp;
+  gchar *custom_prop_string;
 
-    /** Boolean to signal output thread to stop. */
-    gboolean stop;
+  /** Boolean to signal output thread to stop. */
+  gboolean stop;
 
-    /** Input and Output audio info (resolution, color format, framerate, etc) */
-    GstAudioInfo in_audio_info;
-    GstAudioInfo out_audio_info;
+  /** Input and Output audio info (resolution, color format, framerate, etc) */
+  GstAudioInfo in_audio_info;
+  GstAudioInfo out_audio_info;
 
-    /** GPU ID on which we expect to execute the task */
-    guint gpu_id;
+  /** GPU ID on which we expect to execute the task */
+  guint gpu_id;
 
-    /** NVTX Domain. */
-    nvtxDomainHandle_t nvtx_domain;
+  /** NVTX Domain. */
+  nvtxDomainHandle_t nvtx_domain;
 
-    GstCaps *sinkcaps;
-    GstCaps *srccaps;
+  GstCaps *sinkcaps;
+  GstCaps *srccaps;
 
-    guint frame_number;
-    guint num_batch_buffers;
+  guint frame_number;
+  guint num_batch_buffers;
 };
 
 /** Boiler plate stuff */
-struct _GstNvDsAudioTemplateClass {
-    GstBaseTransformClass parent_class;
+struct _GstNvDsAudioTemplateClass
+{
+  GstBaseTransformClass parent_class;
 };
 
 GType gst_nvdsaudiotemplate_get_type(void);

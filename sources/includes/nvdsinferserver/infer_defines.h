@@ -14,7 +14,6 @@
 #define __NVDSINFERSERVER_DEFINES_H__
 
 #include <stdarg.h>
-
 #include <cassert>
 #include <condition_variable>
 #include <functional>
@@ -23,16 +22,17 @@
 #include <mutex>
 #include <queue>
 
-#define DISABLE_CLASS_COPY(NoCopyClass)       \
-    NoCopyClass(const NoCopyClass&) = delete; \
-    void operator=(const NoCopyClass&) = delete
+#define DISABLE_CLASS_COPY(NoCopyClass)        \
+    NoCopyClass(const NoCopyClass &) = delete; \
+    void operator=(const NoCopyClass &) = delete
 
 #define SIMPLE_MOVE_COPY(Cls)    \
-    Cls& operator=(Cls&& o) {    \
+    Cls &operator=(Cls &&o)      \
+    {                            \
         move_copy(std::move(o)); \
         return *this;            \
     }                            \
-    Cls(Cls&& o) { move_copy(std::move(o)); }
+    Cls(Cls &&o) { move_copy(std::move(o)); }
 
 #define INFER_UNUSED(a) (void)(a)
 
@@ -45,41 +45,49 @@
 #define INFER_EXPORT_API __attribute__((__visibility__("default")))
 
 #define InferError(fmt, ...)                                             \
-    do {                                                                 \
+    do                                                                   \
+    {                                                                    \
         dsInferLogPrint__(                                               \
             NVDSINFER_LOG_ERROR, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
     } while (0)
 
 #define InferWarning(fmt, ...)                                             \
-    do {                                                                   \
+    do                                                                     \
+    {                                                                      \
         dsInferLogPrint__(                                                 \
             NVDSINFER_LOG_WARNING, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
     } while (0)
 
 #define InferInfo(fmt, ...)                                             \
-    do {                                                                \
+    do                                                                  \
+    {                                                                   \
         dsInferLogPrint__(                                              \
             NVDSINFER_LOG_INFO, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
     } while (0)
 
 #define InferDebug(fmt, ...)                                             \
-    do {                                                                 \
+    do                                                                   \
+    {                                                                    \
         dsInferLogPrint__(                                               \
             NVDSINFER_LOG_DEBUG, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
     } while (0)
 
 #define RETURN_IF_FAILED(condition, ret, fmt, ...) \
-    do {                                           \
-        if (!(condition)) {                        \
+    do                                             \
+    {                                              \
+        if (!(condition))                          \
+        {                                          \
             InferError(fmt, ##__VA_ARGS__);        \
             return ret;                            \
         }                                          \
     } while (0)
 
 #define CHECK_NVINFER_ERROR_PRINT(err, action, logPrint, fmt, ...)     \
-    do {                                                               \
+    do                                                                 \
+    {                                                                  \
         NvDsInferStatus ifStatus = (err);                              \
-        if (ifStatus != NVDSINFER_SUCCESS) {                           \
+        if (ifStatus != NVDSINFER_SUCCESS)                             \
+        {                                                              \
             auto errStr = NvDsInferStatus2Str(ifStatus);               \
             logPrint(fmt ", nvinfer error:%s", ##__VA_ARGS__, errStr); \
             action;                                                    \
@@ -96,9 +104,11 @@
     CHECK_NVINFER_ERROR(err, , fmt, ##__VA_ARGS__)
 
 #define CHECK_CUDA_ERR_W_ACTION(err, action, logPrint, fmt, ...)        \
-    do {                                                                \
+    do                                                                  \
+    {                                                                   \
         cudaError_t errnum = (err);                                     \
-        if (errnum != cudaSuccess) {                                    \
+        if (errnum != cudaSuccess)                                      \
+        {                                                               \
             logPrint(fmt ", cuda err_no:%d, err_str:%s", ##__VA_ARGS__, \
                      (int)errnum, cudaGetErrorName(errnum));            \
             action;                                                     \

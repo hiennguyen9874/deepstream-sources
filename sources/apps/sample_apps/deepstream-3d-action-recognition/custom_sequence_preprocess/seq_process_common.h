@@ -66,7 +66,8 @@
     fprintf(out, "%s:%d, [%s: CUSTOM_LIB] " fmt "\n", __FILE__, __LINE__, #level, ##__VA_ARGS__)
 
 #define LOG_DEBUG(fmt, ...)                            \
-    if (kEnableDebug) {                                \
+    if (kEnableDebug)                                  \
+    {                                                  \
         LOG_PRINT_(stdout, DEBUG, fmt, ##__VA_ARGS__); \
     }
 
@@ -76,9 +77,11 @@
 
 // check preprocess errors and return error no.
 #define CHECK_PROCESS_ERROR(err, fmt, ...)                                       \
-    do {                                                                         \
+    do                                                                           \
+    {                                                                            \
         NvDsPreProcessStatus _sno_ = (err);                                      \
-        if (_sno_ != NVDSPREPROCESS_SUCCESS) {                                   \
+        if (_sno_ != NVDSPREPROCESS_SUCCESS)                                     \
+        {                                                                        \
             LOG_ERROR(fmt ", seq_process error: %d", ##__VA_ARGS__, (int)_sno_); \
             return _sno_;                                                        \
         }                                                                        \
@@ -86,9 +89,11 @@
 
 // check CUDA errors errors and return process error
 #define CHECK_CUDA_ERR(err, fmt, ...)                                               \
-    do {                                                                            \
+    do                                                                              \
+    {                                                                               \
         cudaError_t _errnum_ = (err);                                               \
-        if (_errnum_ != cudaSuccess) {                                              \
+        if (_errnum_ != cudaSuccess)                                                \
+        {                                                                           \
             LOG_ERROR(                                                              \
                 fmt ", cuda err_no: %d, err_str: %s", ##__VA_ARGS__, (int)_errnum_, \
                 cudaGetErrorName(_errnum_));                                        \
@@ -112,19 +117,21 @@ using SourceKey = std::tuple<uint64_t, int64_t, int64_t>;
 extern bool kEnableDebug;
 
 // Block descriptions to store multiple sequenced buffers
-struct FullBatchBlock {
-    NvDsPreProcessCustomBuf* buf = nullptr;  // allocated from NvDsPreProcessAcquirer
+struct FullBatchBlock
+{
+    NvDsPreProcessCustomBuf *buf = nullptr; // allocated from NvDsPreProcessAcquirer
     // parameters description of allocated `buf`
     NvDsPreProcessTensorParams param = {
         NvDsPreProcessNetworkInputOrder_CUSTOM, {}, NvDsPreProcessFormat_RGB};
-    uint32_t maxBatchSize = 0;  // parsed from param.network_input_shape[0]
+    uint32_t maxBatchSize = 0; // parsed from param.network_input_shape[0]
     uint32_t inUseBatchSize = 0;
 };
 
 // ROI based sequence processing buffer
-struct RoiProcessedBuf {
+struct RoiProcessedBuf
+{
     // pointer to batch buffer block
-    FullBatchBlock* block = nullptr;
+    FullBatchBlock *block = nullptr;
     // offsets in bytes for current sequence in batched block
     uint64_t blockOffset = 0;
 
@@ -146,9 +153,10 @@ struct RoiProcessedBuf {
 };
 
 // results storing batches of sequence processed buffers
-struct ReadyResult {
+struct ReadyResult
+{
     // allocated batches of processed sequence buffers
-    NvDsPreProcessCustomBuf* readyBuf = nullptr;
+    NvDsPreProcessCustomBuf *readyBuf = nullptr;
     // ROI list of processed buffers
     std::vector<NvDsRoiMeta> rois;
     // updated parameter desciptions of `readyBuf`
@@ -161,6 +169,6 @@ using SrcDestBufMap = std::map<SourceKey, std::unique_ptr<RoiProcessedBuf>>;
 
 // definition of smart pointer
 template <class T>
-using UniqPtr = std::unique_ptr<T, std::function<void(T*)>>;
+using UniqPtr = std::unique_ptr<T, std::function<void(T *)>>;
 
-#endif  //  __NVDS_SEQ_PREPROCESS_COMMON_H__
+#endif //  __NVDS_SEQ_PREPROCESS_COMMON_H__

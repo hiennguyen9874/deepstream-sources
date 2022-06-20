@@ -503,7 +503,7 @@ void NvDsPreProcessConvert_C1ToP1Float(
     }
 }
 
-//TODO add channel information, current implementation is only for single channel
+// TODO add channel information, current implementation is only for single channel
 void NvDsPreProcessConvert_FtFTensor(
     float *outBuffer,
     float *inBuffer,

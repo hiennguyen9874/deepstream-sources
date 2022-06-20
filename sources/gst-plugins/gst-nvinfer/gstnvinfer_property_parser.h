@@ -14,8 +14,8 @@
 
 #include <glib.h>
 
-#include "gstnvinfer.h"
 #include "nvdsinfer_context.h"
+#include "gstnvinfer.h"
 
 #define DEFAULT_PRE_CLUSTER_THRESHOLD 0.2
 #define DEFAULT_POST_CLUSTER_THRESHOLD 0.0

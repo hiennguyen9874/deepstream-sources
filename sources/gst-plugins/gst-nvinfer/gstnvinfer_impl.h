@@ -12,17 +12,17 @@
 #ifndef __GSTNVINFER_IMPL_H__
 #define __GSTNVINFER_IMPL_H__
 
-#include <glib.h>
-#include <gst/gst.h>
 #include <string.h>
 #include <sys/time.h>
+#include <glib.h>
+#include <gst/gst.h>
 
-#include <condition_variable>
+#include <vector>
 #include <list>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <vector>
 
 #include "nvbufsurftransform.h"
 #include "nvdsinfer_context.h"
@@ -49,39 +49,39 @@ typedef struct _GstNvInferObjectHistory GstNvInferObjectHistory;
  */
 typedef struct
 {
-    /** Ratio by which the frame / object crop was scaled in the horizontal
+  /** Ratio by which the frame / object crop was scaled in the horizontal
    * direction. Required when scaling the detector boxes from the network
    * resolution to input resolution. Not required for classifiers. */
-    gdouble scale_ratio_x = 0;
-    /** Ratio by which the frame / object crop was scaled in the vertical
+  gdouble scale_ratio_x = 0;
+  /** Ratio by which the frame / object crop was scaled in the vertical
    * direction. Required when scaling the detector boxes from the network
    * resolution to input resolution. Not required for classifiers. */
-    gdouble scale_ratio_y = 0;
-    /** Offsets if symmetric padding was performed whille scaling objects to
+  gdouble scale_ratio_y = 0;
+  /** Offsets if symmetric padding was performed whille scaling objects to
    * network resolition. */
-    guint offset_left = 0;
-    guint offset_top = 0;
-    /** roi left and top for preprocessed tensor */
-    guint roi_left = 0;
-    guint roi_top = 0;
-    /** NvDsObjectParams belonging to the object to be classified. */
-    NvDsObjectMeta *obj_meta = nullptr;
-    NvDsFrameMeta *frame_meta = nullptr;
-    NvDsRoiMeta *roi_meta = nullptr;
-    /** Index of the frame in the batched input GstBuffer. Not required for
+  guint offset_left = 0;
+  guint offset_top = 0;
+  /** roi left and top for preprocessed tensor */
+  guint roi_left = 0;
+  guint roi_top = 0;
+  /** NvDsObjectParams belonging to the object to be classified. */
+  NvDsObjectMeta *obj_meta = nullptr;
+  NvDsFrameMeta *frame_meta = nullptr;
+  NvDsRoiMeta *roi_meta = nullptr;
+  /** Index of the frame in the batched input GstBuffer. Not required for
    * classifiers. */
-    guint batch_index = 0;
-    /** Frame number of the frame from the source. */
-    gulong frame_num = 0;
-    /** The buffer structure the object / frame was converted from. */
-    NvBufSurfaceParams *input_surf_params = nullptr;
-    /** Pointer to the converted frame memory. This memory contains the frame
+  guint batch_index = 0;
+  /** Frame number of the frame from the source. */
+  gulong frame_num = 0;
+  /** The buffer structure the object / frame was converted from. */
+  NvBufSurfaceParams *input_surf_params = nullptr;
+  /** Pointer to the converted frame memory. This memory contains the frame
    * converted to RGB/RGBA and scaled to network resolution. This memory is
    * given to NvDsInferContext as input for pre-processing and inferencing. */
-    gpointer converted_frame_ptr = nullptr;
-    /** Pointer to the structure holding inference history for the object. Should
+  gpointer converted_frame_ptr = nullptr;
+  /** Pointer to the structure holding inference history for the object. Should
    * be NULL when inferencing on frames. */
-    std::weak_ptr<GstNvInferObjectHistory> history;
+  std::weak_ptr<GstNvInferObjectHistory> history;
 
 } GstNvInferFrame;
 
@@ -93,28 +93,28 @@ using GstNvInferObjHistory_MetaPair =
  */
 typedef struct
 {
-    /** Vector of frames in the batch. */
-    std::vector<GstNvInferFrame> frames;
-    /** Pointer to the input GstBuffer. */
-    GstBuffer *inbuf = nullptr;
-    /** Batch number of the input batch. */
-    gulong inbuf_batch_num = 0;
-    /** Boolean indicating that the output thread should only push the buffer to
+  /** Vector of frames in the batch. */
+  std::vector<GstNvInferFrame> frames;
+  /** Pointer to the input GstBuffer. */
+  GstBuffer *inbuf = nullptr;
+  /** Batch number of the input batch. */
+  gulong inbuf_batch_num = 0;
+  /** Boolean indicating that the output thread should only push the buffer to
    * downstream element. If set to true, a corresponding batch has not been
    * queued at the input of NvDsInferContext and hence dequeuing of output is
    * not required. */
-    gboolean push_buffer = FALSE;
-    /** Boolean marking this batch as an event marker. This is only used for
+  gboolean push_buffer = FALSE;
+  /** Boolean marking this batch as an event marker. This is only used for
    * synchronization. The output loop does not process on the batch.
    */
-    gboolean event_marker = FALSE;
-    /** Buffer containing the intermediate conversion output for the batch. */
-    GstBuffer *conv_buf = nullptr;
-    nvtxRangeId_t nvtx_complete_buf_range = 0;
+  gboolean event_marker = FALSE;
+  /** Buffer containing the intermediate conversion output for the batch. */
+  GstBuffer *conv_buf = nullptr;
+  nvtxRangeId_t nvtx_complete_buf_range = 0;
 
-    /** List of objects not inferred on in the current batch but pending
+  /** List of objects not inferred on in the current batch but pending
    * attachment of lastest available classification metadata. */
-    std::vector<GstNvInferObjHistory_MetaPair> objs_pending_meta_attach;
+  std::vector<GstNvInferObjHistory_MetaPair> objs_pending_meta_attach;
 } GstNvInferBatch;
 
 /**
@@ -128,84 +128,91 @@ typedef struct
  */
 typedef struct
 {
-    /** Parent type. Allows easy refcounting and destruction. Refcount will be
+  /** Parent type. Allows easy refcounting and destruction. Refcount will be
    * increased by 1 for each frame/object for which NvDsInferTensorMeta will be
    * generated. */
-    GstMiniObject mini_object;
-    /** NvDsInferContext pointer which hold the resource */
-    NvDsInferContextPtr infer_context;
-    /** NvDsInferContextBatchOutput instance whose output tensor buffers are being
+  GstMiniObject mini_object;
+  /** NvDsInferContext pointer which hold the resource */
+  NvDsInferContextPtr infer_context;
+  /** NvDsInferContextBatchOutput instance whose output tensor buffers are being
    * sent as meta data. This batch output will be released back to the
    * NvDsInferContext when the last ref on the mini_object is removed. */
-    NvDsInferContextBatchOutput batch_output;
+  NvDsInferContextBatchOutput batch_output;
 } GstNvInferTensorOutputObject;
 
-namespace gstnvinfer {
+namespace gstnvinfer
+{
 
-/** Holds runtime model update status along with the error message if any. */
-struct ModelStatus {
+  /** Holds runtime model update status along with the error message if any. */
+  struct ModelStatus
+  {
     /** Status of the model update. */
     NvDsInferStatus status;
     /** Config file used for model update. */
     std::string cfg_file;
     /* Error message string if any. */
     std::string message;
-};
+  };
 
-/** C++ helper class written on top of GMutex/GCond. */
-class LockGMutex {
-   public:
+  /** C++ helper class written on top of GMutex/GCond. */
+  class LockGMutex
+  {
+  public:
     LockGMutex(GMutex &mutex)
-        : m(mutex) {
-        lock();
+        : m(mutex)
+    {
+      lock();
     }
-    ~LockGMutex() {
-        if (locked)
-            unlock();
+    ~LockGMutex()
+    {
+      if (locked)
+        unlock();
     }
     void lock();
     void unlock();
     void wait(GCond &cond);
 
-   private:
+  private:
     GMutex &m;
     bool locked = false;
-};
+  };
 
-/** Enum for type of model update required. */
-enum ModelLoadType {
+  /** Enum for type of model update required. */
+  enum ModelLoadType
+  {
     /** Load a new model by just replacing the model engine assuming no network
-   * architecture changes. */
+     * architecture changes. */
     MODEL_LOAD_FROM_ENGINE,
     /** Load a new model with other configuration changes. This option will only
-   * update the NvDsInferContext, any filtering/post-processing/pre-processing
-   * done in gst-nvinfer will not be updated. An important requirement is that
-   * the network input layer resolution should not changes. */
+     * update the NvDsInferContext, any filtering/post-processing/pre-processing
+     * done in gst-nvinfer will not be updated. An important requirement is that
+     * the network input layer resolution should not changes. */
     MODEL_LOAD_FROM_CONFIG,
     /** Request the model load thread to stop. */
     MODEL_LOAD_STOP,
-};
+  };
 
-/* Helper class to manage the NvDsInferContext and runtime model update. The
- * model can be updated at runtime by setting "config-file-path" and/or
- * "model-engine-file" properties with the new config file/model engine file.
- *
- * The runtime update implementation would basically create and initialize a
- * new NvDsInferContext with new parameters and if successful will replace the
- * current NvDsInferContext instance with the new instance while taking care of
- * processing synchronization.
- *
- * Constraints of runtime model update:
- *   - Model input resolution and channels should not change
- *   - Batch-size of new model engine should be equal or greater than
- *     gst-nvinfer's batch-size
- *   - Type of the model (Detection/Classification/Segmentation) should not
- *     change.
- *
- * Check deepstream-test5-app README for more details on OTA and runtime model
- * update and sample test steps.*/
-class DsNvInferImpl {
-   public:
+  /* Helper class to manage the NvDsInferContext and runtime model update. The
+   * model can be updated at runtime by setting "config-file-path" and/or
+   * "model-engine-file" properties with the new config file/model engine file.
+   *
+   * The runtime update implementation would basically create and initialize a
+   * new NvDsInferContext with new parameters and if successful will replace the
+   * current NvDsInferContext instance with the new instance while taking care of
+   * processing synchronization.
+   *
+   * Constraints of runtime model update:
+   *   - Model input resolution and channels should not change
+   *   - Batch-size of new model engine should be equal or greater than
+   *     gst-nvinfer's batch-size
+   *   - Type of the model (Detection/Classification/Segmentation) should not
+   *     change.
+   *
+   * Check deepstream-test5-app README for more details on OTA and runtime model
+   * update and sample test steps.*/
+  class DsNvInferImpl
+  {
+  public:
     using ContextReplacementPtr =
         std::unique_ptr<std::tuple<NvDsInferContextPtr, NvDsInferContextInitParamsPtr, std::string>>;
 
@@ -216,9 +223,7 @@ class DsNvInferImpl {
     /* Stop the model load thread. Release the NvDsInferContext. */
     void stop();
 
-    bool isContextReady() const {
-        return m_InferCtx.get();
-    }
+    bool isContextReady() const { return m_InferCtx.get(); }
 
     /** Load new model in separate thread */
     bool triggerNewModel(const std::string &modelPath, ModelLoadType loadType);
@@ -233,24 +238,26 @@ class DsNvInferImpl {
     /** NvDsInferContext initialization params. */
     NvDsInferContextInitParamsPtr m_InitParams;
 
-   private:
+  private:
     /** Class implementation of separate thread for runtime model load. */
-    class ModelLoadThread {
-       public:
-        using ModelItem = std::tuple<std::string, ModelLoadType>;
+    class ModelLoadThread
+    {
+    public:
+      using ModelItem = std::tuple<std::string, ModelLoadType>;
 
-        ModelLoadThread(DsNvInferImpl &impl);
-        ~ModelLoadThread();
-        void queueModel(const std::string &modelPath, ModelLoadType type) {
-            m_PendingModels.push(ModelItem(modelPath, type));
-        }
+      ModelLoadThread(DsNvInferImpl &impl);
+      ~ModelLoadThread();
+      void queueModel(const std::string &modelPath, ModelLoadType type)
+      {
+        m_PendingModels.push(ModelItem(modelPath, type));
+      }
 
-       private:
-        void Run();
+    private:
+      void Run();
 
-        DsNvInferImpl &m_Impl;
-        std::thread m_Thread;
-        nvdsinfer::GuardQueue<std::list<ModelItem>> m_PendingModels;
+      DsNvInferImpl &m_Impl;
+      std::thread m_Thread;
+      nvdsinfer::GuardQueue<std::list<ModelItem>> m_PendingModels;
     };
 
     bool initNewInferModelParams(
@@ -274,8 +281,8 @@ class DsNvInferImpl {
     /** Updating model thread. */
     std::unique_ptr<ModelLoadThread> m_ModelLoadThread;
     ContextReplacementPtr m_NextContextReplacement;
-};
+  };
 
-}  // namespace gstnvinfer
+}
 
 #endif
