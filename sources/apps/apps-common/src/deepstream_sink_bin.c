@@ -73,20 +73,36 @@ create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBin *bin)
                  "window-height", config->height, NULL);
     g_object_set(G_OBJECT(bin->sink), "enable-last-sample", FALSE, NULL);
     break;
-  case NV_DS_SINK_RENDER_OVERLAY:
+  case NV_DS_SINK_RENDER_DRM:
 #ifndef IS_TEGRA
-    NVGSTDS_ERR_MSG_V("Overlay is only supported for Jetson");
+    NVGSTDS_ERR_MSG_V("nvdrmvideosink is only supported for Jetson");
     return FALSE;
 #endif
     GST_CAT_INFO(NVDS_APP, "NVvideo renderer\n");
-    bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_OVERLAY, elem_name);
-    g_object_set(G_OBJECT(bin->sink), "display-id", config->display_id,
-                 NULL);
-    g_object_set(G_OBJECT(bin->sink), "overlay", config->overlay_id, NULL);
-    g_object_set(G_OBJECT(bin->sink), "overlay-x", config->offset_x, NULL);
-    g_object_set(G_OBJECT(bin->sink), "overlay-y", config->offset_y, NULL);
-    g_object_set(G_OBJECT(bin->sink), "overlay-w", config->width, NULL);
-    g_object_set(G_OBJECT(bin->sink), "overlay-h", config->height, NULL);
+    bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_DRM, elem_name);
+    if ((gint)config->color_range > -1)
+    {
+      g_object_set(G_OBJECT(bin->sink), "color-range", config->color_range,
+                   NULL);
+    }
+    g_object_set(G_OBJECT(bin->sink), "conn-id", config->conn_id, NULL);
+    g_object_set(G_OBJECT(bin->sink), "plane-id", config->plane_id, NULL);
+    if ((gint)config->set_mode > -1)
+    {
+      g_object_set(G_OBJECT(bin->sink), "set-mode", config->set_mode, NULL);
+    }
+    break;
+  case NV_DS_SINK_RENDER_3D:
+#ifndef IS_TEGRA
+    NVGSTDS_ERR_MSG_V("nv3d is only supported for Jetson");
+    return FALSE;
+#endif
+    GST_CAT_INFO(NVDS_APP, "NVvideo renderer\n");
+    bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_3D, elem_name);
+    g_object_set(G_OBJECT(bin->sink), "window-x", config->offset_x,
+                 "window-y", config->offset_y, "window-width", config->width,
+                 "window-height", config->height, NULL);
+    g_object_set(G_OBJECT(bin->sink), "enable-last-sample", FALSE, NULL);
     break;
   case NV_DS_SINK_FAKE:
     bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_FAKESINK, elem_name);
@@ -411,11 +427,6 @@ create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBinSubBin *bin)
   struct cudaDeviceProp prop;
   cudaGetDeviceProperties(&prop, config->gpu_id);
 
-  if (prop.integrated && config->enc_type == NV_DS_ENCODER_TYPE_HW)
-  {
-    g_object_set(G_OBJECT(bin->encoder), "bufapi-version", 1, NULL);
-  }
-
   if (config->enc_type == NV_DS_ENCODER_TYPE_HW)
   {
     g_object_set(G_OBJECT(bin->encoder), "profile", profile, NULL);
@@ -684,7 +695,6 @@ create_udpsink_bin(NvDsSinkEncoderConfig *config, NvDsSinkBinSubBin *bin)
     {
       g_object_set(G_OBJECT(bin->encoder), "preset-level", 1, NULL);
       g_object_set(G_OBJECT(bin->encoder), "insert-sps-pps", 1, NULL);
-      g_object_set(G_OBJECT(bin->encoder), "bufapi-version", 1, NULL);
     }
   }
   else
@@ -792,7 +802,8 @@ create_sink_bin(guint num_sub_bins, NvDsSinkSubBinConfig *config_array,
     switch (config_array[i].type)
     {
     case NV_DS_SINK_RENDER_EGL:
-    case NV_DS_SINK_RENDER_OVERLAY:
+    case NV_DS_SINK_RENDER_3D:
+    case NV_DS_SINK_RENDER_DRM:
     case NV_DS_SINK_FAKE:
       config_array[i].render_config.type = config_array[i].type;
       config_array[i].render_config.sync = config_array[i].sync;
@@ -904,7 +915,8 @@ create_demux_sink_bin(guint num_sub_bins, NvDsSinkSubBinConfig *config_array,
     switch (config_array[i].type)
     {
     case NV_DS_SINK_RENDER_EGL:
-    case NV_DS_SINK_RENDER_OVERLAY:
+    case NV_DS_SINK_RENDER_3D:
+    case NV_DS_SINK_RENDER_DRM:
     case NV_DS_SINK_FAKE:
       config_array[i].render_config.type = config_array[i].type;
       config_array[i].render_config.sync = config_array[i].sync;

@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2021 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,9 +8,16 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-Prerequisites:
+*****************************************************************************
+                     deepstream-avsync-app
+                             README
+*****************************************************************************
 
-1. Please follow instructions in the apps/sample_apps/deepstream-app/README on how
+===============================================================================
+1. Prerequisites:
+===============================================================================
+
+A. Please follow instructions in the apps/sample_apps/deepstream-app/README on how
    to install the prerequisites for the Deepstream SDK, the DeepStream SDK itself,
    and the apps.
 
@@ -24,7 +31,7 @@ Prerequisites:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
-2. The application runs with nvdsasr plugin for Automatic speech recognition.
+B. The application runs with nvdsasr plugin for Automatic speech recognition.
    To run with nvdsasr, make sure ASR model repository is already generated.
        If not generated, follow below steps:
        (Note: This application works with Riva Speech Skills 1.5.0-beta release only)
@@ -83,13 +90,13 @@ Prerequisites:
    c. gRPC installation and prerequisites:
       # Use gRPC_installation.sh to install gRPC
       $sudo chmod +x gRPC_installation.sh
-      $sudo ./gRPC_installation.sh
+      $./gRPC_installation.sh
       $source ~/.profile
 
 
    d. Launch gRPC service before running deepstream-avsync-app:
 
-      #Make sure below steps are followed  after section 2.c i.e. "gRPC installation and prerequisites" are completed.
+      #Make sure below steps are followed  after section 1.B.c i.e. "gRPC installation and prerequisites" are completed.
       #Go to riva_quickstart_v1.5.0-beta directory
       $cd riva_quickstart_v1.5.0-beta
 
@@ -102,17 +109,17 @@ Prerequisites:
    e. Set up environment to use gRPC libs
       (i)  Testing application on x86:
 
-           Follow steps mentioned in section 2.d i.e. "Launch gRPC service before running deepstream-avsync-app" to launch ASR service.
+           Follow steps mentioned in section 1.B.d i.e. "Launch gRPC service before running deepstream-avsync-app" to launch ASR service.
 
            # Set LD_LIBRARY_PATH
            $source ~/.profile
 
-           To run deepstream-avsync-app, follow steps mentioned in section 3 i.e. "Steps to run application".
+           To run deepstream-avsync-app, follow steps mentioned in section 4 i.e. "Usage".
       (ii) Testing application inside docker:
 
            Note: This needs GPU memory more than 8GB.
 
-           Outside docker, follow section 2.d "Launch gRPC service before running deepstream-avsync-app" to launch ASR service.
+           Outside docker, follow section 1.B.d "Launch gRPC service before running deepstream-avsync-app" to launch ASR service.
            Once ASR service is running we need to run the docker.
            $export DISPLAY=:0
            $xhost +
@@ -123,20 +130,40 @@ Prerequisites:
            # Set LD_LIBRARY_PATH
            $source ~/.profile
 
-           To run deepstream-avsync-app, follow steps mentioned in section 3 i.e. "Steps to run application".
+           To run deepstream-avsync-app, follow steps mentioned in section 4 i.e. "Usage".
 
-3. Steps to run application
+===============================================================================
+2. Purpose:
+===============================================================================
 
-To compile :
+This document describes the sample deepstream-avsync application.
+
+This sample builds on top of the deepstream-test3 sample to demonstrate how to:
+
+* Use a uridecodebin3 so that any type of input (e.g. RTSP/File), any GStreamer
+  supported container format, and any codec can be used as input.
+* Process multiple Audio and video sources in the pipeline.
+* For video pipeline, for batch processing, configure the stream-muxer to generate a batch of frames.
+  Attach appropriate timestamp to outgoing gst buffer.
+* Decode audio data from individual sources and mix it using audio mixer element.
+* Send output of audio mixer and nvmultistreamtiler via rtsp or rtmp.
+* Perform automatic speech recognition on decoded audio data and overlay it's output on tiled video frame.
+
+===============================================================================
+3. To compile:
+===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
   $ sudo make
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
 
-To run:
-  Follow steps 2.d and 2.e to launch ASR service and set LD_LIBRARY_PATH
+===============================================================================
+4. Usage:
+===============================================================================
+
+  Follow steps 1.B.d and 1.B.e to launch ASR service and set LD_LIBRARY_PATH
 
   $ ./deepstream-avsync-app <uri1> [uri2] ... [uriN] <flag to indicate to stream via RTSP or RTMP  1:RTSP  0:RTMP>
       <RTMP server url :applicable only for RTMP, for RTSP specify port number> enc-type <0:Hardware encoder 1:Software encoder>
@@ -157,19 +184,6 @@ e.g.
   1. In case of RTMP input, make sure that the application is launched first and then rtmp input
      streaming starts.
   2. In case of RTMP output, make sure that RTMP output url is ready to accept streaming data.
-
-This document describes the sample deepstream-avsync application.
-
-This sample builds on top of the deepstream-test3 sample to demonstrate how to:
-
-* Use a uridecodebin3 so that any type of input (e.g. RTSP/File), any GStreamer
-  supported container format, and any codec can be used as input.
-* Process multiple Audio and video sources in the pipeline.
-* For video pipeline, for batch processing, configure the stream-muxer to generate a batch of frames.
-  Attach appropriate timestamp to outgoing gst buffer.
-* Decode audio data from individual sources and mix it using audio mixer element.
-* Send output of audio mixer and nvmultistreamtiler via rtsp or rtmp.
-* Perform automatic speech recognition on decoded audio data and overlay it's output on tiled video frame.
 
 This sample accepts one or more containerised (eg. mp4/mkv)/RTMP/RTSP streams as input. It creates
 a source bin for each input and connects the decoded video output of bins to an instance of the

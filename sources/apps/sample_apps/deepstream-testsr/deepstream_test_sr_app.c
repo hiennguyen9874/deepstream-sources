@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -44,11 +44,11 @@ GST_DEBUG_CATEGORY(NVDS_APP);
  * based on the fastest source's framerate. */
 #define MUXER_BATCH_TIMEOUT_USEC 40000
 
-/* By default, OSD process-mode is set to CPU_MODE. To change mode, set as:
- * 1: GPU mode (for Tesla only)
- * 2: HW mode (For Jetson only)
+/* By default, OSD process-mode is set to GPU_MODE. To change mode, set as:
+ * 0: CPU mode
+ * 1: GPU mode
  */
-#define OSD_PROCESS_MODE 0
+#define OSD_PROCESS_MODE 1
 
 /* By default, OSD will not display text. To display text, change this to 1 */
 #define OSD_DISPLAY_TEXT 0
@@ -508,7 +508,7 @@ int main(int argc, char *argv[])
   gst_object_unref(srcpad);
 
   /* Link the remaining elements of the pipeline to streammux */
-  if (prop.integrated)
+  if (prop.integrated && sink_type == 2)
   {
     if (!gst_element_link_many(streammux, pgie,
                                nvvidconv, nvosd, nvvidconv2, cap_filter, tee_post_osd,

@@ -1,54 +1,73 @@
----
+*****************************************************************************
+* Copyright (c) 2019-2022 NVIDIA Corporation.  All rights reserved.
+*
+* NVIDIA Corporation and its licensors retain all intellectual property
+* and proprietary rights in and to this software, related documentation
+* and any modifications thereto.  Any use, reproduction, disclosure or
+* distribution of this software and related documentation without an express
+* license agreement from NVIDIA Corporation is strictly prohibited.
+*****************************************************************************
 
-- Copyright (c) 2019 NVIDIA Corporation. All rights reserved.
--
-- NVIDIA Corporation and its licensors retain all intellectual property
-- and proprietary rights in and to this software, related documentation
-- and any modifications thereto. Any use, reproduction, disclosure or
-- distribution of this software and related documentation without an express
-- license agreement from NVIDIA Corporation is strictly prohibited.
+*****************************************************************************
+                     deepstream-image-decode-app
+                             README
+*****************************************************************************
 
----
-
-Prerequisites:
+===============================================================================
+1. Prerequisites:
+===============================================================================
 
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
 to install the prerequisites for the Deepstream SDK, the DeepStream SDK itself,
 and the apps.
 
 You must have the following development packages installed
-GStreamer-1.0
-GStreamer-1.0 Base Plugins
-GStreamer-1.0 gstrtspserver
-X11 client-side library
+   GStreamer-1.0
+   GStreamer-1.0 Base Plugins
+   GStreamer-1.0 gstrtspserver
+   X11 client-side library
 
 To install these packages, execute the following command:
-sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
- libgstrtspserver-1.0-dev libx11-dev
+   sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
+   libgstrtspserver-1.0-dev libx11-dev
 
-To compile:
-
-$ Set CUDA_VER in the MakeFile as per platform.
-For Jetson, CUDA_VER=10.2
-For x86, CUDA_VER=11.4
-$ sudo make
-
-NOTE: To compile the sources, run make with "sudo" or root permission.
-
-To run:
-$ ./deepstream-image-decode-app <file1> [file2] ... [fileN]
-e.g.
-$ ./deepstream-image-decode-app file1.mjpeg file2.mjpeg
+===============================================================================
+2. Purpose:
+===============================================================================
 
 This document describes the sample deepstream-image-decode application.
 
+This sample builds on top of the deepstream-test1 sample to use multiple sources
+in the pipeline and use a custom decode bin so that mjpeg codec can be used as
+input.
+
+===============================================================================
+3. To compile:
+===============================================================================
+
+  $ Set CUDA_VER in the MakeFile as per platform.
+      For Jetson, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
+  $ sudo make
+
+
+NOTE: To compile the sources, run make with "sudo" or root permission.
+
+===============================================================================
+4. Usage:
+===============================================================================
+
+  $ ./deepstream-image-decode-app <file1> [file2] ... [fileN]
+e.g.
+  $ ./deepstream-image-decode-app file1.mjpeg file2.mjpeg
+
 This sample builds on top of the deepstream-test1 sample to demonstrate how to:
 
-- Use multiple sources in the pipeline.
-- Use a custom decode bin so that mjpeg codec can be used as input.
-- Configure the stream-muxer to generate a batch of frames and infer on the
+* Use multiple sources in the pipeline.
+* Use a custom decode bin so that mjpeg codec can be used as input.
+* Configure the stream-muxer to generate a batch of frames and infer on the
   batch for better resource utilization.
-- Extract the stream metadata, which contains useful information about the
+* Extract the stream metadata, which contains useful information about the
   frames in the batched buffer.
 
 Refer to the deepstream-test1 sample documentation for an example of simple

@@ -106,6 +106,17 @@ extern "C"
 #define CONFIG_GROUP_SOURCE_SMART_RECORD_INTERVAL "smart-rec-interval"
 
     /**
+     * Function to parse class label file. Parses the labels into a 2D-array of
+     * strings. Refer the SDK documentation for format of the labels file.
+     *
+     * @param[in] config pointer to @ref NvDsGieConfig
+     *
+     * @return true if file parsed successfully else returns false.
+     */
+    gboolean
+    parse_labels_file(NvDsGieConfig *config);
+
+    /**
      * Function to read properties of source element from configuration file.
      *
      * @param[in] config pointer to @ref NvDsDewarperConfig

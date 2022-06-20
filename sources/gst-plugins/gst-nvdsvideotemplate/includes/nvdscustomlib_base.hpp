@@ -54,6 +54,8 @@ public:
   virtual bool HandleEvent(GstEvent *event) = 0;
   // TODO: Add getProperty as well
 
+  virtual char *QueryProperties() = 0;
+
   /* Get GetCompatibleOutputCaps */
   virtual GstCaps *GetCompatibleCaps(GstPadDirection direction,
                                      GstCaps *in_caps, GstCaps *othercaps);
@@ -74,6 +76,10 @@ public:
   /** GPU ID on which we expect to execute the algorithm */
   guint m_gpuId;
 
+  gboolean m_dummyMetaInsert;
+
+  gboolean m_fillDummyBatchMeta;
+
   /* Video Information */
   GstVideoInfo m_inVideoInfo;
   GstVideoInfo m_outVideoInfo;
@@ -93,6 +99,8 @@ DSCustomLibraryBase::DSCustomLibraryBase()
   m_inCaps = NULL;
   m_outCaps = NULL;
   m_gpuId = 0;
+  m_dummyMetaInsert = false;
+  m_fillDummyBatchMeta = false;
 }
 
 bool DSCustomLibraryBase::SetInitParams(DSCustom_CreateParams *params)
@@ -101,6 +109,8 @@ bool DSCustomLibraryBase::SetInitParams(DSCustom_CreateParams *params)
   m_inCaps = params->m_inCaps;
   m_outCaps = params->m_outCaps;
   m_gpuId = params->m_gpuId;
+  m_dummyMetaInsert = params->m_dummyMetaInsert;
+  m_fillDummyBatchMeta = params->m_fillDummyBatchMeta;
 
   gst_video_info_from_caps(&m_inVideoInfo, m_inCaps);
   gst_video_info_from_caps(&m_outVideoInfo, m_outCaps);

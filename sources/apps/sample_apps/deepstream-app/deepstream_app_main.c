@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -732,11 +732,24 @@ int main(int argc, char *argv[])
       g_free(input_uris[i]);
     }
 
-    if (!parse_config_file(&appCtx[i]->config, cfg_files[i]))
+    if (g_str_has_suffix(cfg_files[i], ".yml") ||
+        g_str_has_suffix(cfg_files[i], ".yaml"))
     {
-      NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
-      appCtx[i]->return_value = -1;
-      goto done;
+      if (!parse_config_file_yaml(&appCtx[i]->config, cfg_files[i]))
+      {
+        NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
+        appCtx[i]->return_value = -1;
+        goto done;
+      }
+    }
+    else if (g_str_has_suffix(cfg_files[i], ".txt"))
+    {
+      if (!parse_config_file(&appCtx[i]->config, cfg_files[i]))
+      {
+        NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
+        appCtx[i]->return_value = -1;
+        goto done;
+      }
     }
   }
 

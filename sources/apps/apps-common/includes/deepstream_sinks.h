@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,8 +36,9 @@ extern "C"
     NV_DS_SINK_RENDER_EGL,
     NV_DS_SINK_ENCODE_FILE,
     NV_DS_SINK_UDPSINK,
-    NV_DS_SINK_RENDER_OVERLAY,
+    NV_DS_SINK_RENDER_DRM,
     NV_DS_SINK_MSG_CONV_BROKER,
+    NV_DS_SINK_RENDER_3D,
   } NvDsSinkType;
 
   typedef enum
@@ -86,10 +87,12 @@ extern "C"
     gboolean qos_value_specified;
     guint gpu_id;
     guint nvbuf_memory_type;
-    guint display_id;
-    guint overlay_id;
     guint offset_x;
     guint offset_y;
+    guint color_range;
+    guint conn_id;
+    guint plane_id;
+    gboolean set_mode;
   } NvDsSinkRenderConfig;
 
   typedef struct

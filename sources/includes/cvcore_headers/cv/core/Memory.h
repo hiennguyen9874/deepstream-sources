@@ -11,7 +11,8 @@
 #ifndef CVCORE_MEMORY_H
 #define CVCORE_MEMORY_H
 
-#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
+
 #include "Tensor.h"
 
 namespace cvcore
@@ -39,7 +40,7 @@ namespace cvcore
                           cudaStream_t stream = 0);
 
     /**
-     * Memory copy function between two non HWC/NHWC Tensors.
+     * Memory copy function between two non HWC/CHW/NHWC/NCHW Tensors.
      * @tparam TL TensorLayout type.
      * @tparam CC Channel Count.
      * @tparam CT ChannelType.
@@ -48,7 +49,7 @@ namespace cvcore
      * @param stream cuda stream.
      */
     template <TensorLayout TL, ChannelCount CC, ChannelType CT,
-              typename std::enable_if<TL != HWC && TL != NHWC>::type * = nullptr>
+              typename std::enable_if<TL != HWC && TL != CHW && TL != NHWC && TL != NCHW>::type * = nullptr>
     void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t stream = 0)
     {
         TensorBaseCopy(dst, src, stream);
@@ -87,6 +88,40 @@ namespace cvcore
                          src.getStride(TensorDimension::HEIGHT) * GetChannelSize(CT),
                          dst.getWidth() * dst.getChannelCount() * GetChannelSize(CT), src.getDepth() * src.getHeight(),
                          stream);
+    }
+
+    /**
+     * Memory copy function between two CHW Tensors.
+     * @tparam TL TensorLayout type.
+     * @tparam CC Channel Count.
+     * @tparam CT ChannelType.
+     * @param dst destination Tensor.
+     * @param src source Tensor which copy from.
+     * @param stream cuda stream.
+     */
+    template <TensorLayout TL, ChannelCount CC, ChannelType CT, typename std::enable_if<TL == CHW>::type * = nullptr>
+    void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t stream = 0)
+    {
+        TensorBaseCopy2D(dst, src, dst.getStride(TensorDimension::HEIGHT) * GetChannelSize(CT),
+                         src.getStride(TensorDimension::HEIGHT) * GetChannelSize(CT), dst.getWidth() * GetChannelSize(CT),
+                         src.getChannelCount() * src.getHeight(), stream);
+    }
+
+    /**
+     * Memory copy function between two NCHW Tensors.
+     * @tparam TL TensorLayout type.
+     * @tparam CC Channel Count.
+     * @tparam CT ChannelType.
+     * @param dst destination Tensor.
+     * @param src source Tensor which copy from.
+     * @param stream cuda stream.
+     */
+    template <TensorLayout TL, ChannelCount CC, ChannelType CT, typename std::enable_if<TL == NCHW>::type * = nullptr>
+    void Copy(Tensor<TL, CC, CT> &dst, const Tensor<TL, CC, CT> &src, cudaStream_t stream = 0)
+    {
+        TensorBaseCopy2D(dst, src, dst.getStride(TensorDimension::HEIGHT) * GetChannelSize(CT),
+                         src.getStride(TensorDimension::HEIGHT) * GetChannelSize(CT), dst.getWidth() * GetChannelSize(CT),
+                         src.getDepth() * src.getChannelCount() * src.getHeight(), stream);
     }
 
 } // namespace cvcore

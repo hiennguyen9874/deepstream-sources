@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,6 +38,7 @@
 #include "nvdscustomlib_base.h"
 
 #include "nvbufaudio.h"
+#include "gst_nvdsaudio.h"
 
 #define CUSTOM_METADATA_TYPE 0x100
 #define CUSTOM_METADATA_SIZE 64
@@ -71,6 +72,8 @@ public:
   /* Pass GST events to the library */
   virtual bool HandleEvent(GstEvent *event);
 
+  virtual char *QueryProperties();
+
   /* Process Incoming Buffer */
   virtual BufferResult ProcessBuffer(GstBuffer *inbuf);
 
@@ -85,7 +88,7 @@ private:
   /* Output Processing Thread, push buffer to downstream  */
   void OutputThread(void);
 
-  int doWork(GstBuffer *inbuf);
+  int doWork(GstBuffer *inbuf, GstBuffer *outbuf);
 
 public:
   guint source_id = 0;
@@ -107,12 +110,14 @@ public:
 
   /* Output Thread Pointer */
   std::thread *m_outputThread = NULL;
+
+  GstBufferPool *m_dsBufferPool = NULL;
 };
 
 // Create Custom Algorithm / Library Context
-extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(DSCustom_CreateParams *params);
+extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(GObject *params);
 extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(
-    DSCustom_CreateParams *params)
+    GObject *params)
 {
   return new SampleAlgorithm();
 }
@@ -121,6 +126,65 @@ extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(
 bool SampleAlgorithm::SetInitParams(DSCustom_CreateParams *params)
 {
   DSCustomLibraryBase::SetInitParams(params);
+
+  if (hw_caps == true)
+  {
+    GstStructure *structure;
+    const gchar *format;
+    GstAllocationParams allocation_params;
+    GstNvDsAudioAllocatorParams allocator_params;
+
+    structure = gst_caps_get_structure(params->m_outCaps, 0);
+
+    if (!gst_structure_get_int(structure, "rate",
+                               (gint *)&allocator_params.rate))
+      return false;
+    if (!gst_structure_get_int(structure, "channels",
+                               (gint *)&allocator_params.channels))
+      return false;
+    format = gst_structure_get_string(structure, "format");
+    if (!strcmp(format, "S16LE"))
+      allocator_params.format = NVBUF_AUDIO_S16LE;
+    else if (!strcmp(format, "F32LE"))
+      allocator_params.format = NVBUF_AUDIO_F32LE;
+    else
+      return false;
+
+    allocator_params.batchSize = params->m_batchSize;
+    allocator_params.isContiguous = true;
+#if defined(__aarch64__)
+    allocator_params.memType = NVDS_MEM_SYSTEM;
+#else
+    allocator_params.gpuId = params->m_gpuId;
+    allocator_params.memType = NVDS_MEM_CUDA_PINNED;
+#endif
+    allocator_params.layout = NVBUF_AUDIO_INTERLEAVED;
+    allocator_params.bpf = 4;
+    allocator_params.bufferLength = 441000;
+
+    m_dsBufferPool = gst_buffer_pool_new();
+
+    GstStructure *config = gst_buffer_pool_get_config(m_dsBufferPool);
+    gst_buffer_pool_config_set_params(config, nullptr,
+                                      sizeof(GstNvDsAudioMemory), 3, 3);
+
+    GstAllocator *allocator = gst_nvdsaudio_allocator_new(&allocator_params);
+
+    memset(&allocation_params, 0, sizeof(allocation_params));
+    gst_buffer_pool_config_set_allocator(config, allocator,
+                                         &allocation_params);
+
+    if (!gst_buffer_pool_set_config(m_dsBufferPool, config))
+    {
+      g_object_unref(m_dsBufferPool);
+      return false;
+    }
+
+    if (!gst_buffer_pool_set_active(m_dsBufferPool, TRUE))
+    {
+      return false;
+    }
+  }
 
   m_outputThread = new std::thread(&SampleAlgorithm::OutputThread, this);
 
@@ -141,6 +205,13 @@ GstCaps *SampleAlgorithm::GetCompatibleCaps(GstPadDirection direction,
 
   GstCaps *result = gst_caps_copy(in_caps);
   return result;
+}
+
+char *SampleAlgorithm::QueryProperties()
+{
+  char *str = new char[1000];
+  strcpy(str, "CUSTOM LIBRARY PROPERTIES\n \t\t\tcustomlib-props=\"noise-factor:x\" x = { 0 <= x < 255 } ");
+  return str;
 }
 
 bool SampleAlgorithm::HandleEvent(GstEvent *event)
@@ -165,6 +236,14 @@ bool SampleAlgorithm::HandleEvent(GstEvent *event)
   if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_STREAM_EOS)
   {
     gst_nvevent_parse_stream_eos(event, &source_id);
+    m_processLock.lock();
+    m_stop = true;
+    m_processCV.notify_all();
+    m_processLock.unlock();
+    while (outputthread_stopped == false)
+    {
+      g_usleep(1000);
+    }
   }
   if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_PAD_ADDED)
   {
@@ -233,13 +312,17 @@ SampleAlgorithm::~SampleAlgorithm()
   }
 }
 
-int SampleAlgorithm::doWork(GstBuffer *inbuf)
+int SampleAlgorithm::doWork(GstBuffer *inbuf, GstBuffer *outbuf)
 {
   GstMapInfo in_map_info;
+  GstMapInfo out_map_info;
 
   memset(&in_map_info, 0, sizeof(in_map_info));
+  if (hw_caps == true)
+    memset(&out_map_info, 0, sizeof(out_map_info));
 
-  if (m_noiseFactor != 0)
+  if ((m_noiseFactor != 0) ||
+      ((m_noiseFactor == 0) && (hw_caps == true)))
   {
     /* Map the buffer contents and get the pointer to NvBufSurface. */
     if (!gst_buffer_map(inbuf, &in_map_info, GST_MAP_READ))
@@ -249,6 +332,19 @@ int SampleAlgorithm::doWork(GstBuffer *inbuf)
           ("%s:gst buffer map to get pointer to NvBufSurface failed", __func__),
           (NULL));
       return -1;
+    }
+
+    if (hw_caps == true)
+    {
+      if (!gst_buffer_map(outbuf, &out_map_info, GST_MAP_WRITE))
+      {
+        GST_ELEMENT_ERROR(
+            m_element, STREAM, FAILED,
+            ("%s:gst buffer map to get pointer to NvBufSurface failed", __func__),
+            (NULL));
+        gst_buffer_unmap(inbuf, &in_map_info);
+        return -1;
+      }
     }
 
     /*(hw_caps == false) ? std::cout << "SW CAPS audio/x-raw" << std::endl :
@@ -275,18 +371,32 @@ int SampleAlgorithm::doWork(GstBuffer *inbuf)
        * nvdsaudiotemplate ...
        * */
       NvBufAudio *src_audio_batch = (NvBufAudio *)in_map_info.data;
+      NvBufAudio *dst_audio_batch = (NvBufAudio *)out_map_info.data;
+      dst_audio_batch->numFilled = src_audio_batch->numFilled;
+      // NvBufAudio *dst_audio_batch = (NvBufAudio *)memory->batch;
       for (guint index = 0; index < src_audio_batch->numFilled; index++)
       {
+        dst_audio_batch->audioBuffers[index].bufPts =
+            src_audio_batch->audioBuffers[index].bufPts;
+        dst_audio_batch->audioBuffers[index].duration =
+            src_audio_batch->audioBuffers[index].duration;
+
         guint8 *data = (guint8 *)src_audio_batch->audioBuffers[index].dataPtr;
+        guint8 *odata = (guint8 *)dst_audio_batch->audioBuffers[index].dataPtr;
+        dst_audio_batch->audioBuffers[index].dataSize =
+            src_audio_batch->audioBuffers[index].dataSize;
+        dst_audio_batch->audioBuffers[index].sourceId = index;
         for (guint i = 0; i < src_audio_batch->audioBuffers[index].dataSize;
              i++)
         {
-          data[i] = data[i] + m_noiseFactor;
+          odata[i] = data[i] + m_noiseFactor;
         }
       }
     }
 
     gst_buffer_unmap(inbuf, &in_map_info);
+    if (hw_caps == true)
+      gst_buffer_unmap(outbuf, &out_map_info);
   }
   return 0;
 }
@@ -391,20 +501,41 @@ void SampleAlgorithm::OutputThread(void)
     // Add custom algorithm logic here
     // Once buffer processing is done, push the buffer to the downstream by
     // using gst_pad_push function
-    nvds_set_input_system_timestamp(packetInfo.inbuf,
-                                    GST_ELEMENT_NAME(m_element));
 
-    int result = doWork(packetInfo.inbuf);
+    if (hw_caps == true)
+    {
+      flow_ret =
+          gst_buffer_pool_acquire_buffer(m_dsBufferPool, &outBuffer, nullptr);
+      if (flow_ret != GST_FLOW_OK)
+      {
+        printf("Failed to acquire buffer FLOW RET = %d\n", flow_ret);
+        return;
+      }
+
+      if (!gst_buffer_copy_into(outBuffer,
+                                packetInfo.inbuf, GST_BUFFER_COPY_META, 0, -1))
+      {
+        GST_DEBUG_OBJECT(m_element, "Buffer metadata copy failed \n");
+      }
+
+      nvds_set_input_system_timestamp(outBuffer, GST_ELEMENT_NAME(m_element));
+    }
+
+    int result = doWork(packetInfo.inbuf, outBuffer);
     if (result == -1)
     {
       std::cout << "DoWork Failed" << std::endl;
     }
 
-    // Transform IP case
-    outBuffer = packetInfo.inbuf;
+    if (hw_caps == false)
+    {
+      outBuffer = packetInfo.inbuf;
+    }
 
-    nvds_set_output_system_timestamp(packetInfo.inbuf,
-                                     GST_ELEMENT_NAME(m_element));
+    if (hw_caps == true)
+      nvds_set_output_system_timestamp(outBuffer,
+                                       GST_ELEMENT_NAME(m_element));
+
     flow_ret = gst_pad_push(GST_BASE_TRANSFORM_SRC_PAD(m_element), outBuffer);
     GST_DEBUG("FLOW RET = %d\n", flow_ret);
 

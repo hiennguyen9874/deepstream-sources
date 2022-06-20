@@ -11,10 +11,11 @@
 #ifndef CVCORE_Math_H
 #define CVCORE_Math_H
 
-#include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <algorithm>
 #include <vector>
+
 #include "Tensor.h"
 
 namespace cvcore

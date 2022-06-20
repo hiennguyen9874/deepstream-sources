@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -88,7 +88,6 @@ bus_callback(GstBus *bus, GstMessage *message, gpointer data)
      * till all pipelines are done.
      */
     sctx->eos_received = TRUE;
-    // g_print("EOS received *******\n");
     break;
   }
   default:
@@ -100,13 +99,11 @@ bus_callback(GstBus *bus, GstMessage *message, gpointer data)
 static void
 cb_newpad(GstElement *decodebin, GstPad *decoder_src_pad, gpointer data)
 {
-  // g_print ("In cb_newpad\n");
   GstCaps *caps = gst_pad_query_caps(decoder_src_pad, NULL);
   const GstStructure *str = gst_caps_get_structure(caps, 0);
   const gchar *name = gst_structure_get_name(str);
   GstElement *source_bin = (GstElement *)data;
 
-  // g_print("name = %s************\n", name);
   /* Need to check if the pad created by the decodebin is for audio */
   if (!strncmp(name, "audio", 5))
   {
@@ -121,7 +118,6 @@ cb_newpad(GstElement *decodebin, GstPad *decoder_src_pad, gpointer data)
     gst_object_unref(bin_ghost_pad);
 
     gst_element_sync_state_with_parent(source_bin);
-    // g_print("Audio data present************\n");
   }
 }
 
@@ -129,7 +125,6 @@ static void
 decodebin_child_added(GstChildProxy *child_proxy, GObject *object,
                       gchar *name, gpointer user_data)
 {
-  // g_print ("Decodebin child added: %s\n", name);
   if (g_strrstr(name, "decodebin") == name)
   {
     g_signal_connect(G_OBJECT(object), "child-added",
@@ -214,7 +209,6 @@ decoder_src_pad_event_probe(GstPad *pad, GstPadProbeInfo *info,
     }
   }
   sctx->has_audio = TRUE;
-  // g_print("stream has audio sctx->stream_id = %d*************************\n", sctx->stream_id);
   return GST_PAD_PROBE_OK;
 }
 
@@ -231,10 +225,10 @@ asr_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info, gpointer u_data)
 
   if (!gst_buffer_map(buf, &inmap, GST_MAP_READ))
   {
-    g_print("Unable to map info from buffer\n");
-    return GST_FLOW_ERROR;
+    g_printerr("Unable to map info from buffer\n");
+    return GST_PAD_PROBE_DROP;
   }
-  text_data = inmap.data;
+  text_data = (char *)inmap.data;
   fwrite(text_data, strlen(text_data), 1, sctx->FP_asr);
   fwrite(&newline, 1, 1, sctx->FP_asr);
   return GST_PAD_PROBE_OK;
@@ -369,16 +363,16 @@ create_asr_pipeline(AppCtx *appctx, int stream_num, StreamCtx *sctx,
 
   if (sctx->audio_config.asr_output_file_name == NULL)
   {
-    g_print("In config file ASR output text file is not provided for stream %d \
+    g_printerr("In config file ASR output text file is not provided for stream %d \
      \n",
-            stream_num);
+               stream_num);
     exit(-1);
   }
 
   sctx->FP_asr = fopen(sctx->audio_config.asr_output_file_name, "w");
   if (sctx->FP_asr == NULL)
   {
-    g_print("Can not opne ASR output text file\n");
+    g_printerr("Can not open ASR output text file\n");
     exit(-1);
   }
 

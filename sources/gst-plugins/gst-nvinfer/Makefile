@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -15,13 +15,13 @@ endif
 
 CXX:= g++
 SRCS:= gstnvinfer.cpp  gstnvinfer_allocator.cpp gstnvinfer_property_parser.cpp \
-       gstnvinfer_meta_utils.cpp gstnvinfer_impl.cpp
+       gstnvinfer_meta_utils.cpp gstnvinfer_impl.cpp gstnvinfer_yaml_parser.cpp
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_infer.so
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
-CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"6.0.1\" \
+CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"6.1.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes \
 	 -I ../gst-nvdspreprocess/include \
@@ -34,7 +34,7 @@ LIBS := -shared -Wl,-no-undefined \
 	-L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart
 
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_meta -lnvds_meta \
-       -lnvds_infer -lnvbufsurface -lnvbufsurftransform -ldl -lpthread \
+       -lnvds_infer -lnvbufsurface -lnvbufsurftransform -ldl -lpthread -lyaml-cpp \
        -lcuda -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 OBJS:= $(SRCS:.cpp=.o)

@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -68,8 +68,8 @@ Compile the custom library:
   # nvdsinfer_custom_impl_Yolo/nvdsinfer_yolo_engine.cpp
 
   # Export correct CUDA version as per the platform
-  For Jetson:  $ export CUDA_VER=10.2
-  For x86:     $ export CUDA_VER=11.4
+  For Jetson:  $ export CUDA_VER=11.4
+  For x86:     $ export CUDA_VER=11.6
 
   $ sudo -E make -C nvdsinfer_custom_impl_Yolo
 

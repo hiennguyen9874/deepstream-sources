@@ -35,7 +35,7 @@ namespace cvcore
             uint32_t numGestures;
             /**< Smoothing window size for filtering the detections. Set to 1 for no filtering */
             size_t gestureHistorySize;
-            /**< Threshold for refining. Refers to the maximum number of detections in the window size. */
+            /**< Threshold for refining. Refers to the maximum number of detections in thw window size. */
             size_t gestureHistoryThreshold;
         };
 
@@ -174,7 +174,8 @@ namespace cvcore
              * Main interface to run post-processing for batch input.
              * @param gestures Array of gestures detected represented as pair<index, score> ranked by score
              * based on highest score.
-             * @param input Raw gesture output from the output layer of gestures network.
+             * @param input RGB/BGR Interleaved image (CPU/GPU Input Tensor supported)
+             * @param inputBBox Bounding box of hand
              * @param stream Cuda stream
              */
             void execute(Array<Gestures::GesturesLikelihood> &gestures, const Tensor<CL, CX, F32> &input,

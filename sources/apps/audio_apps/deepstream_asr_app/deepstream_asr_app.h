@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,8 +20,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __DEEPSTREAM_VC_APP_H_
-#define __DEEPSTREAM_VC_APP_H_
+#ifndef __DEEPSTREAM_ASR_APP_H_
+#define __DEEPSTREAM_ASR_APP_H_
 
 #include <gst/gst.h>
 #include <glib.h>
@@ -61,4 +61,10 @@ int destroy_pipeline(StreamCtx *sctx);
 guint get_num_sources(gchar *cfg_file_path);
 gboolean parse_config_file(AppCtx *appctx, gchar *config_file);
 
+G_BEGIN_DECLS
+
+guint get_num_sources_yaml(gchar *cfg_file_path);
+gboolean parse_config_file_yaml(AppCtx *appctx, gchar *config_file);
+
+G_END_DECLS
 #endif

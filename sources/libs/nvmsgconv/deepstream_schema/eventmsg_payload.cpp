@@ -871,7 +871,7 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
 
   jobject = json_object_new();
   json_object_set_string_member(jobject, "version", "4.0");
-  json_object_set_int_member(jobject, "id", events[0].metadata->frameId);
+  json_object_set_string_member(jobject, "id", to_string(events[0].metadata->frameId).c_str());
   json_object_set_string_member(jobject, "@timestamp", events[0].metadata->ts);
   if (events[0].metadata->sensorStr)
   {

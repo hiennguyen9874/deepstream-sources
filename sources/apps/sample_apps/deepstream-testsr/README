@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2020-2021 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2020-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,7 +8,14 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-Prequisites:
+*****************************************************************************
+                     deepstream-testsr-app
+                             README
+*****************************************************************************
+
+===============================================================================
+1. Prerequisites:
+===============================================================================
 
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
 to install the prequisites for Deepstream SDK, the DeepStream SDK itself and the
@@ -24,14 +31,28 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
-Compilation and installation steps:
+===============================================================================
+2. Purpose:
+===============================================================================
+
+This sample app demonstrates the usage of smart record APIs to record
+portions of the input stream. The recorded file will have bboxes or no bboxes
+as per the command line arguments. Refer Usage section for command line arguments.
+
+===============================================================================
+3. To compile:
+===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=10.2
-      For x86, CUDA_VER=11.4
+      For Jetson, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
   $ sudo make
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
+
+===============================================================================
+4. Usage:
+===============================================================================
 
 To run(Single H264 video stream source is supported):
   $./deepstream-testsr-app <rtsp uri with H264 video stream>
@@ -57,9 +78,6 @@ This document shall describe about the sample deepstream-testsr application.
 It is meant for simple demonstration of how to use the various DeepStream SDK
 elements in the pipeline and record segments of the stream based on custom
 triggers (NvDsStart / NvDsStop).
-
-This sample app demonstrates the usage of smart record APIs to record
-portions of the input stream. The recorded file will have bboxes in it.
 
 The NvDsSr smart record API supports both video and audio. Depending on which sink pads
 ("sink" and "asink") of the record bin are linked, either video or audio or both

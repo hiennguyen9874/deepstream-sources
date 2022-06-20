@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2021 NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018-2022 NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -13,9 +13,9 @@ SRCS:= gstnvmsgbroker.cpp
 INCS:= gstnvmsgbroker.h
 LIB:=libnvdsgst_msgbroker.so
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.0.1\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.1.0\" \
 	 -I../../includes
 
 GST_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/gst-plugins/

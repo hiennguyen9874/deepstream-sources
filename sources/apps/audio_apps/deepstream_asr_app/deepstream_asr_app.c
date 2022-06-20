@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
   gchar *config_file = NULL;
   GError *err = NULL;
   int ret = 0;
+  int i = 0;
 
   GOptionEntry options[] = {
       {"config", 'c', 0, G_OPTION_ARG_STRING, &config_file, "config file",
@@ -72,13 +73,13 @@ int main(int argc, char *argv[])
   g_option_context_add_group(ctx, gst_init_get_option_group());
   if (!g_option_context_parse(ctx, &argc, &argv, &err))
   {
-    g_print("Error initializing: %s\n", GST_STR_NULL(err->message));
+    g_printerr("Error initializing: %s\n", GST_STR_NULL(err->message));
     return 1;
   }
 
   if (config_file == NULL)
   {
-    g_print("Application Usage: deepstream_asr_app -c <config file name>\n");
+    g_printerr("Application Usage: deepstream_asr_app -c <config file name>\n");
     return 1;
   }
 
@@ -98,16 +99,14 @@ int main(int argc, char *argv[])
       (StreamCtx *)g_malloc0(sizeof(StreamCtx) * appctx->num_sources);
   CHECK_PTR(appctx->sctx);
 
-  ret = parse_config_file(appctx, config_file);
-
-  if (ret)
+  if (TRUE != parse_config_file(appctx, config_file))
   {
-    g_print("Error in parsing config file %s\n", config_file);
+    g_printerr("Error in parsing config file %s\n", config_file);
+    ret = 1;
     goto done;
   }
 
   /* For each user create ASR pipeline */
-  int i = 0;
 
   for (i = 0; i < appctx->num_sources; i++)
   {
@@ -141,5 +140,5 @@ done:
   g_free(appctx->sctx);
   g_free(appctx);
   g_main_loop_unref(loop);
-  return 0;
+  return ret;
 }

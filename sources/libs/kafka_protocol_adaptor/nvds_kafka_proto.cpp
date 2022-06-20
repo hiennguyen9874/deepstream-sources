@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2018-2021 NVIDIA Corporation.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -323,13 +323,13 @@ NvDsMsgApiHandle nvds_msgapi_connect(char *connection_str, nvds_msgapi_connect_c
     return NULL;
   }
 
-  strncpy(kh->brokers, string(burl + ":" + bport).c_str(), MAX_FIELD_LEN);
+  g_strlcpy(kh->brokers, string(burl + ":" + bport).c_str(), MAX_FIELD_LEN);
   /*----Producer initialize----*/
   kh->p_instance.producer = NULL;
-  strncpy(kh->p_instance.partition_key_field, DEFAULT_PARTITION_NAME, MAX_FIELD_LEN);
+  g_strlcpy(kh->p_instance.partition_key_field, DEFAULT_PARTITION_NAME, MAX_FIELD_LEN);
   /*----Consumer initialize----*/
   kh->c_instance.consumer = NULL;
-  strncpy(kh->c_instance.consumer_grp_id, DEFAULT_KAFKA_CONSUMER_GROUP, MAX_FIELD_LEN);
+  g_strlcpy(kh->c_instance.consumer_grp_id, DEFAULT_KAFKA_CONSUMER_GROUP, MAX_FIELD_LEN);
   kh->c_instance.disconnect = true;
   kh->c_instance.config = "";
 

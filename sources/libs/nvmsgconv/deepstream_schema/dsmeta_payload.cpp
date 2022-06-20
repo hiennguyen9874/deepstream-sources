@@ -488,7 +488,7 @@ gchar *generate_dsmeta_message_minimal(void *privData, void *frameMeta)
 
   jobject = json_object_new();
   json_object_set_string_member(jobject, "version", "4.0");
-  json_object_set_int_member(jobject, "id", frame_meta->frame_num);
+  json_object_set_string_member(jobject, "id", to_string(frame_meta->frame_num).c_str());
   json_object_set_string_member(jobject, "@timestamp", ts);
   json_object_set_string_member(jobject, "sensorId", sensorId.c_str());
 

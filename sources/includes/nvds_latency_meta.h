@@ -124,9 +124,6 @@ extern "C"
    */
   gboolean nvds_set_output_system_timestamp(GstBuffer *buffer, gchar *element_name);
 
-  gboolean nvds_add_sub_time(GstBuffer *buffer, gchar *element_name, gchar *name,
-                             gdouble start_time, gdouble end_time);
-
   /**
    * \brief  Measures the latency of all frames present in the current batch.
    *

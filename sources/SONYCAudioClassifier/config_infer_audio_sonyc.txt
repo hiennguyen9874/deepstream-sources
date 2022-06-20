@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -60,7 +60,7 @@ gie-unique-id=1
 output-blob-names=output1
 network-type=1
 parse-classifier-func-name=NvDsInferParseCustomAudio
-custom-lib-path=/opt/nvidia/deepstream/deepstream-6.0/lib/libnvds_infer_custom_parser_audio.so
+custom-lib-path=/opt/nvidia/deepstream/deepstream/lib/libnvds_infer_custom_parser_audio.so
 
 [class-attrs-all]
 threshold=0.4

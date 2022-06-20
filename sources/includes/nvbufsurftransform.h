@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -20,14 +20,14 @@
  */
 #ifndef NVBUFSURFTRANSFORM_H_
 #define NVBUFSURFTRANSFORM_H_
-#include <cuda.h>
-#include <cuda_runtime.h>
 #include "nvbufsurface.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+  typedef struct CUstream_st *cudaStream_t; //!< Forward declaration of cudaStream_t.
 
   /** @defgroup ds_bbb NvBufSurfTransform Types and Functions
    * Defines types and functions of the \ref NvBufSurfTransform
@@ -423,6 +423,53 @@ extern "C"
   NvBufSurfTransform_Error NvBufSurfTransformCompositeBlend(NvBufSurface *src0,
                                                             NvBufSurface *src1, NvBufSurface *alpha, NvBufSurface *dst,
                                                             NvBufSurfTransformCompositeBlendParams *blend_params);
+
+  /**
+   * Performs Composition on multiple input images with single batch size
+   *
+   * Composites batched(batch size=1) input buffers pointed by src pointer. Compositer scales and stitches
+   * batched buffers pointed by src into single dst buffer (batch size=1), the parameters for
+   * location to be composited is provided by composite_params
+   * Use NvBufSurfTransformSetSessionParams before each call, if user defined
+   * session parameters are to be used.
+   *
+   * @param[in] src pointer (multiple buffer) to input batched(batch size=1) buffers to be transformed.
+   * @param[out] dst pointer (single buffer) where composited output would be stored.
+   * @param[in] composite_params pointer to NvBufSurfTransformCompositeParams structure.
+   *
+   * @return NvBufSurfTransform_Error indicating success or failure.
+   */
+  NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufComposite(NvBufSurface **src,
+                                                                    NvBufSurface *dst, NvBufSurfTransformCompositeParams *composite_params);
+
+  /**
+   * Performs Composition on multiple input images with single batch size Asynchronously (non-blocking).
+   *
+   * Composites batched(batch size=1) input buffers pointed by src pointer. Compositer scales and stitches
+   * batched buffers pointed by src into single dst buffer (batch size=1), the parameters for
+   * location to be composited is provided by composite_params
+   * Use NvBufSurfTransformSetSessionParams before each call, if user defined
+   * session parameters are to be used.
+   *
+   * @param[in] src pointer (multiple buffer) to input batched(batch size=1) buffers to be transformed.
+   * @param[out] dst pointer (single buffer) where composited output would be stored.
+   * @param[in] composite_params pointer to NvBufSurfTransformCompositeParams structure.
+   * @param[out] sync_objs
+   *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
+   *                  which holds synchronization information of the current
+   *                  composite call. ref\ NvBufSurfTransfromSyncObjWait() API to be
+   *                  called on this object to wait for composition to complete.
+   *                  \ref NvBufSurfTransformSyncObjDestroy API should be called after
+   *                  \ref NvBufSurfTransformSyncObjWait API to release the objects
+   *                  If the parameter is NULL, the call would return only after
+   *                  the composite is complete.
+
+   *
+   * @return NvBufSurfTransform_Error indicating success or failure.
+   */
+  NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufCompositeAsync(NvBufSurface **src,
+                                                                         NvBufSurface *dst, NvBufSurfTransformCompositeParams *composite_params,
+                                                                         NvBufSurfTransformSyncObj_t *sync_obj);
 
   /**
    * \brief  Wait on the synchroization object.

@@ -61,7 +61,7 @@ public:
         m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW);
         if (m_libHandle)
         {
-            std::cout << "Library Opened Successfully" << std::endl;
+            // std::cout << "Library Opened Successfully" << std::endl;
 
             m_CreateAlgoCtx = dlsym_ptr<IDSCustomLibrary *()>(m_libHandle, "CreateCustomAlgoCtx");
             if (!m_CreateAlgoCtx)

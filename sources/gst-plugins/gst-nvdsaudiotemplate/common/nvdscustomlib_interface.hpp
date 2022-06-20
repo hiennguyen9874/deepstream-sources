@@ -40,6 +40,7 @@ struct DSCustom_CreateParams
     GstCaps *m_inCaps;
     GstCaps *m_outCaps;
     guint m_gpuId;
+    guint m_batchSize;
 };
 
 struct Property
@@ -57,6 +58,7 @@ class IDSCustomLibrary
 public:
     virtual bool SetInitParams(DSCustom_CreateParams *params) = 0;
     virtual bool HandleEvent(GstEvent *event) = 0;
+    virtual char *QueryProperties() = 0;
     virtual bool SetProperty(Property &prop) = 0;
     virtual GstCaps *GetCompatibleCaps(GstPadDirection direction, GstCaps *in_caps, GstCaps *othercaps) = 0;
     virtual BufferResult ProcessBuffer(GstBuffer *inbuf) = 0;

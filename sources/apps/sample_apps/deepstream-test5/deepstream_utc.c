@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -142,7 +142,7 @@ extract_utc_from_uri(gchar *uri)
   }
 
   /** extract ms and remove ms_ */
-  strncpy(utc_string, utc, MAX_UTC_STRING_LEN);
+  g_strlcpy(utc_string, utc, MAX_UTC_STRING_LEN);
 
   gboolean ok = extract_ms_from_utc(utc_string, &ms);
   if (!ok)

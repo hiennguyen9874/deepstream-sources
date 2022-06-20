@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -115,6 +115,7 @@ extern "C"
   void destroy_deepstream_schema_ctx(void *privData);
   bool nvds_msg2p_parse_key_value(void *privData, const gchar *file);
   bool nvds_msg2p_parse_csv(void *privData, const gchar *file);
+  bool nvds_msg2p_parse_yaml(void *privData, const gchar *file);
 
 #ifdef __cplusplus
 }

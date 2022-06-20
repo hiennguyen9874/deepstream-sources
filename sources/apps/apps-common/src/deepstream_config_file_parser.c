@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -62,6 +62,7 @@ GST_DEBUG_CATEGORY(APP_CFG_PARSER_CAT);
 #define CONFIG_GROUP_SOURCE_SMART_RECORD_DURATION "smart-rec-duration"
 #define CONFIG_GROUP_SOURCE_SMART_RECORD_INTERVAL "smart-rec-interval"
 #define CONFIG_GROUP_SOURCE_ALSA_DEVICE "alsa-device"
+#define CONFIG_GROUP_SOURCE_UDP_BUFFER_SIZE "udp-buffer-size"
 
 #define CONFIG_GROUP_STREAMMUX_ENABLE_PADDING "enable-padding"
 #define CONFIG_GROUP_STREAMMUX_WIDTH "width"
@@ -148,10 +149,10 @@ GST_DEBUG_CATEGORY(APP_CFG_PARSER_CAT);
 #define CONFIG_GROUP_SINK_RTSP_PORT "rtsp-port"
 #define CONFIG_GROUP_SINK_UDP_PORT "udp-port"
 #define CONFIG_GROUP_SINK_UDP_BUFFER_SIZE "udp-buffer-size"
-#define CONFIG_GROUP_SINK_DISPLAY_ID "display-id"
-#define CONFIG_GROUP_SINK_OVERLAY_ID "overlay-id"
-#define CONFIG_GROUP_SINK_OFFSET_X "offset-x"
-#define CONFIG_GROUP_SINK_OFFSET_Y "offset-y"
+#define CONFIG_GROUP_SINK_COLOR_RANGE "color-range"
+#define CONFIG_GROUP_SINK_CONN_ID "conn-id"
+#define CONFIG_GROUP_SINK_PLANE_ID "plane-id"
+#define CONFIG_GROUP_SINK_SET_MODE "set-mode"
 #define CONFIG_GROUP_SINK_ONLY_FOR_DEMUX "link-to-demux"
 
 #define CONFIG_GROUP_SINK_MSG_CONV_CONFIG "msg-conv-config"
@@ -260,7 +261,7 @@ get_absolute_file_path(gchar *cfg_file_path, gchar *file_path)
  *
  * @return true if file parsed successfully else returns false.
  */
-static gboolean
+gboolean
 parse_labels_file(NvDsGieConfig *config)
 {
   GList *labels_list = NULL;
@@ -495,6 +496,13 @@ parse_source(NvDsSourceConfig *config, GKeyFile *key_file, gchar *group, gchar *
       config->alsa_device =
           g_key_file_get_string(key_file, group,
                                 CONFIG_GROUP_SOURCE_ALSA_DEVICE, &error);
+      CHECK_ERROR(error);
+    }
+    else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_UDP_BUFFER_SIZE))
+    {
+      config->udp_buffer_size =
+          g_key_file_get_integer(key_file, group,
+                                 CONFIG_GROUP_SOURCE_UDP_BUFFER_SIZE, &error);
       CHECK_ERROR(error);
     }
     else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_URI))
@@ -1760,6 +1768,8 @@ parse_sink(NvDsSinkSubBinConfig *config, GKeyFile *key_file, gchar *group, gchar
   config->encoder_config.rtsp_port = 8554;
   config->encoder_config.udp_port = 5000;
   config->render_config.qos = FALSE;
+  config->render_config.color_range = -1;
+  config->render_config.set_mode = -1;
   config->link_to_demux = FALSE;
   config->msg_conv_broker_config.new_api = FALSE;
   config->msg_conv_broker_config.conv_msg2p_new_api = FALSE;
@@ -1908,32 +1918,32 @@ parse_sink(NvDsSinkSubBinConfig *config, GKeyFile *key_file, gchar *group, gchar
                                 CONFIG_GROUP_SINK_UDP_BUFFER_SIZE, &error);
       CHECK_ERROR(error);
     }
-    else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_OVERLAY_ID))
+    else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_COLOR_RANGE))
     {
-      config->render_config.overlay_id =
+      config->render_config.color_range =
           g_key_file_get_integer(key_file, group,
-                                 CONFIG_GROUP_SINK_OVERLAY_ID, &error);
+                                 CONFIG_GROUP_SINK_COLOR_RANGE, &error);
       CHECK_ERROR(error);
     }
-    else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_OFFSET_X))
+    else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_CONN_ID))
     {
-      config->render_config.offset_x =
+      config->render_config.conn_id =
           g_key_file_get_integer(key_file, group,
-                                 CONFIG_GROUP_SINK_OFFSET_X, &error);
+                                 CONFIG_GROUP_SINK_CONN_ID, &error);
       CHECK_ERROR(error);
     }
-    else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_OFFSET_Y))
+    else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_PLANE_ID))
     {
-      config->render_config.offset_y =
+      config->render_config.plane_id =
           g_key_file_get_integer(key_file, group,
-                                 CONFIG_GROUP_SINK_OFFSET_Y, &error);
+                                 CONFIG_GROUP_SINK_PLANE_ID, &error);
       CHECK_ERROR(error);
     }
-    else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_DISPLAY_ID))
+    else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_SET_MODE))
     {
-      config->render_config.display_id =
+      config->render_config.set_mode =
           g_key_file_get_integer(key_file, group,
-                                 CONFIG_GROUP_SINK_DISPLAY_ID, &error);
+                                 CONFIG_GROUP_SINK_SET_MODE, &error);
       CHECK_ERROR(error);
     }
     else if (!g_strcmp0(*key, CONFIG_GPU_ID))

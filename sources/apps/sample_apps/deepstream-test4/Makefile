@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -29,7 +29,7 @@ APP:= deepstream-test4-app
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
@@ -54,7 +54,7 @@ CFLAGS+= $(shell pkg-config --cflags $(PKGS))
 LIBS:= $(shell pkg-config --libs $(PKGS))
 
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lrt \
-	   -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart \
+	   -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart -lnvds_yml_parser \
        -lcuda -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 all: $(APP)

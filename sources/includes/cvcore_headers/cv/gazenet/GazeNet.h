@@ -19,6 +19,7 @@
 
 #include <cv/core/Array.h>
 #include <cv/core/BBox.h>
+#include <cv/core/CameraModel.h>
 #include <cv/core/Core.h>
 #include <cv/core/Image.h>
 #include <cv/core/MathTypes.h>
@@ -29,6 +30,15 @@ namespace cvcore
 {
     namespace gazenet
     {
+
+        /**
+         * Parameters for GazeNetVisualizer
+         */
+        struct GazeNetVisualizerParams
+        {
+            std::vector<double> input3DLandmarks;
+            size_t outputLength;
+        };
 
         /**
          *  Default parameters for the preprocessing pipeline.
@@ -222,6 +232,52 @@ namespace cvcore
              */
             struct GazeNetImpl;
             std::unique_ptr<GazeNetImpl> m_pImpl;
+        };
+
+        /**
+         * Interface for visualize the results of GazeNet
+         */
+        class CVCORE_API GazeNetVisualizer
+        {
+        public:
+            /**
+             * Constructor of GazeNetVisualizer.
+             * @param cameraParams intrinsic parameters of camera.
+             */
+            GazeNetVisualizer(const CameraIntrinsics &cameraParams);
+
+            /**
+             * Constructor of GazeNetVisualizer.
+             * @param params custom visualization params.
+             * @param cameraParams intrinsic parameters of camera.
+             */
+            GazeNetVisualizer(const GazeNetVisualizerParams &params, const CameraIntrinsics &cameraParams);
+
+            /**
+             * Destructor of GazeNetVisualizer.
+             */
+            ~GazeNetVisualizer();
+
+            /**
+             * Main interface to get the output visualization vector
+             * @param outputGazeLeftEndPt end point for the arrow corresponding to left eye.
+             * @param outputGazeLeftStartPt start point for the arrow corresponding to left eye.
+             * @param outputGazeRightEndPt end point for the arrow corresponding to right eye.
+             * @param outputGazeRightStartPt start point for the arrow corresponding to right eye.
+             * @param input2DLandmarks input 2d facial landmarks.
+             * @param inputGaze input gazenet inference results.
+             */
+            void execute(Array<Vector2i> &outputGazeLeftEndPt, Array<Vector2i> &outputGazeLeftStartPt,
+                         Array<Vector2i> &outputGazeRightEndPt, Array<Vector2i> &outputGazeRightStartPt,
+                         const Array<ArrayN<Vector2f, GazeNetPreProcessor::NUM_LANDMARKS>> &input2DLandmarks,
+                         const Array<ArrayN<float, GazeNet::OUTPUT_SIZE>> &inputGaze);
+
+        private:
+            /**
+             * Implementation of GazeNetVisualizer.
+             */
+            struct GazeNetVisualizerImpl;
+            std::unique_ptr<GazeNetVisualizerImpl> m_pImpl;
         };
 
     }

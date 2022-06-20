@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -245,8 +245,11 @@ struct _GstNvDsPreProcess
   /** Cuda Stream to ROI crop, scale and convert */
   cudaStream_t convert_stream;
 
-  /** Boolean to maintain aspect ration */
+  /** Boolean to indicate maintain aspect ratio */
   gboolean maintain_aspect_ratio;
+
+  /** Boolean to indicate symmetric padding */
+  gboolean symmetric_padding;
 
   /** Processing Queue and related synchronization structures. */
   /** Gmutex lock for against shared access in threads**/
@@ -309,6 +312,9 @@ struct _GstNvDsPreProcess
 
   /** NVTX Domain. */
   nvtxDomainHandle_t nvtx_domain;
+
+  // sum total of ROIs of all the groups
+  gint sum_total_rois;
 };
 
 /** Boiler plate stuff */

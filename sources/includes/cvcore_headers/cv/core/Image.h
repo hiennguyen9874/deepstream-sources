@@ -14,6 +14,7 @@
 #include <cassert>
 #include <functional>
 #include <tuple>
+
 #include "Tensor.h"
 
 namespace cvcore
@@ -54,6 +55,7 @@ namespace cvcore
         PLANAR_RGBA_F16, /**< half planar RGBA. */
         PLANAR_RGBA_F32, /**< float planar RGBA. */
         NV12,            /**< 8-bit planar Y + interleaved and subsampled (1/4 Y samples) UV. */
+        NV24,            /**< 8-bit planar Y + interleaved UV. */
     };
 
     /**
@@ -555,6 +557,30 @@ namespace cvcore
     };
 
     template <>
+    class Image<ImageType::PLANAR_BGR_U8> : public Tensor<CHW, C3, U8>
+    {
+        using Tensor<CHW, C3, U8>::Tensor;
+    };
+
+    template <>
+    class Image<ImageType::PLANAR_BGR_U16> : public Tensor<CHW, C3, U16>
+    {
+        using Tensor<CHW, C3, U16>::Tensor;
+    };
+
+    template <>
+    class Image<ImageType::PLANAR_BGR_F16> : public Tensor<CHW, C3, F16>
+    {
+        using Tensor<CHW, C3, F16>::Tensor;
+    };
+
+    template <>
+    class Image<ImageType::PLANAR_BGR_F32> : public Tensor<CHW, C3, F32>
+    {
+        using Tensor<CHW, C3, F32>::Tensor;
+    };
+
+    template <>
     class Image<ImageType::PLANAR_RGBA_U8> : public Tensor<CHW, C4, U8>
     {
         using Tensor<CHW, C4, U8>::Tensor;
@@ -588,8 +614,17 @@ namespace cvcore
             assert(width % 2 == 0 && height % 2 == 0);
         }
 
-        Image(std::size_t width, std::size_t height, std::uint8_t *dataPtr1, std::uint8_t *dataPtr2, bool isCPU = true)
-            : m_data(std::make_tuple(Y(width, height, dataPtr1, isCPU), UV(width / 2, height / 2, dataPtr2, isCPU)))
+        Image(std::size_t width, std::size_t height, std::uint8_t *dataPtrLuma, std::uint8_t *dataPtrChroma,
+              bool isCPU = true)
+            : m_data(std::make_tuple(Y(width, height, dataPtrLuma, isCPU), UV(width / 2, height / 2, dataPtrChroma, isCPU)))
+        {
+            assert(width % 2 == 0 && height % 2 == 0);
+        }
+
+        Image(std::size_t width, std::size_t height, std::size_t rowPitchLuma, std::size_t rowPitchChroma,
+              std::uint8_t *dataPtrLuma, std::uint8_t *dataPtrChroma, bool isCPU = true)
+            : m_data(std::make_tuple(Y(width, height, rowPitchLuma, dataPtrLuma, isCPU),
+                                     UV(width / 2, height / 2, rowPitchChroma, dataPtrChroma, isCPU)))
         {
             assert(width % 2 == 0 && height % 2 == 0);
         }
@@ -622,6 +657,115 @@ namespace cvcore
         std::uint8_t *getChromaData()
         {
             return std::get<1>(m_data).getData();
+        }
+
+        const std::uint8_t *getLumaData() const
+        {
+            return std::get<0>(m_data).getData();
+        }
+
+        std::size_t getLumaDataSize() const
+        {
+            return std::get<0>(m_data).getDataSize();
+        }
+
+        const std::uint8_t *getChromaData() const
+        {
+            return std::get<1>(m_data).getData();
+        }
+
+        std::size_t getChromaDataSize() const
+        {
+            return std::get<1>(m_data).getDataSize();
+        }
+
+        bool isCPU() const
+        {
+            return std::get<0>(m_data).isCPU();
+        }
+
+    private:
+        using Y = Tensor<HWC, C1, U8>;
+        using UV = Tensor<HWC, C2, U8>;
+
+        std::tuple<Y, UV> m_data;
+    };
+
+    template <>
+    class Image<ImageType::NV24>
+    {
+    public:
+        Image(std::size_t width, std::size_t height, bool isCPU = true)
+            : m_data(std::make_tuple(Y(width, height, isCPU), UV(width, height, isCPU)))
+        {
+        }
+
+        Image(std::size_t width, std::size_t height, std::uint8_t *dataPtrLuma, std::uint8_t *dataPtrChroma,
+              bool isCPU = true)
+            : m_data(std::make_tuple(Y(width, height, dataPtrLuma, isCPU), UV(width, height, dataPtrChroma, isCPU)))
+        {
+        }
+
+        Image(std::size_t width, std::size_t height, std::size_t rowPitchLuma, std::size_t rowPitchChroma,
+              std::uint8_t *dataPtrLuma, std::uint8_t *dataPtrChroma, bool isCPU = true)
+            : m_data(std::make_tuple(Y(width, height, rowPitchLuma, dataPtrLuma, isCPU),
+                                     UV(width, height, rowPitchChroma, dataPtrChroma, isCPU)))
+        {
+        }
+
+        std::size_t getLumaWidth() const
+        {
+            return std::get<0>(m_data).getWidth();
+        }
+
+        std::size_t getLumaHeight() const
+        {
+            return std::get<0>(m_data).getHeight();
+        }
+
+        std::size_t getChromaWidth() const
+        {
+            return std::get<1>(m_data).getWidth();
+        }
+
+        std::size_t getChromaHeight() const
+        {
+            return std::get<1>(m_data).getHeight();
+        }
+
+        std::uint8_t *getLumaData()
+        {
+            return std::get<0>(m_data).getData();
+        }
+
+        const std::uint8_t *getLumaData() const
+        {
+            return std::get<0>(m_data).getData();
+        }
+
+        std::size_t getLumaDataSize() const
+        {
+            return std::get<0>(m_data).getDataSize();
+        }
+
+        std::uint8_t *getChromaData()
+        {
+            return std::get<1>(m_data).getData();
+        }
+
+        const std::uint8_t *getChromaData() const
+        {
+            return std::get<1>(m_data).getData();
+        }
+
+        std::size_t getChromaDataSize() const
+        {
+            return std::get<1>(m_data).getDataSize();
+        }
+
+        bool isCPU() const
+        {
+            return std::get<0>(m_data).isCPU();
         }
 
     private:

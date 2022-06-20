@@ -194,15 +194,15 @@ extern "C"
          class ID less than this value. */
         unsigned int numClassesConfigured;
         /** Holds a per-class vector of detection confidence thresholds
-         to be applied prior to clustering operation.
+         to be applied prior to the clustering operation.
          Parsing functions may only output an object with detection confidence
          greater than or equal to the vector element indexed by the object's
          class ID. */
         std::vector<float> perClassPreclusterThreshold;
-        /* Per class threshold to be applied post clustering operation */
+        /* Per-class threshold to be applied after the clustering operation. */
         std::vector<float> perClassPostclusterThreshold;
 
-        /** Deprecated. Use perClassPreclusterThreshold instead. Reference to
+        /** @deprecated  Use perClassPreclusterThreshold instead. Reference to
          * maintain backward compatibility. */
         std::vector<float> &perClassThreshold = perClassPreclusterThreshold;
     } NvDsInferParseDetectionParams;

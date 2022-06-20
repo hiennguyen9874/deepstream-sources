@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -142,9 +142,6 @@ GST_DEBUG_CATEGORY(NVDSPREPROCESS_CFG_PARSER_CAT);
     group_index = g_ascii_strtoull(group1, &endptr, 10); \
   }
 
-// sum total of ROIs of all the groups
-gint sum_total_rois = 0;
-
 static gboolean
 nvdspreprocess_parse_property_group(GstNvDsPreProcess *nvdspreprocess,
                                     gchar *cfg_file_path, GKeyFile *key_file, gchar *group);
@@ -236,6 +233,20 @@ nvdspreprocess_parse_property_group(GstNvDsPreProcess *nvdspreprocess,
                                             NVDSPREPROCESS_PROPERTY_ENABLE, &error);
       CHECK_ERROR(error, group);
       nvdspreprocess->enable = val;
+    }
+    else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_MAINTAIN_ASPECT_RATIO))
+    {
+      gboolean val = g_key_file_get_boolean(key_file, group,
+                                            NVDSPREPROCESS_PROPERTY_MAINTAIN_ASPECT_RATIO, &error);
+      CHECK_ERROR(error, group);
+      nvdspreprocess->maintain_aspect_ratio = val;
+    }
+    else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_SYMMETRIC_PADDING))
+    {
+      gboolean val = g_key_file_get_boolean(key_file, group,
+                                            NVDSPREPROCESS_PROPERTY_SYMMETRIC_PADDING, &error);
+      CHECK_ERROR(error, group);
+      nvdspreprocess->symmetric_padding = val;
     }
     else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_PROCESSING_WIDTH))
     {
@@ -565,7 +576,7 @@ nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreprocess,
                __func__, (int)source_index);
         goto done;
       }
-      sum_total_rois += num_roi_per_stream;
+      nvdspreprocess->sum_total_rois += num_roi_per_stream;
       num_units += num_roi_per_stream;
 
       GST_DEBUG("Parsing roi-params source_index = %ld num-roi = %d roilistlen = %ld\n",
@@ -630,7 +641,7 @@ nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreprocess,
         preprocess_frame.roi_vector.push_back(roi_info);
         preprocess_group->framemeta_map.emplace(source_index, preprocess_frame);
 
-        sum_total_rois++;
+        nvdspreprocess->sum_total_rois++;
         num_units++;
       }
     }
@@ -785,11 +796,11 @@ nvdspreprocess_parse_config_file(GstNvDsPreProcess *nvdspreprocess, gchar *cfg_f
     }
   }
 
-  GST_DEBUG_OBJECT(nvdspreprocess, "network-input-shape[0] = %d, sum-total-rois=%d\n", nvdspreprocess->tensor_params.network_input_shape[0], sum_total_rois);
+  GST_DEBUG_OBJECT(nvdspreprocess, "network-input-shape[0] = %d, sum-total-rois=%d\n", nvdspreprocess->tensor_params.network_input_shape[0], nvdspreprocess->sum_total_rois);
 
   if (nvdspreprocess->nvdspreprocess_groups[0]->src_ids[0] != -1)
   {
-    if (sum_total_rois <= nvdspreprocess->tensor_params.network_input_shape[0])
+    if (nvdspreprocess->sum_total_rois <= nvdspreprocess->tensor_params.network_input_shape[0])
     {
       nvdspreprocess->max_batch_size = nvdspreprocess->tensor_params.network_input_shape[0];
       GST_DEBUG_OBJECT(nvdspreprocess, "setting batch-size = %d\n", nvdspreprocess->max_batch_size);

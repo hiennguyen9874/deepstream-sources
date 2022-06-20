@@ -11,10 +11,10 @@
 #ifndef CVCORE_TENSOR_H
 #define CVCORE_TENSOR_H
 
-#include <stdexcept>
-#include <type_traits>
 #include <initializer_list>
+#include <stdexcept>
 #include <string>
+#include <type_traits>
 
 namespace cvcore
 {
@@ -98,6 +98,13 @@ namespace cvcore
      * @return string name of CT.
      */
     std::string GetChannelTypeAsString(ChannelType CT);
+
+    /**
+     * Function to get name of a Memory type used.
+     * @param bool isCPU of Tensor as input
+     * @return string name of Memory type.
+     */
+    std::string GetMemoryTypeAsString(bool isCPU);
 
     /**
      * Function to get element size (in bytes) of a ChannelType.
@@ -821,7 +828,8 @@ namespace cvcore
         {
             if (rowPitch % GetChannelSize(CT) != 0)
             {
-                throw std::domain_error("cvcore::Tensor<HWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
+                throw std::domain_error(
+                    "cvcore::Tensor<HWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
             }
         }
 
@@ -842,7 +850,8 @@ namespace cvcore
         {
             if (rowPitch % GetChannelSize(CT) != 0)
             {
-                throw std::domain_error("cvcore::Tensor<HWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
+                throw std::domain_error(
+                    "cvcore::Tensor<HWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
             }
         }
     };
@@ -882,10 +891,41 @@ namespace cvcore
         {
         }
 
+        template <ChannelCount T = CC, typename B = bool,
+                  typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
+        Tensor(std::size_t width, std::size_t height, std::size_t rowPitch, DataType *dataPtr, B isCPU = true)
+            : detail::Tensor3D<CHW, CT>({{detail::ChannelToCount<CC>(), height * rowPitch / GetChannelSize(CT)},
+                                         {height, rowPitch / GetChannelSize(CT)},
+                                         {width, 1}},
+                                        dataPtr, isCPU)
+        {
+            if (rowPitch % GetChannelSize(CT) != 0)
+            {
+                throw std::domain_error(
+                    "cvcore::Tensor<CHW, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
+            }
+        }
+
         template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
         Tensor(std::size_t width, std::size_t height, std::size_t channelCount, DataType *dataPtr, bool isCPU = true)
             : detail::Tensor3D<CHW, CT>({{channelCount, width * height}, {height, width}, {width, 1}}, dataPtr, isCPU)
         {
+        }
+
+        template <ChannelCount T = CC, typename B = bool,
+                  typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
+        Tensor(std::size_t width, std::size_t height, std::size_t channelCount, std::size_t rowPitch, DataType *dataPtr,
+               B isCPU = true)
+            : detail::Tensor3D<CHW, CT>({{channelCount, height * rowPitch / GetChannelSize(CT)},
+                                         {height, rowPitch / GetChannelSize(CT)},
+                                         {width, 1}},
+                                        dataPtr, isCPU)
+        {
+            if (rowPitch % GetChannelSize(CT) != 0)
+            {
+                throw std::domain_error(
+                    "cvcore::Tensor<CHW, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
+            }
         }
     };
 
@@ -951,7 +991,8 @@ namespace cvcore
         {
             if (rowPitch % GetChannelSize(CT) != 0)
             {
-                throw std::domain_error("cvcore::Tensor<DHWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
+                throw std::domain_error(
+                    "cvcore::Tensor<DHWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
             }
         }
 
@@ -979,7 +1020,8 @@ namespace cvcore
         {
             if (rowPitch % GetChannelSize(CT) != 0)
             {
-                throw std::domain_error("cvcore::Tensor<DHWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
+                throw std::domain_error(
+                    "cvcore::Tensor<DHWC, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
             }
         }
     };
@@ -1027,6 +1069,23 @@ namespace cvcore
         {
         }
 
+        template <ChannelCount T = CC, typename B = bool,
+                  typename std::enable_if<T != CX && std::is_same<B, bool>::value>::type * = nullptr>
+        Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t rowPitch, DataType *dataPtr,
+               B isCPU = true)
+            : detail::Tensor4D<DCHW, CT>({{depth, detail::ChannelToCount<CC>() * height * rowPitch / GetChannelSize(CT)},
+                                          {detail::ChannelToCount<CC>(), height * rowPitch / GetChannelSize(CT)},
+                                          {height, rowPitch / GetChannelSize(CT)},
+                                          {width, 1}},
+                                         dataPtr, isCPU)
+        {
+            if (rowPitch % GetChannelSize(CT) != 0)
+            {
+                throw std::domain_error(
+                    "cvcore::Tensor<DCHW, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
+            }
+        }
+
         template <ChannelCount T = CC, typename = typename std::enable_if<T == CX>::type>
         Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t channelCount, DataType *dataPtr,
                bool isCPU = true)
@@ -1034,6 +1093,23 @@ namespace cvcore
                   {{depth, channelCount * width * height}, {channelCount, width * height}, {height, width}, {width, 1}},
                   dataPtr, isCPU)
         {
+        }
+
+        template <ChannelCount T = CC, typename B = bool,
+                  typename std::enable_if<T == CX && std::is_same<B, bool>::value>::type * = nullptr>
+        Tensor(std::size_t width, std::size_t height, std::size_t depth, std::size_t channelCount, std::size_t rowPitch,
+               DataType *dataPtr, B isCPU = true)
+            : detail::Tensor4D<DCHW, CT>({{depth, channelCount * height * rowPitch / GetChannelSize(CT)},
+                                          {channelCount, height * rowPitch / GetChannelSize(CT)},
+                                          {height, rowPitch / GetChannelSize(CT)},
+                                          {width, 1}},
+                                         dataPtr, isCPU)
+        {
+            if (rowPitch % GetChannelSize(CT) != 0)
+            {
+                throw std::domain_error(
+                    "cvcore::Tensor<DCHW, CC, CT>::Tensor ==> Parameter rowPitch is not evenly divisible by channel size");
+            }
         }
     };
 

@@ -31,6 +31,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <string>
+#include <memory>
 #include "nvds_obj_encode.h"
 #include "gst-nvmessage.h"
 
@@ -217,6 +218,8 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
 
     bool at_least_one_image_saved = false;
 
+    std::vector<std::unique_ptr<NvDsObjectMeta>> dummy_obj_meta_list;
+
     for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != nullptr;
          l_frame = l_frame->next)
     {
@@ -278,13 +281,17 @@ after_pgie_image_meta_save(AppCtx *appCtx, GstBuffer *buf,
                 {
                     unsigned dummy_counter = 0;
                     /// Creating a special object meta in order to save a full frame
-                    NvDsObjectMeta dummy_obj_meta;
-                    dummy_obj_meta.rect_params.width = ip_surf->surfaceList[frame_meta->batch_id].width;
-                    dummy_obj_meta.rect_params.height = ip_surf->surfaceList[frame_meta->batch_id].height;
-                    dummy_obj_meta.rect_params.top = 0;
-                    dummy_obj_meta.rect_params.left = 0;
+                    auto dummy_obj_meta_ptr = std::make_unique<NvDsObjectMeta>();
+
+                    dummy_obj_meta_ptr->rect_params.width = ip_surf->surfaceList[frame_meta->batch_id].width;
+                    dummy_obj_meta_ptr->rect_params.height = ip_surf->surfaceList[frame_meta->batch_id].height;
+                    dummy_obj_meta_ptr->rect_params.top = 0;
+                    dummy_obj_meta_ptr->rect_params.left = 0;
+
                     at_least_one_image_saved |= save_image(img_producer.get_image_full_frame_path_saved(),
-                                                           ip_surf, &dummy_obj_meta, frame_meta, dummy_counter);
+                                                           ip_surf, dummy_obj_meta_ptr.get(), frame_meta, dummy_counter);
+
+                    dummy_obj_meta_list.push_back(std::move(dummy_obj_meta_ptr));
                     full_frame_written = true;
                 }
                 at_least_one_metadata_saved |= data_was_stacked;

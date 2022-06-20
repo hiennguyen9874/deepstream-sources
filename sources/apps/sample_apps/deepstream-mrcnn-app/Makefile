@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -30,23 +30,17 @@ APP:= deepstream-mrcnn-app
 CC=g++
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
-
-ifeq ($(TARGET_DEVICE),aarch64)
-  CFLAGS:= -DPLATFORM_TEGRA
-  PKGS+= opencv4
-else
-  PKGS+= opencv
-endif
 
 SRCS:= $(wildcard *.cpp)
 
 INCS:= $(wildcard *.h)
 
 PKGS+= gstreamer-1.0 gstreamer-video-1.0
+PKGS+= opencv4
 
 OBJS:= $(SRCS:.cpp=.o)
 

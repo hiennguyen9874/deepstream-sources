@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,6 +30,7 @@
 
 #include "gstnvdsmeta.h"
 #include "nvdsmeta_schema.h"
+#include "nvds_yml_parser.h"
 
 #define MAX_DISPLAY_LEN 64
 #define MAX_TIME_STAMP_LEN 32
@@ -49,6 +50,7 @@
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
 #define MUXER_BATCH_TIMEOUT_USEC 40000
+#define IS_YAML(file) (g_str_has_suffix(file, ".yml") || g_str_has_suffix(file, ".yaml"))
 
 static gchar *cfg_file = NULL;
 static gchar *input_file = NULL;
@@ -66,25 +68,31 @@ gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person",
 
 GOptionEntry entries[] = {
     {"cfg-file", 'c', 0, G_OPTION_ARG_FILENAME, &cfg_file,
-     "Set the adaptor config file. Optional if connection string has relevant  details.", NULL},
+     "Set the adaptor config file. Optional if connection string has relevant  details.",
+     NULL},
     {"input-file", 'i', 0, G_OPTION_ARG_FILENAME, &input_file,
      "Set the input H264 file", NULL},
     {"topic", 't', 0, G_OPTION_ARG_STRING, &topic,
-     "Name of message topic. Optional if it is part of connection string or config file.", NULL},
+     "Name of message topic. Optional if it is part of connection string or config file.",
+     NULL},
     {"conn-str", 0, 0, G_OPTION_ARG_STRING, &conn_str,
-     "Connection string of backend server. Optional if it is part of config file.", NULL},
+     "Connection string of backend server. Optional if it is part of config file.",
+     NULL},
     {"proto-lib", 'p', 0, G_OPTION_ARG_STRING, &proto_lib,
      "Absolute path of adaptor library", NULL},
     {"schema", 's', 0, G_OPTION_ARG_INT, &schema_type,
      "Type of message schema (0=Full, 1=minimal), default=0", NULL},
     {"msg2p-meta", 0, 0, G_OPTION_ARG_INT, &msg2p_meta,
-     "msg2payload generation metadata type (0=Event Msg meta, 1=nvds meta), default=0", NULL},
+     "msg2payload generation metadata type (0=Event Msg meta, 1=nvds meta), default=0",
+     NULL},
     {"frame-interval", 0, 0, G_OPTION_ARG_INT, &frame_interval,
      "Frame interval at which payload is generated , default=30", NULL},
-    {"no-display", 0, 0, G_OPTION_ARG_NONE, &display_off, "Disable display", NULL},
+    {"no-display", 0, 0, G_OPTION_ARG_NONE, &display_off, "Disable display",
+     NULL},
     {NULL}};
 
-static void generate_ts_rfc3339(char *buf, int buf_size)
+static void
+generate_ts_rfc3339(char *buf, int buf_size)
 {
   time_t tloc;
   struct tm tm_log;
@@ -100,7 +108,8 @@ static void generate_ts_rfc3339(char *buf, int buf_size)
   strncat(buf, strmsec, buf_size);
 }
 
-static gpointer meta_copy_func(gpointer data, gpointer user_data)
+static gpointer
+meta_copy_func(gpointer data, gpointer user_data)
 {
   NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
   NvDsEventMsgMeta *srcMeta = (NvDsEventMsgMeta *)user_meta->user_meta_data;
@@ -131,7 +140,8 @@ static gpointer meta_copy_func(gpointer data, gpointer user_data)
     if (srcMeta->objType == NVDS_OBJECT_TYPE_VEHICLE)
     {
       NvDsVehicleObject *srcObj = (NvDsVehicleObject *)srcMeta->extMsg;
-      NvDsVehicleObject *obj = (NvDsVehicleObject *)g_malloc0(sizeof(NvDsVehicleObject));
+      NvDsVehicleObject *obj =
+          (NvDsVehicleObject *)g_malloc0(sizeof(NvDsVehicleObject));
       if (srcObj->type)
         obj->type = g_strdup(srcObj->type);
       if (srcObj->make)
@@ -151,7 +161,8 @@ static gpointer meta_copy_func(gpointer data, gpointer user_data)
     else if (srcMeta->objType == NVDS_OBJECT_TYPE_PERSON)
     {
       NvDsPersonObject *srcObj = (NvDsPersonObject *)srcMeta->extMsg;
-      NvDsPersonObject *obj = (NvDsPersonObject *)g_malloc0(sizeof(NvDsPersonObject));
+      NvDsPersonObject *obj =
+          (NvDsPersonObject *)g_malloc0(sizeof(NvDsPersonObject));
 
       obj->age = srcObj->age;
 
@@ -171,7 +182,8 @@ static gpointer meta_copy_func(gpointer data, gpointer user_data)
   return dstMeta;
 }
 
-static void meta_free_func(gpointer data, gpointer user_data)
+static void
+meta_free_func(gpointer data, gpointer user_data)
 {
   NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
   NvDsEventMsgMeta *srcMeta = (NvDsEventMsgMeta *)user_meta->user_meta_data;
@@ -253,7 +265,8 @@ generate_person_meta(gpointer data)
 }
 
 static void
-generate_event_msg_meta(gpointer data, gint class_id, NvDsObjectMeta *obj_params)
+generate_event_msg_meta(gpointer data, gint class_id,
+                        NvDsObjectMeta *obj_params)
 {
   NvDsEventMsgMeta *meta = (NvDsEventMsgMeta *)data;
   meta->sensorId = 0;
@@ -280,7 +293,8 @@ generate_event_msg_meta(gpointer data, gint class_id, NvDsObjectMeta *obj_params
     meta->objType = NVDS_OBJECT_TYPE_VEHICLE;
     meta->objClassId = PGIE_CLASS_ID_VEHICLE;
 
-    NvDsVehicleObject *obj = (NvDsVehicleObject *)g_malloc0(sizeof(NvDsVehicleObject));
+    NvDsVehicleObject *obj =
+        (NvDsVehicleObject *)g_malloc0(sizeof(NvDsVehicleObject));
     generate_vehicle_meta(obj);
 
     meta->extMsg = obj;
@@ -292,7 +306,8 @@ generate_event_msg_meta(gpointer data, gint class_id, NvDsObjectMeta *obj_params
     meta->objType = NVDS_OBJECT_TYPE_PERSON;
     meta->objClassId = PGIE_CLASS_ID_PERSON;
 
-    NvDsPersonObject *obj = (NvDsPersonObject *)g_malloc0(sizeof(NvDsPersonObject));
+    NvDsPersonObject *obj =
+        (NvDsPersonObject *)g_malloc0(sizeof(NvDsPersonObject));
     generate_person_meta(obj);
 
     meta->extMsg = obj;
@@ -388,7 +403,8 @@ osd_sink_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info,
          * Here message is being sent for first object every frame_interval(default=30).
          */
 
-        NvDsEventMsgMeta *msg_meta = (NvDsEventMsgMeta *)g_malloc0(sizeof(NvDsEventMsgMeta));
+        NvDsEventMsgMeta *msg_meta =
+            (NvDsEventMsgMeta *)g_malloc0(sizeof(NvDsEventMsgMeta));
         msg_meta->bbox.top = obj_meta->rect_params.top;
         msg_meta->bbox.left = obj_meta->rect_params.left;
         msg_meta->bbox.width = obj_meta->rect_params.width;
@@ -398,13 +414,16 @@ osd_sink_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info,
         msg_meta->confidence = obj_meta->confidence;
         generate_event_msg_meta(msg_meta, obj_meta->class_id, obj_meta);
 
-        NvDsUserMeta *user_event_meta = nvds_acquire_user_meta_from_pool(batch_meta);
+        NvDsUserMeta *user_event_meta =
+            nvds_acquire_user_meta_from_pool(batch_meta);
         if (user_event_meta)
         {
           user_event_meta->user_meta_data = (void *)msg_meta;
           user_event_meta->base_meta.meta_type = NVDS_EVENT_MSG_META;
-          user_event_meta->base_meta.copy_func = (NvDsMetaCopyFunc)meta_copy_func;
-          user_event_meta->base_meta.release_func = (NvDsMetaReleaseFunc)meta_free_func;
+          user_event_meta->base_meta.copy_func =
+              (NvDsMetaCopyFunc)meta_copy_func;
+          user_event_meta->base_meta.release_func =
+              (NvDsMetaReleaseFunc)meta_free_func;
           nvds_add_user_meta_to_frame(frame_meta, user_event_meta);
         }
         else
@@ -495,9 +514,22 @@ int main(int argc, char *argv[])
 
   if (!proto_lib || !input_file)
   {
-    g_printerr("missing arguments\n");
-    g_printerr("Usage: %s -i <H264 filename> -p <Proto adaptor library> --conn-str=<Connection string>\n", argv[0]);
-    return -1;
+    if (argc > 1 && !IS_YAML(argv[1]))
+    {
+      g_printerr("missing arguments\n");
+      g_printerr("Usage: %s <yml file>\n", argv[0]);
+      g_printerr("Usage: %s -i <H264 filename> -p <Proto adaptor library> --conn-str=<Connection string>\n",
+                 argv[0]);
+      return -1;
+    }
+    else if (!argv[1])
+    {
+      g_printerr("missing arguments\n");
+      g_printerr("Usage: %s <yml file>\n", argv[0]);
+      g_printerr("Usage: %s -i <H264 filename> -p <Proto adaptor library> --conn-str=<Connection string>\n",
+                 argv[0]);
+      return -1;
+    }
   }
 
   loop = g_main_loop_new(NULL, FALSE);
@@ -534,7 +566,7 @@ int main(int argc, char *argv[])
   /* Create msg broker to send payload to server */
   msgbroker = gst_element_factory_make("nvmsgbroker", "nvmsg-broker");
 
-  /* Create tee to render buffer and send message simultaneously*/
+  /* Create tee to render buffer and send message simultaneously */
   tee = gst_element_factory_make("tee", "nvsink-tee");
 
   /* Create queues */
@@ -552,7 +584,8 @@ int main(int argc, char *argv[])
 
     if (prop.integrated)
     {
-      transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+      transform =
+          gst_element_factory_make("nvegltransform", "nvegl-transform");
       if (!transform)
       {
         g_printerr("nvegltransform element could not be created. Exiting.\n");
@@ -567,40 +600,60 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  /* we set the input filename to the source element */
-  g_object_set(G_OBJECT(source), "location", input_file, NULL);
-
-  g_object_set(G_OBJECT(nvstreammux), "batch-size", 1, NULL);
-
-  g_object_set(G_OBJECT(nvstreammux), "width", MUXER_OUTPUT_WIDTH, "height",
-               MUXER_OUTPUT_HEIGHT,
-               "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
-
-  /* Set all the necessary properties of the nvinfer element,
-   * the necessary ones are : */
-  g_object_set(G_OBJECT(pgie),
-               "config-file-path", PGIE_CONFIG_FILE, NULL);
-
-  g_object_set(G_OBJECT(msgconv), "config", MSCONV_CONFIG_FILE, NULL);
-  g_object_set(G_OBJECT(msgconv), "payload-type", schema_type, NULL);
-  g_object_set(G_OBJECT(msgconv), "msg2p-newapi", msg2p_meta, NULL);
-  g_object_set(G_OBJECT(msgconv), "frame-interval", frame_interval, NULL);
-
-  g_object_set(G_OBJECT(msgbroker), "proto-lib", proto_lib,
-               "conn-str", conn_str, "sync", FALSE, NULL);
-
-  if (topic)
+  if (argc > 1 && IS_YAML(argv[1]))
   {
-    g_object_set(G_OBJECT(msgbroker), "topic", topic, NULL);
-  }
+    nvds_parse_file_source(source, argv[1], "source");
+    nvds_parse_streammux(nvstreammux, argv[1], "streammux");
 
-  if (cfg_file)
+    g_object_set(G_OBJECT(pgie),
+                 "config-file-path", "dstest4_pgie_config.yml", NULL);
+
+    g_object_set(G_OBJECT(msgconv), "config", "dstest4_msgconv_config.yml",
+                 NULL);
+    nvds_parse_msgconv(msgconv, argv[1], "msgconv");
+
+    nvds_parse_msgbroker(msgbroker, argv[1], "msgbroker");
+
+    if (display_off)
+      nvds_parse_fake_sink(sink, argv[1], "sink");
+    else
+      nvds_parse_egl_sink(sink, argv[1], "sink");
+  }
+  else
   {
-    g_object_set(G_OBJECT(msgbroker), "config", cfg_file, NULL);
+    /* we set the input filename to the source element */
+    g_object_set(G_OBJECT(source), "location", input_file, NULL);
+
+    g_object_set(G_OBJECT(nvstreammux), "batch-size", 1, NULL);
+
+    g_object_set(G_OBJECT(nvstreammux), "width", MUXER_OUTPUT_WIDTH, "height",
+                 MUXER_OUTPUT_HEIGHT,
+                 "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
+
+    /* Set all the necessary properties of the nvinfer element,
+     * the necessary ones are : */
+    g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
+
+    g_object_set(G_OBJECT(msgconv), "config", MSCONV_CONFIG_FILE, NULL);
+    g_object_set(G_OBJECT(msgconv), "payload-type", schema_type, NULL);
+    g_object_set(G_OBJECT(msgconv), "msg2p-newapi", msg2p_meta, NULL);
+    g_object_set(G_OBJECT(msgconv), "frame-interval", frame_interval, NULL);
+
+    g_object_set(G_OBJECT(msgbroker), "proto-lib", proto_lib,
+                 "conn-str", conn_str, "sync", FALSE, NULL);
+
+    if (topic)
+    {
+      g_object_set(G_OBJECT(msgbroker), "topic", topic, NULL);
+    }
+
+    if (cfg_file)
+    {
+      g_object_set(G_OBJECT(msgbroker), "config", cfg_file, NULL);
+    }
+
+    g_object_set(G_OBJECT(sink), "sync", TRUE, NULL);
   }
-
-  g_object_set(G_OBJECT(sink), "sync", TRUE, NULL);
-
   /* we add a message handler */
   bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
   bus_watch_id = gst_bus_add_watch(bus, bus_call, loop);
@@ -610,8 +663,7 @@ int main(int argc, char *argv[])
   /* we add all elements into the pipeline */
   gst_bin_add_many(GST_BIN(pipeline),
                    source, h264parser, decoder, nvstreammux, pgie,
-                   nvvidconv, nvosd, tee, queue1, queue2, msgconv,
-                   msgbroker, sink, NULL);
+                   nvvidconv, nvosd, tee, queue1, queue2, msgconv, msgbroker, sink, NULL);
 
   if (prop.integrated)
   {
@@ -736,7 +788,14 @@ int main(int argc, char *argv[])
   gst_object_unref(osd_sink_pad);
 
   /* Set the pipeline to "playing" state */
-  g_print("Now playing: %s\n", input_file);
+  if (argc > 1 && IS_YAML(argv[1]))
+  {
+    g_print("Using file: %s\n", argv[1]);
+  }
+  else
+  {
+    g_print("Now playing: %s\n", input_file);
+  }
   gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
   /* Wait till pipeline encounters an error or EOS */

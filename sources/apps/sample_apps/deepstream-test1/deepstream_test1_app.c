@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <cuda_runtime_api.h>
 #include "gstnvdsmeta.h"
+#include "nvds_yml_parser.h"
 
 #define MAX_DISPLAY_LEN 64
 
@@ -168,7 +169,8 @@ int main(int argc, char *argv[])
   /* Check input arguments */
   if (argc != 2)
   {
-    g_printerr("Usage: %s <H264 filename>\n", argv[0]);
+    g_printerr("Usage: %s <yml file>\n", argv[0]);
+    g_printerr("OR: %s <H264 filename>\n", argv[0]);
     return -1;
   }
 
@@ -231,16 +233,33 @@ int main(int argc, char *argv[])
   /* we set the input filename to the source element */
   g_object_set(G_OBJECT(source), "location", argv[1], NULL);
 
-  g_object_set(G_OBJECT(streammux), "batch-size", 1, NULL);
+  if (g_str_has_suffix(argv[1], ".h264"))
+  {
+    g_object_set(G_OBJECT(source), "location", argv[1], NULL);
 
-  g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
-               MUXER_OUTPUT_HEIGHT,
-               "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
+    g_object_set(G_OBJECT(streammux), "batch-size", 1, NULL);
 
-  /* Set all the necessary properties of the nvinfer element,
-   * the necessary ones are : */
-  g_object_set(G_OBJECT(pgie),
-               "config-file-path", "dstest1_pgie_config.txt", NULL);
+    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
+                 MUXER_OUTPUT_HEIGHT,
+                 "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
+
+    /* Set all the necessary properties of the nvinfer element,
+     * the necessary ones are : */
+    g_object_set(G_OBJECT(pgie),
+                 "config-file-path", "dstest1_pgie_config.txt", NULL);
+  }
+
+  if (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml"))
+  {
+
+    nvds_parse_file_source(source, argv[1], "source");
+    nvds_parse_streammux(streammux, argv[1], "streammux");
+
+    /* Set all the necessary properties of the nvinfer element,
+     * the necessary ones are : */
+    g_object_set(G_OBJECT(pgie),
+                 "config-file-path", "dstest1_pgie_config.yml", NULL);
+  }
 
   /* we add a message handler */
   bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
@@ -330,7 +349,7 @@ int main(int argc, char *argv[])
   gst_object_unref(osd_sink_pad);
 
   /* Set the pipeline to "playing" state */
-  g_print("Now playing: %s\n", argv[1]);
+  g_print("Using file: %s\n", argv[1]);
   gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
   /* Wait till pipeline encounters an error or EOS */

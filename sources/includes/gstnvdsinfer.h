@@ -87,6 +87,8 @@ typedef struct
   void *priv_data;
   /** Network information for the model specified for the nvinfer element instance. */
   NvDsInferNetworkInfo network_info;
+  /** Whether aspect ratio was maintained while scaling to network resolution */
+  gboolean maintain_aspect_ratio;
 } NvDsInferTensorMeta;
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -73,11 +73,7 @@ static GstStaticPadTemplate nvdsosd_src_factory =
 /* Default values for properties */
 #define DEFAULT_FONT_SIZE 12
 #define DEFAULT_FONT "Serif"
-#ifdef PLATFORM_TEGRA
-#define GST_NV_OSD_DEFAULT_PROCESS_MODE MODE_HW
-#else
 #define GST_NV_OSD_DEFAULT_PROCESS_MODE MODE_GPU
-#endif
 #define MAX_FONT_SIZE 60
 #define DEFAULT_BORDER_WIDTH 4
 
@@ -841,6 +837,10 @@ gst_nvds_osd_set_property(GObject *object, guint prop_id,
     break;
   case PROP_PROCESS_MODE:
     nvdsosd->nvdsosd_mode = (NvOSD_Mode)g_value_get_enum(value);
+    if (nvdsosd->nvdsosd_mode == MODE_HW)
+    {
+      g_print("WARN !! Hardware mode deprecated. Prefer GPU mode instead\n");
+    }
     break;
   case PROP_HW_BLEND_COLOR_ATTRS:
     nvdsosd->hw_blend = TRUE;
@@ -1054,4 +1054,4 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   nvdsgst_osd,
                   PACKAGE_DESCRIPTION,
-                  nvdsosd_init, "6.0", PACKAGE_LICENSE, PACKAGE_NAME, PACKAGE_URL)
+                  nvdsosd_init, "6.1", PACKAGE_LICENSE, PACKAGE_NAME, PACKAGE_URL)

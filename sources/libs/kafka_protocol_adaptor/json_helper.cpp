@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2018-2021 NVIDIA Corporation.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -14,6 +14,7 @@
 #include <string.h>
 #include <jansson.h>
 #include "nvds_logger.h"
+#include <glib.h>
 
 #define KAFKA_JSON_PARSER "KAKFA_JSON_PARSE"
 
@@ -90,7 +91,7 @@ int json_get_key_value(const char *msg, int msglen, const char *path, char *valu
   if (json_is_string(idvalue))
   {
     temp = json_string_value(idvalue);
-    strncpy(value, temp, nbuf);
+    g_strlcpy(value, temp, nbuf);
     nvds_log(KAFKA_JSON_PARSER, LOG_DEBUG, "json value for id = %s\n", value);
     FREE_AND_RETURN(strlen(value), root);
   }

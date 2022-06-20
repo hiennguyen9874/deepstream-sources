@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -23,8 +23,8 @@
 This document describes the procedure to run Deepstream samples using Triton
 Inference Server through gRPC.
 
-Triton Inference Server will run in a separate container. Deepstream
-nvinferserver component will communicate to the server through gRPC.
+Triton Inference Server will run in a separate deepstream-triton container. Deepstream
+nvinferserver gRPC samples will communicate to the server through gRPC.
 
 On dGPU platforms, these samples are meant to be executed inside DeepStream's
 Triton Inference Server container.
@@ -32,41 +32,46 @@ Triton Inference Server container.
 On Jetson platforms, these samples are meant to be executed on target device
 directly or inside DeepStream L4T container.
 
-For DeepStream containers, please refer to the DeepStream Quick Start Guide for
-instructions on pulling the container image and starting the container.
+For DeepStream Triton container setup, please refer to samples/configs/deepstream-app-triton/README
+for instructions on pulling the container image and starting Deepstream Triton container.
 
-In addition to the DS Triton container, models and triton_model_repo directory
+Inside DS Triton Server container, models and triton_model_repo directory
 and prepare_ds_triton_model_repo.sh script from DS SDK is required to setup model
 repository for Triton server.
 
 --------------------------------------------------------------------------------
-Running the Triton Inference server
+Running the Triton Inference server inside DeepStream Triton Container(Only for X86)
 --------------------------------------------------------------------------------
-Triton Inference server will run in a separate container. For that Triton
-Inference server docker image from the NGC will be used. The server needs the
-path of the model repository which will be managed by it.
+Triton Inference server will run in a separate container. For that DeepStream Triton
+docker image from the NGC will be used. Refer to samples/configs/deepstream-app-triton/README
+to setup DeepStream Triton server container. Run the container with cmdline:
 
-Easiest way to set up the model repository with DS provided models is to run prepare_ds_triton_model_repo.sh script.
+  $ docker run --gpus '"'device=0'"' -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -e DISPLAY=$DISPLAY --net=host nvcr.io/nvidia/deepstream:[version]-triton
+  [version] means deepstream version numbers. e.g. 6.1
+
+Inside the container, easiest way to set up the model repository with DS provided
+models is to run prepare_ds_triton_model_repo.sh script.
 Go to samples directory and run the following command.
-   $ ./prepare_ds_triton_model_repo.sh
+  $ ./prepare_ds_triton_model_repo.sh
 
 Note:
 1. Above step is optional if model repository is already setup.
-2. This step should not be run from inside the DS triton container but it is
-   to be run on the host machine which will run the Triton Inference Server.
 
 All the sample models should be downloaded/generated into samples/triton-model-repo
 directory.
 Please refer to  https://github.com/triton-inference-server/server/blob/main/docs/model_repository.md for more details on creating model repositories.
 
-Once the model repository is ready, run the following command to start the
-Triton Inference Server.
+Once the model repository is ready, Goto folder: /opt/nvidia/deepstream/deepstream/samples,
+run the following command to start the Triton Inference Server.
 
-docker run --gpus=1 --rm --net=host -v/opt/nvidia/deepstream/deepstream-6.0/samples/triton_model_repo/:/models nvcr.io/nvidia/tritonserver:21.08-py3 tritonserver --model-repository=/models
+  $ tritonserver --model-repository=triton_model_repo
 
 Note:
 1. Provide the actual path of model repository if it is different from the above
    mentioned path.
+2. Docker container for Triton server is only for x86 machine. To run Triton
+   server on Jetson device refer next section.
 
 Please refer to https://github.com/triton-inference-server/server/blob/main/docs/quickstart.md for more information on running the Triton Inference Server.
 
@@ -80,13 +85,28 @@ Inference Server direclty on device, Triton Server setup will be required.
    Server and backends.
    $ sudo ./triton_backend_setup.sh
 
-Notes:
-   By default script will download the Triton Server version 2.13. For setting
+Note:
+1. By default script will download the Triton Server version 2.20.0. For setting
    up any other version change the package path accordingly.
+2. By default script removes the downloaded package after copying the backend
+   binaries. In case you want to run both the Triton Server and DS Apps on the
+   same Jetson device, disable that step in script and use the following steps
+   to start the Triton server.
+   $ cd /tmp/triton_server_downloads/bin
+   $ ./tritonserver --model-repository=/opt/nvidia/deepstream/deepstream/samples/triton_model_repo/ --backend-directory=/opt/nvidia/deepstream/deepstream/lib/triton_backends/
 
 --------------------------------------------------------------------------------
-Running the Triton Inference Server samples
+Running the Triton Inference Server gRPC Client samples
 --------------------------------------------------------------------------------
+For X86, the gRPC samples must run in another DeepStream Triton container.
+Start another container:
+
+$ docker run --gpus '"'device=0'"' -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -e DISPLAY=$DISPLAY --net=host nvcr.io/nvidia/deepstream:[version]-triton
+  [version] means deepstream version numbers. e.g. 6.1
+
+For Jetson, the gRPC samples could run on L4T host directly.
+
 Once the DeepStream Triton environment is ready, run the following commands:
 1. Run the following command to inspect nvinferserver plugin installed successfully.
    $ gst-inspect-1.0 nvinferserver

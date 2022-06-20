@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,6 +38,9 @@ extern "C"
     gint buffer_pool_size;
     gint batch_size;
     gint batched_push_timeout;
+    gint compute_hw;
+    gint num_surface_per_frame;
+    gint interpolation_method;
     guint gpu_id;
     guint nvbuf_memory_type;
     gboolean live_source;

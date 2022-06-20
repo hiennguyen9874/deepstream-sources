@@ -354,8 +354,11 @@ bbox_generated_probe_after_analytics(AppCtx *appCtx, GstBuffer *buf,
        l_frame = l_frame->next)
   {
     NvDsAudioFrameMeta *frame_meta = l_frame->data;
-    g_print("### label:[%s] source_id:[%d]\n",
-            frame_meta->class_label, frame_meta->source_id);
+    if (strlen(frame_meta->class_label) != 0)
+    {
+      g_print("### label:[%s] source_id:[%d]\n",
+              frame_meta->class_label, frame_meta->source_id);
+    }
     stream_id = frame_meta->source_id;
     GstClockTime buf_ntp_time = 0;
     if (playback_utc == FALSE)

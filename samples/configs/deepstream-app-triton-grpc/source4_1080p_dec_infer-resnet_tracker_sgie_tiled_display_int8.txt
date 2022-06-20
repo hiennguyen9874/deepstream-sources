@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -157,12 +157,9 @@ enable=1
 # For NvDCF and DeepSORT tracker, tracker-width and tracker-height must be a multiple of 32, respectively
 tracker-width=640
 tracker-height=384
-ll-lib-file=/opt/nvidia/deepstream/deepstream-6.0/lib/libnvds_nvmultiobjecttracker.so
+ll-lib-file=/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
 # ll-config-file required to set different tracker types
-# ll-config-file=../deepstream-app/config_tracker_IOU.yml
-ll-config-file=../deepstream-app/config_tracker_NvDCF_perf.yml
-# ll-config-file=../deepstream-app/config_tracker_NvDCF_accuracy.yml
-# ll-config-file=../deepstream-app/config_tracker_DeepSORT.yml
+ll-config-file=config_tracker_NvDCF_perf.yml
 gpu-id=0
 enable-batch-process=1
 enable-past-frame=1

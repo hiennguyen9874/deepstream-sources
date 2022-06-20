@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,12 +28,16 @@
 #include <mutex>
 #include <stdexcept>
 #include <condition_variable>
+#include <cuda.h>
+#include <cuda_runtime.h>
 
 #include "nvbufsurface.h"
 #include "nvbufsurftransform.h"
 #include "gst-nvquery.h"
 #include "gstnvdsmeta.h"
 #include "gst-nvevent.h"
+#include "nvdscustomusermeta.h"
+#include "nvdsdummyusermeta.h"
 
 #include "nvdscustomlib_base.hpp"
 
@@ -41,6 +45,12 @@
 #define FORMAT_RGBA "RGBA"
 #define FORMAT_I420 "I420"
 #define GST_CAPS_FEATURE_MEMORY_NVMM "memory:NVMM"
+
+static void update_dummy_meta_data_on_buffer(NvDsBatchMeta *batch_meta);
+void *set_metadata_ptr(void);
+static gpointer copy_user_meta(gpointer data, gpointer user_data);
+static void release_user_meta(gpointer data, gpointer user_data);
+void fill_dummy_batch_meta_on_buffer(NvDsBatchMeta *batch_meta);
 
 inline bool CHECK_(int e, int iLine, const char *szFile)
 {
@@ -82,6 +92,8 @@ public:
 
   /* Pass GST events to the library */
   virtual bool HandleEvent(GstEvent *event);
+
+  virtual char *QueryProperties();
 
   /* Process Incoming Buffer */
   virtual BufferResult ProcessBuffer(GstBuffer *inbuf);
@@ -359,6 +371,14 @@ GstCaps *SampleAlgorithm::GetCompatibleCaps(GstPadDirection direction,
   return othercaps;
 }
 
+char *SampleAlgorithm::QueryProperties()
+{
+  char *str = new char[1000];
+  strcpy(str, "CUSTOM LIBRARY PROPERTIES\n \t\t\tcustomlib-props=\"scale-factor:x\" x = { 0 <= x <= 20}"
+              "\n\t\t\tcustomlib-props=\"frame-insert-interval:x\" x is unsigned int");
+  return str;
+}
+
 bool SampleAlgorithm::HandleEvent(GstEvent *event)
 {
   switch (GST_EVENT_TYPE(event))
@@ -588,6 +608,126 @@ void SampleAlgorithm::update_meta(NvDsBatchMeta *batch_meta, uint32_t icnt)
   }
 }
 
+void *set_metadata_ptr()
+{
+  guint i = 0;
+  guint mem_count = 0;
+  std::vector<faceboxes> fbs(2, {1, 2, 100, 200});
+
+  NVDS_CUSTOM_PAYLOAD *custom_payload_fb = (NVDS_CUSTOM_PAYLOAD *)g_malloc0(sizeof(struct _NVDS_CUSTOM_PAYLOAD));
+  if (fbs.size() > 0)
+  {
+    payload_type ptype = NVDS_PAYLOAD_TYPE_DUMMY_BBOX;
+
+    custom_payload_fb->payloadType = ptype;
+    custom_payload_fb->payloadSize = fbs.size() * sizeof(struct faceboxes);
+    custom_payload_fb->payload = (uint8_t *)g_malloc0(fbs.size() * sizeof(struct faceboxes));
+
+    faceboxes *f = (faceboxes *)custom_payload_fb->payload;
+    for (i = 0; i < fbs.size(); i++)
+    {
+      auto &d = fbs[i];
+      f->x = d.x;
+      f->y = d.y;
+      f->width = d.width;
+      f->height = d.height;
+      f++;
+    }
+    mem_count += (sizeof(uint32_t) + sizeof(uint32_t) + fbs.size() * (sizeof(struct faceboxes)));
+  }
+
+  return (gpointer)custom_payload_fb;
+}
+
+/* copy function set by user. "data" holds a pointer to NvDsUserMeta*/
+static gpointer copy_user_meta(gpointer data, gpointer user_data)
+{
+  NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
+  NVDS_CUSTOM_PAYLOAD *udata = (NVDS_CUSTOM_PAYLOAD *)user_meta->user_meta_data;
+  NVDS_CUSTOM_PAYLOAD *dst_user_metadata = (NVDS_CUSTOM_PAYLOAD *)g_malloc0(sizeof(struct _NVDS_CUSTOM_PAYLOAD));
+  dst_user_metadata->payload = (uint8_t *)g_malloc0(udata->payloadSize);
+
+  dst_user_metadata->payloadType = udata->payloadType;
+  dst_user_metadata->payloadSize = udata->payloadSize;
+  memcpy(dst_user_metadata->payload, udata->payload, udata->payloadSize);
+
+  return (gpointer)dst_user_metadata;
+}
+
+/* release function set by user. "data" holds a pointer to NvDsUserMeta*/
+static void release_user_meta(gpointer data, gpointer user_data)
+{
+  NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
+  if (user_meta->user_meta_data)
+  {
+    NVDS_CUSTOM_PAYLOAD *src_user_metadata = (NVDS_CUSTOM_PAYLOAD *)user_meta->user_meta_data;
+    g_free(src_user_metadata->payload);
+    src_user_metadata->payload = NULL;
+    g_free(src_user_metadata);
+    src_user_metadata = NULL;
+  }
+}
+
+#define NUM_OBJECTS 5
+void fill_dummy_batch_meta_on_buffer(NvDsBatchMeta *batch_meta)
+{
+  NvDsMetaList *l_frame = NULL;
+  for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next)
+  {
+    NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)(l_frame->data);
+    /*printf ("pad_index = %d frame_width = %d frame_height = %d\n",
+            frame_meta->pad_index, frame_meta->source_frame_width, frame_meta->source_frame_height);*/
+    for (int i = 0; i < NUM_OBJECTS; i++)
+    {
+      NvDsObjectMeta *obj_meta = nvds_acquire_obj_meta_from_pool(batch_meta);
+      obj_meta->unique_component_id = 0xAB;
+      obj_meta->confidence = 0.0;
+
+      /* This is an untracked object. Set tracking_id to -1. */
+      obj_meta->object_id = UNTRACKED_OBJECT_ID;
+      obj_meta->class_id = 2;
+
+      NvOSD_RectParams &rect_params = obj_meta->rect_params;
+      /* Assign bounding box coordinates. */
+      rect_params.left = 10 + 10 * i;
+      rect_params.top = 20 + 10 * i;
+      rect_params.width = 100;
+      rect_params.height = 100;
+      rect_params.border_color.red = 1.0;
+      rect_params.border_color.green = 0.5;
+      rect_params.border_color.blue = 0.0;
+      rect_params.border_width = 2;
+
+      nvds_add_obj_meta_to_frame(frame_meta, obj_meta, NULL);
+    }
+  }
+}
+
+void update_dummy_meta_data_on_buffer(NvDsBatchMeta *batch_meta)
+{
+  NvDsMetaList *l_frame = NULL;
+  NvDsUserMeta *user_meta = NULL;
+  NvDsMetaType user_meta_type = NVDS_DUMMY_BBOX_META;
+
+  for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next)
+  {
+    NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)(l_frame->data);
+
+    /* Acquire NvDsUserMeta user meta from pool */
+    user_meta = nvds_acquire_user_meta_from_pool(batch_meta);
+
+    /* Set NvDsUserMeta below */
+    user_meta->user_meta_data = (void *)set_metadata_ptr();
+    // g_print ("user meta data pointer = %p\n", user_meta->user_meta_data);
+    user_meta->base_meta.meta_type = user_meta_type;
+    user_meta->base_meta.copy_func = (NvDsMetaCopyFunc)copy_user_meta;
+    user_meta->base_meta.release_func = (NvDsMetaReleaseFunc)release_user_meta;
+
+    /* We want to add NvDsUserMeta to frame level */
+    nvds_add_user_meta_to_frame(frame_meta, user_meta);
+  }
+}
+
 /* Output Processing Thread */
 void SampleAlgorithm::OutputThread(void)
 {
@@ -665,6 +805,7 @@ void SampleAlgorithm::OutputThread(void)
         {
           GST_DEBUG_OBJECT(m_element, "Buffer metadata copy failed \n");
         }
+
         nvds_set_input_system_timestamp(newGstOutBuf, GST_ELEMENT_NAME(m_element));
         // Copy previous buffer to new buffer, repreat the frame
         NvBufSurface *out_surf = getNvBufSurface(newGstOutBuf);
@@ -679,6 +820,14 @@ void SampleAlgorithm::OutputThread(void)
         {
           if (batch_meta)
             update_meta(batch_meta, icnt);
+        }
+        if (m_dummyMetaInsert && batch_meta)
+        {
+          update_dummy_meta_data_on_buffer(batch_meta);
+        }
+        if (m_fillDummyBatchMeta && batch_meta)
+        {
+          fill_dummy_batch_meta_on_buffer(batch_meta);
         }
 
         out_surf->numFilled = in_surf->numFilled;

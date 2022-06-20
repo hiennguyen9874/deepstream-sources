@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -79,7 +79,6 @@ create_camera_source_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
   case NV_DS_SOURCE_CAMERA_CSI:
     bin->src_elem =
         gst_element_factory_make(NVDS_ELEM_SRC_CAMERA_CSI, "src_elem");
-    g_object_set(G_OBJECT(bin->src_elem), "bufapi-version", TRUE, NULL);
     break;
   case NV_DS_SOURCE_CAMERA_V4L2:
     bin->src_elem =
@@ -335,8 +334,12 @@ cb_sourcesetup(GstElement *object, GstElement *arg0, gpointer data)
   NvDsSrcBin *bin = (NvDsSrcBin *)data;
   if (g_object_class_find_property(G_OBJECT_GET_CLASS(arg0), "latency"))
   {
-    g_print("cb_sourcesetup set %d latency\n", bin->latency);
     g_object_set(G_OBJECT(arg0), "latency", bin->latency, NULL);
+  }
+  if (bin->udp_buffer_size &&
+      g_object_class_find_property(G_OBJECT_GET_CLASS(arg0), "udp-buffer-size"))
+  {
+    g_object_set(G_OBJECT(arg0), "udp-buffer-size", bin->udp_buffer_size, NULL);
   }
 }
 
@@ -967,6 +970,7 @@ create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
   GstCapsFeatures *feature = NULL;
 
   bin->latency = config->latency;
+  bin->udp_buffer_size = config->udp_buffer_size;
   bin->rtsp_reconnect_interval_sec = config->rtsp_reconnect_interval_sec;
   bin->rtsp_reconnect_attempts = config->rtsp_reconnect_attempts;
   bin->num_rtsp_reconnects = 0;
@@ -982,6 +986,11 @@ create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
   g_signal_connect(G_OBJECT(bin->src_elem), "select-stream",
                    G_CALLBACK(cb_rtspsrc_select_stream),
                    bin);
+
+  if (config->udp_buffer_size)
+  {
+    g_object_set(G_OBJECT(bin->src_elem), "udp-buffer-size", config->udp_buffer_size, NULL);
+  }
 
   g_object_set(G_OBJECT(bin->src_elem), "location", config->uri, NULL);
   g_object_set(G_OBJECT(bin->src_elem), "latency", config->latency, NULL);
@@ -1299,6 +1308,9 @@ static gboolean
 create_uridecode_src_bin_audio(NvDsSourceConfig *config, NvDsSrcBin *bin)
 {
   gboolean ret = FALSE;
+  guint const MAX_CAPS_LEN = 256;
+  gchar caps_audio_resampler[MAX_CAPS_LEN];
+  GstCaps *caps = NULL;
   bin->config = config;
 
   bin->src_elem = gst_element_factory_make(NVDS_ELEM_SRC_URI, "src_elem");
@@ -1308,6 +1320,7 @@ create_uridecode_src_bin_audio(NvDsSourceConfig *config, NvDsSrcBin *bin)
     goto done;
   }
   bin->latency = config->latency;
+  bin->udp_buffer_size = config->udp_buffer_size;
 
   if (g_strrstr(config->uri, "file:/"))
   {
@@ -1336,12 +1349,32 @@ create_uridecode_src_bin_audio(NvDsSourceConfig *config, NvDsSrcBin *bin)
     goto done;
   }
 
-  gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem,
-                   bin->audio_converter, bin->audio_resample, NULL);
+  bin->cap_filter =
+      gst_element_factory_make(NVDS_ELEM_CAPS_FILTER, "src_cap_filter_audioresample");
+  if (!bin->cap_filter)
+  {
+    NVGSTDS_ERR_MSG_V("Could not create src_cap_filter_audioresample");
+    goto done;
+  }
 
-  NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->audio_resample, "src");
+  if (snprintf(caps_audio_resampler, MAX_CAPS_LEN, "audio/x-raw, rate=%d",
+               config->input_audio_rate) <= 0)
+  {
+    NVGSTDS_ERR_MSG_V("Could not create caps to force rate=%d", config->input_audio_rate);
+    goto done;
+  }
+  caps = gst_caps_from_string(caps_audio_resampler);
+  g_object_set(G_OBJECT(bin->cap_filter), "caps", caps, NULL);
+  gst_caps_unref(caps);
+
+  gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem,
+                   bin->audio_converter, bin->audio_resample,
+                   bin->cap_filter, NULL);
 
   NVGSTDS_LINK_ELEMENT(bin->audio_converter, bin->audio_resample);
+  NVGSTDS_LINK_ELEMENT(bin->audio_resample, bin->cap_filter);
+
+  NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->cap_filter, "src");
 
   ret = TRUE;
 
@@ -1381,6 +1414,7 @@ create_uridecode_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
     }
   }
   bin->latency = config->latency;
+  bin->udp_buffer_size = config->udp_buffer_size;
 
   if (g_strrstr(config->uri, "file:/"))
   {
@@ -1705,16 +1739,6 @@ reset_source_pipeline(gpointer data)
   gettimeofday(&src_bin->last_reconnect_time, NULL);
   g_mutex_unlock(&src_bin->bin_lock);
 
-  GstElement *send_event_element = NULL;
-  if (src_bin->dewarper_bin.bin != NULL)
-  {
-    send_event_element = src_bin->dewarper_bin.bin;
-  }
-  else
-  {
-    send_event_element = src_bin->cap_filter1;
-  }
-  gst_element_send_event(GST_ELEMENT(send_event_element), gst_event_new_flush_stop(TRUE));
   if (gst_element_set_state(src_bin->bin,
                             GST_STATE_NULL) == GST_STATE_CHANGE_FAILURE)
   {

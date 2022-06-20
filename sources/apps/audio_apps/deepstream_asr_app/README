@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2020-2021 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2020-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,8 +8,16 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
+*****************************************************************************
+                     deepstream-asr-app
+                             README
+*****************************************************************************
 
-1. The application runs with nvdsasr plugin for Automatic speech recognition.
+===============================================================================
+1. Prerequisites:
+===============================================================================
+
+A. The application runs with nvdsasr plugin for Automatic speech recognition.
    To run with nvdsasr, make sure ASR model repository is already generated.
        If not generated, follow below steps:
        (Note: This application works with Riva Speech Skills 1.5.0-beta release only)
@@ -65,16 +73,19 @@
 
       With above steps, Jasper models are downloaded at /var/lib/docker/volumes/riva-asr-model-repo/_data/models/
 
-   c. gRPC installation and prerequisites:
+   c. gRPC installation and other prerequisites:
       # Use gRPC_installation.sh to install gRPC
       $sudo chmod +x gRPC_installation.sh
-      $sudo ./gRPC_installation.sh
+      $./gRPC_installation.sh
       $source ~/.profile
+
+      # Install libyaml-cpp:
+      $sudo apt install libyaml-cpp-dev
 
 
    d. Launch gRPC service before running deepstream-asr-app:
 
-      #Make sure below steps are followed  after section 1.c i.e "gRPC installation and prerequisites"
+      #Make sure below steps are followed  after section 1.A.c i.e "gRPC installation and prerequisites"
       #Go to riva_quickstart_v1.5.0-beta directory
       $cd riva_quickstart_v1.5.0-beta
 
@@ -87,7 +98,7 @@
    e. Set up environment to use gRPC libs
       (i)  Testing application on x86:
 
-           Follow steps mentioned in section 1.d i.e. "Launch gRPC service before running deepstream-asr-app to launch the ASR service.
+           Follow steps mentioned in section 1.A.d i.e. "Launch gRPC service before running deepstream-asr-app to launch the ASR service.
 
            # Set LD_LIBRARY_PATH
            $source ~/.profile
@@ -97,7 +108,7 @@
 
            Note: This needs GPU memory more than 8GB.
 
-           Outside docker, follow section 1.d "Launch gRPC service before running deepstream-asr-app" to launch ASR service.
+           Outside docker, follow section 1.A.d "Launch gRPC service before running deepstream-asr-app" to launch ASR service.
            Once ASR service is running we need to run the docker.
            $export DISPLAY=:0
            $xhost +
@@ -108,37 +119,55 @@
            # Set LD_LIBRARY_PATH
            $source ~/.profile
 
-           To run deepstream-asr-app, follow steps mentioned in section 2 i.e. "Steps to run application".
+           To run deepstream-asr-app, follow steps mentioned in section 4 i.e. "Usage".
 
 
-2. Steps to run application:
+===============================================================================
+2. Purpose:
+===============================================================================
 
-To compile :
+
+This document shall describe about the sample deepstream_asr application.
+
+It is meant for demonstration of how to perform Automatic speech
+recognition(ASR) using "nvdsasr" gstreamer plugin.
+
+===============================================================================
+3. To compile:
+===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
   $ sudo make
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
 
-To run:
-  Follow steps 1.d and 1.e to launch ASR service and set LD_LIBRARY_PATH
+===============================================================================
+4. Usage:
+===============================================================================
 
+To run:
+  Follow steps 1.A.d and 1.A.e to launch ASR service and set LD_LIBRARY_PATH
+
+  Run using YAML configuration file:
+  $ ./deepstream-asr-app -c deepstream_asr.yaml
+
+  OR
+
+  Run using GLib key file format configuration file:
   $ ./deepstream-asr-app -c deepstream_asr.cfg
 
   User must have write permission in the directory to store the
   generated output file.
-
-This document shall describe about the sample deepstream_asr application.
-
-It is meant for simple demonstration of how to perform Automatic speech
-recognition(ASR) using "nvdsasr" gstreamer plugin.
+  Note: This application supports configuration file in the YAML format (.yaml)
+  and also the GLib key file format (.cfg). The support for .cfg files will be
+  deprecated in future versions.
 
 In this example application following operations are performed.
 1. Decode incoming speech data.
 2. Execute audio playback pipeline. If audio playback is not needed, it can be
    disabled by setting  "enable_playback" to 0  in the configuration file.
-   Refer to the provided sample configuration file deepstream_asr.cfg
+   Refer to the provided sample configuration file: deepstream_asr.yaml
 3. Execute Automatic speech recognition. ASR Output of every stream is stored
    in the output text file specified by "asr_output_file_name" in the
    configuration file.

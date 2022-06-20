@@ -112,6 +112,10 @@ typedef struct
   GstBuffer *conv_buf = nullptr;
   nvtxRangeId_t nvtx_complete_buf_range = 0;
 
+  /** Sync object for allowing asynchronous call to nvbufsurftransform API
+   * Wait and Destroy to be done before preprocess call of nvinfer */
+  NvBufSurfTransformSyncObj_t sync_obj = NULL;
+
   /** List of objects not inferred on in the current batch but pending
    * attachment of lastest available classification metadata. */
   std::vector<GstNvInferObjHistory_MetaPair> objs_pending_meta_attach;

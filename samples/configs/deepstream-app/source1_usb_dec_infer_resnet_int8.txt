@@ -44,15 +44,13 @@ camera-v4l2-dev-node=0
 
 [sink0]
 enable=1
-#Type - 1=FakeSink 2=EglSink 3=File 4=RTSPStreaming 5=Overlay
+#Type - 1=FakeSink 2=EglSink 3=File 4=RTSPStreaming 5=nvdrmvideosink
 type=2
 sync=0
-display-id=0
-offset-x=0
-offset-y=0
+plane-id=0
 width=0
 height=0
-overlay-id=1
+conn-id=1
 source-id=0
 
 [sink1]
@@ -74,7 +72,7 @@ source-id=0
 
 [sink2]
 enable=0
-#Type - 1=FakeSink 2=EglSink 3=File 4=RTSPStreaming 5=Overlay
+#Type - 1=FakeSink 2=EglSink 3=File 4=RTSPStreaming 5=nvdrmvideosink
 type=4
 #1=h264 2=h265
 codec=1

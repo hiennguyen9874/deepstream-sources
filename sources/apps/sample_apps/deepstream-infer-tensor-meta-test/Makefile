@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -29,7 +29,7 @@ APP:= deepstream-infer-tensor-meta-app
 CC = g++
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
@@ -37,11 +37,7 @@ APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
 SRCS:= $(wildcard *.cpp)
 INCS:= $(wildcard *.h)
 
-ifeq ($(TARGET_DEVICE),aarch64)
-	PKGS:= gstreamer-1.0 opencv4
-else
-	PKGS:= gstreamer-1.0 opencv
-endif
+PKGS:= gstreamer-1.0 opencv4
 
 CFLAGS:= -fPIC -std=c++11    \
          -I ../../../includes \

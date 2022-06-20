@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -1459,7 +1459,7 @@ namespace nvdsinfer
         std::ofstream fileOut(path, std::ios::binary);
         if (!fileOut.is_open())
         {
-            dsInferError(
+            dsInferWarning(
                 "Serialize engine failed because of file path: %s opened error",
                 safeStr(path));
             return NVDSINFER_TENSORRT_ERROR;
@@ -1487,7 +1487,7 @@ namespace nvdsinfer
         std::ifstream fileIn(path, std::ios::binary);
         if (!fileIn.is_open())
         {
-            dsInferError(
+            dsInferWarning(
                 "Deserialize engine failed because file path: %s open error",
                 safeStr(path));
             return nullptr;

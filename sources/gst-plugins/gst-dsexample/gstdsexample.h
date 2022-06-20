@@ -27,10 +27,15 @@
 #include <gst/video/video.h>
 
 /* Open CV headers */
+#pragma GCC diagnostic push
+#if __GNUC__ >= 8
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
+#endif
 #ifdef WITH_OPENCV
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #endif
+#pragma GCC diagnostic pop
 
 #include <cuda.h>
 #include <cuda_runtime.h>

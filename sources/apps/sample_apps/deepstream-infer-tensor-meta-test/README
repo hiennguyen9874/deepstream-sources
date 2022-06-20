@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2019-2021 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2019-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,7 +8,14 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-Prequisites:
+*****************************************************************************
+                     deepstream-infer-tensor-meta-app
+                             README
+*****************************************************************************
+
+===============================================================================
+1. Prerequisites:
+===============================================================================
 
 Please follow instructions in the
 apps/sample_apps/deepstream-infer-tensor-meta-test/README on how to install the
@@ -25,28 +32,35 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libopencv-dev libx11-dev
 
-NOTE: Due to deprecation of OpenCV, the binary of this app is not packaged,
-to use this application, follow the compilation steps mentioned below.
-
-Compilation Steps:
-
-  $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=10.2
-      For x86, CUDA_VER=11.4
-  $ sudo make
-
-To run:
-
-  $ ./deepstream-infer-tensor-meta-app -t <infer-type> <h264_elementary_stream>
-    # <infer-type> is selected from "infer" or "inferserver"
-
-NOTE: To compile the sources, run make with "sudo" or root permission.
+===============================================================================
+2. Purpose:
+===============================================================================
 
 This document shall describe about the sample deepstream-infer-tensor-meta-test
 application.
 
-It is meant for simple demonstration of how to access infer-plugin's output tensor
+It demonstrates, how to access infer-plugin's output tensor
 data for DeepStream SDK elements in the pipeline.
+
+===============================================================================
+3. To compile:
+===============================================================================
+
+  $ Set CUDA_VER in the MakeFile as per platform.
+      For Jetson, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
+  $ sudo make
+
+NOTE: To compile the sources, run make with "sudo" or root permission.
+Due to deprecation of OpenCV, the binary of this app is not packaged,
+to use this application, follow the compilation steps mentioned above.
+
+===============================================================================
+4. Usage:
+===============================================================================
+
+  $ ./deepstream-infer-tensor-meta-app -t <infer-type> <h264_elementary_stream>
+    # <infer-type> is selected from "infer" or "inferserver"
 
 This sample creates multiple instances of infer-plugin element. Each instance of
 the infer-plugin uses TensorRT API or TRT-IS model to infer on frames/objects. Every
@@ -67,11 +81,11 @@ For reference, here are the config files used for this sample :
    sample) uses
     dstensor_sgie3_config.txt or  inferserver/dstensor_sgie3_config.txt
 
-In this sample, we first create one infer-plugin instance, referred as the pgie.
+In this sample, one infer-plugin instance, referred as the pgie.
 This is the first inference and "pgie_pad_buffer_probe" function parse the
 tensor output data and get detection objects as "Vehicle , RoadSign, TwoWheeler,
-Person". After this we create 3 more instances of infer-plugin referred to as
-sgie1, sgie2, sgie3 respectively. The 3 instances would crop pgie's detected
+Person". After this, 3 more instances of infer-plugin referred to as
+sgie1, sgie2, sgie3 respectively are created. The 3 instances would crop pgie's detected
 objects and do secondary inference. "sgie_pad_buffer_probe" function parse all
 sgies inference tensor data and classify them for OSD to drawing box and text.
 

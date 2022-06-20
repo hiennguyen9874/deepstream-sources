@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,7 +33,12 @@
 #include <cuda_runtime_api.h>
 
 /* Open CV headers */
+#pragma GCC diagnostic push
+#if __GNUC__ >= 8
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
+#endif
 #include "opencv2/imgproc/imgproc.hpp"
+#pragma GCC diagnostic pop
 
 #include "gstnvdsmeta.h"
 #include "nvdsmeta_schema.h"
@@ -45,8 +50,9 @@ using namespace std;
 #define MAX_TIME_STAMP_LEN 32
 
 #define PGIE_CLASS_ID_BG 0
-#define PGIE_CLASS_ID_VEHICLE 1
-#define PGIE_CLASS_ID_PERSON 2
+/* Unused for peopleSegNet. */
+#define PGIE_CLASS_ID_VEHICLE -1
+#define PGIE_CLASS_ID_PERSON 1
 
 #define PGIE_CONFIG_FILE "dsmrcnn_pgie_config.txt"
 #define MSCONV_CONFIG_FILE "dsmrcnn_msgconv_config.txt"

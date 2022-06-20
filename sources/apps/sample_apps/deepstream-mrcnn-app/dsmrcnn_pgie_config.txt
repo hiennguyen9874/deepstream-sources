@@ -41,7 +41,7 @@ gie-unique-id=1
 network-type=3
 output-blob-names=generate_detections;mask_fcn_logits/BiasAdd
 parse-bbox-instance-mask-func-name=NvDsInferParseCustomMrcnnTLTV2
-custom-lib-path=/opt/nvidia/deepstream/deepstream-6.0/lib/libnvds_infercustomparser.so
+custom-lib-path=/opt/nvidia/deepstream/deepstream/lib/libnvds_infercustomparser.so
 #no cluster
 cluster-mode=4
 output-instance-mask=1

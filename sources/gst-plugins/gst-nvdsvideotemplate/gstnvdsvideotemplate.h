@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -82,6 +82,10 @@ struct _GstNvDsVideoTemplate
 
   /** GPU ID on which we expect to execute the task */
   guint gpu_id;
+
+  gboolean dummy_meta_insert;
+
+  gboolean fill_dummy_batch_meta;
 
   /** NVTX Domain. */
   nvtxDomainHandle_t nvtx_domain;

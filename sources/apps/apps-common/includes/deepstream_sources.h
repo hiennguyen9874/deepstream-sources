@@ -81,6 +81,7 @@ extern "C"
     guint drop_frame_interval;
     gint rtsp_reconnect_interval_sec;
     guint rtsp_reconnect_attempts;
+    guint udp_buffer_size;
     /** Desired input audio rate to nvinferaudio from PGIE config;
      * This config shall be copied over from NvDsGieConfig
      * at create_multi_source_bin()*/
@@ -131,6 +132,7 @@ extern "C"
     gchar *file;
     gchar *direction;
     gint latency;
+    guint udp_buffer_size;
     gboolean got_key_frame;
     gboolean eos_done;
     gboolean reset_done;

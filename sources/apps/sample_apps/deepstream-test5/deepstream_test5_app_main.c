@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -57,6 +57,8 @@
 
 #define INOTIFY_EVENT_SIZE (sizeof(struct inotify_event))
 #define INOTIFY_EVENT_BUF_LEN (1024 * (INOTIFY_EVENT_SIZE + 16))
+
+#define IS_YAML(file) (g_str_has_suffix(file, ".yml") || g_str_has_suffix(file, ".yaml"))
 
 /** @{
  * Macro's below and corresponding code-blocks are used to demonstrate
@@ -328,15 +330,15 @@ meta_copy_func(gpointer data, gpointer user_data)
   NvDsEventMsgMeta *srcMeta = (NvDsEventMsgMeta *)user_meta->user_meta_data;
   NvDsEventMsgMeta *dstMeta = NULL;
 
-  dstMeta = g_memdup(srcMeta, sizeof(NvDsEventMsgMeta));
+  dstMeta = (NvDsEventMsgMeta *)g_memdup(srcMeta, sizeof(NvDsEventMsgMeta));
 
   if (srcMeta->ts)
     dstMeta->ts = g_strdup(srcMeta->ts);
 
   if (srcMeta->objSignature.size > 0)
   {
-    dstMeta->objSignature.signature = g_memdup(srcMeta->objSignature.signature,
-                                               srcMeta->objSignature.size);
+    dstMeta->objSignature.signature = (gdouble *)g_memdup(srcMeta->objSignature.signature,
+                                                          srcMeta->objSignature.size);
     dstMeta->objSignature.size = srcMeta->objSignature.size;
   }
 
@@ -602,7 +604,7 @@ bbox_generated_probe_after_analytics(AppCtx *appCtx, GstBuffer *buf,
   for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
        l_frame = l_frame->next)
   {
-    NvDsFrameMeta *frame_meta = l_frame->data;
+    NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
     stream_id = frame_meta->source_id;
     GstClockTime buf_ntp_time = 0;
     if (playback_utc == FALSE)
@@ -1345,17 +1347,35 @@ ota_handler_thread(gpointer data)
           {
             memset(&ota_appCtx->override_config, 0,
                    sizeof(ota_appCtx->override_config));
-            if (!parse_config_file(&ota_appCtx->override_config,
-                                   ota_ds_config_file))
+            if (!IS_YAML(ota_ds_config_file))
             {
-              NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
-                                ota_ds_config_file);
-              g_print("Error: ota_handler_thread: Failed to parse config file '%s'",
-                      ota_ds_config_file);
+              if (!parse_config_file(&ota_appCtx->override_config,
+                                     ota_ds_config_file))
+              {
+                NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
+                                  ota_ds_config_file);
+                g_print("Error: ota_handler_thread: Failed to parse config file '%s'",
+                        ota_ds_config_file);
+              }
+              else
+              {
+                apply_ota(ota_appCtx);
+              }
             }
-            else
+            else if (IS_YAML(ota_ds_config_file))
             {
-              apply_ota(ota_appCtx);
+              if (!parse_config_file_yaml(&ota_appCtx->override_config,
+                                          ota_ds_config_file))
+              {
+                NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
+                                  ota_ds_config_file);
+                g_print("Error: ota_handler_thread: Failed to parse config file '%s'",
+                        ota_ds_config_file);
+              }
+              else
+              {
+                apply_ota(ota_appCtx);
+              }
             }
           }
         }
@@ -1369,17 +1389,35 @@ ota_handler_thread(gpointer data)
 
               memset(&ota_appCtx->override_config, 0,
                      sizeof(ota_appCtx->override_config));
-              if (!parse_config_file(&ota_appCtx->override_config,
-                                     ota_ds_config_file))
+              if (!IS_YAML(ota_ds_config_file))
               {
-                NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
-                                  ota_ds_config_file);
-                g_print("Error: ota_handler_thread: Failed to parse config file '%s'",
-                        ota_ds_config_file);
+                if (!parse_config_file(&ota_appCtx->override_config,
+                                       ota_ds_config_file))
+                {
+                  NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
+                                    ota_ds_config_file);
+                  g_print("Error: ota_handler_thread: Failed to parse config file '%s'",
+                          ota_ds_config_file);
+                }
+                else
+                {
+                  apply_ota(ota_appCtx);
+                }
               }
-              else
+              else if (IS_YAML(ota_ds_config_file))
               {
-                apply_ota(ota_appCtx);
+                if (!parse_config_file_yaml(&ota_appCtx->override_config,
+                                            ota_ds_config_file))
+                {
+                  NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
+                                    ota_ds_config_file);
+                  g_print("Error: ota_handler_thread: Failed to parse config file '%s'",
+                          ota_ds_config_file);
+                }
+                else
+                {
+                  apply_ota(ota_appCtx);
+                }
               }
             }
           }
@@ -1475,11 +1513,23 @@ int main(int argc, char *argv[])
       g_free(input_files[i]);
     }
 
-    if (!parse_config_file(&appCtx[i]->config, cfg_files[i]))
+    if (IS_YAML(cfg_files[i]))
     {
-      NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
-      appCtx[i]->return_value = -1;
-      goto done;
+      if (!parse_config_file_yaml(&appCtx[i]->config, cfg_files[i]))
+      {
+        NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
+        appCtx[i]->return_value = -1;
+        goto done;
+      }
+    }
+    else
+    {
+      if (!parse_config_file(&appCtx[i]->config, cfg_files[i]))
+      {
+        NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
+        appCtx[i]->return_value = -1;
+        goto done;
+      }
     }
 
     if (override_cfg_file && override_cfg_file[i])

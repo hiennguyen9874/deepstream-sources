@@ -1,6 +1,6 @@
 /*
 ################################################################################
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -37,9 +37,12 @@ NvDsMsgApiHandle (*nvds_msgapi_connect_ptr)(char *connection_str, nvds_msgapi_co
 NvDsMsgApiErrorType (*nvds_msgapi_send_async_ptr)(NvDsMsgApiHandle conn, char *topic, const uint8_t *payload, size_t nbuf, nvds_msgapi_send_cb_t send_callback, void *user_ptr);
 NvDsMsgApiErrorType (*nvds_msgapi_disconnect_ptr)(NvDsMsgApiHandle h_ptr);
 void (*nvds_msgapi_do_work_ptr)(NvDsMsgApiHandle h_ptr);
+NvDsMsgApiErrorType (*nvds_msgapi_subscribe_ptr)(NvDsMsgApiHandle conn, char **topics, int num_topics, nvds_msgapi_subscribe_request_cb_t cb, void *user_ctx);
 char *(*nvds_msgapi_getversion_ptr)(void);
 char *(*nvds_msgapi_get_protocol_name_ptr)(void);
 NvDsMsgApiErrorType (*nvds_msgapi_connection_signature_ptr)(char *connection_str, char *config_path, char *output_str, int max_len);
+
+int consumed_cnt = 0;
 
 void connect_cb(NvDsMsgApiHandle h_ptr, NvDsMsgApiEventType evt)
 {
@@ -55,6 +58,20 @@ void send_callback(void *user_ptr, NvDsMsgApiErrorType completion_flag)
         printf("Message num %d : send success\n", *((int *)user_ptr));
     else
         printf("Message num %d : send failed\n", *((int *)user_ptr));
+}
+
+void subscribe_cb(NvDsMsgApiErrorType flag, void *msg, int len, char *topic, void *user_ptr)
+{
+    int *ptr = (int *)user_ptr;
+    if (flag == NVDS_MSGAPI_ERR)
+    {
+        printf("Error in consuming message[%d] from AMQP broker\n", *ptr);
+    }
+    else
+    {
+        printf("Consuming message[%d], on topic[%s]. Payload= %.*s\n", *ptr, topic, len, (const char *)msg);
+    }
+    consumed_cnt++;
 }
 
 int main(int argc, char **argv)
@@ -80,6 +97,7 @@ int main(int argc, char **argv)
     *(void **)(&nvds_msgapi_send_async_ptr) = dlsym(so_handle, "nvds_msgapi_send_async");
     *(void **)(&nvds_msgapi_disconnect_ptr) = dlsym(so_handle, "nvds_msgapi_disconnect");
     *(void **)(&nvds_msgapi_do_work_ptr) = dlsym(so_handle, "nvds_msgapi_do_work");
+    *(void **)(&nvds_msgapi_subscribe_ptr) = dlsym(so_handle, "nvds_msgapi_subscribe");
     *(void **)(&nvds_msgapi_getversion_ptr) = dlsym(so_handle, "nvds_msgapi_getversion");
     *(void **)(&nvds_msgapi_get_protocol_name_ptr) = dlsym(so_handle, "nvds_msgapi_get_protocol_name");
     *(void **)(&nvds_msgapi_connection_signature_ptr) = dlsym(so_handle, "nvds_msgapi_connection_signature");
@@ -110,11 +128,21 @@ int main(int argc, char **argv)
         exit(0);
     }
     printf("Connect Success\n");
+
+    // Subscribe to topics
+    const char *topics[] = {"topic1", "topic2"};
+    int num_topics = 2;
+    if (nvds_msgapi_subscribe_ptr(ah, (char **)topics, num_topics, subscribe_cb, &consumed_cnt) != NVDS_MSGAPI_OK)
+    {
+        printf("AMQP subscription to topic[s] failed. Exiting \n");
+        exit(-1);
+    }
+
     for (int i = 0; i < 10; i++)
     {
         char msg[100];
         sprintf(msg, "Hello%d\n", i);
-        if (nvds_msgapi_send_async_ptr(ah, NULL, (const uint8_t *)msg, strlen(msg), send_callback, &i) != NVDS_MSGAPI_OK)
+        if (nvds_msgapi_send_async_ptr(ah, (char *)"topic1", (const uint8_t *)msg, strlen(msg), send_callback, &i) != NVDS_MSGAPI_OK)
             printf("Message send failed\n");
         nvds_msgapi_do_work_ptr(ah);
     }

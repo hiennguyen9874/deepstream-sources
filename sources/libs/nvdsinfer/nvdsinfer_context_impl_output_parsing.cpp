@@ -915,7 +915,7 @@ namespace nvdsinfer
                  j++)
             {
                 free(frameOutput.detectionOutput.objects[j].label);
-                delete frameOutput.detectionOutput.objects[j].mask;
+                delete[] frameOutput.detectionOutput.objects[j].mask;
             }
             delete[] frameOutput.detectionOutput.objects;
             break;

@@ -40,7 +40,7 @@ struct BufferPoolConfig
 class DSCustomLibraryBase : public IDSCustomLibrary
 {
 public:
-  DSCustomLibraryBase();
+  explicit DSCustomLibraryBase(GstBaseTransform *btrans = nullptr);
 
   /* Set Init Parameters */
   virtual bool SetInitParams(DSCustom_CreateParams *params);
@@ -48,6 +48,8 @@ public:
   virtual ~DSCustomLibraryBase();
 
   virtual bool HandleEvent(GstEvent *event) = 0;
+
+  virtual char *QueryProperties() = 0;
 
   /* Set Custom Properties  of the library */
   virtual bool SetProperty(Property &prop) = 0;

@@ -50,7 +50,7 @@
 
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
-#define MUXER_BATCH_TIMEOUT_USEC 40000
+#define MUXER_BATCH_TIMEOUT_USEC 4000000
 
 #define TILED_OUTPUT_WIDTH 1920
 #define TILED_OUTPUT_HEIGHT 1080
@@ -462,7 +462,7 @@ int main(int argc, char *argv[])
 
   /* Configure the nvtracker element for using the particular tracker algorithm. */
   g_object_set(G_OBJECT(nvtracker),
-               "ll-lib-file", "/opt/nvidia/deepstream/deepstream-6.0/lib/libnvds_nvmultiobjecttracker.so",
+               "ll-lib-file", "/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so",
                "ll-config-file", "../../../../samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml",
                "tracker-width", 640, "tracker-height", 480,
                NULL);

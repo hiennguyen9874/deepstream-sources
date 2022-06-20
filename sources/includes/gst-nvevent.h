@@ -54,7 +54,10 @@ extern "C"
     GST_NVEVENT_STREAM_SEGMENT = GST_EVENT_MAKE_TYPE(403, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
     /** Specifies a custom event to indicate reset of a particular stream
      in a batch. */
-    GST_NVEVENT_STREAM_RESET = GST_EVENT_MAKE_TYPE(404, FLAG(DOWNSTREAM) | FLAG(SERIALIZED))
+    GST_NVEVENT_STREAM_RESET = GST_EVENT_MAKE_TYPE(404, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    /** Specifies a custom event to indicate start of a particular stream
+     in a batch. */
+    GST_NVEVENT_STREAM_START = GST_EVENT_MAKE_TYPE(405, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
   } GstNvEventType;
 #undef FLAG
 
@@ -169,6 +172,28 @@ extern "C"
    * @param[out] source_id    A pointer to the parsed source ID for the event.
    */
   void gst_nvevent_parse_stream_reset(GstEvent *event, guint *source_id);
+
+  /**
+   * Creates a new "stream start" event.
+   *
+   * @param[out] source_id    Source ID of the stream for which stream-start is to be sent
+   * @param[out] stream_id    The stream-id string obtained from sink pad with
+   *                          gst_pad_get_stream_id(pad)
+   *                          corresponding to source ID for the event.
+   */
+  GstEvent *gst_nvevent_new_stream_start(guint source_id, gchar *stream_id);
+
+  /**
+   * Parses a "stream start" event received on the sinkpad.
+   *
+   * @param[in] event         The event received on the sinkpad
+   *                          when the source ID sends a stream-start event.
+   * @param[out] source_id    A pointer to the parsed source ID for which
+   *                          the event is sent.
+   * @param[out] segment      A double pointer to the parsed stream-id
+   *                          corresponding to source ID for the event.
+   */
+  void gst_nvevent_parse_stream_start(GstEvent *event, guint *source_id, gchar **stream_id);
 
 #ifdef __cplusplus
 }

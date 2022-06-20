@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -19,6 +19,7 @@
 #include <cstring>
 #include <vector>
 #include <unordered_map>
+#include <yaml-cpp/yaml.h>
 
 using namespace std;
 
@@ -430,6 +431,320 @@ done:
   return ret;
 }
 
+/* Separate a config file entry with delimiters
+ * into strings. */
+static std::vector<std::string>
+split_string(std::string input)
+{
+  std::vector<int> positions;
+  for (unsigned int i = 0; i < input.size(); i++)
+  {
+    if (input[i] == ';')
+      positions.push_back(i);
+  }
+  std::vector<std::string> ret;
+  int prev = 0;
+  for (auto &j : positions)
+  {
+    std::string temp = input.substr(prev, j - prev);
+    ret.push_back(temp);
+    prev = j + 1;
+  }
+  ret.push_back(input.substr(prev, input.size() - prev));
+  return ret;
+}
+
+static bool
+nvds_msg2p_parse_sensor_yaml(void *privData, gchar *cfg_file_path, std::string group_str)
+{
+  bool ret = false;
+  bool isEnabled = false;
+  NvDsPayloadPriv *privObj = NULL;
+  NvDsSensorObject sensorObj;
+  gint sensorId;
+
+  YAML::Node configyml = YAML::LoadFile(cfg_file_path);
+
+  if (sscanf(group_str.c_str(), CONFIG_GROUP_SENSOR "%u", &sensorId) < 1)
+  {
+    cout << "Wrong sensor group format " << group_str << endl;
+    return ret;
+  }
+
+  privObj = (NvDsPayloadPriv *)privData;
+
+  auto idMap = privObj->sensorObj.find(sensorId);
+  if (idMap != privObj->sensorObj.end())
+  {
+    cout << "Duplicate entries for " << group_str << endl;
+    return ret;
+  }
+
+  if (configyml[group_str]["enable"])
+  {
+    isEnabled = configyml[group_str]["enable"].as<gboolean>();
+    if (isEnabled == FALSE)
+    {
+      ret = true;
+      goto done;
+    }
+  }
+  else
+  {
+    ret = true;
+    goto done;
+  }
+
+  for (YAML::const_iterator itr = configyml[group_str].begin();
+       itr != configyml[group_str].end(); ++itr)
+  {
+    std::string paramKey = itr->first.as<std::string>();
+    if (paramKey == "enable")
+    {
+      continue;
+    }
+    else if (paramKey == "id")
+    {
+      sensorObj.id = itr->second.as<std::string>();
+    }
+    else if (paramKey == "type")
+    {
+      sensorObj.type = itr->second.as<std::string>();
+    }
+    else if (paramKey == "description")
+    {
+      sensorObj.desc = itr->second.as<std::string>();
+    }
+    else if (paramKey == "location")
+    {
+      std::string str = itr->second.as<std::string>();
+      std::vector<std::string> vec = split_string(str);
+      if (vec.size() != 3)
+      {
+        cout << "Wrong values provided, it should be like lat;lon;alt" << endl;
+        goto done;
+      }
+      for (int i = 0; i < 3; i++)
+      {
+        sensorObj.location[i] = std::stod(vec[i]);
+      }
+    }
+    else if (paramKey == "coordinate")
+    {
+      std::string str = itr->second.as<std::string>();
+      std::vector<std::string> vec = split_string(str);
+      if (vec.size() != 3)
+      {
+        cout << "Wrong values provided, it should be like x;y;z" << endl;
+        goto done;
+      }
+      for (int i = 0; i < 3; i++)
+      {
+        sensorObj.coordinate[i] = std::stod(vec[i]);
+      }
+    }
+    else
+    {
+      cout << "Unknown key " << paramKey << " for group [" << group_str << "]\n";
+    }
+  }
+  privObj->sensorObj.insert(make_pair(sensorId, sensorObj));
+  ret = true;
+
+done:
+  return ret;
+}
+
+static bool
+nvds_msg2p_parse_place_yaml(void *privData, gchar *cfg_file_path, std::string group_str)
+{
+  bool ret = false;
+  bool isEnabled = false;
+  NvDsPayloadPriv *privObj = NULL;
+  NvDsPlaceObject placeObj;
+  gint placeId;
+
+  YAML::Node configyml = YAML::LoadFile(cfg_file_path);
+
+  if (sscanf(group_str.c_str(), CONFIG_GROUP_PLACE "%u", &placeId) < 1)
+  {
+    cout << "Wrong place group name " << group_str << endl;
+    return ret;
+  }
+
+  privObj = (NvDsPayloadPriv *)privData;
+
+  auto idMap = privObj->placeObj.find(placeId);
+  if (idMap != privObj->placeObj.end())
+  {
+    cout << "Duplicate entries for " << group_str << endl;
+    return ret;
+  }
+
+  if (configyml[group_str]["enable"])
+  {
+    isEnabled = configyml[group_str]["enable"].as<gboolean>();
+    if (isEnabled == FALSE)
+    {
+      ret = true;
+      goto done;
+    }
+  }
+  else
+  {
+    ret = true;
+    goto done;
+  }
+
+  for (YAML::const_iterator itr = configyml[group_str].begin();
+       itr != configyml[group_str].end(); ++itr)
+  {
+    std::string paramKey = itr->first.as<std::string>();
+    if (paramKey == "enable")
+    {
+      continue;
+    }
+    else if (paramKey == "id")
+    {
+      placeObj.id = itr->second.as<std::string>();
+    }
+    else if (paramKey == "type")
+    {
+      placeObj.type = itr->second.as<std::string>();
+    }
+    else if (paramKey == "name")
+    {
+      placeObj.name = itr->second.as<std::string>();
+    }
+    else if (paramKey == "location")
+    {
+      std::string str = itr->second.as<std::string>();
+      std::vector<std::string> vec = split_string(str);
+      if (vec.size() != 3)
+      {
+        cout << "Wrong values provided, it should be like lat;lon;alt" << endl;
+        goto done;
+      }
+      for (int i = 0; i < 3; i++)
+      {
+        placeObj.location[i] = std::stod(vec[i]);
+      }
+    }
+    else if (paramKey == "coordinate")
+    {
+      std::string str = itr->second.as<std::string>();
+      std::vector<std::string> vec = split_string(str);
+      if (vec.size() != 3)
+      {
+        cout << "Wrong values provided, it should be like x;y;z" << endl;
+        goto done;
+      }
+      for (int i = 0; i < 3; i++)
+      {
+        placeObj.coordinate[i] = std::stod(vec[i]);
+      }
+    }
+    else if (paramKey == "place-sub-field1")
+    {
+      placeObj.subObj.field1 = itr->second.as<std::string>();
+    }
+    else if (paramKey == "place-sub-field2")
+    {
+      placeObj.subObj.field2 = itr->second.as<std::string>();
+    }
+    else if (paramKey == "place-sub-field3")
+    {
+      placeObj.subObj.field3 = itr->second.as<std::string>();
+    }
+    else
+    {
+      cout << "Unknown key " << paramKey << " for group [" << group_str << "]\n";
+    }
+  }
+  privObj->placeObj.insert(pair<int, NvDsPlaceObject>(placeId, placeObj));
+  ret = true;
+
+done:
+  return ret;
+}
+
+static bool
+nvds_msg2p_parse_analytics_yaml(void *privData, gchar *cfg_file_path, std::string group_str)
+{
+  bool ret = false;
+  bool isEnabled = false;
+  NvDsPayloadPriv *privObj = NULL;
+  NvDsAnalyticsObject analyticsObj;
+  gint moduleId;
+
+  YAML::Node configyml = YAML::LoadFile(cfg_file_path);
+
+  if (sscanf(group_str.c_str(), CONFIG_GROUP_ANALYTICS "%u", &moduleId) < 1)
+  {
+    cout << "Wrong analytics module group name " << group_str << endl;
+    return ret;
+  }
+
+  privObj = (NvDsPayloadPriv *)privData;
+
+  auto idMap = privObj->analyticsObj.find(moduleId);
+  if (idMap != privObj->analyticsObj.end())
+  {
+    cout << "Duplicate entries for " << group_str << endl;
+    return ret;
+  }
+
+  if (configyml[group_str]["enable"])
+  {
+    isEnabled = configyml[group_str]["enable"].as<gboolean>();
+    if (isEnabled == FALSE)
+    {
+      ret = true;
+      goto done;
+    }
+  }
+  else
+  {
+    ret = true;
+    goto done;
+  }
+
+  for (YAML::const_iterator itr = configyml[group_str].begin();
+       itr != configyml[group_str].end(); ++itr)
+  {
+    std::string paramKey = itr->first.as<std::string>();
+    if (paramKey == "enable")
+    {
+      continue;
+    }
+    else if (paramKey == "id")
+    {
+      analyticsObj.id = itr->second.as<std::string>();
+    }
+    else if (paramKey == "source")
+    {
+      analyticsObj.source = itr->second.as<std::string>();
+    }
+    else if (paramKey == "description")
+    {
+      analyticsObj.desc = itr->second.as<std::string>();
+    }
+    else if (paramKey == "version")
+    {
+      analyticsObj.version = itr->second.as<std::string>();
+    }
+    else
+    {
+      cout << "Unknown key " << paramKey << " for group [" << group_str << "]\n";
+    }
+  }
+  privObj->analyticsObj.insert(make_pair(moduleId, analyticsObj));
+  ret = true;
+
+done:
+  return ret;
+}
+
 bool nvds_msg2p_parse_csv(void *privData, const gchar *file)
 {
   NvDsPayloadPriv *privObj = NULL;
@@ -518,6 +833,48 @@ bool nvds_msg2p_parse_csv(void *privData, const gchar *file)
   }
 
   inputFile.close();
+  return retVal;
+}
+
+bool nvds_msg2p_parse_yaml(void *privData, const gchar *file)
+{
+  bool retVal = true;
+  YAML::Node configyml = YAML::LoadFile(file);
+  std::string sensor_str = "sensor";
+  std::string place_str = "place";
+  std::string analytics_str = "analytics";
+  gchar *cfg_file = (gchar *)malloc(sizeof(gchar *));
+  cfg_file = (gchar *)file;
+
+  for (YAML::const_iterator itr = configyml.begin(); itr != configyml.end(); ++itr)
+  {
+    std::string paramKey = itr->first.as<std::string>();
+
+    if (paramKey.compare(0, sensor_str.size(), sensor_str) == 0)
+    {
+      retVal = nvds_msg2p_parse_sensor_yaml(privData, cfg_file, paramKey);
+    }
+    else if (paramKey.compare(0, place_str.size(), place_str) == 0)
+    {
+      retVal = nvds_msg2p_parse_place_yaml(privData, cfg_file, paramKey);
+    }
+    else if (paramKey.compare(0, analytics_str.size(), analytics_str) == 0)
+    {
+      retVal = nvds_msg2p_parse_analytics_yaml(privData, cfg_file, paramKey);
+    }
+    else
+    {
+      cout << "Unknown group " << paramKey << endl;
+    }
+
+    if (!retVal)
+    {
+      cout << "Failed to parse group " << paramKey << endl;
+      goto done;
+    }
+  }
+
+done:
   return retVal;
 }
 

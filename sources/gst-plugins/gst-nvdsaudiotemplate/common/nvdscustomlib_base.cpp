@@ -22,13 +22,11 @@
 
 #include "nvdscustomlib_base.h"
 
-DSCustomLibraryBase::DSCustomLibraryBase()
-{
-  m_element = NULL;
-  m_inCaps = NULL;
-  m_outCaps = NULL;
-  m_gpuId = 0;
-}
+DSCustomLibraryBase::DSCustomLibraryBase(GstBaseTransform *btrans)
+    : m_element(btrans),
+      m_gpuId(0),
+      m_inCaps(nullptr),
+      m_outCaps(nullptr) {}
 
 bool DSCustomLibraryBase::SetInitParams(DSCustom_CreateParams *params)
 {

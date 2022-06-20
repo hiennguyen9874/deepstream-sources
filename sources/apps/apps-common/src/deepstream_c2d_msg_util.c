@@ -93,7 +93,7 @@ nvds_c2d_parse_cloud_message(gpointer data, guint size)
    *   }
    * }
    */
-
+  NvDsC2DMsgSR *srMsg = g_new0(NvDsC2DMsgSR, 1);
   JsonParser *parser = json_parser_new();
   ret = json_parser_load_from_data(parser, data, size, &error);
   if (!ret)
@@ -215,7 +215,6 @@ nvds_c2d_parse_cloud_message(gpointer data, guint size)
     goto error;
   }
 
-  NvDsC2DMsgSR *srMsg = g_new0(NvDsC2DMsgSR, 1);
   srMsg->sensorStr = sensorStr;
   if (startRec)
   {
@@ -238,6 +237,7 @@ nvds_c2d_parse_cloud_message(gpointer data, guint size)
 error:
   g_object_unref(parser);
   g_free(sensorStr);
+  g_free(srMsg);
   return NULL;
 }
 

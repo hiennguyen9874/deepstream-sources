@@ -24,9 +24,14 @@
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
 
+#pragma GCC diagnostic push
+#if __GNUC__ >= 8
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
+#endif
 #ifdef WITH_OPENCV
 #include <opencv2/objdetect/objdetect.hpp>
 #endif
+#pragma GCC diagnostic pop
 
 #include <nvdsinfer_context.h>
 #include <nvdsinfer_custom_impl.h>

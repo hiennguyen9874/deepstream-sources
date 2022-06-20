@@ -44,6 +44,9 @@ enum
   PROP_CUSTOMLIB_NAME,
   PROP_GPU_DEVICE_ID,
   PROP_CUSTOMLIB_PROPS,
+  PROP_DUMMY_META_INSERT,
+  PROP_FILL_DUMMY_BATCH_META,
+  PROP_CUSTOMLIB_PROPS_VALUES,
 };
 
 /* Default values for properties */
@@ -327,9 +330,30 @@ gst_nvdsvideotemplate_class_init(GstNvDsVideoTemplateClass *klass)
   g_object_class_install_property(gobject_class, PROP_CUSTOMLIB_PROPS,
                                   g_param_spec_string("customlib-props", "Custom Library Properties",
                                                       "Set Custom Library Properties (key:value) string, can be set multiple times,"
-                                                      "vector is maintained internally",
+                                                      "vector is maintained internally\n\t\t\texport NVDS_CUSTOMLIB=/path/to/customlib.so to get customlib properties",
                                                       NULL,
                                                       (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+  g_object_class_install_property(gobject_class, PROP_DUMMY_META_INSERT,
+                                  g_param_spec_boolean("dummy-meta-insert",
+                                                       "dummy-meta-insert",
+                                                       "Set to enable dummy meta data insertion",
+                                                       false, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+  if (g_getenv("NVDS_CUSTOMLIB"))
+  {
+    g_object_class_install_property(gobject_class, PROP_CUSTOMLIB_PROPS_VALUES,
+                                    g_param_spec_string("props-values",
+                                                        "Custom library propperty values",
+                                                        "Customlib property values",
+                                                        NULL,
+                                                        (GParamFlags)(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
+  }
+
+  g_object_class_install_property(gobject_class, PROP_FILL_DUMMY_BATCH_META,
+                                  g_param_spec_boolean("fill-dummy-batch-meta",
+                                                       "fill-dummy-batch-meta",
+                                                       "Set to fill dummy batch meta data sent from nvstreammux",
+                                                       false, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
   /* Set sink and src pad capabilities */
   gst_element_class_add_pad_template(gstelement_class,
@@ -370,6 +394,12 @@ gst_nvdsvideotemplate_set_property(GObject *object, guint prop_id,
   {
   case PROP_GPU_DEVICE_ID:
     nvdsvideotemplate->gpu_id = g_value_get_uint(value);
+    break;
+  case PROP_DUMMY_META_INSERT:
+    nvdsvideotemplate->dummy_meta_insert = g_value_get_boolean(value);
+    break;
+  case PROP_FILL_DUMMY_BATCH_META:
+    nvdsvideotemplate->fill_dummy_batch_meta = g_value_get_boolean(value);
     break;
   case PROP_CUSTOMLIB_NAME:
     if (nvdsvideotemplate->custom_lib_name)
@@ -437,6 +467,31 @@ gst_nvdsvideotemplate_get_property(GObject *object, guint prop_id,
     break;
   case PROP_CUSTOMLIB_PROPS:
     g_value_set_string(value, nvdsvideotemplate->custom_prop_string);
+    break;
+  case PROP_DUMMY_META_INSERT:
+    g_value_set_boolean(value, nvdsvideotemplate->dummy_meta_insert);
+  case PROP_CUSTOMLIB_PROPS_VALUES:
+    if (g_getenv("NVDS_CUSTOMLIB"))
+    {
+      DSCustomLibrary_Factory *algo_factory = new DSCustomLibrary_Factory();
+      char *str = NULL;
+      IDSCustomLibrary *algo_ctx = algo_factory->CreateCustomAlgoCtx(g_getenv("NVDS_CUSTOMLIB"));
+      if (algo_ctx)
+        str = algo_ctx->QueryProperties();
+
+      if (algo_ctx)
+        delete algo_ctx;
+      if (algo_factory)
+        delete algo_factory;
+
+      g_value_set_string(value, str);
+
+      if (str)
+        delete str;
+    }
+    break;
+  case PROP_FILL_DUMMY_BATCH_META:
+    g_value_set_boolean(value, nvdsvideotemplate->fill_dummy_batch_meta);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -579,6 +634,8 @@ gst_nvdsvideotemplate_set_caps(GstBaseTransform *btrans, GstCaps *incaps,
   params.m_cudaStream = nvdsvideotemplate->cu_nbstream;
   GST_DEBUG("outcaps received = %s\n", gst_caps_to_string(outcaps));
   params.m_gpuId = nvdsvideotemplate->gpu_id;
+  params.m_dummyMetaInsert = nvdsvideotemplate->dummy_meta_insert;
+  params.m_fillDummyBatchMeta = nvdsvideotemplate->fill_dummy_batch_meta;
 
   return nvdsvideotemplate->algo_ctx->SetInitParams(&params);
 
@@ -685,5 +742,5 @@ nvdsvideotemplate_plugin_init(GstPlugin *plugin)
 GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   nvdsgst_videotemplate,
-                  DESCRIPTION, nvdsvideotemplate_plugin_init, "6.0", LICENSE, BINARY_PACKAGE,
+                  DESCRIPTION, nvdsvideotemplate_plugin_init, "6.1", LICENSE, BINARY_PACKAGE,
                   URL)

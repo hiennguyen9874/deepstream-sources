@@ -1147,7 +1147,8 @@ create_pipeline(AppCtx *appCtx,
     {
     case NV_DS_SINK_FAKE:
     case NV_DS_SINK_RENDER_EGL:
-    case NV_DS_SINK_RENDER_OVERLAY:
+    case NV_DS_SINK_RENDER_3D:
+    case NV_DS_SINK_RENDER_DRM:
       /* Set the "qos" property of sink, if not explicitly specified in the
          config. */
       if (!sink_config->render_config.qos_value_specified)

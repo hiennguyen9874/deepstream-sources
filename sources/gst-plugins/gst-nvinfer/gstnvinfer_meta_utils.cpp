@@ -128,7 +128,7 @@ void attach_metadata_detector(GstNvInfer *nvinfer, GstMiniObject *tensor_out_obj
     }
 
     if (obj.label)
-      strncpy(obj_meta->obj_label, obj.label, MAX_LABEL_SIZE);
+      g_strlcpy(obj_meta->obj_label, obj.label, MAX_LABEL_SIZE);
     /* display_text requires heap allocated memory. */
     text_params.display_text = g_strdup(obj.label);
     /* Display text above the left top corner of the object. */
@@ -517,6 +517,7 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer, GstMiniObject *tensor_out_ob
     meta->gpu_id = nvinfer->gpu_id;
     meta->priv_data = gst_mini_object_ref(tensor_out_object);
     meta->network_info = nvinfer->network_info;
+    meta->maintain_aspect_ratio = nvinfer->maintain_aspect_ratio;
 
     for (unsigned int i = 0; i < meta->num_output_layers; i++)
     {

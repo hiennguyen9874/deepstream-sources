@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -245,7 +245,7 @@ asr_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info, gpointer u_data)
 
   if (!gst_buffer_map(buf, &inmap, GST_MAP_READ))
   {
-    g_print("Unable to map info from buffer\n");
+    g_printerr("Unable to map info from buffer\n");
     return GST_FLOW_ERROR;
   }
   text_data = inmap.data;
@@ -428,16 +428,16 @@ create_asr_pipeline(AppCtx *appctx, int stream_num, StreamCtx *sctx,
 
   if (sctx->audio_config.asr_output_file_name == NULL)
   {
-    g_print("In config file ASR output text file is not provided for stream %d \
+    g_printerr("In config file ASR output text file is not provided for stream %d \
      \n",
-            stream_num);
+               stream_num);
     exit(-1);
   }
 
   sctx->FP_asr = fopen(sctx->audio_config.asr_output_file_name, "w");
   if (sctx->FP_asr == NULL)
   {
-    g_print("Can not open ASR output text file\n");
+    g_printerr("Can not open ASR output text file\n");
     exit(-1);
   }
 

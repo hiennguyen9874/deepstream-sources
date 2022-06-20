@@ -15,7 +15,7 @@ namespace cvcore
 {
 
 // Enable dll imports/exports in case of windows support
-#if defined _WIN32 && defined CVCORE_SHARED_LIB
+#ifdef _WIN32
 #ifdef CVCORE_EXPORT_SYMBOLS             // Needs to be enabled in case of compiling dll
 #define CVCORE_API __declspec(dllexport) // Exports symbols when compiling the library.
 #else

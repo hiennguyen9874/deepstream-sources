@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -30,17 +30,16 @@
 #define CONFIG_GROUP_ASR "asr"
 #define CONFIG_GROUP_SINK "sink"
 
-#define CHECK_PARSE_ERROR(error)   \
-  if (error)                       \
-  {                                \
-    g_print("%s", error->message); \
-    return 1;                      \
+#define CHECK_PARSE_ERROR(error)      \
+  if (error)                          \
+  {                                   \
+    g_printerr("%s", error->message); \
+    return FALSE;                     \
   }
 
-guint get_num_sources(gchar *config_file)
+static guint get_num_sources_cfg(gchar *config_file)
 {
   GError *error = NULL;
-  gboolean ret = FALSE;
   gchar **groups = NULL;
   gchar **group;
   guint num_users = 0;
@@ -49,7 +48,7 @@ guint get_num_sources(gchar *config_file)
 
   if (!g_key_file_load_from_file(cf, config_file, G_KEY_FILE_NONE, &error))
   {
-    g_print("Failed to load config file file: %s %s", config_file, error->message);
+    g_printerr("Failed to load config file: %s, %s", config_file, error->message);
     return 0;
   }
 
@@ -83,9 +82,27 @@ guint get_num_sources(gchar *config_file)
   return num_users;
 }
 
+guint get_num_sources(gchar *config_file)
+{
+  if (!config_file)
+  {
+    g_printerr("Config file name not available\n");
+    return 0;
+  }
+
+  if (g_str_has_suffix(config_file, ".yml") ||
+      g_str_has_suffix(config_file, ".yaml"))
+  {
+    return get_num_sources_yaml(config_file);
+  }
+  else
+  {
+    return get_num_sources_cfg(config_file);
+  }
+}
+
 gboolean parse_src_config(StreamCtx *sctx, GKeyFile *key_file, gchar *config_file, gchar *group)
 {
-  gboolean ret = FALSE;
   gchar **keys = NULL;
   gchar **key = NULL;
   GError *error = NULL;
@@ -109,6 +126,7 @@ gboolean parse_src_config(StreamCtx *sctx, GKeyFile *key_file, gchar *config_fil
         if (path == NULL)
         {
           printf("cannot find file with name[%s]\n", filename);
+          return FALSE;
         }
         else
         {
@@ -120,12 +138,11 @@ gboolean parse_src_config(StreamCtx *sctx, GKeyFile *key_file, gchar *config_fil
       CHECK_PARSE_ERROR(error);
     }
   }
-  return 0;
+  return TRUE;
 }
 
 gboolean parse_asr_config(StreamCtx *sctx, GKeyFile *key_file, gchar *config_file, gchar *group)
 {
-  gboolean ret = FALSE;
   gchar **keys = NULL;
   gchar **key = NULL;
   GError *error = NULL;
@@ -140,12 +157,11 @@ gboolean parse_asr_config(StreamCtx *sctx, GKeyFile *key_file, gchar *config_fil
       CHECK_PARSE_ERROR(error);
     }
   }
-  return 0;
+  return TRUE;
 }
 
 gboolean parse_sink_config(AppCtx *apptx, GKeyFile *key_file, gchar *config_file, gchar *group)
 {
-  gboolean ret = FALSE;
   gchar **keys = NULL;
   gchar **key = NULL;
   GError *error = NULL;
@@ -172,13 +188,13 @@ gboolean parse_sink_config(AppCtx *apptx, GKeyFile *key_file, gchar *config_file
       CHECK_PARSE_ERROR(error);
     }
   }
-  return 0;
+  return TRUE;
 }
 
-gboolean parse_config_file(AppCtx *appctx, gchar *config_file)
+static gboolean parse_config_file_cfg(AppCtx *appctx, gchar *config_file)
 {
   GError *error = NULL;
-  gboolean ret = 0;
+  gboolean ret = FALSE;
   gchar **groups = NULL;
   gchar **group;
   guint num_users = 0;
@@ -189,8 +205,8 @@ gboolean parse_config_file(AppCtx *appctx, gchar *config_file)
 
   if (!g_key_file_load_from_file(cf, config_file, G_KEY_FILE_NONE, &error))
   {
-    g_print("Failed to load config file file: %s %s", config_file, error->message);
-    return 1;
+    g_printerr("Failed to load config file: %s, %s", config_file, error->message);
+    return FALSE;
   }
 
   groups = g_key_file_get_groups(cf, NULL);
@@ -204,7 +220,7 @@ gboolean parse_config_file(AppCtx *appctx, gchar *config_file)
     {
       sctx = &appctx->sctx[i];
       ret = parse_src_config(sctx, cf, config_file, *group);
-      if (ret)
+      if (TRUE != ret)
       {
         goto done;
       }
@@ -216,7 +232,7 @@ gboolean parse_config_file(AppCtx *appctx, gchar *config_file)
     {
       sctx = &appctx->sctx[i];
       ret = parse_asr_config(sctx, cf, config_file, *group);
-      if (ret)
+      if (TRUE != ret)
       {
         goto done;
       }
@@ -227,7 +243,7 @@ gboolean parse_config_file(AppCtx *appctx, gchar *config_file)
     if (!strncmp(*group, CONFIG_GROUP_SINK, sizeof(CONFIG_GROUP_SINK) - 1))
     {
       ret = parse_sink_config(appctx, cf, config_file, *group);
-      if (ret)
+      if (TRUE != ret)
       {
         goto done;
       }
@@ -249,9 +265,25 @@ done:
   {
     g_error_free(error);
   }
-  if (ret)
+
+  return ret;
+}
+
+gboolean parse_config_file(AppCtx *appctx, gchar *config_file)
+{
+  if (!config_file)
   {
-    return 1;
+    g_printerr("Config file name not available\n");
+    return FALSE;
   }
-  return 0;
+
+  if (g_str_has_suffix(config_file, ".yml") ||
+      g_str_has_suffix(config_file, ".yaml"))
+  {
+    return parse_config_file_yaml(appctx, config_file);
+  }
+  else
+  {
+    return parse_config_file_cfg(appctx, config_file);
+  }
 }

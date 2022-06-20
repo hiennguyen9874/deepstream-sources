@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2018-2020 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2018-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,7 +8,14 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-Prerequisites:
+*****************************************************************************
+                         deepstream-test3-app
+                                README
+*****************************************************************************
+
+===============================================================================
+1. Prerequisites:
+===============================================================================
 
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
 to install the prerequisites for the Deepstream SDK, the DeepStream SDK itself,
@@ -24,20 +31,9 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
-To compile:
-
-  $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=10.2
-      For x86, CUDA_VER=11.4
-  $ sudo make
-
-NOTE: To compile the sources, run make with "sudo" or root permission.
-
-To run:
-  $ ./deepstream-test3-app <uri1> [uri2] ... [uriN]
-e.g.
-  $ ./deepstream-test3-app file:///home/ubuntu/video1.mp4 file:///home/ubuntu/video2.mp4
-  $ ./deepstream-test3-app rtsp://127.0.0.1/video1 rtsp://127.0.0.1/video2
+===============================================================================
+2. Purpose:
+===============================================================================
 
 This document describes the sample deepstream-test3 application.
 
@@ -51,8 +47,39 @@ This sample builds on top of the deepstream-test1 sample to demonstrate how to:
 * Extract the stream metadata, which contains useful information about the
   frames in the batched buffer.
 
-Refer to the deepstream-test1 sample documentation for an example of simple
+Refer to the deepstream-test1 sample documentation for an example of a
 single-stream inference, bounding-box overlay, and rendering.
+
+===============================================================================
+3. To compile:
+===============================================================================
+
+  $ Set CUDA_VER in the MakeFile as per platform.
+      For Jetson, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
+  $ sudo make
+
+NOTE: To compile the sources, run make with "sudo" or root permission.
+
+===============================================================================
+4. Usage:
+===============================================================================
+
+  Two ways to run the application:
+
+  1.Run with the uri(s). In this method, user needs to modify the source
+    code of deepstream-test3-app to configure pipeline properties.
+
+    $ ./deepstream-test3-app <uri1> [uri2] ... [uriN]
+    e.g.
+    $ ./deepstream-test3-app file:///home/ubuntu/video1.mp4 file:///home/ubuntu/video2.mp4
+    $ ./deepstream-test3-app rtsp://127.0.0.1/video1 rtsp://127.0.0.1/video2
+
+  2.Run with the yml file. In this method, user needs to update the yml file to configure
+    pipeline properties.
+
+    $ ./deepstream-test3-app <yml file>
+    e.g. $ ./deepstream-test3-app dstest3_config.yml
 
 This sample accepts one or more H.264/H.265 video streams as input. It creates
 a source bin for each input and connects the bins to an instance of the

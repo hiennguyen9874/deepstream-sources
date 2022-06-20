@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -48,8 +48,21 @@ extern "C"
 /** Defines the maximum number of planes. */
 #define NVBUF_MAX_PLANES 4
 
+/**
+ * Defines the default values for chroma subsampling.
+ * The default value matches JPEG/MPEG use cases.
+ */
+#define NVBUFSURFACE_CHROMA_SUBSAMPLING_HORIZ_DEFAULT 0
+#define NVBUFSURFACE_CHROMA_SUBSAMPLING_VERT_DEFAULT 1
+
+#define NVBUFSURFACE_CHROMA_SUBSAMPLING_PARAMS_DEFAULT \
+  {                                                    \
+    NVBUFSURFACE_CHROMA_SUBSAMPLING_HORIZ_DEFAULT,     \
+        NVBUFSURFACE_CHROMA_SUBSAMPLING_VERT_DEFAULT   \
+  }
+
   /**
-   * Specifies mapping types for \ref NvBufSurface.
+   *  Defines mapping types of NvBufSurface.
    */
   typedef enum
   {
@@ -61,7 +74,31 @@ extern "C"
   } NvBufSurfaceMemMapFlags;
 
   /**
-   * Specifies color formats for \ref NvBufSurface.
+   * Defines tags that identify the components requesting a memory allocation.
+   * The tags can be used later to identify the total memory allocated to
+   * particular types of components.
+   * TODO: Check if DeepStream require more tags to be defined.
+   */
+  typedef enum
+  {
+    /** tag None. */
+    NvBufSurfaceTag_NONE = 0x0,
+    /** tag for Camera. */
+    NvBufSurfaceTag_CAMERA = 0x200,
+    /** tag for Jpeg Encoder/Decoder. */
+    NvBufSurfaceTag_JPEG = 0x1500,
+    /** tag for VPR Buffers. */
+    NvBufSurfaceTag_PROTECTED = 0x1504,
+    /** tag for H264/H265 Video Encoder. */
+    NvBufSurfaceTag_VIDEO_ENC = 0x1200,
+    /** tag for H264/H265/VP9 Video Decoder. */
+    NvBufSurfaceTag_VIDEO_DEC = 0x1400,
+    /** tag for Video Transform/Composite/Blend. */
+    NvBufSurfaceTag_VIDEO_CONVERT = 0xf01,
+  } NvBufSurfaceTag;
+
+  /**
+   * Defines color formats for NvBufSurface.
    */
   typedef enum
   {
@@ -159,6 +196,54 @@ extern "C"
     NVBUF_COLOR_FORMAT_B32F_G32F_R32F,
     /** Specifies BT.601 colorspace - YUV422 multi-planar. */
     NVBUF_COLOR_FORMAT_YUV422,
+    /** Specifies BT.601 colorspace - Y/CrCb 4:2:0 10-bit multi-planar. */
+    NVBUF_COLOR_FORMAT_NV21_10LE,
+    /** Specifies BT.601 colorspace - Y/CrCb 4:2:0 12-bit multi-planar. */
+    NVBUF_COLOR_FORMAT_NV21_12LE,
+    /** Specifies BT.2020 colorspace - Y/CbCr 4:2:0 12-bit multi-planar. */
+    NVBUF_COLOR_FORMAT_NV12_12LE_2020,
+    /** Specifies BT.601 colorspace - Y/CbCr 4:2:2 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV16,
+    /** Specifies BT.601 colorspace - Y/CbCr 4:2:2 10-bit semi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_10LE,
+    /** Specifies BT.601 colorspace - Y/CbCr 4:4:4 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV24,
+    /** Specifies BT.601 colorspace - Y/CrCb 4:4:4 10-bit multi-planar. */
+    NVBUF_COLOR_FORMAT_NV24_10LE,
+    /** Specifies BT.601_ER colorspace - Y/CbCr 4:2:2 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_ER,
+    /** Specifies BT.601_ER colorspace - Y/CbCr 4:4:4 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV24_ER,
+    /** Specifies BT.709 colorspace - Y/CbCr 4:2:2 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_709,
+    /** Specifies BT.709 colorspace - Y/CbCr 4:4:4 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV24_709,
+    /** Specifies BT.709_ER colorspace - Y/CbCr 4:2:2 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_709_ER,
+    /** Specifies BT.709_ER colorspace - Y/CbCr 4:4:4 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV24_709_ER,
+    /** Specifies BT.709 colorspace - Y/CbCr 10 bit 4:4:4 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV24_10LE_709,
+    /** Specifies BT.709 ER colorspace - Y/CbCr 10 bit 4:4:4 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV24_10LE_709_ER,
+    /** Specifies BT.2020 colorspace - Y/CbCr 10 bit 4:4:4 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV24_10LE_2020,
+    /** Specifies BT.2020 colorspace - Y/CbCr 12 bit 4:4:4 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV24_12LE_2020,
+    /** Specifies Non-linear RGB BT.709 colorspace - RGBA-10-10-10-2 planar. */
+    NVBUF_COLOR_FORMAT_RGBA_10_10_10_2_709,
+    /** Specifies Non-linear RGB BT.2020 colorspace - RGBA-10-10-10-2 planar. */
+    NVBUF_COLOR_FORMAT_RGBA_10_10_10_2_2020,
+    /** Specifies Non-linear RGB BT.709 colorspace - BGRA-10-10-10-2 planar. */
+    NVBUF_COLOR_FORMAT_BGRA_10_10_10_2_709,
+    /** Specifies Non-linear RGB BT.2020 colorspace - BGRA-10-10-10-2 planar. */
+    NVBUF_COLOR_FORMAT_BGRA_10_10_10_2_2020,
+    /** Specifies Optical flow SAD calculation Buffer format */
+    NVBUF_COLOR_FORMAT_A32,
+    /** Specifies BT.601 colorspace - 10 bit YUV 4:2:2 interleaved. */
+    NVBUF_COLOR_FORMAT_UYVP,
+    /** Specifies BT.601 colorspace - 10 bit YUV ER 4:2:2 interleaved. */
+    NVBUF_COLOR_FORMAT_UYVP_ER,
 
     NVBUF_COLOR_FORMAT_LAST
   } NvBufSurfaceColorFormat;
@@ -198,7 +283,37 @@ extern "C"
   } NvBufSurfaceMemType;
 
   /**
-   * Holds the planewise parameters of a buffer.
+   * Defines display scan formats for NvBufSurface video planes.
+   */
+  typedef enum
+  {
+    /** Progessive scan formats. */
+    NVBUF_DISPLAYSCANFORMAT_PROGRESSIVE,
+    /** Interlaced scan formats. */
+    NVBUF_DISPLAYSCANFORMAT_INTERLACED,
+  } NvBufSurfaceDisplayScanFormat;
+
+  /**
+   * Holds plane wise parameters(extended) of a buffer.
+   */
+  typedef struct NvBufSurfacePlaneParamsEx
+  {
+    /** display scan format - progressive/interlaced. */
+    NvBufSurfaceDisplayScanFormat scanformat[NVBUF_MAX_PLANES];
+    /** offset of the second field for interlaced buffer. */
+    uint32_t secondfieldoffset[NVBUF_MAX_PLANES];
+    /** block height of the planes for blockLinear layout buffer. */
+    uint32_t blockheightlog2[NVBUF_MAX_PLANES];
+    /** physical address of allocated planes. */
+    uint32_t physicaladdress[NVBUF_MAX_PLANES];
+    /** flags associated with planes */
+    uint64_t flags[NVBUF_MAX_PLANES];
+
+    void *_reserved[STRUCTURE_PADDING * NVBUF_MAX_PLANES];
+  } NvBufSurfacePlaneParamsEx;
+
+  /**
+   * Holds plane wise parameters of a buffer.
    */
   typedef struct NvBufSurfacePlaneParams
   {
@@ -219,6 +334,16 @@ extern "C"
 
     void *_reserved[STRUCTURE_PADDING * NVBUF_MAX_PLANES];
   } NvBufSurfacePlaneParams;
+
+  /**
+   * Holds Chroma Subsampling parameters for NvBufSurface allocation.
+   */
+  typedef struct NvBufSurfaceChromaSubsamplingParams
+  {
+    /** location settings */
+    uint8_t chromaLocHoriz;
+    uint8_t chromaLocVert;
+  } NvBufSurfaceChromaSubsamplingParams;
 
   /**
    * Holds parameters required to allocate an \ref NvBufSurface.
@@ -247,7 +372,25 @@ extern "C"
   } NvBufSurfaceCreateParams;
 
   /**
-   * Holds pointers for a mapped buffer.
+   * Hold extended parameters required to allocate NvBufSurface.
+   * (Applicable for NvBufSurfaceAllocate API)
+   */
+  typedef struct NvBufSurfaceAllocateParams
+  {
+    /** Hold legacy NvBufSurface creation parameters */
+    NvBufSurfaceCreateParams params;
+    /** Display scan format */
+    NvBufSurfaceDisplayScanFormat displayscanformat;
+    /** Chroma Subsampling parameters */
+    NvBufSurfaceChromaSubsamplingParams chromaSubsampling;
+    /** components tag to be used for memory allocation */
+    NvBufSurfaceTag memtag;
+
+    void *_reserved[STRUCTURE_PADDING];
+  } NvBufSurfaceAllocateParams;
+
+  /**
+   * Hold the pointers of mapped buffer.
    */
   typedef struct NvBufSurfaceMappedAddr
   {
@@ -260,7 +403,29 @@ extern "C"
   } NvBufSurfaceMappedAddr;
 
   /**
-   * Holds information about a single buffer in a batch.
+   * Hold the information(extended) of single buffer in the batch.
+   */
+  typedef struct NvBufSurfaceParamsEx
+  {
+    /** offset in bytes from the start of the buffer to the first valid byte.
+        (Applicable for NVBUF_MEM_HANDLE) */
+    int32_t startofvaliddata;
+    /** size of the valid data from the first to the last valid byte.
+        (Applicable for NVBUF_MEM_HANDLE) */
+    int32_t sizeofvaliddatainbytes;
+    /** chroma subsampling parameters.
+        (Applicable for NVBUF_MEM_SURFACE_ARRAY) */
+    NvBufSurfaceChromaSubsamplingParams chromaSubsampling;
+    /** get buffer vpr information. */
+    bool is_protected;
+    /** plane wise extended info */
+    NvBufSurfacePlaneParamsEx planeParamsex;
+
+    void *_reserved[STRUCTURE_PADDING];
+  } NvBufSurfaceParamsEx;
+
+  /**
+   * Hold the information of single buffer in the batch.
    */
   typedef struct NvBufSurfaceParams
   {
@@ -287,8 +452,10 @@ extern "C"
     /** Holds pointers to mapped buffers. Initialized to NULL
      when the structure is created. */
     NvBufSurfaceMappedAddr mappedAddr;
+    /** pointers of extended parameters of single buffer in the batch.*/
+    NvBufSurfaceParamsEx *paramex;
 
-    void *_reserved[STRUCTURE_PADDING];
+    void *_reserved[STRUCTURE_PADDING - 1];
   } NvBufSurfaceParams;
 
   /**
@@ -337,7 +504,26 @@ extern "C"
                          NvBufSurfaceCreateParams *params);
 
   /**
-   * \brief  Frees batched buffers previously allocated by NvBufSurfaceCreate().
+   * \brief  Allocate batch of buffers. (Using extended buffer allocation parameters)
+   *
+   * Allocates memory for batchSize buffers and returns in *surf a pointer to allocated NvBufSurface.
+   * params structure should have allocation parameters of single buffer. If size field in
+   * params is set, buffer of that size will be allocated and all other
+   * parameters (w, h, color format etc.) will be ignored.
+   *
+   * Use NvBufSurfaceDestroy to free all the resources.
+   *
+   * @param[out] surf pointer to allocated batched buffers.
+   * @param[in] batchSize batch size of buffers.
+   * @param[in] paramsext pointer to NvBufSurfaceAllocateParams structure.
+   *
+   * @return 0 for success, -1 for failure.
+   */
+  int NvBufSurfaceAllocate(NvBufSurface **surf, uint32_t batchSize,
+                           NvBufSurfaceAllocateParams *paramsext);
+
+  /**
+   * Free the batched buffers previously allocated through NvBufSurfaceCreate.
    *
    * @param[in] surf  A pointer to an \ref NvBufSurface to be freed.
    *
@@ -418,7 +604,43 @@ extern "C"
   int NvBufSurfaceCopy(NvBufSurface *srcSurf, NvBufSurface *dstSurf);
 
   /**
-   * \brief  Syncs the hardware memory cache for the CPU.
+   * \brief Copies the NvBufSurface plane memory content to a raw buffer plane for a specific
+   * batched buffer.
+   *
+   * This function can be used to copy plane memory content from source raw buffer pointer
+   * to specific destination batch buffer of supported memory type.
+   *
+   * @param[in] surf pointer to NvBufSurface structure.
+   * @param[in] index index of buffer in the batch.
+   * @param[in] plane index of plane in buffer.
+   * @param[in] out_width aligned width of the raw data plane.
+   * @param[in] out_height aligned height of the raw data plane.
+   * @param[in] ptr pointer to the output raw plane data.
+   *
+   * @return 0 for success, -1 for failure.
+   */
+  int NvBufSurface2Raw(NvBufSurface *Surf, unsigned int index, unsigned int plane, unsigned int outwidth, unsigned int outheight, unsigned char *ptr);
+
+  /**
+   * \brief Copies the raw buffer plane memory content to the NvBufSurface plane memory of a specific
+   * batched buffer.
+   *
+   * This function can be used to copy plane memory content from batch buffer
+   * to specific destination raw buffer pointer.
+   *
+   * @param[in] ptr pointer to the input raw plane data.
+   * @param[in] index index of buffer in the batch.
+   * @param[in] plane index of plane in buffer.
+   * @param[in] in_width aligned width of the raw data plane.
+   * @param[in] in_height aligned height of the raw data plane.
+   * @param[in] surf pointer to NvBufSurface structure.
+   *
+   * @return 0 for success, -1 for failure.
+   */
+  int Raw2NvBufSurface(unsigned char *ptr, unsigned int index, unsigned int plane, unsigned int inwidth, unsigned int inheight, NvBufSurface *Surf);
+
+  /**
+   * Syncs the HW memory cache for the CPU.
    *
    * Valid only for memory types \ref NVBUF_MEM_SURFACE_ARRAY and
    * \ref NVBUF_MEM_HANDLE.

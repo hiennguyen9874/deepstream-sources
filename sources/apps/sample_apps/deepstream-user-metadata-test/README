@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2019 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2019-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,7 +8,14 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-Prequisites:
+*****************************************************************************
+                     deepstream-user-metadata-test
+                             README
+*****************************************************************************
+
+===============================================================================
+1. Prerequisites:
+===============================================================================
 
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
 to install the prequisites for Deepstream SDK, the DeepStream SDK itself and the
@@ -24,22 +31,31 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
-Compilation Steps:
-
-  $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=10.2
-      For x86, CUDA_VER=11.4
-  $ sudo make
-
-To run:
-  $ ./deepstream-user-metadata-test <h264_elementary_stream>
-
-NOTE: To compile the sources, run make with "sudo" or root permission.
+===============================================================================
+2. Purpose:
+===============================================================================
 
 This document shall describe about the sample deepstream-user-metadata-test application.
 
-It is meant for simple demonstration of how to set, access user metadata for DeepStream SDK
+It is meant for demonstration of how to set, access user metadata for DeepStream SDK
 elements in the pipeline and extract meaningful insights from a video stream.
+
+===============================================================================
+3. To compile:
+===============================================================================
+
+  $ Set CUDA_VER in the MakeFile as per platform.
+      For Jetson, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
+  $ sudo make
+
+===============================================================================
+4. Usage:
+===============================================================================
+
+  $ ./deepstream-user-metadata-test <h264_elementary_stream>
+
+NOTE: To compile the sources, run make with "sudo" or root permission.
 
 This sample creates instance of "nvinfer" element. Instance of
 the "nvinfer" uses TensorRT API to execute inferencing on a model. Using a
@@ -51,8 +67,8 @@ For reference, here are the config files used for this sample :
 1. The 4-class detector (referred to as pgie in this sample) uses
     dstest1_pgie_config.txt
 
-In this sample, we first create one instance of "nvinfer", referred as the pgie.
-This is our 4 class detector and it detects for "Vehicle , RoadSign, TwoWheeler,
+In this sample, one instance of "nvinfer" referred as the pgie, is created.
+This is a 4 class detector and it detects for "Vehicle , RoadSign, TwoWheeler,
 Person".
 
 nvinfer element attaches 16 random integers as user metadata to frame metadata.

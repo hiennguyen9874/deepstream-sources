@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -28,6 +28,7 @@
 #include "gstnvinfer.h"
 #include "gstnvinfer_allocator.h"
 #include "gstnvinfer_meta_utils.h"
+#include "gstnvinfer_yaml_parser.h"
 #include "gstnvinfer_property_parser.h"
 #include "gstnvinfer_impl.h"
 
@@ -459,9 +460,19 @@ gst_nvinfer_set_property(GObject *object, guint prop_id,
     /* Parse the initialization parameters from the config file. This function
      * gives preference to values set through the set_property function over
      * the values set in the config file. */
-    nvinfer->config_file_parse_successful =
-        gst_nvinfer_parse_config_file(nvinfer, impl->m_InitParams.get(),
-                                      nvinfer->config_file_path);
+    if (g_str_has_suffix(nvinfer->config_file_path, ".yml") ||
+        g_str_has_suffix(nvinfer->config_file_path, ".yaml"))
+    {
+      nvinfer->config_file_parse_successful =
+          gst_nvinfer_parse_config_file_yaml(nvinfer, impl->m_InitParams.get(),
+                                             nvinfer->config_file_path);
+    }
+    else
+    {
+      nvinfer->config_file_parse_successful =
+          gst_nvinfer_parse_config_file(nvinfer, impl->m_InitParams.get(),
+                                        nvinfer->config_file_path);
+    }
   }
   break;
   case PROP_OPERATE_ON_GIE_ID:
@@ -893,7 +904,6 @@ gst_nvinfer_start(GstBaseTransform *btrans)
 
   /* Set the NvBufSurfTransform config parameters. */
   nvinfer->transform_config_params.gpu_id = nvinfer->gpu_id;
-  nvinfer->transform_config_params.cuda_stream = nvinfer->convertStream;
 
   NvBufSurfTransformSetSessionParams(&nvinfer->transform_config_params);
 
@@ -997,6 +1007,8 @@ gst_nvinfer_start(GstBaseTransform *btrans)
                        cudaGetErrorName(cudaReturn)));
     return FALSE;
   }
+
+  nvinfer->transform_config_params.cuda_stream = nvinfer->convertStream;
 
   /* Create the intermediate NvBufSurface structure for holding an array of input
    * NvBufSurfaceParams for batched transforms. */
@@ -1370,6 +1382,12 @@ gst_nvinfer_input_queue_loop(gpointer data)
       input_batch.inputFormat = NvDsInferFormat_Unknown;
       break;
     }
+
+    if (batch->sync_obj)
+    {
+      NvBufSurfTransformSyncObjWait(batch->sync_obj, -1);
+      NvBufSurfTransformSyncObjDestroy(&(batch->sync_obj));
+    }
     input_batch.inputPitch = mem->surf->surfaceList[0].planeParams.pitch[0];
 
     input_batch.returnInputFunc =
@@ -1436,8 +1454,8 @@ convert_batch_and_push_to_input_thread(GstNvInfer *nvinfer,
   if (batch->frames.size() > 0)
   {
     /* Batched tranformation. */
-    err = NvBufSurfTransform(&nvinfer->tmp_surf, mem->surf,
-                             &nvinfer->transform_params);
+    err = NvBufSurfTransformAsync(&nvinfer->tmp_surf, mem->surf,
+                                  &nvinfer->transform_params, &batch->sync_obj);
   }
 
   nvtxDomainRangePop(nvinfer->nvtx_domain);
@@ -2611,4 +2629,4 @@ nvinfer_plugin_init(GstPlugin *plugin)
 }
 
 GST_PLUGIN_DEFINE(GST_VERSION_MAJOR, GST_VERSION_MINOR, nvdsgst_infer,
-                  DESCRIPTION, nvinfer_plugin_init, "6.0", LICENSE, BINARY_PACKAGE, URL)
+                  DESCRIPTION, nvinfer_plugin_init, "6.1", LICENSE, BINARY_PACKAGE, URL)

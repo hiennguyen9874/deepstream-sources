@@ -25,6 +25,7 @@ BaseConfig:
   minDetectorConfidence: 0   # If the confidence of a detector bbox is lower than this, then it won't be considered for tracking
 
 TargetManagement:
+  preserveStreamUpdateOrder: 0 # When assigning new target ids, preserve input streams' order to keep target ids in a deterministic order over multuple runs
   maxTargetsPerStream: 150  # Max number of targets to track per stream. Recommended to set >10. Note: this value should account for the targets being tracked in shadow mode as well. Max value depends on the GPU memory capacity
 
   # [Creation & Termination Policy]

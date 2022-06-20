@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -709,7 +709,6 @@ gst_nvdspreprocess_start(GstBaseTransform *btrans)
 
   /** class for acquiring/releasing buffer from tensor pool */
   nvdspreprocess->acquire_impl = std::make_unique<NvDsPreProcessAcquirerImpl>(nvdspreprocess->tensor_pool);
-  nvdspreprocess->tensor_buf = new NvDsPreProcessCustomBuf;
 
   nvdspreprocess->nvtx_domain = nvtx_domain_ptr.release();
 
@@ -805,17 +804,11 @@ gst_nvdspreprocess_stop(GstBaseTransform *btrans)
 
   if (nvdspreprocess->custom_lib_path)
   {
-    delete (nvdspreprocess->custom_lib_path);
+    delete[](nvdspreprocess->custom_lib_path);
     nvdspreprocess->custom_lib_path = NULL;
   }
 
   nvdspreprocess->acquire_impl.reset();
-
-  if (nvdspreprocess->tensor_buf)
-  {
-    delete nvdspreprocess->tensor_buf;
-    nvdspreprocess->tensor_buf = NULL;
-  }
 
   /* delete the heap allocated memory */
   for (auto &group : nvdspreprocess->nvdspreprocess_groups)
@@ -859,7 +852,7 @@ error:
 static GstFlowReturn
 scale_and_fill_data(GstNvDsPreProcess *nvdspreprocess,
                     NvBufSurfaceParams *src_frame, NvOSD_RectParams *crop_rect_params,
-                    gdouble &ratio_x, gdouble &ratio_y, gdouble &offset_left, gdouble &offset_top,
+                    gdouble &ratio_x, gdouble &ratio_y, guint &offset_left, guint &offset_top,
                     NvBufSurface *dest_surf, NvBufSurfaceParams *dest_frame,
                     void *destCudaPtr)
 {
@@ -875,6 +868,10 @@ scale_and_fill_data(GstNvDsPreProcess *nvdspreprocess,
   gint src_width = GST_ROUND_DOWN_2((unsigned int)crop_rect_params->width);
   gint src_height = GST_ROUND_DOWN_2((unsigned int)crop_rect_params->height);
   guint dest_width, dest_height;
+
+  guint offset_right = 0, offset_bottom = 0;
+  offset_left = 0;
+  offset_top = 0;
 
   if (nvdspreprocess->maintain_aspect_ratio)
   {
@@ -914,29 +911,96 @@ scale_and_fill_data(GstNvDsPreProcess *nvdspreprocess,
     }
 
     /* Pad the scaled image with black color. */
-    cudaReturn =
-        cudaMemset2DAsync((uint8_t *)destCudaPtr + pixel_size * dest_width,
-                          dest_frame->planeParams.pitch[0], 0,
-                          pixel_size * (dest_frame->width - dest_width), dest_frame->height,
-                          nvdspreprocess->convert_stream);
-    if (cudaReturn != cudaSuccess)
+    if (!nvdspreprocess->symmetric_padding)
     {
-      GST_ERROR_OBJECT(nvdspreprocess,
-                       "cudaMemset2DAsync failed with error %s while converting buffer",
-                       cudaGetErrorName(cudaReturn));
-      return GST_FLOW_ERROR;
+      /* Non Symmetric Padding. */
+      /* Right side Padding. */
+      offset_right = (dest_frame->width - dest_width);
+      cudaReturn =
+          cudaMemset2DAsync((uint8_t *)destCudaPtr + pixel_size * dest_width,
+                            dest_frame->planeParams.pitch[0], 0,
+                            pixel_size * offset_right, dest_frame->height,
+                            nvdspreprocess->convert_stream);
+      if (cudaReturn != cudaSuccess)
+      {
+        GST_ERROR_OBJECT(nvdspreprocess,
+                         "cudaMemset2DAsync failed with error %s while converting buffer",
+                         cudaGetErrorName(cudaReturn));
+        return GST_FLOW_ERROR;
+      }
+      /* Bottom side Padding. */
+      offset_bottom = dest_frame->height - dest_height;
+      cudaReturn =
+          cudaMemset2DAsync((uint8_t *)destCudaPtr +
+                                dest_frame->planeParams.pitch[0] * dest_height,
+                            dest_frame->planeParams.pitch[0], 0, pixel_size * dest_width,
+                            offset_bottom, nvdspreprocess->convert_stream);
+      if (cudaReturn != cudaSuccess)
+      {
+        GST_ERROR_OBJECT(nvdspreprocess,
+                         "cudaMemset2DAsync failed with error %s while converting buffer",
+                         cudaGetErrorName(cudaReturn));
+        return GST_FLOW_ERROR;
+      }
     }
-    cudaReturn =
-        cudaMemset2DAsync((uint8_t *)destCudaPtr +
-                              dest_frame->planeParams.pitch[0] * dest_height,
-                          dest_frame->planeParams.pitch[0], 0, pixel_size * dest_width,
-                          dest_frame->height - dest_height, nvdspreprocess->convert_stream);
-    if (cudaReturn != cudaSuccess)
+    else
     {
-      GST_ERROR_OBJECT(nvdspreprocess,
-                       "cudaMemset2DAsync failed with error %s while converting buffer",
-                       cudaGetErrorName(cudaReturn));
-      return GST_FLOW_ERROR;
+      /* Symmetric Padding. */
+      /* Left side Half Padding. */
+      offset_left = (dest_frame->width - dest_width) / 2;
+      cudaReturn =
+          cudaMemset2DAsync((uint8_t *)destCudaPtr,
+                            dest_frame->planeParams.pitch[0], 0,
+                            pixel_size * offset_left, dest_frame->height, nvdspreprocess->convert_stream);
+      if (cudaReturn != cudaSuccess)
+      {
+        GST_ERROR_OBJECT(nvdspreprocess,
+                         "cudaMemset2DAsync failed with error %s while converting buffer",
+                         cudaGetErrorName(cudaReturn));
+        return GST_FLOW_ERROR;
+      }
+      /* Right side Half Padding. */
+      offset_right = dest_frame->width - dest_width - offset_left;
+      cudaReturn =
+          cudaMemset2DAsync((uint8_t *)destCudaPtr + pixel_size *
+                                                         (dest_width + offset_left),
+                            dest_frame->planeParams.pitch[0], 0,
+                            pixel_size * offset_right, dest_frame->height,
+                            nvdspreprocess->convert_stream);
+      if (cudaReturn != cudaSuccess)
+      {
+        GST_ERROR_OBJECT(nvdspreprocess,
+                         "cudaMemset2DAsync failed with error %s while converting buffer",
+                         cudaGetErrorName(cudaReturn));
+        return GST_FLOW_ERROR;
+      }
+      /* Top side Half Padding. */
+      offset_top = (dest_frame->height - dest_height) / 2;
+      cudaReturn =
+          cudaMemset2DAsync((uint8_t *)destCudaPtr,
+                            dest_frame->planeParams.pitch[0], 0, pixel_size * dest_width,
+                            offset_top, nvdspreprocess->convert_stream);
+      if (cudaReturn != cudaSuccess)
+      {
+        GST_ERROR_OBJECT(nvdspreprocess,
+                         "cudaMemset2DAsync failed with error %s while converting buffer",
+                         cudaGetErrorName(cudaReturn));
+        return GST_FLOW_ERROR;
+      }
+      /* Bottom side Half Padding. */
+      offset_bottom = dest_frame->height - dest_height - offset_top;
+      cudaReturn =
+          cudaMemset2DAsync((uint8_t *)destCudaPtr +
+                                dest_frame->planeParams.pitch[0] * (dest_height + offset_top),
+                            dest_frame->planeParams.pitch[0], 0, pixel_size * dest_width,
+                            offset_bottom, nvdspreprocess->convert_stream);
+      if (cudaReturn != cudaSuccess)
+      {
+        GST_ERROR_OBJECT(nvdspreprocess,
+                         "cudaMemset2DAsync failed with error %s while converting buffer",
+                         cudaGetErrorName(cudaReturn));
+        return GST_FLOW_ERROR;
+      }
     }
   }
   else
@@ -951,9 +1015,6 @@ scale_and_fill_data(GstNvDsPreProcess *nvdspreprocess,
    */
   ratio_x = (double)dest_width / src_width;
   ratio_y = (double)dest_height / src_height;
-
-  offset_left = dest_frame->width - dest_width;
-  offset_top = dest_frame->height - dest_height;
 
 #ifdef __aarch64__
   if (nvdspreprocess->scaling_pool_compute_hw != NvBufSurfTransformCompute_GPU)
@@ -989,7 +1050,7 @@ scale_and_fill_data(GstNvDsPreProcess *nvdspreprocess,
   /* Set the dest ROI. Could be the entire destination frame or part of it to
    * maintain aspect ratio. */
   nvdspreprocess->transform_params.dst_rect[nvdspreprocess->batch_outsurf.numFilled] = {
-      0, 0, dest_width, dest_height};
+      offset_top, offset_left, dest_width, dest_height};
 
   nvdspreprocess->batch_insurf.numFilled++;
   nvdspreprocess->batch_outsurf.numFilled++;
@@ -1170,9 +1231,18 @@ release_user_meta_at_batch_level(gpointer data, gpointer user_data)
 {
   NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
   GstNvDsPreProcessBatchMeta *preprocess_batchmeta = (GstNvDsPreProcessBatchMeta *)user_meta->user_meta_data;
+
   if (preprocess_batchmeta->tensor_meta != nullptr)
   {
-    gst_buffer_unref((GstBuffer *)preprocess_batchmeta->tensor_meta->private_data); // unref tensor pool buffer
+    auto private_data_pair =
+        (std::pair<GstNvDsPreProcess *, NvDsPreProcessCustomBuf *> *)preprocess_batchmeta->tensor_meta->private_data;
+
+    GstNvDsPreProcess *nvdspreprocess = private_data_pair->first;
+    NvDsPreProcessCustomBuf *buf = private_data_pair->second;
+
+    NvDsPreProcessAcquirerImpl *acquire_impl = (NvDsPreProcessAcquirerImpl *)nvdspreprocess->acquire_impl.get();
+    acquire_impl->release(buf);
+    delete private_data_pair;
     delete preprocess_batchmeta->tensor_meta;
   }
   gst_buffer_unref((GstBuffer *)preprocess_batchmeta->private_data); // unref conversion pool buffer
@@ -1206,8 +1276,9 @@ attach_user_meta_at_batch_level(GstNvDsPreProcess *nvdspreprocess,
     preprocess_batchmeta->tensor_meta = new NvDsPreProcessTensorMeta;
 
     preprocess_batchmeta->tensor_meta->gpu_id = nvdspreprocess->gpu_id;
-    preprocess_batchmeta->tensor_meta->private_data =
-        ((NvDsPreProcessCustomBufImpl *)nvdspreprocess->tensor_buf)->gstbuf;
+
+    preprocess_batchmeta->tensor_meta->private_data = new std::pair(nvdspreprocess, nvdspreprocess->tensor_buf);
+
     preprocess_batchmeta->tensor_meta->raw_tensor_buffer =
         ((NvDsPreProcessCustomBufImpl *)nvdspreprocess->tensor_buf)->memory->dev_memory_ptr;
     preprocess_batchmeta->tensor_meta->tensor_shape = custom_tensor_params.params.network_input_shape;
@@ -1264,7 +1335,7 @@ gst_nvdspreprocess_on_frame(GstNvDsPreProcess *nvdspreprocess, GstBuffer *inbuf,
   NvDsBatchMeta *batch_meta = NULL;
   guint num_groups = 0;
   gdouble scale_ratio_x, scale_ratio_y;
-  gdouble offset_left, offset_top;
+  guint offset_left, offset_top;
   gint idx = 0;
 
   if (((in_surf->memType == NVBUF_MEM_DEFAULT || in_surf->memType == NVBUF_MEM_CUDA_DEVICE) &&
@@ -1407,19 +1478,6 @@ gst_nvdspreprocess_on_frame(GstNvDsPreProcess *nvdspreprocess, GstBuffer *inbuf,
                              rect_params.left, rect_params.top, rect_params.width, rect_params.height);
           }
 
-#ifdef DRAW_ROIS
-          NvDsDisplayMeta *display_meta = nvds_acquire_display_meta_from_pool(batch_meta);
-          display_meta->num_rects = 1;
-          display_meta->rect_params[0].left = rect_params.left;
-          display_meta->rect_params[0].top = rect_params.top;
-          display_meta->rect_params[0].width = rect_params.width;
-          display_meta->rect_params[0].height = rect_params.height;
-          display_meta->rect_params[0].border_width = 2;
-          display_meta->rect_params[0].border_color = {0, 1, 0, 1};
-
-          nvds_add_display_meta_to_frame(frame_meta, display_meta);
-#endif
-
           idx = batch->units.size();
 
           if (idx == nvdspreprocess->tensor_params.network_input_shape[0])
@@ -1438,13 +1496,27 @@ gst_nvdspreprocess_on_frame(GstNvDsPreProcess *nvdspreprocess, GstBuffer *inbuf,
             flow_ret = GST_FLOW_ERROR;
             return flow_ret;
           }
-
+          nvdspreprocess->batch_insurf.memType = in_surf->memType;
+          nvdspreprocess->batch_outsurf.memType = memory->surf->memType;
           roi_meta.converted_buffer = (NvBufSurfaceParams *)memory->surf->surfaceList + idx;
           roi_meta.scale_ratio_x = scale_ratio_x;
           roi_meta.scale_ratio_y = scale_ratio_y;
           roi_meta.offset_left = offset_left;
           roi_meta.offset_top = offset_top;
           roi_meta.frame_meta = frame_meta;
+
+#ifdef DRAW_ROIS
+          NvDsDisplayMeta *display_meta = nvds_acquire_display_meta_from_pool(batch_meta);
+          display_meta->num_rects = 1;
+          display_meta->rect_params[0].left = rect_params.left;
+          display_meta->rect_params[0].top = rect_params.top;
+          display_meta->rect_params[0].width = rect_params.width;
+          display_meta->rect_params[0].height = rect_params.height;
+          display_meta->rect_params[0].border_width = 2;
+          display_meta->rect_params[0].border_color = {0, 1, 0, 1};
+
+          nvds_add_display_meta_to_frame(frame_meta, display_meta);
+#endif
 
           /* Adding a Unit (ROI/Crop/Full Frame) to the current batch. Set the frames members. */
           NvDsPreProcessUnit unit;
@@ -1822,5 +1894,5 @@ nvdspreprocess_plugin_init(GstPlugin *plugin)
 GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   nvdsgst_preprocess,
-                  DESCRIPTION, nvdspreprocess_plugin_init, "6.0", LICENSE, BINARY_PACKAGE,
+                  DESCRIPTION, nvdspreprocess_plugin_init, "6.1", LICENSE, BINARY_PACKAGE,
                   URL)

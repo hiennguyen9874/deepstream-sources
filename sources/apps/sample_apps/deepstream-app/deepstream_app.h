@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -204,6 +204,17 @@ extern "C"
    */
   gboolean
   parse_config_file(NvDsConfig *config, gchar *cfg_file_path);
+
+  /**
+   * Function to read properties from YML configuration file.
+   *
+   * @param[in] config pointer to @ref NvDsConfig
+   * @param[in] cfg_file_path path of configuration file.
+   *
+   * @return true if parsed successfully.
+   */
+  gboolean
+  parse_config_file_yaml(NvDsConfig *config, gchar *cfg_file_path);
 
 #ifdef __cplusplus
 }

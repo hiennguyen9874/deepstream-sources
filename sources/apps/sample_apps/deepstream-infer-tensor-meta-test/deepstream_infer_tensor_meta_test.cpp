@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,7 +29,12 @@
 #include <string.h>
 #include "cuda_runtime_api.h"
 
+#pragma GCC diagnostic push
+#if __GNUC__ >= 8
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
+#endif
 #include <opencv2/objdetect/objdetect.hpp>
+#pragma GCC diagnostic pop
 
 #include "gstnvdsmeta.h"
 #include "gstnvdsinfer.h"

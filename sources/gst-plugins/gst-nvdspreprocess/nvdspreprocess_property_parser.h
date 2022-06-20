@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -40,6 +40,7 @@
 #define NVDSPREPROCESS_PROPERTY_PROCESSING_WIDTH "processing-width"
 #define NVDSPREPROCESS_PROPERTY_PROCESSING_HEIGHT "processing-height"
 #define NVDSPREPROCESS_PROPERTY_MAINTAIN_ASPECT_RATIO "maintain-aspect-ratio"
+#define NVDSPREPROCESS_PROPERTY_SYMMETRIC_PADDING "symmetric-padding"
 #define NVDSPREPROCESS_PROPERTY_TENSOR_BUF_POOL_SIZE "tensor-buf-pool-size"
 
 #define NVDSPREPROCESS_PROPERTY_SCALING_BUF_POOL_SIZE "scaling-buf-pool-size"
