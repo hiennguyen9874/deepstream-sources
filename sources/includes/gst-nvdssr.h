@@ -36,24 +36,30 @@
  * @{
  */
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-typedef struct NvDsSRRecordingInfo NvDsSRRecordingInfo;
+  typedef struct NvDsSRRecordingInfo NvDsSRRecordingInfo;
 
-typedef gpointer (*NvDsSRCallbackFunc)(NvDsSRRecordingInfo *info, gpointer userData);
+  typedef gpointer (*NvDsSRCallbackFunc)(NvDsSRRecordingInfo *info, gpointer userData);
 
-typedef guint32 NvDsSRSessionId;
+  typedef guint32 NvDsSRSessionId;
 
-/**
- * Specifies container types.
- */
-typedef enum { NVDSSR_CONTAINER_MP4, NVDSSR_CONTAINER_MKV } NvDsSRContainerType;
+  /**
+   * Specifies container types.
+   */
+  typedef enum
+  {
+    NVDSSR_CONTAINER_MP4,
+    NVDSSR_CONTAINER_MKV
+  } NvDsSRContainerType;
 
-/**
- * Specifies API return status.
- */
-typedef enum {
+  /**
+   * Specifies API return status.
+   */
+  typedef enum
+  {
     NVDSSR_STATUS_OK,
     NVDSSR_STATUS_INVALID_VAL,
     NVDSSR_STATUS_INVALID_OP,
@@ -62,12 +68,13 @@ typedef enum {
     NVDSSR_STATUS_CUSTOM1 = 100,
     NVDSSR_STATUS_CUSTOM2 = 101,
     NVDSSR_STATUS_CUSTOM3 = 102
-} NvDsSRStatus;
+  } NvDsSRStatus;
 
-/**
- * Holds initializtion paramerters required to create \ref NvDsSRContext.
- */
-typedef struct NvDsSRInitParams {
+  /**
+   * Holds initializtion paramerters required to create \ref NvDsSRContext.
+   */
+  typedef struct NvDsSRInitParams
+  {
     /** callback function gets called once recording is complete */
     NvDsSRCallbackFunc callback;
     /** recording video container, MP4 / MKV */
@@ -82,18 +89,20 @@ typedef struct NvDsSRInitParams {
     gchar *dirpath;
     /** default recording duration in seconds */
     guint defaultDuration;
-    union {
-        /** size of video cache in seconds. */
-        guint videoCacheSize _DS_DEPRECATED_("videoCacheSize is deprecated. Use cacheSize instead");
-        /** size of cache in seconds, applies to video and audio. */
-        guint cacheSize;
+    union
+    {
+      /** size of video cache in seconds. */
+      guint videoCacheSize _DS_DEPRECATED_("videoCacheSize is deprecated. Use cacheSize instead");
+      /** size of cache in seconds, applies to video and audio. */
+      guint cacheSize;
     };
-} NvDsSRInitParams;
+  } NvDsSRInitParams;
 
-/**
- * Holds information about smart record instance.
- */
-typedef struct NvDsSRContext {
+  /**
+   * Holds information about smart record instance.
+   */
+  typedef struct NvDsSRContext
+  {
     /** parent bin element. */
     GstElement *recordbin;
     /** queue element to cache the content. */
@@ -120,12 +129,13 @@ typedef struct NvDsSRContext {
     gpointer uData;
     /** pointer to private data */
     gpointer privData;
-} NvDsSRContext;
+  } NvDsSRContext;
 
-/**
- * Hold information about video recorded.
- */
-typedef struct NvDsSRRecordingInfo {
+  /**
+   * Hold information about video recorded.
+   */
+  typedef struct NvDsSRRecordingInfo
+  {
     /** SR bin context */
     NvDsSRContext *ctx;
     /** recording session-id */
@@ -150,75 +160,72 @@ typedef struct NvDsSRRecordingInfo {
     guint samplingRate;
     /** Boolean indicating if recorded stream contains audio. */
     gboolean containsAudio;
-} NvDsSRRecordingInfo;
+  } NvDsSRRecordingInfo;
 
-/**
- * \brief  Creates the instance of smart record.
- *
- * This function creates the instance of smart record and returns the pointer
- * to an allocated \ref NvDsSRContext. The \a params structure must be filled
- * with initialization parameters required to create the instance.
- *
- * recordbin of \ref NvDsSRContext is smart record bin which must be added
- * to the pipeline. It expects encoded frames which will be muxed and saved to
- * the file. Add this bin after parser element in the pipeline.
- *
- * Call NvDsSRDestroy() to free resources allocated by this function.
- *
- * @param[out] ctx         An indirect pointer to the smart record instance.
- * @param[in]  params      A pointer to a \ref NvDsSRInitParams structure.
- *
- * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
- */
-NvDsSRStatus NvDsSRCreate(NvDsSRContext **ctx, NvDsSRInitParams *params);
+  /**
+   * \brief  Creates the instance of smart record.
+   *
+   * This function creates the instance of smart record and returns the pointer
+   * to an allocated \ref NvDsSRContext. The \a params structure must be filled
+   * with initialization parameters required to create the instance.
+   *
+   * recordbin of \ref NvDsSRContext is smart record bin which must be added
+   * to the pipeline. It expects encoded frames which will be muxed and saved to
+   * the file. Add this bin after parser element in the pipeline.
+   *
+   * Call NvDsSRDestroy() to free resources allocated by this function.
+   *
+   * @param[out] ctx         An indirect pointer to the smart record instance.
+   * @param[in]  params      A pointer to a \ref NvDsSRInitParams structure.
+   *
+   * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
+   */
+  NvDsSRStatus NvDsSRCreate(NvDsSRContext **ctx, NvDsSRInitParams *params);
 
-/**
- * \brief  Starts the video recording.
- *
- * This function starts writing the cached video data to a file. It returns
- * the session id which later can be used in NvDsSRStop() to stop the
- * corresponding recording.
- *
- * Here startTime specifies the seconds before the current time and duration
- * specifies the seconds after the start of recording.
- * If current time is t1, content from t1 - startTime to t1 + duration will
- * be saved to file. Therefore a total of startTime + duration seconds of data
- * will be recorded.
- *
- * @param[in] ctx         A pointer to a \ref NvDsSRContext.
- * @param[out] sessionId  A pointer to a \ref NvDsSRSessionId.
- * @param[in] startTime   Seconds before the current time. Should be less than video cache size.
- * @param[in] duration    Duration value in seconds after the start of recording.
- * @param[in] userData    A pointer to user specified data.
- *
- * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
- */
-NvDsSRStatus NvDsSRStart(NvDsSRContext *ctx,
-                         NvDsSRSessionId *sessionId,
-                         guint startTime,
-                         guint duration,
-                         gpointer userData);
+  /**
+   * \brief  Starts the video recording.
+   *
+   * This function starts writing the cached video data to a file. It returns
+   * the session id which later can be used in NvDsSRStop() to stop the
+   * corresponding recording.
+   *
+   * Here startTime specifies the seconds before the current time and duration
+   * specifies the seconds after the start of recording.
+   * If current time is t1, content from t1 - startTime to t1 + duration will
+   * be saved to file. Therefore a total of startTime + duration seconds of data
+   * will be recorded.
+   *
+   * @param[in] ctx         A pointer to a \ref NvDsSRContext.
+   * @param[out] sessionId  A pointer to a \ref NvDsSRSessionId.
+   * @param[in] startTime   Seconds before the current time. Should be less than video cache size.
+   * @param[in] duration    Duration value in seconds after the start of recording.
+   * @param[in] userData    A pointer to user specified data.
+   *
+   * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
+   */
+  NvDsSRStatus NvDsSRStart(NvDsSRContext *ctx, NvDsSRSessionId *sessionId,
+                           guint startTime, guint duration, gpointer userData);
 
-/**
- * \brief  Stops the previously started recording.
- *
- * @param[in] ctx         A pointer to a \ref NvDsSRContext.
- * @param[in] sessionId   Id of seesion to stop.
- *
- * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
- */
-NvDsSRStatus NvDsSRStop(NvDsSRContext *ctx, NvDsSRSessionId sessionId);
+  /**
+   * \brief  Stops the previously started recording.
+   *
+   * @param[in] ctx         A pointer to a \ref NvDsSRContext.
+   * @param[in] sessionId   Id of seesion to stop.
+   *
+   * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
+   */
+  NvDsSRStatus NvDsSRStop(NvDsSRContext *ctx, NvDsSRSessionId sessionId);
 
-/**
- * \brief  Destroys the instance of smart record.
- *
- * This function releases the resources previously allocated by NvDsSRCreate().
- *
- * @param[in] ctx         A pointer to a \ref NvDsSRContext to be freed.
- *
- * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
- */
-NvDsSRStatus NvDsSRDestroy(NvDsSRContext *ctx);
+  /**
+   * \brief  Destroys the instance of smart record.
+   *
+   * This function releases the resources previously allocated by NvDsSRCreate().
+   *
+   * @param[in] ctx         A pointer to a \ref NvDsSRContext to be freed.
+   *
+   * @return NVDSSR_STATUS_OK if successful, or corresponding error otherwise.
+   */
+  NvDsSRStatus NvDsSRDestroy(NvDsSRContext *ctx);
 
 #ifdef __cplusplus
 }

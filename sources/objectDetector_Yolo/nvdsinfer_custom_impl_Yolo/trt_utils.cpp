@@ -146,10 +146,10 @@ nvinfer1::ILayer *netAddMaxpool(int layerIdx, std::map<std::string, std::string>
     int size = std::stoi(block.at("size"));
     int stride = std::stoi(block.at("stride"));
 
-    nvinfer1::IPoolingLayer *pool = network->addPooling(*input, nvinfer1::PoolingType::kMAX, nvinfer1::DimsHW{size, size});
+    nvinfer1::IPoolingLayer *pool = network->addPoolingNd(*input, nvinfer1::PoolingType::kMAX, nvinfer1::Dims{2, {size, size}});
     assert(pool);
     std::string maxpoolLayerName = "maxpool_" + std::to_string(layerIdx);
-    pool->setStride(nvinfer1::DimsHW{stride, stride});
+    pool->setStrideNd(nvinfer1::Dims{2, {stride, stride}});
     pool->setPaddingMode(nvinfer1::PaddingMode::kSAME_UPPER);
     pool->setName(maxpoolLayerName.c_str());
 
@@ -200,13 +200,13 @@ nvinfer1::ILayer *netAddConvLinear(int layerIdx, std::map<std::string, std::stri
     }
     convWt.values = val;
     trtWeights.push_back(convWt);
-    nvinfer1::IConvolutionLayer *conv = network->addConvolution(
-        *input, filters, nvinfer1::DimsHW{kernelSize, kernelSize}, convWt, convBias);
+    nvinfer1::IConvolutionLayer *conv = network->addConvolutionNd(
+        *input, filters, nvinfer1::Dims{2, {kernelSize, kernelSize}}, convWt, convBias);
     assert(conv != nullptr);
     std::string convLayerName = "conv_" + std::to_string(layerIdx);
     conv->setName(convLayerName.c_str());
-    conv->setStride(nvinfer1::DimsHW{stride, stride});
-    conv->setPadding(nvinfer1::DimsHW{pad, pad});
+    conv->setStrideNd(nvinfer1::Dims{2, {stride, stride}});
+    conv->setPaddingNd(nvinfer1::Dims{2, {pad, pad}});
 
     return conv;
 }
@@ -297,13 +297,13 @@ nvinfer1::ILayer *netAddConvBNLeaky(int layerIdx, std::map<std::string, std::str
     trtWeights.push_back(convWt);
     nvinfer1::Weights convBias{nvinfer1::DataType::kFLOAT, nullptr, 0};
     trtWeights.push_back(convBias);
-    nvinfer1::IConvolutionLayer *conv = network->addConvolution(
-        *input, filters, nvinfer1::DimsHW{kernelSize, kernelSize}, convWt, convBias);
+    nvinfer1::IConvolutionLayer *conv = network->addConvolutionNd(
+        *input, filters, nvinfer1::Dims{2, {kernelSize, kernelSize}}, convWt, convBias);
     assert(conv != nullptr);
     std::string convLayerName = "conv_" + std::to_string(layerIdx);
     conv->setName(convLayerName.c_str());
-    conv->setStride(nvinfer1::DimsHW{stride, stride});
-    conv->setPadding(nvinfer1::DimsHW{pad, pad});
+    conv->setStrideNd(nvinfer1::Dims{2, {stride, stride}});
+    conv->setPaddingNd(nvinfer1::Dims{2, {pad, pad}});
 
     /***** BATCHNORM LAYER *****/
     /***************************/
