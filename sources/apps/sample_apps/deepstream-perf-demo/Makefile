@@ -38,7 +38,7 @@ ifeq ($(TARGET_DEVICE),aarch64)
   CFLAGS:= -DPLATFORM_TEGRA
 endif
 
-SRCS:= $(wildcard *.cpp)  
+SRCS:= $(wildcard *.cpp)
 
 INCS:= $(wildcard *.h)
 

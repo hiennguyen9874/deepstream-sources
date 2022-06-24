@@ -27,28 +27,29 @@
 #define _NVDS_ANALYTICS_META_H_
 
 #include <gst/gst.h>
-#include <vector>
+
 #include <unordered_map>
+#include <vector>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
-  /**
-   * @defgroup ee_analytics_group Analytics Metadata
-   * Defines metadata concerning nvdsanalytics plugin.
-   * @ingroup NvDsMetaApi
-   * @{
-   */
+/**
+ * @defgroup ee_analytics_group Analytics Metadata
+ * Defines metadata concerning nvdsanalytics plugin.
+ * @ingroup NvDsMetaApi
+ * @{
+ */
 
-#define NVDS_USER_FRAME_META_NVDSANALYTICS (nvds_get_user_meta_type((gchar *)"NVIDIA.DSANALYTICSFRAME.USER_META"))
-#define NVDS_USER_OBJ_META_NVDSANALYTICS (nvds_get_user_meta_type((gchar *)"NVIDIA.DSANALYTICSOBJ.USER_META"))
+#define NVDS_USER_FRAME_META_NVDSANALYTICS \
+    (nvds_get_user_meta_type((gchar *)"NVIDIA.DSANALYTICSFRAME.USER_META"))
+#define NVDS_USER_OBJ_META_NVDSANALYTICS \
+    (nvds_get_user_meta_type((gchar *)"NVIDIA.DSANALYTICSOBJ.USER_META"))
 
-  /**
-   * Holds a set of nvdsanalytics object level metadata.
-   */
-  typedef struct
-  {
+/**
+ * Holds a set of nvdsanalytics object level metadata.
+ */
+typedef struct {
     /** Holds the array of ROI labels in which object is present */
     std::vector<std::string> roiStatus;
     /** Holds the array  of OverCrowding labels in which object is present  */
@@ -59,13 +60,12 @@ extern "C"
     std::string dirStatus;
     /** Holds unique identifier for nvdsanalytics instance */
     guint unique_id;
-  } NvDsAnalyticsObjInfo;
+} NvDsAnalyticsObjInfo;
 
-  /**
-   * Holds a set of nvdsanalytics framelevel metadata.
-   */
-  typedef struct
-  {
+/**
+ * Holds a set of nvdsanalytics framelevel metadata.
+ */
+typedef struct {
     /** Holds a map of boolean status of overcrowding for configured ROIs,
      * which can be accessed using key, value pair; where key is the ROI label
      */
@@ -93,7 +93,7 @@ extern "C"
      * can be accessed using key, value pair; where key is class ID
      */
     std::unordered_map<int, uint32_t> objCnt;
-  } NvDsAnalyticsFrameMeta;
+} NvDsAnalyticsFrameMeta;
 
 #ifdef __cplusplus
 }

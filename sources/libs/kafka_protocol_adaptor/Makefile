@@ -12,10 +12,10 @@
 # this Makefile is to be used to build the kafka_proto protocol adaptor .so
 CXX:=g++
 
-PKGS:= glib-2.0 
+PKGS:= glib-2.0
 
 SRCS:=  nvds_kafka_proto.cpp kafka_client.cpp json_helper.cpp nvds_utils.cpp
-TARGET_LIB:= libnvds_kafka_proto.so 
+TARGET_LIB:= libnvds_kafka_proto.so
 
 CFLAGS:= -fPIC -Wall
 

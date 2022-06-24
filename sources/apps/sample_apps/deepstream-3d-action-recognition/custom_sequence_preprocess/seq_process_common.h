@@ -66,8 +66,7 @@
     fprintf(out, "%s:%d, [%s: CUSTOM_LIB] " fmt "\n", __FILE__, __LINE__, #level, ##__VA_ARGS__)
 
 #define LOG_DEBUG(fmt, ...)                            \
-    if (kEnableDebug)                                  \
-    {                                                  \
+    if (kEnableDebug) {                                \
         LOG_PRINT_(stdout, DEBUG, fmt, ##__VA_ARGS__); \
     }
 
@@ -77,28 +76,23 @@
 
 // check preprocess errors and return error no.
 #define CHECK_PROCESS_ERROR(err, fmt, ...)                                       \
-    do                                                                           \
-    {                                                                            \
+    do {                                                                         \
         NvDsPreProcessStatus _sno_ = (err);                                      \
-        if (_sno_ != NVDSPREPROCESS_SUCCESS)                                     \
-        {                                                                        \
+        if (_sno_ != NVDSPREPROCESS_SUCCESS) {                                   \
             LOG_ERROR(fmt ", seq_process error: %d", ##__VA_ARGS__, (int)_sno_); \
             return _sno_;                                                        \
         }                                                                        \
     } while (0)
 
 // check CUDA errors errors and return process error
-#define CHECK_CUDA_ERR(err, fmt, ...)                                               \
-    do                                                                              \
-    {                                                                               \
-        cudaError_t _errnum_ = (err);                                               \
-        if (_errnum_ != cudaSuccess)                                                \
-        {                                                                           \
-            LOG_ERROR(                                                              \
-                fmt ", cuda err_no: %d, err_str: %s", ##__VA_ARGS__, (int)_errnum_, \
-                cudaGetErrorName(_errnum_));                                        \
-            return NVDSPREPROCESS_CUDA_ERROR;                                       \
-        }                                                                           \
+#define CHECK_CUDA_ERR(err, fmt, ...)                                                     \
+    do {                                                                                  \
+        cudaError_t _errnum_ = (err);                                                     \
+        if (_errnum_ != cudaSuccess) {                                                    \
+            LOG_ERROR(fmt ", cuda err_no: %d, err_str: %s", ##__VA_ARGS__, (int)_errnum_, \
+                      cudaGetErrorName(_errnum_));                                        \
+            return NVDSPREPROCESS_CUDA_ERROR;                                             \
+        }                                                                                 \
     } while (0)
 
 // declare export APIs
@@ -117,19 +111,18 @@ using SourceKey = std::tuple<uint64_t, int64_t, int64_t>;
 extern bool kEnableDebug;
 
 // Block descriptions to store multiple sequenced buffers
-struct FullBatchBlock
-{
+struct FullBatchBlock {
     NvDsPreProcessCustomBuf *buf = nullptr; // allocated from NvDsPreProcessAcquirer
     // parameters description of allocated `buf`
-    NvDsPreProcessTensorParams param = {
-        NvDsPreProcessNetworkInputOrder_CUSTOM, {}, NvDsPreProcessFormat_RGB};
+    NvDsPreProcessTensorParams param = {NvDsPreProcessNetworkInputOrder_CUSTOM,
+                                        {},
+                                        NvDsPreProcessFormat_RGB};
     uint32_t maxBatchSize = 0; // parsed from param.network_input_shape[0]
     uint32_t inUseBatchSize = 0;
 };
 
 // ROI based sequence processing buffer
-struct RoiProcessedBuf
-{
+struct RoiProcessedBuf {
     // pointer to batch buffer block
     FullBatchBlock *block = nullptr;
     // offsets in bytes for current sequence in batched block
@@ -153,15 +146,15 @@ struct RoiProcessedBuf
 };
 
 // results storing batches of sequence processed buffers
-struct ReadyResult
-{
+struct ReadyResult {
     // allocated batches of processed sequence buffers
     NvDsPreProcessCustomBuf *readyBuf = nullptr;
     // ROI list of processed buffers
     std::vector<NvDsRoiMeta> rois;
     // updated parameter desciptions of `readyBuf`
-    NvDsPreProcessTensorParams param = {
-        NvDsPreProcessNetworkInputOrder_CUSTOM, {}, NvDsPreProcessFormat_RGB};
+    NvDsPreProcessTensorParams param = {NvDsPreProcessNetworkInputOrder_CUSTOM,
+                                        {},
+                                        NvDsPreProcessFormat_RGB};
 };
 
 // mapping source/roi to specific sequence processing buffer

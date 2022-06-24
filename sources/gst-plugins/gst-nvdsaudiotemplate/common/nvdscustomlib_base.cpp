@@ -24,34 +24,36 @@
 
 DSCustomLibraryBase::DSCustomLibraryBase()
 {
-  m_element = NULL;
-  m_inCaps = NULL;
-  m_outCaps = NULL;
-  m_gpuId = 0;
+    m_element = NULL;
+    m_inCaps = NULL;
+    m_outCaps = NULL;
+    m_gpuId = 0;
 }
 
 bool DSCustomLibraryBase::SetInitParams(DSCustom_CreateParams *params)
 {
-  m_element = params->m_element;
-  m_inCaps = params->m_inCaps;
-  m_outCaps = params->m_outCaps;
-  m_gpuId = params->m_gpuId;
+    m_element = params->m_element;
+    m_inCaps = params->m_inCaps;
+    m_outCaps = params->m_outCaps;
+    m_gpuId = params->m_gpuId;
 
-  gst_audio_info_from_caps(&m_inAudioInfo, m_inCaps);
-  gst_audio_info_from_caps(&m_outAudioInfo, m_outCaps);
+    gst_audio_info_from_caps(&m_inAudioInfo, m_inCaps);
+    gst_audio_info_from_caps(&m_outAudioInfo, m_outCaps);
 
-  m_inAudioFmt = GST_AUDIO_FORMAT_INFO_FORMAT(m_inAudioInfo.finfo);
-  m_outAudioFmt = GST_AUDIO_FORMAT_INFO_FORMAT(m_outAudioInfo.finfo);
+    m_inAudioFmt = GST_AUDIO_FORMAT_INFO_FORMAT(m_inAudioInfo.finfo);
+    m_outAudioFmt = GST_AUDIO_FORMAT_INFO_FORMAT(m_outAudioInfo.finfo);
 
-  return true;
+    return true;
 }
 
-DSCustomLibraryBase::~DSCustomLibraryBase() {}
+DSCustomLibraryBase::~DSCustomLibraryBase()
+{
+}
 
 GstCaps *DSCustomLibraryBase::GetCompatibleCaps(GstPadDirection direction,
                                                 GstCaps *in_caps,
                                                 GstCaps *othercaps)
 {
-  GstCaps *result = gst_caps_copy(in_caps);
-  return result;
+    GstCaps *result = gst_caps_copy(in_caps);
+    return result;
 }

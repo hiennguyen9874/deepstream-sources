@@ -38,9 +38,9 @@ openssl req -new -x509 -keyout ca-key -out ca-cert -days 500
 
 Note:
 
-- ca-key is the file where the generated private key that is associated with the certificate
-  is stored (user is prompted for password to protect this)
-- ca-cert is certificate
+-   ca-key is the file where the generated private key that is associated with the certificate
+    is stored (user is prompted for password to protect this)
+-   ca-cert is certificate
 
 ### Create certificate for broker and add to keystore
 
@@ -52,11 +52,11 @@ keytool -keystore kafka.server1.keystore.jks -alias brokerkey -genkey
 
 Note:
 
-- While entering information requested upon running this command, ensure that CN matches the
-  fully qualified domain name (FQDN) of the server.
-- This command creates both a key and keystore; and adds key to keystore
-- Kafka.server1.keystore.jks is the keystore file
-- brokerkey is the alias name of the key that is generated and added to the keystore
+-   While entering information requested upon running this command, ensure that CN matches the
+    fully qualified domain name (FQDN) of the server.
+-   This command creates both a key and keystore; and adds key to keystore
+-   Kafka.server1.keystore.jks is the keystore file
+-   brokerkey is the alias name of the key that is generated and added to the keystore
 
 ### Export the certificate from the keystore:
 
@@ -70,7 +70,7 @@ keytool -keystore kafka.server1.keystore.jks -alias brokerkey -certreq -file cer
 openssl x509 -req -CA ca-cert -CAkey ca-key -in cert-file-server1 -out cert-signed-server1 -days 500 -CAcreateserial
 ```
 
-Note:  
+Note:
 Use password for ca key provided when generating the CA
 
 ### Import CA cert into keystore & truststore
@@ -208,14 +208,14 @@ allow.everyone.if.no.acl.found=true
 
 Note:
 
-- While the tutorial enables secure communication between Kafka and zookeeper as well (using
-  SASL), instructions in this section do not enable this functionality and doing so is left as
-  an option to the user.
-- For sake of simplicity, the example enables authorization for authenticated users to access
-  Kafka broker topics if no relevant ACL is found - based on the _allow.everyone.if.no.acl.found_
-  entry. User should modify this to define ACL rules to suit their needs before deploying their
-  broker. Refer to [Authorization for kafka broker](https://docs.confluent.io/current/kafka/authorization.html)
-  documentation for details.
+-   While the tutorial enables secure communication between Kafka and zookeeper as well (using
+    SASL), instructions in this section do not enable this functionality and doing so is left as
+    an option to the user.
+-   For sake of simplicity, the example enables authorization for authenticated users to access
+    Kafka broker topics if no relevant ACL is found - based on the _allow.everyone.if.no.acl.found_
+    entry. User should modify this to define ACL rules to suit their needs before deploying their
+    broker. Refer to [Authorization for kafka broker](https://docs.confluent.io/current/kafka/authorization.html)
+    documentation for details.
 
 ## DeepStream Application Changes and Configuration
 
@@ -238,11 +238,11 @@ proto-cfg = "security.protocol=ssl;ssl.ca.location=<path to your ca>/ca-client-c
 ```
 
 The various options specified in the config file are described below:
-`security.protocol=ssl`: use SSL as the authentication protocol  
-`ssl.ca.location`: path where your client CA certificate is stored  
-`ssl.certificate.location`: path where your client certificate is stored  
-`ssl.key.location`: path where your protected private key is stored  
-`ssl.key.password`: password for your private key provided while extracting it from the p12 file  
+`security.protocol=ssl`: use SSL as the authentication protocol
+`ssl.ca.location`: path where your client CA certificate is stored
+`ssl.certificate.location`: path where your client certificate is stored
+`ssl.key.location`: path where your protected private key is stored
+`ssl.key.password`: password for your private key provided while extracting it from the p12 file
 `debug`: enable debug logs for selected categories
 
 Additional SSL based options for rdkafka can be provided here such as the cipher suite used
@@ -314,21 +314,21 @@ allow.everyone.if.no.acl.found=true
 
 Note:
 
-- change username and password appropriately.
-- secure communication between Kafka brokers is configured to use SSL: user can choose to
-  disable this.
-- For sake of simplicity, the example enables authorization for authenticated users to access
-  Kafka broker topics if no relevant ACL is found based on the allow.everyone.if.no.acl.found
-  entry. The user should modify this to define ACL rules to suit their needs before deploying their
-  broker. Refer to [Authorization for Kafka broker](https://docs.confluent.io/current/kafka/authorization.html)
-  documentation for details.
+-   change username and password appropriately.
+-   secure communication between Kafka brokers is configured to use SSL: user can choose to
+    disable this.
+-   For sake of simplicity, the example enables authorization for authenticated users to access
+    Kafka broker topics if no relevant ACL is found based on the allow.everyone.if.no.acl.found
+    entry. The user should modify this to define ACL rules to suit their needs before deploying their
+    broker. Refer to [Authorization for Kafka broker](https://docs.confluent.io/current/kafka/authorization.html)
+    documentation for details.
 
 ### Create JAAS config file
 
 Kafka uses the JAAS (Java Authentication and Authorization Service) for SASL configuration.
 JAAS file specifies the username and password credentials for authentication. Refer
 [here](https://docs.confluent.io/current/kafka/authentication_sasl/index.html) for more
-information.  
+information.
 A sample JAAS file is provided below:
 
 ```
@@ -341,7 +341,7 @@ KafkaServer {
 };
 ```
 
-It defines two users - _kafkabroker_ and _client_ along with their passwords.  
+It defines two users - _kafkabroker_ and _client_ along with their passwords.
 Define the **KAFKA_OPTS** environment variable to use the JAAS file created above
 
 ```
@@ -380,12 +380,12 @@ section in this config file as shown in the example below.
 proto-cfg = "security.protocol=sasl_ssl;sasl.mechanism=PLAIN;sasl.username=<username>;sasl.password=<password>;ssl.ca.location=<path to broker ca>/ca-cert;debug=broker,security"
 ```
 
-The various options specified in the config file are described below:  
-`security.protocol=sasl_ssl`: use SASL with SSL authentication  
-`sasl.mechanism=PLAIN`: use SASL Plain mechanism for authentication  
-`ssl.ca.location`: path where you copied broker certificate  
-`sasl.username`: username as configured in server.properties on the broker  
-`sasl.password`: password as configured in server.properties on the broker  
+The various options specified in the config file are described below:
+`security.protocol=sasl_ssl`: use SASL with SSL authentication
+`sasl.mechanism=PLAIN`: use SASL Plain mechanism for authentication
+`ssl.ca.location`: path where you copied broker certificate
+`sasl.username`: username as configured in server.properties on the broker
+`sasl.password`: password as configured in server.properties on the broker
 `debug`: enable debug logs for selected categories
 
 ### Run the application

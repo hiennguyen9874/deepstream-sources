@@ -29,7 +29,7 @@ Features:
 1. Parallel speech recognition for multiple input streams.
 2. Text to speech conversion of the ASR output using specified TTS service.
 3. Punctuation and capitalization of ASR output.
-4. Models generated using NVIDIA Train, Adapt, and Optimize (TAO) platform 
+4. Models generated using NVIDIA Train, Adapt, and Optimize (TAO) platform
    can be plugged in for ASR, Punctuation & Capitalization.
 5. Audio mixing in case of multiple input streams.
 6. Writing of ASR output to text file.

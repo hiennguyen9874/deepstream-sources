@@ -20,9 +20,11 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "nvdsinfer_custom_impl.h"
 #include "gstnvinferaudio_custom_parser.h"
+
 #include <cstring>
+
+#include "nvdsinfer_custom_impl.h"
 
 constexpr bool enable_coarse_label_saving = false;
 
@@ -48,63 +50,56 @@ std::vector<unsigned int> index_giver_subcategory(const char *labell)
     return std::vector<unsigned int>{};
 }
 
-extern "C"
+extern "C" {
+bool NvDsInferParseCustomAudio(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+                               NvDsInferNetworkInfo const &networkInfo,
+                               float classifierThreshold,
+                               std::vector<NvDsInferAttribute> &attrList,
+                               std::string &attrString)
 {
-    bool NvDsInferParseCustomAudio(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-                                   NvDsInferNetworkInfo const &networkInfo, float classifierThreshold,
-                                   std::vector<NvDsInferAttribute> &attrList, std::string &attrString)
-    {
+    float *outputCoverageBuffer = static_cast<float *>(outputLayersInfo[0].buffer);
+    float max_probability_coarse = 0;
+    bool coarse_attr_found = false;
+    NvDsInferAttribute coarse_attr;
 
-        float *outputCoverageBuffer = static_cast<float *>(outputLayersInfo[0].buffer);
-        float max_probability_coarse = 0;
-        bool coarse_attr_found = false;
-        NvDsInferAttribute coarse_attr;
-
-        /* Iterate through all the probabilities that the object belongs to
-         * each COARSE class. Find the maximum probability and the corresponding class
-         * which meets the minimum threshold. */
-        for (unsigned int c = 0; c < NB_COARSE_LABEL_AUDIO; c++)
-        {
-            float probability = outputCoverageBuffer[c];
-            if (probability > classifierThreshold && probability > max_probability_coarse)
-            {
-                max_probability_coarse = probability;
-                coarse_attr_found = true;
-                coarse_attr.attributeIndex = 0;
-                coarse_attr.attributeValue = c;
-                coarse_attr.attributeConfidence = probability;
-            }
+    /* Iterate through all the probabilities that the object belongs to
+     * each COARSE class. Find the maximum probability and the corresponding class
+     * which meets the minimum threshold. */
+    for (unsigned int c = 0; c < NB_COARSE_LABEL_AUDIO; c++) {
+        float probability = outputCoverageBuffer[c];
+        if (probability > classifierThreshold && probability > max_probability_coarse) {
+            max_probability_coarse = probability;
+            coarse_attr_found = true;
+            coarse_attr.attributeIndex = 0;
+            coarse_attr.attributeValue = c;
+            coarse_attr.attributeConfidence = probability;
         }
-        if (coarse_attr_found)
-        {
-            coarse_attr.attributeLabel = strdup(LABELS_AUDIO.begin()[coarse_attr.attributeValue]);
-            /// Change enable_coarse_label_saving to (en/dis)able the saving of coarse element
-            if (enable_coarse_label_saving)
-                attrList.push_back(coarse_attr);
-            const auto vect = index_giver_subcategory(coarse_attr.attributeLabel);
-            NvDsInferAttribute fine_attr;
-            float max_probability_fine = 0.0;
-            for (const auto &index : vect)
-            {
-                float probability = outputCoverageBuffer[index];
-                if (probability > max_probability_fine)
-                {
-                    max_probability_fine = probability;
-                    fine_attr.attributeIndex = 0;
-                    fine_attr.attributeValue = index;
-                    fine_attr.attributeConfidence = probability;
-                }
-            }
-            fine_attr.attributeLabel = strdup(LABELS_AUDIO.begin()[fine_attr.attributeValue]);
-            attrList.push_back(fine_attr);
-            if (enable_coarse_label_saving)
-            {
-                attrString.append("(Coarse: ").append(coarse_attr.attributeLabel);
-                attrString.append(", Fine: ").append(fine_attr.attributeLabel).append(")");
-            }
-            else
-                attrString.append("(Fine: ").append(fine_attr.attributeLabel).append(")");
-        }
-        return true;
     }
+    if (coarse_attr_found) {
+        coarse_attr.attributeLabel = strdup(LABELS_AUDIO.begin()[coarse_attr.attributeValue]);
+        /// Change enable_coarse_label_saving to (en/dis)able the saving of coarse element
+        if (enable_coarse_label_saving)
+            attrList.push_back(coarse_attr);
+        const auto vect = index_giver_subcategory(coarse_attr.attributeLabel);
+        NvDsInferAttribute fine_attr;
+        float max_probability_fine = 0.0;
+        for (const auto &index : vect) {
+            float probability = outputCoverageBuffer[index];
+            if (probability > max_probability_fine) {
+                max_probability_fine = probability;
+                fine_attr.attributeIndex = 0;
+                fine_attr.attributeValue = index;
+                fine_attr.attributeConfidence = probability;
+            }
+        }
+        fine_attr.attributeLabel = strdup(LABELS_AUDIO.begin()[fine_attr.attributeValue]);
+        attrList.push_back(fine_attr);
+        if (enable_coarse_label_saving) {
+            attrString.append("(Coarse: ").append(coarse_attr.attributeLabel);
+            attrString.append(", Fine: ").append(fine_attr.attributeLabel).append(")");
+        } else
+            attrString.append("(Fine: ").append(fine_attr.attributeLabel).append(")");
+    }
+    return true;
+}
 }

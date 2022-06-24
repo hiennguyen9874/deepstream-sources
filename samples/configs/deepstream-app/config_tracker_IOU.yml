@@ -25,7 +25,7 @@ BaseConfig:
   minDetectorConfidence: 0   # If the confidence of a detector bbox is lower than this, then it won't be considered for tracking
 
 TargetManagement:
-  maxTargetsPerStream: 150  # Max number of targets to track per stream. Recommended to set >10. Note: this value should account for the targets being tracked in shadow mode as well. Max value depends on the memory capacity  
+  maxTargetsPerStream: 150  # Max number of targets to track per stream. Recommended to set >10. Note: this value should account for the targets being tracked in shadow mode as well. Max value depends on the memory capacity
 
   # [Creation & Termination Policy]
   minIouDiff4NewTarget: 0.5   # If the IOU between the newly detected object and any of the existing targets is higher than this threshold, this newly detected object will be discarded.
@@ -44,8 +44,8 @@ DataAssociator:
   # [Association Metric: Thresholds for valid candidates]
   minMatchingScore4Overall: 0.0   # Min total score
   minMatchingScore4SizeSimilarity: 0.0    # Min bbox size similarity score
-  minMatchingScore4Iou: 0.0       # Min IOU score  
+  minMatchingScore4Iou: 0.0       # Min IOU score
 
-  # [Association Metric: Weights]  
+  # [Association Metric: Weights]
   matchingScoreWeight4SizeSimilarity: 0.4    # Weight for the Size-similarity score
   matchingScoreWeight4Iou: 0.6               # Weight for the IOU score

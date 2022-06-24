@@ -72,7 +72,7 @@ multi-stream inference, bounding-box overlay, and rendering.
 
 This sample accepts one or more H.264/H.265 video streams as input. It creates
 a source bin for each input and connects the bins to an instance of the
-"nvstreammux" element, which forms the batch of frames. 
+"nvstreammux" element, which forms the batch of frames.
 
 Then, "nvdspreprocess" plugin preprocessed the batched frames and prepares a raw
 tensor for inferencing, which is attached as user meta at batch level. User can

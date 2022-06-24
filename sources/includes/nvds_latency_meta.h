@@ -33,15 +33,13 @@
 #define MAX_COMPONENT_LEN 64
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-  /**
-   * Holds information about latency of the given subcomponent
-   */
-  typedef struct _NvDsMetaSubCompLatency
-  {
+/**
+ * Holds information about latency of the given subcomponent
+ */
+typedef struct _NvDsMetaSubCompLatency {
     /** Holds the subcomponent names. */
     gchar sub_comp_name[MAX_COMPONENT_LEN];
     /** Holds the system timestamp of the buffer when it arrives
@@ -50,13 +48,12 @@ extern "C"
     /** Holds the system timestamp of the buffer when it leaves
      at the output of the component. */
     gdouble out_system_timestamp;
-  } NvDsMetaSubCompLatency;
+} NvDsMetaSubCompLatency;
 
-  /**
-   * Holds information about latency of the given component
-   */
-  typedef struct _NvDsMetaCompLatency
-  {
+/**
+ * Holds information about latency of the given component
+ */
+typedef struct _NvDsMetaCompLatency {
     /** Holds the name of the component for which latency is measured. */
     gchar component_name[MAX_COMPONENT_LEN];
     /** Holds the system timestamp of the buffer when it arrives
@@ -76,13 +73,12 @@ extern "C"
     NvDsMetaSubCompLatency sub_comp_latencies[16];
     /** Holds the number of subcomponents for the given component */
     guint num_sub_comps;
-  } NvDsMetaCompLatency;
+} NvDsMetaCompLatency;
 
-  /**
-   * Holds information about the latency of a given frame.
-   */
-  typedef struct
-  {
+/**
+ * Holds information about the latency of a given frame.
+ */
+typedef struct {
     /** Holds the source ID of the component, e.g. the camera ID. */
     guint source_id;
     /** Holds the current frame number for which latency is measured. */
@@ -93,80 +89,80 @@ extern "C"
     gdouble comp_in_timestamp;
     /** Holds the latency of the frame in milliseconds. */
     gdouble latency;
-  } NvDsFrameLatencyInfo;
+} NvDsFrameLatencyInfo;
 
-  /**
-   * Sets the system timestamp when the Gst Buffer arrives as input at the
-   * component.
-   *
-   * @param[in] buffer        A pointer to the arriving Gst Buffer.
-   * @param[in] element_name  A pointer to the name of the component for which
-   *                          latency is to be measured.
-   *
-   * @returns  A pointer to a @ref NvDsUserMeta structure which holds an
-   *          @ref NvDsMetaCompLatency as @a NvDsUserMeta.user_meta_data.
-   */
-  NvDsUserMeta *nvds_set_input_system_timestamp(GstBuffer *buffer,
-                                                gchar *element_name);
+/**
+ * Sets the system timestamp when the Gst Buffer arrives as input at the
+ * component.
+ *
+ * @param[in] buffer        A pointer to the arriving Gst Buffer.
+ * @param[in] element_name  A pointer to the name of the component for which
+ *                          latency is to be measured.
+ *
+ * @returns  A pointer to a @ref NvDsUserMeta structure which holds an
+ *          @ref NvDsMetaCompLatency as @a NvDsUserMeta.user_meta_data.
+ */
+NvDsUserMeta *nvds_set_input_system_timestamp(GstBuffer *buffer, gchar *element_name);
 
-  /**
-   * \brief  Sets the system timestamp when a Gst Buffer that is pushed
-   *  to the downstream component.
-   *
-   * This is a corresponding function to nvds_set_input_system_timestamp().
-   *
-   * @param[in] buffer        A pointer to a Gst Buffer to be pushed
-   *                          to the downstream component.
-   * @param[in] element_name  A pointer to the name of the component for which
-   *                          latency is to be measured.
-   *
-   * @returns  TRUE if the timestamp is attached successfully, or FALSE otherwise.
-   */
-  gboolean nvds_set_output_system_timestamp(GstBuffer *buffer, gchar *element_name);
+/**
+ * \brief  Sets the system timestamp when a Gst Buffer that is pushed
+ *  to the downstream component.
+ *
+ * This is a corresponding function to nvds_set_input_system_timestamp().
+ *
+ * @param[in] buffer        A pointer to a Gst Buffer to be pushed
+ *                          to the downstream component.
+ * @param[in] element_name  A pointer to the name of the component for which
+ *                          latency is to be measured.
+ *
+ * @returns  TRUE if the timestamp is attached successfully, or FALSE otherwise.
+ */
+gboolean nvds_set_output_system_timestamp(GstBuffer *buffer, gchar *element_name);
 
-  gboolean nvds_add_sub_time(GstBuffer *buffer, gchar *element_name, gchar *name,
-                             gdouble start_time, gdouble end_time);
+gboolean nvds_add_sub_time(GstBuffer *buffer,
+                           gchar *element_name,
+                           gchar *name,
+                           gdouble start_time,
+                           gdouble end_time);
 
-  /**
-   * \brief  Measures the latency of all frames present in the current batch.
-   *
-   * The latency is computed from decoder input up to the point this API is called.
-   * You can install the probe on either pad of the component and call
-   * this function to measure the latency.
-   *
-   * @param[in]  buf          A pointer to a Gst Buffer to which
-   *                          @ref NvDsBatchMeta is attached as metadata.
-   * @param[out] latency_info A pointer to an NvDsFrameLatencyInfo structure
-   *                          allocated for a batch of this size. The function
-   *                          fills it with information about all of the sources.
-   */
-  guint nvds_measure_buffer_latency(GstBuffer *buf,
-                                    NvDsFrameLatencyInfo *latency_info);
+/**
+ * \brief  Measures the latency of all frames present in the current batch.
+ *
+ * The latency is computed from decoder input up to the point this API is called.
+ * You can install the probe on either pad of the component and call
+ * this function to measure the latency.
+ *
+ * @param[in]  buf          A pointer to a Gst Buffer to which
+ *                          @ref NvDsBatchMeta is attached as metadata.
+ * @param[out] latency_info A pointer to an NvDsFrameLatencyInfo structure
+ *                          allocated for a batch of this size. The function
+ *                          fills it with information about all of the sources.
+ */
+guint nvds_measure_buffer_latency(GstBuffer *buf, NvDsFrameLatencyInfo *latency_info);
 
-  /**
-   * Indicates whether the environment variable
-   * @c NVDS_ENABLE_LATENCY_MEASUREMENT is exported.
-   *
-   * @returns  True if the environment variable is exported, or false otherwise.
-   */
-  gboolean nvds_get_enable_latency_measurement(void);
+/**
+ * Indicates whether the environment variable
+ * @c NVDS_ENABLE_LATENCY_MEASUREMENT is exported.
+ *
+ * @returns  True if the environment variable is exported, or false otherwise.
+ */
+gboolean nvds_get_enable_latency_measurement(void);
 
-  /**
-   * Adds the reference timestamp metadata for this buffer
-   * Note: element_name == "audiodecoder" and "nvv4l2decoder" will be used for
-   * latency measurement calculations where the timestamp will be used
-   * by API: nvds_measure_buffer_latency()
-   * to calculate the latency of buffers downstream relative to the decoder.
-   *
-   * @param[in] buffer        A pointer to the arriving Gst Buffer.
-   * @param[in] element_name  A pointer to the name of the component for which
-   *                          latency is to be measured.
-   * @param[in] frame_id      The id/number of this frame/buffer produced by
-   *                          the component that produces this buffer.
-   *
-   */
-  void nvds_add_reference_timestamp_meta(GstBuffer *buffer,
-                                         gchar *element_name, guint frame_id);
+/**
+ * Adds the reference timestamp metadata for this buffer
+ * Note: element_name == "audiodecoder" and "nvv4l2decoder" will be used for
+ * latency measurement calculations where the timestamp will be used
+ * by API: nvds_measure_buffer_latency()
+ * to calculate the latency of buffers downstream relative to the decoder.
+ *
+ * @param[in] buffer        A pointer to the arriving Gst Buffer.
+ * @param[in] element_name  A pointer to the name of the component for which
+ *                          latency is to be measured.
+ * @param[in] frame_id      The id/number of this frame/buffer produced by
+ *                          the component that produces this buffer.
+ *
+ */
+void nvds_add_reference_timestamp_meta(GstBuffer *buffer, gchar *element_name, guint frame_id);
 
 /**
  * Defines a pseudo-variable whose value is the return value of
@@ -175,7 +171,7 @@ extern "C"
  */
 #define nvds_enable_latency_measurement (nvds_get_enable_latency_measurement())
 
-  /** @} */
+/** @} */
 
 #ifdef __cplusplus
 }

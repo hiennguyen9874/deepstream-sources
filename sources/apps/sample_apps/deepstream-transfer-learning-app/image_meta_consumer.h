@@ -22,42 +22,34 @@
 
 #pragma once
 
-#include <condition_variable>
-#include <mutex>
-#include <string>
+#include <deepstream_config.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <atomic>
-#include <thread>
-#include <iostream>
+#include <condition_variable>
 #include <fstream>
-#include <sstream>
 #include <iomanip>
 #include <ios>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <deepstream_config.h>
+#include <iostream>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+
+#include "capture_time_rules.h"
+#include "concurrent_queue.h"
+#include "gst-nvmessage.h"
 #include "gstnvdsmeta.h"
 #include "nvbufsurface.h"
-#include "gst-nvmessage.h"
 #include "nvds_obj_encode.h"
-#include "concurrent_queue.h"
-#include "capture_time_rules.h"
 
-class ImageMetaConsumer
-{
+class ImageMetaConsumer {
 public:
-    enum OutputType
-    {
-        KITTI = 0,
-        JSON = 1,
-        CSV = 2
-    };
+    enum OutputType { KITTI = 0, JSON = 1, CSV = 2 };
 
-    enum ImageSizeType
-    {
-        FULL_FRAME,
-        CROPPED_TO_OBJECT
-    };
+    enum ImageSizeType { FULL_FRAME, CROPPED_TO_OBJECT };
 
     /// Init an object and set that the queue is stopped
     ImageMetaConsumer();
@@ -81,12 +73,18 @@ public:
     /// @param [in] save_full_frame_enabled Enable/Disable the save of complete images.
     /// @param [in] save_cropped_obj_enabled Enable/Disable the save of cropped images
     /// @param [in] seconds_to_skip_interval Unsigned integer giving the number of seconds to skip.
-    /// @param [in] source_nb Unsigned integer giving the number of sources that are currently giving a stream.
-    void init(const std::string &output_folder_path, const std::string &frame_to_skip_rules_path,
-              float min_box_confidence, float max_box_confidence,
-              unsigned min_box_width, unsigned min_box_height,
-              bool save_full_frame_enabled, bool save_cropped_obj_enabled,
-              unsigned seconds_to_skip_interval, unsigned source_nb);
+    /// @param [in] source_nb Unsigned integer giving the number of sources that are currently
+    /// giving a stream.
+    void init(const std::string &output_folder_path,
+              const std::string &frame_to_skip_rules_path,
+              float min_box_confidence,
+              float max_box_confidence,
+              unsigned min_box_width,
+              unsigned min_box_height,
+              bool save_full_frame_enabled,
+              bool save_cropped_obj_enabled,
+              unsigned seconds_to_skip_interval,
+              unsigned source_nb);
 
     /// Add metadata to the stored concurrent queue.
     /// @param [in] meta Metadata as CSV string
@@ -173,7 +171,8 @@ private:
 
     /// Metadata writer for a file per metadata (KITTI)
     void multi_metadata_maker(ConcurrentQueue<std::pair<std::string, std::string>> &queue,
-                              std::mutex &mutex, std::condition_variable &cv);
+                              std::mutex &mutex,
+                              std::condition_variable &cv);
 
     /// Set up config files
     bool setup_files();
@@ -197,7 +196,8 @@ private:
     /// @param extension of file requested (Json or Csv)
     void single_metadata_maker(const std::string &extension,
                                ConcurrentQueue<std::string> &queue,
-                               std::mutex &mutex, std::condition_variable &cv,
+                               std::mutex &mutex,
+                               std::condition_variable &cv,
                                OutputType ot);
 
     ConcurrentQueue<std::pair<std::string, std::string>> queue_kitti_;

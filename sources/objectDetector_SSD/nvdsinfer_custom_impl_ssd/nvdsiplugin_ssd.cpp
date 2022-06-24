@@ -20,31 +20,30 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "NvInferPlugin.h"
-#include <vector>
-#include "cuda_runtime_api.h"
-#include <cassert>
 #include <cublas_v2.h>
-#include <functional>
-#include <numeric>
+
 #include <algorithm>
+#include <cassert>
+#include <functional>
 #include <iostream>
+#include <numeric>
+#include <vector>
+
+#include "NvInferPlugin.h"
+#include "cuda_runtime_api.h"
 
 using namespace nvinfer1;
 
 #define CHECK(status)                             \
-    do                                            \
-    {                                             \
+    do {                                          \
         auto ret = (status);                      \
-        if (ret != 0)                             \
-        {                                         \
+        if (ret != 0) {                           \
             std::cout << "Cuda failure: " << ret; \
             abort();                              \
         }                                         \
     } while (0)
 
-class FlattenConcat : public IPluginV2
-{
+class FlattenConcat : public IPluginV2 {
 public:
     FlattenConcat(int concatAxis, bool ignoreBatch)
         : mIgnoreBatch(ignoreBatch), mConcatAxisID(concatAxis)
@@ -52,8 +51,13 @@ public:
         assert(mConcatAxisID == 1 || mConcatAxisID == 2 || mConcatAxisID == 3);
     }
     // clone constructor
-    FlattenConcat(int concatAxis, bool ignoreBatch, int numInputs, int outputConcatAxis, int *inputConcatAxis)
-        : mIgnoreBatch(ignoreBatch), mConcatAxisID(concatAxis), mOutputConcatAxis(outputConcatAxis), mNumInputs(numInputs)
+    FlattenConcat(int concatAxis,
+                  bool ignoreBatch,
+                  int numInputs,
+                  int outputConcatAxis,
+                  int *inputConcatAxis)
+        : mIgnoreBatch(ignoreBatch), mConcatAxisID(concatAxis), mOutputConcatAxis(outputConcatAxis),
+          mNumInputs(numInputs)
     {
         CHECK(cudaMallocHost((void **)&mInputConcatAxis, mNumInputs * sizeof(int)));
         for (int i = 0; i < mNumInputs; ++i)
@@ -71,13 +75,13 @@ public:
         CHECK(cudaMallocHost((void **)&mInputConcatAxis, mNumInputs * sizeof(int)));
         CHECK(cudaMallocHost((void **)&mCopySize, mNumInputs * sizeof(int)));
 
-        std::for_each(mInputConcatAxis, mInputConcatAxis + mNumInputs, [&](int &inp)
-                      { inp = read<int>(d); });
+        std::for_each(mInputConcatAxis, mInputConcatAxis + mNumInputs,
+                      [&](int &inp) { inp = read<int>(d); });
 
         mCHW = read<nvinfer1::Dims3>(d);
 
-        std::for_each(mCopySize, mCopySize + mNumInputs, [&](size_t &inp)
-                      { inp = read<size_t>(d); });
+        std::for_each(mCopySize, mCopySize + mNumInputs,
+                      [&](size_t &inp) { inp = read<size_t>(d); });
     }
     ~FlattenConcat()
     {
@@ -103,8 +107,7 @@ public:
                 std::cout << " Concat InputDims[" << i << "]"
                           << "d[" << j << " is " << inputs[i].d[j] << "\n";
 #endif
-        for (int i = 0; i < nbInputDims; ++i)
-        {
+        for (int i = 0; i < nbInputDims; ++i) {
             int flattenInput = 0;
             assert(inputs[i].nbDims == 3);
             if (mConcatAxisID != 1)
@@ -129,14 +132,15 @@ public:
         return 0;
     }
 
-    void terminate() noexcept override
-    {
-        CHECK(cublasDestroy(mCublas));
-    }
+    void terminate() noexcept override { CHECK(cublasDestroy(mCublas)); }
 
     size_t getWorkspaceSize(int) const noexcept override { return 0; }
 
-    int enqueue(int batchSize, void const *const *inputs, void *const *outputs, void *, cudaStream_t stream) noexcept override
+    int enqueue(int batchSize,
+                void const *const *inputs,
+                void *const *outputs,
+                void *,
+                cudaStream_t stream) noexcept override
     {
         int numConcats = 1;
         assert(mConcatAxisID != 0);
@@ -148,19 +152,17 @@ public:
 
         float *output = reinterpret_cast<float *>(outputs[0]);
         int offset = 0;
-        for (int i = 0; i < mNumInputs; ++i)
-        {
+        for (int i = 0; i < mNumInputs; ++i) {
             const float *input = reinterpret_cast<const float *>(inputs[i]);
             float *inputTemp;
             CHECK(cudaMalloc((void **)&inputTemp, mCopySize[i] * batchSize));
 
-            CHECK(cudaMemcpyAsync(inputTemp, input, mCopySize[i] * batchSize, cudaMemcpyDeviceToDevice, stream));
+            CHECK(cudaMemcpyAsync(inputTemp, input, mCopySize[i] * batchSize,
+                                  cudaMemcpyDeviceToDevice, stream));
 
-            for (int n = 0; n < numConcats; ++n)
-            {
-                CHECK(cublasScopy(mCublas, mInputConcatAxis[i],
-                                  inputTemp + n * mInputConcatAxis[i], 1,
-                                  output + (n * mOutputConcatAxis + offset), 1));
+            for (int n = 0; n < numConcats; ++n) {
+                CHECK(cublasScopy(mCublas, mInputConcatAxis[i], inputTemp + n * mInputConcatAxis[i],
+                                  1, output + (n * mOutputConcatAxis + offset), 1));
             }
             CHECK(cudaFree(inputTemp));
             offset += mInputConcatAxis[i];
@@ -171,7 +173,8 @@ public:
 
     size_t getSerializationSize() const noexcept override
     {
-        return sizeof(bool) + sizeof(int) * (3 + mNumInputs) + sizeof(nvinfer1::Dims) + (sizeof(mCopySize) * mNumInputs);
+        return sizeof(bool) + sizeof(int) * (3 + mNumInputs) + sizeof(nvinfer1::Dims) +
+               (sizeof(mCopySize) * mNumInputs);
     }
 
     void serialize(void *buffer) const noexcept override
@@ -181,25 +184,28 @@ public:
         write(d, mConcatAxisID);
         write(d, mOutputConcatAxis);
         write(d, mNumInputs);
-        for (int i = 0; i < mNumInputs; ++i)
-        {
+        for (int i = 0; i < mNumInputs; ++i) {
             write(d, mInputConcatAxis[i]);
         }
         write(d, mCHW);
-        for (int i = 0; i < mNumInputs; ++i)
-        {
+        for (int i = 0; i < mNumInputs; ++i) {
             write(d, mCopySize[i]);
         }
     }
 
-    void configureWithFormat(const Dims *inputs, int nbInputs, const Dims *outputDims, int nbOutputs, nvinfer1::DataType type, nvinfer1::PluginFormat format, int maxBatchSize) noexcept override
+    void configureWithFormat(const Dims *inputs,
+                             int nbInputs,
+                             const Dims *outputDims,
+                             int nbOutputs,
+                             nvinfer1::DataType type,
+                             nvinfer1::PluginFormat format,
+                             int maxBatchSize) noexcept override
     {
         assert(nbOutputs == 1);
         mCHW = inputs[0];
         assert(inputs[0].nbDims == 3);
         CHECK(cudaMallocHost((void **)&mCopySize, nbInputs * sizeof(int)));
-        for (int i = 0; i < nbInputs; ++i)
-        {
+        for (int i = 0; i < nbInputs; ++i) {
             mCopySize[i] = inputs[i].d[0] * inputs[i].d[1] * inputs[i].d[2] * sizeof(float);
         }
     }
@@ -216,10 +222,14 @@ public:
 
     IPluginV2 *clone() const noexcept override
     {
-        return new FlattenConcat(mConcatAxisID, mIgnoreBatch, mNumInputs, mOutputConcatAxis, mInputConcatAxis);
+        return new FlattenConcat(mConcatAxisID, mIgnoreBatch, mNumInputs, mOutputConcatAxis,
+                                 mInputConcatAxis);
     }
 
-    void setPluginNamespace(const char *libNamespace) noexcept override { mNamespace = libNamespace; }
+    void setPluginNamespace(const char *libNamespace) noexcept override
+    {
+        mNamespace = libNamespace;
+    }
 
     const char *getPluginNamespace() const noexcept override { return mNamespace.c_str(); }
 
@@ -248,19 +258,18 @@ private:
     std::string mNamespace;
 };
 
-namespace
-{
-    const char *FLATTENCONCAT_PLUGIN_VERSION{"1"};
-    const char *FLATTENCONCAT_PLUGIN_NAME{"FlattenConcat_TRT"};
+namespace {
+const char *FLATTENCONCAT_PLUGIN_VERSION{"1"};
+const char *FLATTENCONCAT_PLUGIN_NAME{"FlattenConcat_TRT"};
 } // namespace
 
-class FlattenConcatPluginCreator : public IPluginCreator
-{
+class FlattenConcatPluginCreator : public IPluginCreator {
 public:
     FlattenConcatPluginCreator()
     {
         mPluginAttributes.emplace_back(PluginField("axis", nullptr, PluginFieldType::kINT32, 1));
-        mPluginAttributes.emplace_back(PluginField("ignoreBatch", nullptr, PluginFieldType::kINT32, 1));
+        mPluginAttributes.emplace_back(
+            PluginField("ignoreBatch", nullptr, PluginFieldType::kINT32, 1));
 
         mFC.nbFields = mPluginAttributes.size();
         mFC.fields = mPluginAttributes.data();
@@ -277,16 +286,13 @@ public:
     IPluginV2 *createPlugin(const char *name, const PluginFieldCollection *fc) noexcept override
     {
         const PluginField *fields = fc->fields;
-        for (int i = 0; i < fc->nbFields; ++i)
-        {
+        for (int i = 0; i < fc->nbFields; ++i) {
             const char *attrName = fields[i].name;
-            if (!strcmp(attrName, "axis"))
-            {
+            if (!strcmp(attrName, "axis")) {
                 assert(fields[i].type == PluginFieldType::kINT32);
                 mConcatAxisID = *(static_cast<const int *>(fields[i].data));
             }
-            if (!strcmp(attrName, "ignoreBatch"))
-            {
+            if (!strcmp(attrName, "ignoreBatch")) {
                 assert(fields[i].type == PluginFieldType::kINT32);
                 mIgnoreBatch = *(static_cast<const bool *>(fields[i].data));
             }
@@ -295,15 +301,19 @@ public:
         return new FlattenConcat(mConcatAxisID, mIgnoreBatch);
     }
 
-    IPluginV2 *deserializePlugin(const char *name, const void *serialData, size_t serialLength) noexcept override
+    IPluginV2 *deserializePlugin(const char *name,
+                                 const void *serialData,
+                                 size_t serialLength) noexcept override
     {
-
         // This object will be deleted when the network is destroyed, which will
         // call Concat::destroy()
         return new FlattenConcat(serialData, serialLength);
     }
 
-    void setPluginNamespace(const char *libNamespace) noexcept override { mNamespace = libNamespace; }
+    void setPluginNamespace(const char *libNamespace) noexcept override
+    {
+        mNamespace = libNamespace;
+    }
 
     const char *getPluginNamespace() const noexcept override { return mNamespace.c_str(); }
 

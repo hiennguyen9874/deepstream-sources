@@ -31,63 +31,52 @@
 
 #include "nvdscustomlib_interface.hpp"
 
-namespace nvdstts
-{
+namespace nvdstts {
 
-    template <class T>
-    T *
-    dlsym_ptr(void *handle, char const *name)
+template <class T>
+T *dlsym_ptr(void *handle, char const *name)
+{
+    return reinterpret_cast<T *>(dlsym(handle, name));
+}
+
+class DSCustomLibrary_Factory {
+public:
+    DSCustomLibrary_Factory() = default;
+
+    ~DSCustomLibrary_Factory()
     {
-        return reinterpret_cast<T *>(dlsym(handle, name));
+        if (m_libHandle) {
+            dlclose(m_libHandle);
+        }
     }
 
-    class DSCustomLibrary_Factory
+    IDSCustomLibrary *CreateCustomAlgoCtx(const std::string &libName, const std::string &symName)
     {
-    public:
-        DSCustomLibrary_Factory() = default;
+        m_libName.assign(libName);
 
-        ~DSCustomLibrary_Factory()
-        {
-            if (m_libHandle)
-            {
-                dlclose(m_libHandle);
+        // Usiing RTLD_GLOBAL to avoid libprotobuf.so 'file already exists in
+        // database' error when using common .proto file in two plugins.
+        // For e.g. riva_audio.proto in Riva ASR and TTS services.
+        m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW | RTLD_GLOBAL);
+        if (m_libHandle) {
+            std::cout << "Library Opened Successfully" << std::endl;
+
+            m_CreateAlgoCtx = dlsym_ptr<IDSCustomLibrary *()>(m_libHandle, symName.c_str());
+            if (!m_CreateAlgoCtx) {
+                throw std::runtime_error("createCustomAlgoCtx function not found in library");
             }
+        } else {
+            throw std::runtime_error(dlerror());
         }
 
-        IDSCustomLibrary *CreateCustomAlgoCtx(
-            const std::string &libName, const std::string &symName)
-        {
-            m_libName.assign(libName);
+        return m_CreateAlgoCtx();
+    }
 
-            // Usiing RTLD_GLOBAL to avoid libprotobuf.so 'file already exists in
-            // database' error when using common .proto file in two plugins.
-            // For e.g. riva_audio.proto in Riva ASR and TTS services.
-            m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW | RTLD_GLOBAL);
-            if (m_libHandle)
-            {
-                std::cout << "Library Opened Successfully" << std::endl;
-
-                m_CreateAlgoCtx =
-                    dlsym_ptr<IDSCustomLibrary *()>(m_libHandle, symName.c_str());
-                if (!m_CreateAlgoCtx)
-                {
-                    throw std::runtime_error(
-                        "createCustomAlgoCtx function not found in library");
-                }
-            }
-            else
-            {
-                throw std::runtime_error(dlerror());
-            }
-
-            return m_CreateAlgoCtx();
-        }
-
-    public:
-        void *m_libHandle;
-        std::string m_libName;
-        std::function<IDSCustomLibrary *()> m_CreateAlgoCtx;
-    };
+public:
+    void *m_libHandle;
+    std::string m_libName;
+    std::function<IDSCustomLibrary *()> m_CreateAlgoCtx;
+};
 
 } // namespace nvdstts
 

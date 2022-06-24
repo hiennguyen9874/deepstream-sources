@@ -8,7 +8,7 @@
 # license agreement from NVIDIA Corporation is strictly prohibited.
 #
 ################################################################################
- 
+
 This project implements protocol adaptor for kafka.
 The adaptor implements and exposed the DSMI API for client applications to interface with it.
 

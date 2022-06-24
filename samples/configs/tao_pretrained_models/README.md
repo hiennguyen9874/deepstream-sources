@@ -45,14 +45,14 @@ Toolkit pre-trained purpose-built models in DeepStream.
 
 The following pre-trained models are provided:
 
-- DashCamNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:dashcamnet)
-- VehicleMakeNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:vehiclemakenet)
-- VehicleTypeNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:vehicletypenet)
-- TrafficeCamNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:trafficcamnet)
-- PeopleNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:peoplenet)
-- FaceDetectIR (https://ngc.nvidia.com/catalog/models/nvidia:tao:facedetectir)
-- PeopleSegNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:peoplesegnet)
-- PeopleSemSegnet (https://ngc.nvidia.com/catalog/models/nvidia:tao:peoplesemsegnet)
+-   DashCamNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:dashcamnet)
+-   VehicleMakeNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:vehiclemakenet)
+-   VehicleTypeNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:vehicletypenet)
+-   TrafficeCamNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:trafficcamnet)
+-   PeopleNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:peoplenet)
+-   FaceDetectIR (https://ngc.nvidia.com/catalog/models/nvidia:tao:facedetectir)
+-   PeopleSegNet (https://ngc.nvidia.com/catalog/models/nvidia:tao:peoplesegnet)
+-   PeopleSemSegnet (https://ngc.nvidia.com/catalog/models/nvidia:tao:peoplesemsegnet)
 
 ---
 
@@ -104,32 +104,32 @@ Running the models in DeepStream:
 
 ---
 
-- An nvinfer configuration file (config*infer*\*) is provided for each of the
-  models.
-- Following deepstream-app configuration files are provided:
-  - deepstream_app_source1_dashcamnet_vehiclemakenet_vehicletypenet.txt
-  - deepstream_app_source1_peoplenet.txt
-  - deepstream_app_source1_facedetectir.txt
-  - deepstream_app_source1_trafficcamnet.txt
-- For detction models, use following deepstream-app configs, default model is
-  Faster Rcnn change the config-path under primary-gie group to switch to
-  other models(ssd/dssd/retinanet/yolov3/yolov4/detectnet_v2/frcnn)
-  - deepstream_app_source1_detection_models.txt
-- Make sure encoded TAO model file paths and the INT8 calibration file paths
-  are correct in the config*infer*\* files and that the files exist.
-- To re-use the engine files built in the first run, make sure the
-  model-engine-file paths are correct in config*infer*_ and deepstream*app*_
-  configuration files.
-- For classifier model(multi-task), use deepstream_app_source1_classifier.txt
-- For instance segmentation models(MaskRCNN/peopelSegNet), use deepstream_app_source1_mrcnn.txt
-  It also requires TRT plugin using https://github.com/NVIDIA/TensorRT.
-  Follow
-  - https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps/tree/master/TRT-OSS/Jetson for Jetson
-  - https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps/tree/master/TRT-OSS/x86 for x86
-- Run deepstream-app using one of the deepstream*app*\* configuration files.
-  $ sudo deepstream-app -c <deepstream_app_config>
-  e.g.
-  $ sudo deepstream-app -c deepstream_app_source1_dashcamnet_vehiclemakenet_vehicletypenet.txt
+-   An nvinfer configuration file (config*infer*\*) is provided for each of the
+    models.
+-   Following deepstream-app configuration files are provided:
+    -   deepstream_app_source1_dashcamnet_vehiclemakenet_vehicletypenet.txt
+    -   deepstream_app_source1_peoplenet.txt
+    -   deepstream_app_source1_facedetectir.txt
+    -   deepstream_app_source1_trafficcamnet.txt
+-   For detction models, use following deepstream-app configs, default model is
+    Faster Rcnn change the config-path under primary-gie group to switch to
+    other models(ssd/dssd/retinanet/yolov3/yolov4/detectnet_v2/frcnn)
+    -   deepstream_app_source1_detection_models.txt
+-   Make sure encoded TAO model file paths and the INT8 calibration file paths
+    are correct in the config*infer*\* files and that the files exist.
+-   To re-use the engine files built in the first run, make sure the
+    model-engine-file paths are correct in config*infer*_ and deepstream*app*_
+    configuration files.
+-   For classifier model(multi-task), use deepstream_app_source1_classifier.txt
+-   For instance segmentation models(MaskRCNN/peopelSegNet), use deepstream_app_source1_mrcnn.txt
+    It also requires TRT plugin using https://github.com/NVIDIA/TensorRT.
+    Follow
+    -   https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps/tree/master/TRT-OSS/Jetson for Jetson
+    -   https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps/tree/master/TRT-OSS/x86 for x86
+-   Run deepstream-app using one of the deepstream*app*\* configuration files.
+    $ sudo deepstream-app -c <deepstream_app_config>
+    e.g.
+    $ sudo deepstream-app -c deepstream_app_source1_dashcamnet_vehiclemakenet_vehicletypenet.txt
 
-  NOTE: Sample images/clips for FaceDetectIR would be available on it's NGC
-  page.
+    NOTE: Sample images/clips for FaceDetectIR would be available on it's NGC
+    page.

@@ -56,7 +56,7 @@ CFLAGS+= -I./ -I../../apps-common/includes -I../../../includes  -I../deepstream-
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvdsgst_helper -lnvdsgst_smartrecord -lnvds_utils -lnvds_msgbroker -lm \
        -lgstrtspserver-1.0 -ldl -Wl,-rpath,$(LIB_INSTALL_DIR) \
 	   -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart \
-	   -lcuda 
+	   -lcuda
 
 CFLAGS+= $(shell pkg-config --cflags $(PKGS))
 

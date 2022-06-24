@@ -13,174 +13,168 @@
 #ifndef CVCORE_EMOTIONS_H_
 #define CVCORE_EMOTIONS_H_
 
-#include <memory>
-
 #include <cuda_runtime.h>
-
 #include <cv/core/Array.h>
 #include <cv/core/BBox.h>
 #include <cv/core/MathTypes.h>
 #include <cv/core/Model.h>
 #include <cv/core/Tensor.h>
 
-namespace cvcore
-{
-    namespace emotions
-    {
+#include <memory>
 
-        /**
-         * Default Image Processing Params for Emotions.
-         */
-        extern const ImagePreProcessingParams defaultPreProcessorParams;
+namespace cvcore {
+namespace emotions {
 
-        /**
-         * Default Model Input Params for Emotions.
-         */
-        extern const ModelInputParams defaultModelInputParams;
+/**
+ * Default Image Processing Params for Emotions.
+ */
+extern const ImagePreProcessingParams defaultPreProcessorParams;
 
-        /**
-         * Default inference Params for Emotions.
-         */
-        extern const ModelInferenceParams defaultInferenceParams;
+/**
+ * Default Model Input Params for Emotions.
+ */
+extern const ModelInputParams defaultModelInputParams;
 
-        /**
-         * Interface for loading and running Emotions.
-         */
-        class Emotions
-        {
-        public:
-            /**
-             * Number of input facial landmarks.
-             */
-            static constexpr std::size_t NUM_FACIAL_LANDMARKS = 68;
+/**
+ * Default inference Params for Emotions.
+ */
+extern const ModelInferenceParams defaultInferenceParams;
 
-            /**
-             * Top emotions classified in order of likelihood.
-             */
-            static constexpr std::size_t TOP_EMOTIONS = 10;
+/**
+ * Interface for loading and running Emotions.
+ */
+class Emotions {
+public:
+    /**
+     * Number of input facial landmarks.
+     */
+    static constexpr std::size_t NUM_FACIAL_LANDMARKS = 68;
 
-            /**
-             * Removing the default constructor for Emotions.
-             */
-            Emotions() = delete;
+    /**
+     * Top emotions classified in order of likelihood.
+     */
+    static constexpr std::size_t TOP_EMOTIONS = 10;
 
-            /**
-             * Constructor for Emotions.
-             * @param preProcessorParams Image preprocessing parameters.
-             * @param modelInputParams Model input parameters.
-             * @param inferenceParams Inference parameters for the model.
-             * @param numEmotions number of the output emotions
-             */
-            Emotions(const ImagePreProcessingParams &preProcessorParams,
-                     const ModelInputParams &modelInputParams,
-                     const ModelInferenceParams &inferenceParams,
-                     size_t numEmotions = 6);
+    /**
+     * Removing the default constructor for Emotions.
+     */
+    Emotions() = delete;
 
-            /**
-             * Destructor for Emotions.
-             */
-            ~Emotions();
+    /**
+     * Constructor for Emotions.
+     * @param preProcessorParams Image preprocessing parameters.
+     * @param modelInputParams Model input parameters.
+     * @param inferenceParams Inference parameters for the model.
+     * @param numEmotions number of the output emotions
+     */
+    Emotions(const ImagePreProcessingParams &preProcessorParams,
+             const ModelInputParams &modelInputParams,
+             const ModelInferenceParams &inferenceParams,
+             size_t numEmotions = 6);
 
-            /**
-             * Running Emotions for a given image.
-             * @param emotionLikelihoods output emotions likelihood vector for each image in the batch.
-             * @param topEmotions the top ranked emotions for each image in the batch
-             * @param inputLandmarks input facial landmarks vector.
-             * @param stream Cuda stream
-             */
-            void execute(Array<ArrayN<float, Emotions::TOP_EMOTIONS>> &emotionLikelihoods,
-                         Array<ArrayN<size_t, Emotions::TOP_EMOTIONS>> &topEmotions,
-                         const Array<ArrayN<Vector2f, NUM_FACIAL_LANDMARKS>> &inputLandmarks,
-                         cudaStream_t stream = 0);
+    /**
+     * Destructor for Emotions.
+     */
+    ~Emotions();
 
-        private:
-            struct EmotionsImpl;
+    /**
+     * Running Emotions for a given image.
+     * @param emotionLikelihoods output emotions likelihood vector for each image in the batch.
+     * @param topEmotions the top ranked emotions for each image in the batch
+     * @param inputLandmarks input facial landmarks vector.
+     * @param stream Cuda stream
+     */
+    void execute(Array<ArrayN<float, Emotions::TOP_EMOTIONS>> &emotionLikelihoods,
+                 Array<ArrayN<size_t, Emotions::TOP_EMOTIONS>> &topEmotions,
+                 const Array<ArrayN<Vector2f, NUM_FACIAL_LANDMARKS>> &inputLandmarks,
+                 cudaStream_t stream = 0);
 
-            std::unique_ptr<EmotionsImpl> m_pImpl;
-        };
+private:
+    struct EmotionsImpl;
 
-        /**
-         * Interface for running pre-processing for Emotions.
-         */
-        class EmotionsPreProcessor
-        {
-        public:
-            /**
-             * Removing the default constructor for EmotionsPreProcessor.
-             */
-            EmotionsPreProcessor() = delete;
+    std::unique_ptr<EmotionsImpl> m_pImpl;
+};
 
-            /**
-             * Constructor for EmotionsPreProcessor.
-             * @param preProcessorParams Image preprocessing parameters.
-             * @param modelInputParams Model input parameters.
-             */
-            EmotionsPreProcessor(const ImagePreProcessingParams &preProcessorParams,
-                                 const ModelInputParams &modelInputParams);
+/**
+ * Interface for running pre-processing for Emotions.
+ */
+class EmotionsPreProcessor {
+public:
+    /**
+     * Removing the default constructor for EmotionsPreProcessor.
+     */
+    EmotionsPreProcessor() = delete;
 
-            /**
-             * Destructor for EmotionsPreProcessor.
-             */
-            ~EmotionsPreProcessor();
+    /**
+     * Constructor for EmotionsPreProcessor.
+     * @param preProcessorParams Image preprocessing parameters.
+     * @param modelInputParams Model input parameters.
+     */
+    EmotionsPreProcessor(const ImagePreProcessingParams &preProcessorParams,
+                         const ModelInputParams &modelInputParams);
 
-            /**
-             * Running preprocessing for a given set of facial landmarks.
-             * @param preProcessedLandmarkBatch input landmarks vector in tensor format.
-             * @param inputLandmarks input landmarks vector in array format.
-             * @param stream Cuda stream
-             */
-            void execute(Tensor<CL, CX, F32> &preProcessedLandmarkBatch,
-                         const Array<ArrayN<Vector2f, Emotions::NUM_FACIAL_LANDMARKS>> &inputLandmarks,
-                         cudaStream_t stream = 0);
+    /**
+     * Destructor for EmotionsPreProcessor.
+     */
+    ~EmotionsPreProcessor();
 
-        private:
-            struct EmotionsPreProcessorImpl;
+    /**
+     * Running preprocessing for a given set of facial landmarks.
+     * @param preProcessedLandmarkBatch input landmarks vector in tensor format.
+     * @param inputLandmarks input landmarks vector in array format.
+     * @param stream Cuda stream
+     */
+    void execute(Tensor<CL, CX, F32> &preProcessedLandmarkBatch,
+                 const Array<ArrayN<Vector2f, Emotions::NUM_FACIAL_LANDMARKS>> &inputLandmarks,
+                 cudaStream_t stream = 0);
 
-            std::unique_ptr<EmotionsPreProcessorImpl> m_pImpl;
-        };
+private:
+    struct EmotionsPreProcessorImpl;
 
-        /**
-         * Interface for running post-processing for Emotions.
-         */
-        class EmotionsPostProcessor
-        {
-        public:
-            /**
-             * Removing the default constructor for EmotionsPostProcessor.
-             */
-            EmotionsPostProcessor() = delete;
+    std::unique_ptr<EmotionsPreProcessorImpl> m_pImpl;
+};
 
-            /**
-             * Constructor for EmotionsPostProcessor.
-             * @param modelInputParams Model input parameters.
-             * @param numEmotions number of the output emotions
-             */
-            EmotionsPostProcessor(const ModelInputParams &modelInputParams, size_t numEmotions);
+/**
+ * Interface for running post-processing for Emotions.
+ */
+class EmotionsPostProcessor {
+public:
+    /**
+     * Removing the default constructor for EmotionsPostProcessor.
+     */
+    EmotionsPostProcessor() = delete;
 
-            /**
-             * Destructor for EmotionsPostProcessor.
-             */
-            ~EmotionsPostProcessor();
+    /**
+     * Constructor for EmotionsPostProcessor.
+     * @param modelInputParams Model input parameters.
+     * @param numEmotions number of the output emotions
+     */
+    EmotionsPostProcessor(const ModelInputParams &modelInputParams, size_t numEmotions);
 
-            /**
-             * Running postprocessing for a given set of emotion likelihoods.
-             * @param emotionLikelihoods output emotions likelihood vector for each image in the batch.
-             * @param topEmotions the top ranked emotions for each image in the batch
-             * @param emotionsRaw input emotions vector in tensor format.
-             * @param stream Cuda stream
-             */
-            void execute(Array<ArrayN<float, Emotions::TOP_EMOTIONS>> &emotionLikelihoods,
-                         Array<ArrayN<std::size_t, Emotions::TOP_EMOTIONS>> &topEmotions,
-                         const Tensor<CL, CX, F32> &emotionsRaw,
-                         cudaStream_t stream = 0);
+    /**
+     * Destructor for EmotionsPostProcessor.
+     */
+    ~EmotionsPostProcessor();
 
-        private:
-            struct EmotionsPostProcessorImpl;
+    /**
+     * Running postprocessing for a given set of emotion likelihoods.
+     * @param emotionLikelihoods output emotions likelihood vector for each image in the batch.
+     * @param topEmotions the top ranked emotions for each image in the batch
+     * @param emotionsRaw input emotions vector in tensor format.
+     * @param stream Cuda stream
+     */
+    void execute(Array<ArrayN<float, Emotions::TOP_EMOTIONS>> &emotionLikelihoods,
+                 Array<ArrayN<std::size_t, Emotions::TOP_EMOTIONS>> &topEmotions,
+                 const Tensor<CL, CX, F32> &emotionsRaw,
+                 cudaStream_t stream = 0);
 
-            std::unique_ptr<EmotionsPostProcessorImpl> m_pImpl;
-        };
+private:
+    struct EmotionsPostProcessorImpl;
 
-    }
-} // namespace cvcore::emotions
+    std::unique_ptr<EmotionsPostProcessorImpl> m_pImpl;
+};
+
+} // namespace emotions
+} // namespace cvcore
 
 #endif // CVCORE_EMOTIONS_H_
