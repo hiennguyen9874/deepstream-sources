@@ -34,15 +34,13 @@
 #include <gst/gst.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define FLAG(name) GST_EVENT_TYPE_##name
 
-  /** Defines supported types of custom events. */
-  typedef enum
-  {
+/** Defines supported types of custom events. */
+typedef enum {
     /** Specifies a custom event to indicate Pad Added. */
     GST_NVEVENT_PAD_ADDED = GST_EVENT_MAKE_TYPE(400, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
     /** Specifies a custom event to indicate Pad Deleted. */
@@ -58,142 +56,141 @@ extern "C"
     /** Specifies a custom event to indicate start of a particular stream
      in a batch. */
     GST_NVEVENT_STREAM_START = GST_EVENT_MAKE_TYPE(405, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
-  } GstNvEventType;
+} GstNvEventType;
 #undef FLAG
 
-  /**
-   * Creates a "custom pad added" event for the specified source.
-   *
-   * @param[in] source_id     Source ID of the stream to be added to the pipeline;
-   *                          also the pad ID of the sinkpad of the
-   *                          Gst-nvstreammux plugin for which the source
-   *                          is configured.
-   * @return  A pointer to the event corresponding to the request if successful,
-   *  or NULL otherwise.
-   */
-  GstEvent *gst_nvevent_new_pad_added(guint source_id);
+/**
+ * Creates a "custom pad added" event for the specified source.
+ *
+ * @param[in] source_id     Source ID of the stream to be added to the pipeline;
+ *                          also the pad ID of the sinkpad of the
+ *                          Gst-nvstreammux plugin for which the source
+ *                          is configured.
+ * @return  A pointer to the event corresponding to the request if successful,
+ *  or NULL otherwise.
+ */
+GstEvent *gst_nvevent_new_pad_added(guint source_id);
 
-  /**
-   * Creates a "custom pad deleted" event for the specified source.
-   *
-   * @param[in] source_id     Source ID of the stream to be removed
-   *                          from the pipeline; also the pad ID of the sinkpad
-   *                          of the Gst-nvstreammux plugin for which
-   *                          the source is configured.
-   * @return  A pointer to the event corresponding to the request if successful,
-   *  or NULL otherwise.
-   */
-  GstEvent *gst_nvevent_new_pad_deleted(guint source_id);
+/**
+ * Creates a "custom pad deleted" event for the specified source.
+ *
+ * @param[in] source_id     Source ID of the stream to be removed
+ *                          from the pipeline; also the pad ID of the sinkpad
+ *                          of the Gst-nvstreammux plugin for which
+ *                          the source is configured.
+ * @return  A pointer to the event corresponding to the request if successful,
+ *  or NULL otherwise.
+ */
+GstEvent *gst_nvevent_new_pad_deleted(guint source_id);
 
-  /**
-   * Creates a "custom EOS" event for the specified source.
-   *
-   * @param[in] source_id     Source ID of the stream for which EOS is to be sent;
-   *                          also the pad ID  of the sinkpad of the
-   *                          Gst-nvstreammux plugin for which
-   *                          the source is configured.
-   * @return  A pointer to the event corresponding to request if sucxessful,
-   *  or NULL otherwise.
-   */
-  GstEvent *gst_nvevent_new_stream_eos(guint source_id);
+/**
+ * Creates a "custom EOS" event for the specified source.
+ *
+ * @param[in] source_id     Source ID of the stream for which EOS is to be sent;
+ *                          also the pad ID  of the sinkpad of the
+ *                          Gst-nvstreammux plugin for which
+ *                          the source is configured.
+ * @return  A pointer to the event corresponding to request if sucxessful,
+ *  or NULL otherwise.
+ */
+GstEvent *gst_nvevent_new_stream_eos(guint source_id);
 
-  /**
-   * Creates a "custom segment" event for the specified source.
-   *
-   * @param[in] source_id     Source ID of the stream for which a segment event
-   *                          is to be sent; also the pad ID of the sinkpad
-   *                          of the Gst-nvstreammux plugin for which the source
-   *                          is configured.
-   * @param[in] segment       A pointer to a copy of the segment to be sent
-   *                          with the event; corresponds to the original segment
-   *                          for the specified source.
-   * @return  A pointer to the event corresponding to the request if successful,
-   *  or NULL otherwise.
-   */
-  GstEvent *gst_nvevent_new_stream_segment(guint source_id, GstSegment *segment);
+/**
+ * Creates a "custom segment" event for the specified source.
+ *
+ * @param[in] source_id     Source ID of the stream for which a segment event
+ *                          is to be sent; also the pad ID of the sinkpad
+ *                          of the Gst-nvstreammux plugin for which the source
+ *                          is configured.
+ * @param[in] segment       A pointer to a copy of the segment to be sent
+ *                          with the event; corresponds to the original segment
+ *                          for the specified source.
+ * @return  A pointer to the event corresponding to the request if successful,
+ *  or NULL otherwise.
+ */
+GstEvent *gst_nvevent_new_stream_segment(guint source_id, GstSegment *segment);
 
-  /**
-   * Creates a "custom reset" event for the specified source.
-   *
-   * @param[in] source_id     Source ID of the stream for which reset is to be sent;
-   *                          also the pad ID  of the sinkpad of the
-   *                          Gst-nvstreammux plugin for which
-   *                          the source is configured.
-   * @return  A pointer to the event corresponding to request if sucxessful,
-   *  or NULL otherwise.
-   */
-  GstEvent *gst_nvevent_new_stream_reset(guint source_id);
+/**
+ * Creates a "custom reset" event for the specified source.
+ *
+ * @param[in] source_id     Source ID of the stream for which reset is to be sent;
+ *                          also the pad ID  of the sinkpad of the
+ *                          Gst-nvstreammux plugin for which
+ *                          the source is configured.
+ * @return  A pointer to the event corresponding to request if sucxessful,
+ *  or NULL otherwise.
+ */
+GstEvent *gst_nvevent_new_stream_reset(guint source_id);
 
-  /**
-   * Parses a "pad added" event received on the sinkpad.
-   *
-   * @param[in] event         A pointer to the event received on the sinkpad
-   *                          when the pad is added to Gst-nvstreammux.
-   * @param[out] source_id    A pointer to the parsed source ID for the event.
-   */
-  void gst_nvevent_parse_pad_added(GstEvent *event, guint *source_id);
+/**
+ * Parses a "pad added" event received on the sinkpad.
+ *
+ * @param[in] event         A pointer to the event received on the sinkpad
+ *                          when the pad is added to Gst-nvstreammux.
+ * @param[out] source_id    A pointer to the parsed source ID for the event.
+ */
+void gst_nvevent_parse_pad_added(GstEvent *event, guint *source_id);
 
-  /**
-   * Parses a "pad deleted" event received on the sinkpad.
-   *
-   * @param[in] event         A pointer to the event received on the sinkpad
-   *                          when the pad is deleted from Gst-nvstreammux.
-   * @param[out] source_id    A pointer to the parsed source ID for the event.
-   */
-  void gst_nvevent_parse_pad_deleted(GstEvent *event, guint *source_id);
+/**
+ * Parses a "pad deleted" event received on the sinkpad.
+ *
+ * @param[in] event         A pointer to the event received on the sinkpad
+ *                          when the pad is deleted from Gst-nvstreammux.
+ * @param[out] source_id    A pointer to the parsed source ID for the event.
+ */
+void gst_nvevent_parse_pad_deleted(GstEvent *event, guint *source_id);
 
-  /**
-   * Parses a "stream EOS" event received on the sinkpad.
-   *
-   * @param[in] event         A pointer to the event received on the sinkpad
-   *                          when the source ID sends the EOS event.
-   * @param[out] source_id    A pointer to the parsed source ID for the event.
-   */
-  void gst_nvevent_parse_stream_eos(GstEvent *event, guint *source_id);
+/**
+ * Parses a "stream EOS" event received on the sinkpad.
+ *
+ * @param[in] event         A pointer to the event received on the sinkpad
+ *                          when the source ID sends the EOS event.
+ * @param[out] source_id    A pointer to the parsed source ID for the event.
+ */
+void gst_nvevent_parse_stream_eos(GstEvent *event, guint *source_id);
 
-  /**
-   * Parses a "stream segment" event received on the sinkpad.
-   *
-   * @param[in] event         The event received on the sinkpad
-   *                          when the source ID sends a segment event.
-   * @param[out] source_id    A pointer to the parsed source ID for which
-   *                          the event is sent.
-   * @param[out] segment      A double pointer to the parsed segment
-   *                          corresponding to source ID for the event.
-   */
-  void gst_nvevent_parse_stream_segment(GstEvent *event, guint *source_id,
-                                        GstSegment **segment);
+/**
+ * Parses a "stream segment" event received on the sinkpad.
+ *
+ * @param[in] event         The event received on the sinkpad
+ *                          when the source ID sends a segment event.
+ * @param[out] source_id    A pointer to the parsed source ID for which
+ *                          the event is sent.
+ * @param[out] segment      A double pointer to the parsed segment
+ *                          corresponding to source ID for the event.
+ */
+void gst_nvevent_parse_stream_segment(GstEvent *event, guint *source_id, GstSegment **segment);
 
-  /**
-   * Parses a "stream reset" event received on the sinkpad.
-   *
-   * @param[in] event         A pointer to the event received on the sinkpad
-   *                          when the source ID sends the reset event.
-   * @param[out] source_id    A pointer to the parsed source ID for the event.
-   */
-  void gst_nvevent_parse_stream_reset(GstEvent *event, guint *source_id);
+/**
+ * Parses a "stream reset" event received on the sinkpad.
+ *
+ * @param[in] event         A pointer to the event received on the sinkpad
+ *                          when the source ID sends the reset event.
+ * @param[out] source_id    A pointer to the parsed source ID for the event.
+ */
+void gst_nvevent_parse_stream_reset(GstEvent *event, guint *source_id);
 
-  /**
-   * Creates a new "stream start" event.
-   *
-   * @param[out] source_id    Source ID of the stream for which stream-start is to be sent
-   * @param[out] stream_id    The stream-id string obtained from sink pad with
-   *                          gst_pad_get_stream_id(pad)
-   *                          corresponding to source ID for the event.
-   */
-  GstEvent *gst_nvevent_new_stream_start(guint source_id, gchar *stream_id);
+/**
+ * Creates a new "stream start" event.
+ *
+ * @param[out] source_id    Source ID of the stream for which stream-start is to be sent
+ * @param[out] stream_id    The stream-id string obtained from sink pad with
+ *                          gst_pad_get_stream_id(pad)
+ *                          corresponding to source ID for the event.
+ */
+GstEvent *gst_nvevent_new_stream_start(guint source_id, gchar *stream_id);
 
-  /**
-   * Parses a "stream start" event received on the sinkpad.
-   *
-   * @param[in] event         The event received on the sinkpad
-   *                          when the source ID sends a stream-start event.
-   * @param[out] source_id    A pointer to the parsed source ID for which
-   *                          the event is sent.
-   * @param[out] segment      A double pointer to the parsed stream-id
-   *                          corresponding to source ID for the event.
-   */
-  void gst_nvevent_parse_stream_start(GstEvent *event, guint *source_id, gchar **stream_id);
+/**
+ * Parses a "stream start" event received on the sinkpad.
+ *
+ * @param[in] event         The event received on the sinkpad
+ *                          when the source ID sends a stream-start event.
+ * @param[out] source_id    A pointer to the parsed source ID for which
+ *                          the event is sent.
+ * @param[out] segment      A double pointer to the parsed stream-id
+ *                          corresponding to source ID for the event.
+ */
+void gst_nvevent_parse_stream_start(GstEvent *event, guint *source_id, gchar **stream_id);
 
 #ifdef __cplusplus
 }

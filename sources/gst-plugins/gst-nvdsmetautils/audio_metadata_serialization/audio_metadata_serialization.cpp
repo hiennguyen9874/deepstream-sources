@@ -22,16 +22,15 @@
  */
 
 #include <gst/gst.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <iostream>
-
 #include <gst/video/gstvideometa.h>
 #include <gst/video/video.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <iostream>
 
 #include "gstnvdsmeta.h"
 #include "nvdscustomusermeta.h"
@@ -60,11 +59,13 @@ static gpointer copy_audio_user_meta(gpointer data, gpointer user_data)
 {
     NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
     NVDS_CUSTOM_PAYLOAD *src_user_metadata = (NVDS_CUSTOM_PAYLOAD *)user_meta->user_meta_data;
-    NVDS_CUSTOM_PAYLOAD *dst_user_metadata = (NVDS_CUSTOM_PAYLOAD *)g_malloc0(sizeof(NVDS_CUSTOM_PAYLOAD));
+    NVDS_CUSTOM_PAYLOAD *dst_user_metadata =
+        (NVDS_CUSTOM_PAYLOAD *)g_malloc0(sizeof(NVDS_CUSTOM_PAYLOAD));
     dst_user_metadata->payloadType = src_user_metadata->payloadType;
     dst_user_metadata->payloadSize = src_user_metadata->payloadSize;
     dst_user_metadata->payload = (uint8_t *)g_malloc0(src_user_metadata->payloadSize);
-    memcpy(dst_user_metadata->payload, src_user_metadata->payload, src_user_metadata->payloadSize * sizeof(uint8_t));
+    memcpy(dst_user_metadata->payload, src_user_metadata->payload,
+           src_user_metadata->payloadSize * sizeof(uint8_t));
     return (gpointer)dst_user_metadata;
 }
 
@@ -82,8 +83,8 @@ static void release_audio_user_meta(gpointer data, gpointer user_data)
 extern "C" void serialize_data(GstBuffer *buf);
 void serialize_data(GstBuffer *buf)
 {
-    GST_DEBUG_CATEGORY_INIT(gst_audio_serialization_debug_category,
-                            "audioserialization", 0, "audio serialization");
+    GST_DEBUG_CATEGORY_INIT(gst_audio_serialization_debug_category, "audioserialization", 0,
+                            "audio serialization");
     void *mem = NULL;
     guint mem_size = 0;
     NvDsUserMeta *user_meta = NULL;
@@ -94,18 +95,17 @@ void serialize_data(GstBuffer *buf)
         NvDsObjectMeta *obj_meta = NULL;
         NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
 
-        if (batch_meta)
-        {
-            for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next)
-            {
+        if (batch_meta) {
+            for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
                 NvDsAudioFrameMeta *frame_meta = (NvDsAudioFrameMeta *)(l_frame->data);
 
                 mem_size += sizeof(NvDsAudioFrameMeta);
                 void *mem = g_malloc0(mem_size);
                 uint8_t *mem_ptr = (uint8_t *)mem;
 
-                GST_DEBUG("SERIALIZE ============= payload size = %d , samplerate = %d layout = %d \n",
-                          mem_size, frame_meta->sample_rate, frame_meta->layout);
+                GST_DEBUG(
+                    "SERIALIZE ============= payload size = %d , samplerate = %d layout = %d \n",
+                    mem_size, frame_meta->sample_rate, frame_meta->layout);
 
                 /*
                  * Note:
@@ -128,7 +128,8 @@ void serialize_data(GstBuffer *buf)
                 serialized_frame_meta->bInferDone = frame_meta->bInferDone;
                 serialized_frame_meta->class_id = frame_meta->class_id;
                 serialized_frame_meta->confidence = frame_meta->confidence;
-                memcpy(serialized_frame_meta->class_label, frame_meta->class_label, MAX_LABEL_SIZE * sizeof(gchar));
+                memcpy(serialized_frame_meta->class_label, frame_meta->class_label,
+                       MAX_LABEL_SIZE * sizeof(gchar));
 
                 user_meta = nvds_acquire_user_meta_from_pool(batch_meta);
 
@@ -149,8 +150,8 @@ void serialize_data(GstBuffer *buf)
 extern "C" void deserialize_data(GstBuffer *buf);
 void deserialize_data(GstBuffer *buf)
 {
-    GST_DEBUG_CATEGORY_INIT(gst_audio_serialization_debug_category,
-                            "audiodeserialization", 0, "audio deserialization");
+    GST_DEBUG_CATEGORY_INIT(gst_audio_serialization_debug_category, "audiodeserialization", 0,
+                            "audio deserialization");
     NvDsMetaList *l_frame = NULL;
     NvDsUserMeta *user_meta = NULL;
     NVDS_CUSTOM_PAYLOAD *metadata = NULL;
@@ -165,43 +166,31 @@ void deserialize_data(GstBuffer *buf)
 
     const gchar *clear_nvds_batch_meta = g_getenv("CLEAR_NVDS_BATCH_META");
 
-    if (clear_nvds_batch_meta != NULL && !strcmp(clear_nvds_batch_meta, "yes"))
-    {
-        for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next)
-        {
+    if (clear_nvds_batch_meta != NULL && !strcmp(clear_nvds_batch_meta, "yes")) {
+        for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
             NvDsAudioFrameMeta *frame_meta = (NvDsAudioFrameMeta *)(l_frame->data);
 
-            frame_meta->pad_index =
-                frame_meta->batch_id =
-                    frame_meta->frame_num =
-                        frame_meta->buf_pts =
-                            frame_meta->ntp_timestamp =
-                                frame_meta->source_id =
-                                    frame_meta->num_samples_per_frame =
-                                        frame_meta->sample_rate =
-                                            frame_meta->num_channels = 0;
+            frame_meta->pad_index = frame_meta->batch_id = frame_meta->frame_num =
+                frame_meta->buf_pts = frame_meta->ntp_timestamp = frame_meta->source_id =
+                    frame_meta->num_samples_per_frame = frame_meta->sample_rate =
+                        frame_meta->num_channels = 0;
             frame_meta->format = NVBUF_AUDIO_INVALID_FORMAT;
             frame_meta->layout = NVBUF_AUDIO_INVALID_LAYOUT;
-            frame_meta->bInferDone =
-                frame_meta->class_id =
-                    frame_meta->confidence = 0;
+            frame_meta->bInferDone = frame_meta->class_id = frame_meta->confidence = 0;
             frame_meta->class_label[MAX_LABEL_SIZE] = {};
         }
     }
 
-    for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next)
-    {
+    for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
         NvDsAudioFrameMeta *frame_meta = (NvDsAudioFrameMeta *)(l_frame->data);
 
-        for (l_user_meta = frame_meta->frame_user_meta_list; l_user_meta != NULL; l_user_meta = l_user_meta->next)
-        {
+        for (l_user_meta = frame_meta->frame_user_meta_list; l_user_meta != NULL;
+             l_user_meta = l_user_meta->next) {
             user_meta = (NvDsUserMeta *)(l_user_meta->data);
-            if (user_meta->base_meta.meta_type == NVDS_USER_CUSTOM_META)
-            {
+            if (user_meta->base_meta.meta_type == NVDS_USER_CUSTOM_META) {
                 metadata = (NVDS_CUSTOM_PAYLOAD *)user_meta->user_meta_data;
                 NvDsAudioFrameMeta *fmeta = (NvDsAudioFrameMeta *)metadata->payload;
-                if (metadata->payloadType == NVDS_AUDIO_METADATA)
-                {
+                if (metadata->payloadType == NVDS_AUDIO_METADATA) {
                     frame_meta->pad_index = fmeta->pad_index;
                     frame_meta->batch_id = fmeta->batch_id;
                     frame_meta->frame_num = fmeta->frame_num;
@@ -216,10 +205,14 @@ void deserialize_data(GstBuffer *buf)
                     frame_meta->bInferDone = fmeta->bInferDone;
                     frame_meta->class_id = fmeta->class_id;
                     frame_meta->confidence = fmeta->confidence;
-                    memcpy(frame_meta->class_label, fmeta->class_label, MAX_LABEL_SIZE * sizeof(gchar));
+                    memcpy(frame_meta->class_label, fmeta->class_label,
+                           MAX_LABEL_SIZE * sizeof(gchar));
 
-                    GST_DEBUG("DE-SERIALIZE ^^^^^^^^^^ payload size = %d , frame num = %d , sample rate = %d , num channels = %d\n",
-                              metadata->payloadSize, fmeta->frame_num, fmeta->sample_rate, fmeta->num_channels);
+                    GST_DEBUG(
+                        "DE-SERIALIZE ^^^^^^^^^^ payload size = %d , frame num = %d , sample rate "
+                        "= %d , num channels = %d\n",
+                        metadata->payloadSize, fmeta->frame_num, fmeta->sample_rate,
+                        fmeta->num_channels);
                 }
             }
         }

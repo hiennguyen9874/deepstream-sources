@@ -13,8 +13,7 @@
 
 #include <stdint.h>
 
-class INvDsAllocator
-{
+class INvDsAllocator {
 public:
     /**
      * @brief  Allocate memory of @size Bytes

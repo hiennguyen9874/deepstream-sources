@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
  * property and proprietary rights in and to this material, related
@@ -22,86 +22,83 @@
 #include <ds3d/common/hpp/datamap.hpp>
 #include <ds3d/common/hpp/obj.hpp>
 
-namespace ds3d
-{
+namespace ds3d {
 
-    template <class abiDataProcessorT, _EnableIfBaseOf<abiProcess, abiDataProcessorT> = true>
-    class GuardDataProcess : public GuardDataT<abiDataProcessorT>
+template <class abiDataProcessorT, _EnableIfBaseOf<abiProcess, abiDataProcessorT> = true>
+class GuardDataProcess : public GuardDataT<abiDataProcessorT> {
+    using _Base = GuardDataT<abiDataProcessorT>;
+
+protected:
+    GuardDataProcess() = default;
+    template <typename... Args /*, _EnableIfConstructible<_Base, Args...> = true*/>
+    GuardDataProcess(Args &&... args) : _Base(std::forward<Args>(args)...)
     {
-        using _Base = GuardDataT<abiDataProcessorT>;
+    }
+    using GuardDataT<abiDataProcessorT>::ptr;
 
-    protected:
-        GuardDataProcess() = default;
-        template <typename... Args /*, _EnableIfConstructible<_Base, Args...> = true*/>
-        GuardDataProcess(Args &&...args) : _Base(std::forward<Args>(args)...)
-        {
+public:
+    ~GuardDataProcess() = default;
+
+    template <typename DelF>
+    void setUserData(void *data, DelF delF)
+    {
+        DS_ASSERT(ptr());
+        if (!data) {
+            ptr()->setUserData_i(nullptr);
+            return;
         }
-        using GuardDataT<abiDataProcessorT>::ptr;
+        SharedRefObj<void> uData(data, std::move(delF));
+        ptr()->setUserData_i(&uData);
+    }
 
-    public:
-        ~GuardDataProcess() = default;
+    virtual void *getUserData() const
+    {
+        DS_ASSERT(ptr());
+        const abiRefAny *udata = ptr()->getUserData_i();
+        return (udata ? udata->data() : nullptr);
+    }
 
-        template <typename DelF>
-        void setUserData(void *data, DelF delF)
-        {
-            DS_ASSERT(ptr());
-            if (!data)
-            {
-                ptr()->setUserData_i(nullptr);
-                return;
-            }
-            SharedRefObj<void> uData(data, std::move(delF));
-            ptr()->setUserData_i(&uData);
-        }
+    void setErrorCallback(abiErrorCB::CppFunc errCb)
+    {
+        DS_ASSERT(ptr());
+        GuardCB<abiErrorCB> guardErrCb;
+        guardErrCb.setFn<ErrCode, const char *>(std::move(errCb));
+        ptr()->setErrorCallback_i(*guardErrCb.abiRef());
+    }
 
-        virtual void *getUserData() const
-        {
-            DS_ASSERT(ptr());
-            const abiRefAny *udata = ptr()->getUserData_i();
-            return (udata ? udata->data() : nullptr);
-        }
+    ErrCode start(const std::string &content, const std::string &path = "")
+    {
+        DS_ASSERT(ptr());
+        return ptr()->start_i(content.c_str(), content.size(), path.c_str());
+    }
 
-        void setErrorCallback(abiErrorCB::CppFunc errCb)
-        {
-            DS_ASSERT(ptr());
-            GuardCB<abiErrorCB> guardErrCb;
-            guardErrCb.setFn<ErrCode, const char *>(std::move(errCb));
-            ptr()->setErrorCallback_i(*guardErrCb.abiRef());
-        }
+    ErrCode flush()
+    {
+        DS_ASSERT(ptr());
+        return ptr()->flush_i();
+    }
 
-        ErrCode start(const std::string &content, const std::string &path = "")
-        {
-            DS_ASSERT(ptr());
-            return ptr()->start_i(content.c_str(), content.size(), path.c_str());
-        }
+    ErrCode stop()
+    {
+        DS_ASSERT(ptr());
+        return ptr()->stop_i();
+    }
 
-        ErrCode flush()
-        {
-            DS_ASSERT(ptr());
-            return ptr()->flush_i();
-        }
+    State state() const
+    {
+        DS_ASSERT(ptr());
+        return ptr()->state_i();
+    }
 
-        ErrCode stop()
-        {
-            DS_ASSERT(ptr());
-            return ptr()->stop_i();
-        }
+    std::string getCaps(CapsPort port)
+    {
+        DS_ASSERT(ptr());
+        return cppString(ptr()->getCaps_i(port));
+    }
 
-        State state() const
-        {
-            DS_ASSERT(ptr());
-            return ptr()->state_i();
-        }
-
-        std::string getCaps(CapsPort port)
-        {
-            DS_ASSERT(ptr());
-            return cppString(ptr()->getCaps_i(port));
-        }
-
-        std::string getOutputCaps() { return getCaps(CapsPort::kOutput); }
-        std::string getInputCaps() { return getCaps(CapsPort::kInput); }
-    };
+    std::string getOutputCaps() { return getCaps(CapsPort::kOutput); }
+    std::string getInputCaps() { return getCaps(CapsPort::kInput); }
+};
 
 } // namespace ds3d
 

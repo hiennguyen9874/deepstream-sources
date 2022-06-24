@@ -13,9 +13,11 @@
 #define __GSTNVDSAUDIO_H__
 
 #include <gst/gst.h>
+
 #include <vector>
-#include "nvbufaudio.h"
+
 #include "NvDsMemoryAllocator.h"
+#include "nvbufaudio.h"
 
 /**
  * This file describes the custom memory allocator for any Gstreamer
@@ -26,21 +28,18 @@
  */
 
 #if defined(__cplusplus)
-extern "C"
-{
+extern "C" {
 #endif
 
-  /**
-   * Holds the pointer for the allocated memory.
-   */
-  typedef struct
-  {
+/**
+ * Holds the pointer for the allocated memory.
+ */
+typedef struct {
     /** The audio batch buffer */
     NvBufAudio *batch;
-  } GstNvDsAudioMemory;
+} GstNvDsAudioMemory;
 
-  typedef struct _GstNvDsAudioAllocatorParams
-  {
+typedef struct _GstNvDsAudioAllocatorParams {
     /** Max size of audio batch */
     uint32_t batchSize;
     /** If the memory within a batch is contiguos or not */
@@ -57,26 +56,26 @@ extern "C"
     /** @param gpuId ID of the gpu where the batch memory will be allocated. */
     guint gpuId;
     NvDsMemType memType;
-  } GstNvDsAudioAllocatorParams;
+} GstNvDsAudioAllocatorParams;
 
-  /**
-   * Get GstNvDsAudioMemory structure associated with buffer allocated using
-   * GstNvDsAudioAllocator.
-   *
-   * @param buffer GstBuffer allocated by this allocator.
-   *
-   * @return Pointer to the associated GstNvDsAudioMemory structure
-   */
-  GstNvDsAudioMemory *gst_nvdsaudio_buffer_get_memory(GstBuffer *buffer);
+/**
+ * Get GstNvDsAudioMemory structure associated with buffer allocated using
+ * GstNvDsAudioAllocator.
+ *
+ * @param buffer GstBuffer allocated by this allocator.
+ *
+ * @return Pointer to the associated GstNvDsAudioMemory structure
+ */
+GstNvDsAudioMemory *gst_nvdsaudio_buffer_get_memory(GstBuffer *buffer);
 
-  /**
-   * Create a new GstNvDsAudioAllocator with the given parameters.
-   *
-   * @param params Audio allocator params.
-   *
-   * @return Pointer to the GstNvDsAudioAllocator structure cast as GstAllocator
-   */
-  GstAllocator *gst_nvdsaudio_allocator_new(GstNvDsAudioAllocatorParams *params);
+/**
+ * Create a new GstNvDsAudioAllocator with the given parameters.
+ *
+ * @param params Audio allocator params.
+ *
+ * @return Pointer to the GstNvDsAudioAllocator structure cast as GstAllocator
+ */
+GstAllocator *gst_nvdsaudio_allocator_new(GstNvDsAudioAllocatorParams *params);
 
 #if defined(__cplusplus)
 }

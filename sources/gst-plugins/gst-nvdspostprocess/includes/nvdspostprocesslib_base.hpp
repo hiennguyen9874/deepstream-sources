@@ -29,53 +29,49 @@
 #include "gstnvdsbufferpool.h"
 #include "nvdspostprocesslib_interface.hpp"
 
-class DSPostProcessLibraryBase : public IDSPostProcessLibrary
-{
+class DSPostProcessLibraryBase : public IDSPostProcessLibrary {
 public:
-  DSPostProcessLibraryBase();
+    DSPostProcessLibraryBase();
 
-  DSPostProcessLibraryBase(DSPostProcess_CreateParams *params);
+    DSPostProcessLibraryBase(DSPostProcess_CreateParams *params);
 
-  virtual ~DSPostProcessLibraryBase();
+    virtual ~DSPostProcessLibraryBase();
 
-  virtual bool HandleEvent(GstEvent *event) = 0;
+    virtual bool HandleEvent(GstEvent *event) = 0;
 
-  virtual bool SetConfigFile(const gchar *config_file) = 0;
+    virtual bool SetConfigFile(const gchar *config_file) = 0;
 
-  /* Process Incoming Buffer */
-  virtual BufferResult ProcessBuffer(GstBuffer *inbuf) = 0;
+    /* Process Incoming Buffer */
+    virtual BufferResult ProcessBuffer(GstBuffer *inbuf) = 0;
 
 public:
-  /* Gstreamer dsexaple2 plugin's base class reference */
-  GstBaseTransform *m_element;
+    /* Gstreamer dsexaple2 plugin's base class reference */
+    GstBaseTransform *m_element;
 
-  /** GPU ID on which we expect to execute the algorithm */
-  guint m_gpuId;
+    /** GPU ID on which we expect to execute the algorithm */
+    guint m_gpuId;
 
-  cudaStream_t m_cudaStream;
+    cudaStream_t m_cudaStream;
 };
 
 DSPostProcessLibraryBase::DSPostProcessLibraryBase()
 {
-  m_element = NULL;
-  m_gpuId = 0;
-  m_cudaStream = 0;
+    m_element = NULL;
+    m_gpuId = 0;
+    m_cudaStream = 0;
 }
 
 DSPostProcessLibraryBase::DSPostProcessLibraryBase(DSPostProcess_CreateParams *params)
 {
-  if (params)
-  {
-    m_element = params->m_element;
-    m_gpuId = params->m_gpuId;
-    m_cudaStream = params->m_cudaStream;
-  }
-  else
-  {
-    m_element = NULL;
-    m_gpuId = 0;
-    m_cudaStream = 0;
-  }
+    if (params) {
+        m_element = params->m_element;
+        m_gpuId = params->m_gpuId;
+        m_cudaStream = params->m_cudaStream;
+    } else {
+        m_element = NULL;
+        m_gpuId = 0;
+        m_cudaStream = 0;
+    }
 }
 
 DSPostProcessLibraryBase::~DSPostProcessLibraryBase()
@@ -85,21 +81,20 @@ DSPostProcessLibraryBase::~DSPostProcessLibraryBase()
 /* Helped function to get the NvBufSurface from the GstBuffer */
 static NvBufSurface *getNvBufSurface(GstBuffer *inbuf)
 {
-  GstMapInfo in_map_info;
-  NvBufSurface *nvbuf_surface = NULL;
+    GstMapInfo in_map_info;
+    NvBufSurface *nvbuf_surface = NULL;
 
-  /* Map the buffer contents and get the pointer to NvBufSurface. */
-  if (!gst_buffer_map(inbuf, &in_map_info, GST_MAP_READ))
-  {
-    printf("%s:gst buffer map to get pointer to NvBufSurface failed", __func__);
-    return NULL;
-  }
+    /* Map the buffer contents and get the pointer to NvBufSurface. */
+    if (!gst_buffer_map(inbuf, &in_map_info, GST_MAP_READ)) {
+        printf("%s:gst buffer map to get pointer to NvBufSurface failed", __func__);
+        return NULL;
+    }
 
-  // Assuming that the plugin uses DS NvBufSurface data structure
-  nvbuf_surface = (NvBufSurface *)in_map_info.data;
+    // Assuming that the plugin uses DS NvBufSurface data structure
+    nvbuf_surface = (NvBufSurface *)in_map_info.data;
 
-  gst_buffer_unmap(inbuf, &in_map_info);
-  return nvbuf_surface;
+    gst_buffer_unmap(inbuf, &in_map_info);
+    return nvbuf_surface;
 }
 
 #endif

@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
  * property and proprietary rights in and to this material, related
@@ -20,65 +20,57 @@
 #include <functional>
 #include <iostream>
 
-namespace ds3d
-{
+namespace ds3d {
 
-    template <class T>
-    T *
-    dlsym_ptr(void *handle, char const *name)
+template <class T>
+T *dlsym_ptr(void *handle, char const *name)
+{
+    return reinterpret_cast<T *>(dlsym(handle, name));
+}
+
+class CustomLibFactory {
+public:
+    CustomLibFactory() = default;
+
+    ~CustomLibFactory()
     {
-        return reinterpret_cast<T *>(dlsym(handle, name));
+        if (_libHandle) {
+            dlclose(_libHandle);
+        }
     }
 
-    class CustomLibFactory
+    template <class CustomRefCtx>
+    CustomRefCtx *CreateCtx(const std::string &libName, const std::string &symName)
     {
-    public:
-        CustomLibFactory() = default;
-
-        ~CustomLibFactory()
-        {
-            if (_libHandle)
-            {
-                dlclose(_libHandle);
-            }
+        if (!_libHandle) {
+            _libName = libName;
+            _libHandle = dlopen(libName.c_str(), RTLD_NOW | RTLD_LOCAL);
+        } else {
+            DS3D_FAILED_RETURN(
+                _libName == libName || libName.empty(), nullptr,
+                "CustomLibFactory existing libname: %s is different from new lib: %s",
+                _libName.c_str(), libName.c_str());
         }
+        DS3D_FAILED_RETURN(_libHandle, nullptr, "open custome-lib: %s failed. dlerr: %s",
+                           _libName.c_str(), dlerror());
+        LOG_INFO("Library Opened Successfully");
 
-        template <class CustomRefCtx>
-        CustomRefCtx *CreateCtx(const std::string &libName, const std::string &symName)
-        {
-            if (!_libHandle)
-            {
-                _libName = libName;
-                _libHandle = dlopen(libName.c_str(), RTLD_NOW | RTLD_LOCAL);
-            }
-            else
-            {
-                DS3D_FAILED_RETURN(
-                    _libName == libName || libName.empty(), nullptr,
-                    "CustomLibFactory existing libname: %s is different from new lib: %s",
-                    _libName.c_str(), libName.c_str());
-            }
-            DS3D_FAILED_RETURN(
-                _libHandle, nullptr, "open custome-lib: %s failed. dlerr: %s", _libName.c_str(),
-                dlerror());
-            LOG_INFO("Library Opened Successfully");
+        std::function<CustomRefCtx *()> createCtxFunc =
+            dlsym_ptr<CustomRefCtx *()>(_libHandle, symName.c_str());
+        DS3D_FAILED_RETURN(createCtxFunc, nullptr, "dlsym: %s not found, error: %s",
+                           symName.c_str(), dlerror());
 
-            std::function<CustomRefCtx *()> createCtxFunc =
-                dlsym_ptr<CustomRefCtx *()>(_libHandle, symName.c_str());
-            DS3D_FAILED_RETURN(
-                createCtxFunc, nullptr, "dlsym: %s not found, error: %s", symName.c_str(), dlerror());
+        CustomRefCtx *customCtx = createCtxFunc();
+        DS3D_FAILED_RETURN(customCtx, nullptr, "create custom context failed during call: %s",
+                           symName.c_str());
+        LOG_INFO("Custom Context created from %s", symName.c_str());
+        return customCtx;
+    }
 
-            CustomRefCtx *customCtx = createCtxFunc();
-            DS3D_FAILED_RETURN(
-                customCtx, nullptr, "create custom context failed during call: %s", symName.c_str());
-            LOG_INFO("Custom Context created from %s", symName.c_str());
-            return customCtx;
-        }
-
-    public:
-        void *_libHandle = nullptr;
-        std::string _libName;
-    };
+public:
+    void *_libHandle = nullptr;
+    std::string _libName;
+};
 
 } // namespace ds3d
 

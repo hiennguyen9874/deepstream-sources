@@ -24,22 +24,20 @@
 #define __NVGSTDS_TILED_DISPLAY_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <gst/gst.h>
+
 #include "nvll_osd_struct.h"
 
-  typedef struct
-  {
+typedef struct {
     GstElement *bin;
     GstElement *queue;
     GstElement *tiler;
-  } NvDsTiledDisplayBin;
+} NvDsTiledDisplayBin;
 
-  typedef enum
-  {
+typedef enum {
     NV_DS_TILED_DISPLAY_DISABLE = 0,
     NV_DS_TILED_DISPLAY_ENABLE = 1,
     /** When user sets tiler group enable=2,
@@ -49,10 +47,9 @@ extern "C"
      * corresponding [sink] group
      */
     NV_DS_TILED_DISPLAY_ENABLE_WITH_PARALLEL_DEMUX = 2
-  } NvDsTiledDisplayEnable;
+} NvDsTiledDisplayEnable;
 
-  typedef struct
-  {
+typedef struct {
     NvDsTiledDisplayEnable enable;
     guint rows;
     guint columns;
@@ -60,23 +57,21 @@ extern "C"
     guint height;
     guint gpu_id;
     guint nvbuf_memory_type;
-  } NvDsTiledDisplayConfig;
+} NvDsTiledDisplayConfig;
 
-  /**
-   * Initialize @ref NvDsTiledDisplayBin. It creates and adds tiling and
-   * other elements needed for processing to the bin.
-   * It also sets properties mentioned in the configuration file under
-   * group @ref CONFIG_GROUP_TILED_DISPLAY
-   *
-   * @param[in] config pointer of type @ref NvDsTiledDisplayConfig
-   *            parsed from configuration file.
-   * @param[in] bin pointer to @ref NvDsTiledDisplayBin to be filled.
-   *
-   * @return true if bin created successfully.
-   */
-  gboolean
-  create_tiled_display_bin(NvDsTiledDisplayConfig *config,
-                           NvDsTiledDisplayBin *bin);
+/**
+ * Initialize @ref NvDsTiledDisplayBin. It creates and adds tiling and
+ * other elements needed for processing to the bin.
+ * It also sets properties mentioned in the configuration file under
+ * group @ref CONFIG_GROUP_TILED_DISPLAY
+ *
+ * @param[in] config pointer of type @ref NvDsTiledDisplayConfig
+ *            parsed from configuration file.
+ * @param[in] bin pointer to @ref NvDsTiledDisplayBin to be filled.
+ *
+ * @return true if bin created successfully.
+ */
+gboolean create_tiled_display_bin(NvDsTiledDisplayConfig *config, NvDsTiledDisplayBin *bin);
 
 #ifdef __cplusplus
 }

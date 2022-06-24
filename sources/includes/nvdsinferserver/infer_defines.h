@@ -14,6 +14,7 @@
 #define __NVDSINFERSERVER_DEFINES_H__
 
 #include <stdarg.h>
+
 #include <cassert>
 #include <condition_variable>
 #include <functional>
@@ -44,50 +45,38 @@
 
 #define INFER_EXPORT_API __attribute__((__visibility__("default")))
 
-#define InferError(fmt, ...)                                             \
-    do                                                                   \
-    {                                                                    \
-        dsInferLogPrint__(                                               \
-            NVDSINFER_LOG_ERROR, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
+#define InferError(fmt, ...)                                                           \
+    do {                                                                               \
+        dsInferLogPrint__(NVDSINFER_LOG_ERROR, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
     } while (0)
 
-#define InferWarning(fmt, ...)                                             \
-    do                                                                     \
-    {                                                                      \
-        dsInferLogPrint__(                                                 \
-            NVDSINFER_LOG_WARNING, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
+#define InferWarning(fmt, ...)                                                           \
+    do {                                                                                 \
+        dsInferLogPrint__(NVDSINFER_LOG_WARNING, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
     } while (0)
 
-#define InferInfo(fmt, ...)                                             \
-    do                                                                  \
-    {                                                                   \
-        dsInferLogPrint__(                                              \
-            NVDSINFER_LOG_INFO, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
+#define InferInfo(fmt, ...)                                                           \
+    do {                                                                              \
+        dsInferLogPrint__(NVDSINFER_LOG_INFO, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
     } while (0)
 
-#define InferDebug(fmt, ...)                                             \
-    do                                                                   \
-    {                                                                    \
-        dsInferLogPrint__(                                               \
-            NVDSINFER_LOG_DEBUG, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
+#define InferDebug(fmt, ...)                                                           \
+    do {                                                                               \
+        dsInferLogPrint__(NVDSINFER_LOG_DEBUG, INFER_LOG_FORMAT_(fmt), ##__VA_ARGS__); \
     } while (0)
 
 #define RETURN_IF_FAILED(condition, ret, fmt, ...) \
-    do                                             \
-    {                                              \
-        if (!(condition))                          \
-        {                                          \
+    do {                                           \
+        if (!(condition)) {                        \
             InferError(fmt, ##__VA_ARGS__);        \
             return ret;                            \
         }                                          \
     } while (0)
 
 #define CHECK_NVINFER_ERROR_PRINT(err, action, logPrint, fmt, ...)     \
-    do                                                                 \
-    {                                                                  \
+    do {                                                               \
         NvDsInferStatus ifStatus = (err);                              \
-        if (ifStatus != NVDSINFER_SUCCESS)                             \
-        {                                                              \
+        if (ifStatus != NVDSINFER_SUCCESS) {                           \
             auto errStr = NvDsInferStatus2Str(ifStatus);               \
             logPrint(fmt ", nvinfer error:%s", ##__VA_ARGS__, errStr); \
             action;                                                    \
@@ -100,33 +89,27 @@
 #define RETURN_NVINFER_ERROR(err, fmt, ...) \
     CHECK_NVINFER_ERROR(err, return ifStatus, fmt, ##__VA_ARGS__)
 
-#define CONTINUE_NVINFER_ERROR(err, fmt, ...) \
-    CHECK_NVINFER_ERROR(err, , fmt, ##__VA_ARGS__)
+#define CONTINUE_NVINFER_ERROR(err, fmt, ...) CHECK_NVINFER_ERROR(err, , fmt, ##__VA_ARGS__)
 
-#define CHECK_CUDA_ERR_W_ACTION(err, action, logPrint, fmt, ...)        \
-    do                                                                  \
-    {                                                                   \
-        cudaError_t errnum = (err);                                     \
-        if (errnum != cudaSuccess)                                      \
-        {                                                               \
-            logPrint(fmt ", cuda err_no:%d, err_str:%s", ##__VA_ARGS__, \
-                     (int)errnum, cudaGetErrorName(errnum));            \
-            action;                                                     \
-        }                                                               \
+#define CHECK_CUDA_ERR_W_ACTION(err, action, logPrint, fmt, ...)                     \
+    do {                                                                             \
+        cudaError_t errnum = (err);                                                  \
+        if (errnum != cudaSuccess) {                                                 \
+            logPrint(fmt ", cuda err_no:%d, err_str:%s", ##__VA_ARGS__, (int)errnum, \
+                     cudaGetErrorName(errnum));                                      \
+            action;                                                                  \
+        }                                                                            \
     } while (0)
 
 #define CHECK_CUDA_ERR_NO_ACTION(err, fmt, ...) \
     CHECK_CUDA_ERR_W_ACTION(err, , InferError, fmt, ##__VA_ARGS__)
 
 #define RETURN_CUDA_ERR(err, fmt, ...) \
-    CHECK_CUDA_ERR_W_ACTION(           \
-        err, return NVDSINFER_CUDA_ERROR, InferError, fmt, ##__VA_ARGS__)
+    CHECK_CUDA_ERR_W_ACTION(err, return NVDSINFER_CUDA_ERROR, InferError, fmt, ##__VA_ARGS__)
 
-#define CONTINUE_CUDA_ERR(err, fmt, ...) \
-    CHECK_CUDA_ERR_NO_ACTION(err, fmt, ##__VA_ARGS__)
+#define CONTINUE_CUDA_ERR(err, fmt, ...) CHECK_CUDA_ERR_NO_ACTION(err, fmt, ##__VA_ARGS__)
 
-#define READ_SYMBOL(lib, func_name) \
-    lib->symbol<decltype(&func_name)>(#func_name)
+#define READ_SYMBOL(lib, func_name) lib->symbol<decltype(&func_name)>(#func_name)
 
 #define DIVIDE_AND_ROUND_UP(a, b) ((a + b - 1) / b)
 #define INFER_ROUND_UP(value, align) (((value) + (align)-1) & (~((align)-1)))

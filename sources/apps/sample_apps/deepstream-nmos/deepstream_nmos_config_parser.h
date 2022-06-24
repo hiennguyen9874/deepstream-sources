@@ -26,8 +26,7 @@
 #include "deepstream_nmos_app.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define CONFIG_GROUP_APP "application"
@@ -46,23 +45,27 @@ extern "C"
 #define CONFIG_GROUP_SINK_PAYLOAD_SIZE "payload-size"
 #define CONFIG_GROUP_SINK_PACKET_PER_LINE "packets-per-line"
 
-      gboolean parse_config_file(NvDsNmosAppCtx *appCtx, gchar *cfgFilePath);
+gboolean parse_config_file(NvDsNmosAppCtx *appCtx, gchar *cfgFilePath);
 
-      gboolean
-      parse_gie(NvDsNmosAppConfig *appConfig, GKeyFile *keyFile, gchar *group,
-                gchar *cfgFilePath);
-
-      gboolean
-      parse_app(NvDsNmosAppConfig *appConfig, GKeyFile *keyFile, gchar *group,
-                gchar *cfgFilePath);
-
-      gboolean
-      parse_sender(NvDsNmosSinkConfig *sinkConfig, GKeyFile *keyFile, gchar *group,
+gboolean parse_gie(NvDsNmosAppConfig *appConfig,
+                   GKeyFile *keyFile,
+                   gchar *group,
                    gchar *cfgFilePath);
 
-      gboolean
-      parse_receiver(NvDsNmosSrcConfig *srcConfig, GKeyFile *keyFile, gchar *group,
-                     gchar *cfgFilePath);
+gboolean parse_app(NvDsNmosAppConfig *appConfig,
+                   GKeyFile *keyFile,
+                   gchar *group,
+                   gchar *cfgFilePath);
+
+gboolean parse_sender(NvDsNmosSinkConfig *sinkConfig,
+                      GKeyFile *keyFile,
+                      gchar *group,
+                      gchar *cfgFilePath);
+
+gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
+                        GKeyFile *keyFile,
+                        gchar *group,
+                        gchar *cfgFilePath);
 
 #ifdef __cplusplus
 }

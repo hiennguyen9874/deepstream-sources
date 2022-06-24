@@ -22,13 +22,12 @@
 
 #pragma once
 
-#include <string>
-#include <iostream>
 #include <chrono>
+#include <iostream>
+#include <string>
 #include <vector>
 
-class CaptureTimeRules
-{
+class CaptureTimeRules {
     typedef std::chrono::time_point<std::chrono::system_clock> t_time_pt;
     typedef std::chrono::duration<unsigned long long> t_duration;
 
@@ -48,8 +47,7 @@ public:
     bool is_init_();
 
 private:
-    struct TimeRule
-    {
+    struct TimeRule {
         unsigned begin_time_hour;
         unsigned begin_time_minute;
         unsigned end_time_hour;
@@ -66,8 +64,7 @@ private:
     /// timestamps
     static bool isInTimeRule(const TimeRule &t, const tm &now);
 
-    enum ParseResult
-    {
+    enum ParseResult {
         PARSE_RESULT_OK,
         PARSE_RESULT_BAD_CHARS,
         PARSE_RESULT_OUT_OF_BOUND,
@@ -76,9 +73,11 @@ private:
 
     static ParseResult stoi_err_handling(unsigned &dst, const std::string &src, unsigned max_bound);
     static bool parsing_contains_error(const std::vector<ParseResult> &parse_res_list,
-                                       const std::vector<std::string> &str_list, const std::string &curr_line,
+                                       const std::vector<std::string> &str_list,
+                                       const std::string &curr_line,
                                        unsigned line_number);
-    bool single_time_rule_parser(const std::string &path, const std::string &line,
+    bool single_time_rule_parser(const std::string &path,
+                                 const std::string &line,
                                  unsigned line_number);
 
     std::chrono::seconds default_duration_;

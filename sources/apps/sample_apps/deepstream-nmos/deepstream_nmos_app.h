@@ -26,34 +26,29 @@
 #include <gst/gst.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define MAX_SOURCE_NUM 16
 #define MAX_SINK_NUM 16
 
-  typedef enum NvDsNmosAppMode
-  {
+typedef enum NvDsNmosAppMode {
     NVDS_NMOS_APP_MODE_RECEIVE,
     NVDS_NMOS_APP_MODE_SEND,
     NVDS_NMOS_APP_MODE_RECVSEND
-  } NvDsNmosAppMode;
+} NvDsNmosAppMode;
 
-  typedef enum NvDsNmosSrcType
-  {
+typedef enum NvDsNmosSrcType {
     NMOS_UDP_SRC_OSS = 1,
     NMOS_UDP_SRC_NV,
-  } NvDsNmosSrcType;
+} NvDsNmosSrcType;
 
-  typedef enum NvDsNmosSinkType
-  {
+typedef enum NvDsNmosSinkType {
     NMOS_UDP_SINK_OSS = 1,
     NMOS_UDP_SINK_NV,
-  } NvDsNmosSinkType;
+} NvDsNmosSinkType;
 
-  typedef struct NvDsNmosSrcConfig
-  {
+typedef struct NvDsNmosSrcConfig {
     gboolean enable;
     guint index;
     guint type;
@@ -67,10 +62,9 @@ extern "C"
     gchar *sinkId;
     gchar *srcSdpTxt;
     gchar *sinkSdpTxt;
-  } NvDsNmosSrcConfig;
+} NvDsNmosSrcConfig;
 
-  typedef struct NvDsNmosSinkConfig
-  {
+typedef struct NvDsNmosSinkConfig {
     gboolean enable;
     guint index;
     guint type;
@@ -79,10 +73,9 @@ extern "C"
     gchar *sdpFile;
     gchar *localIfaceIp;
     gchar *id;
-  } NvDsNmosSinkConfig;
+} NvDsNmosSinkConfig;
 
-  typedef struct NvDsNmosAppConfig
-  {
+typedef struct NvDsNmosAppConfig {
     gboolean enablePgie;
     guint httpPort;
     guint numSrc;
@@ -92,10 +85,9 @@ extern "C"
     gchar *pgieConfFile;
     NvDsNmosSrcConfig srcConfigs[MAX_SOURCE_NUM];
     NvDsNmosSinkConfig sinkConfigs[MAX_SINK_NUM];
-  } NvDsNmosAppConfig;
+} NvDsNmosAppConfig;
 
-  typedef struct NvDsNmosSrcBin
-  {
+typedef struct NvDsNmosSrcBin {
     GstElement *bin;
     GstElement *src;
     GstElement *queue;
@@ -104,10 +96,9 @@ extern "C"
     gchar *mediaType;
     gchar *srcId;
     guint srcIndex;
-  } NvDsNmosSrcBin;
+} NvDsNmosSrcBin;
 
-  typedef struct NvDsNmosSinkBin
-  {
+typedef struct NvDsNmosSinkBin {
     GstElement *bin;
     GstElement *queue;
     GstElement *payloader;
@@ -115,10 +106,9 @@ extern "C"
     gchar *mediaType;
     gchar *id;
     guint index;
-  } NvDsNmosSinkBin;
+} NvDsNmosSinkBin;
 
-  typedef struct NvDsNmosAppCtx
-  {
+typedef struct NvDsNmosAppCtx {
     GstElement *pipeline;
     guint watchId;
     gboolean isPipelineActive;
@@ -126,7 +116,7 @@ extern "C"
     NvDsNmosAppConfig config;
     GHashTable *sources;
     GHashTable *sinks;
-  } NvDsNmosAppCtx;
+} NvDsNmosAppCtx;
 
 #ifdef __cplusplus
 }

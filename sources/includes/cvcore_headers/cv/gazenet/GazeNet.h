@@ -13,10 +13,7 @@
 #ifndef CVCORE_GAZENET_H_
 #define CVCORE_GAZENET_H_
 
-#include <memory>
-
 #include <cuda_runtime.h>
-
 #include <cv/core/Array.h>
 #include <cv/core/BBox.h>
 #include <cv/core/CameraModel.h>
@@ -26,261 +23,266 @@
 #include <cv/core/Model.h>
 #include <cv/core/Tensor.h>
 
-namespace cvcore
-{
-    namespace gazenet
-    {
+#include <memory>
 
-        /**
-         * Parameters for GazeNetVisualizer
-         */
-        struct GazeNetVisualizerParams
-        {
-            std::vector<double> input3DLandmarks;
-            size_t outputLength;
-        };
+namespace cvcore {
+namespace gazenet {
 
-        /**
-         *  Default parameters for the preprocessing pipeline.
-         */
-        CVCORE_API extern const ImagePreProcessingParams defaultPreProcessorParams;
+/**
+ * Parameters for GazeNetVisualizer
+ */
+struct GazeNetVisualizerParams {
+    std::vector<double> input3DLandmarks;
+    size_t outputLength;
+};
 
-        /**
-         *  Default parameters to describe the input expected for the model.
-         */
-        CVCORE_API extern const ModelInputParams defaultModelInputParams;
+/**
+ *  Default parameters for the preprocessing pipeline.
+ */
+CVCORE_API extern const ImagePreProcessingParams defaultPreProcessorParams;
 
-        /**
-         *  Default parameters to describe the model inference parameters.
-         */
-        CVCORE_API extern const ModelInferenceParams defaultInferenceParams;
+/**
+ *  Default parameters to describe the input expected for the model.
+ */
+CVCORE_API extern const ModelInputParams defaultModelInputParams;
 
-        /**
-         * Describes the type of model for Gazenet.
-         */
-        enum class FeatureType
-        {
-            FACEGRID,
-            LANDMARKS
-        };
+/**
+ *  Default parameters to describe the model inference parameters.
+ */
+CVCORE_API extern const ModelInferenceParams defaultInferenceParams;
 
-        /**
-         * Interface for running pre-processing on GazeNet.
-         */
-        class CVCORE_API GazeNetPreProcessor
-        {
-        public:
-            /**
-             * Number of landmarks needed for the model.
-             */
-            static constexpr size_t NUM_LANDMARKS = 68;
+/**
+ * Describes the type of model for Gazenet.
+ */
+enum class FeatureType { FACEGRID, LANDMARKS };
 
-            /**
-             * Scaling factor for face.
-             */
-            static constexpr float BBOX_FACE_SCALE = 1.3f;
+/**
+ * Interface for running pre-processing on GazeNet.
+ */
+class CVCORE_API GazeNetPreProcessor {
+public:
+    /**
+     * Number of landmarks needed for the model.
+     */
+    static constexpr size_t NUM_LANDMARKS = 68;
 
-            /**
-             * Scaling factor for eyes.
-             */
-            static constexpr float BBOX_EYE_SCALE = 1.8f;
+    /**
+     * Scaling factor for face.
+     */
+    static constexpr float BBOX_FACE_SCALE = 1.3f;
 
-            /**
-             * Default landmarks mean values for the model.
-             */
-            static const float DEFAULT_LANDMARKS_MEAN[];
+    /**
+     * Scaling factor for eyes.
+     */
+    static constexpr float BBOX_EYE_SCALE = 1.8f;
 
-            /**
-             * Default landmarks standard deviation values for the model.
-             */
-            static const float DEFAULT_LANDMARKS_STD[];
+    /**
+     * Default landmarks mean values for the model.
+     */
+    static const float DEFAULT_LANDMARKS_MEAN[];
 
-            /**
-             * Default constructor is deleted
-             */
-            GazeNetPreProcessor() = delete;
+    /**
+     * Default landmarks standard deviation values for the model.
+     */
+    static const float DEFAULT_LANDMARKS_STD[];
 
-            /**
-             * Constructor of GazeNetPreProcessor.
-             * @param preProcessorParams image pre-processing parameters.
-             * @param modelInputParams model paramters for network.
-             */
-            GazeNetPreProcessor(const ImagePreProcessingParams &preProcessorParams, const ModelInputParams &modelInputParams);
+    /**
+     * Default constructor is deleted
+     */
+    GazeNetPreProcessor() = delete;
 
-            /**
-             * Destructor of GazeNetPreProcessor.
-             */
-            ~GazeNetPreProcessor();
+    /**
+     * Constructor of GazeNetPreProcessor.
+     * @param preProcessorParams image pre-processing parameters.
+     * @param modelInputParams model paramters for network.
+     */
+    GazeNetPreProcessor(const ImagePreProcessingParams &preProcessorParams,
+                        const ModelInputParams &modelInputParams);
 
-            /**
-             * Set the mean and standard deviation of the landmarks for the model.
-             * @param landmarksMean mean of the landmarks.
-             * @param landmarksStd standard deviation of the landmarks.
-             */
-            void setLandmarksMeanAndVariance(const Array<Vector2f> &landmarksMean, const Array<Vector2f> &landmarksStd);
+    /**
+     * Destructor of GazeNetPreProcessor.
+     */
+    ~GazeNetPreProcessor();
 
-            /**
-             * Main interface to run pre-processing.
-             * @param outputFace output tensor for face region.
-             * @param outputLeft output tensor for left eye.
-             * @param outputRight output tensor for right eye.
-             * @param outputFeatures output normalized landmarks or facegrid.
-             * @param inputImage input image tensor.
-             * @param inputBBox input BBox of the face.
-             * @param inputLandmarks input raw facial landmarks.
-             * @param type whether to use facegrid model or landmarks model.
-             * @param stream cuda stream.
-             */
-            void execute(Tensor<NHWC, C1, F32> &outputFace, Tensor<NHWC, C1, F32> &outputLeft,
-                         Tensor<NHWC, C1, F32> &outputRight, Tensor<CL, CX, F32> &outputFeatures,
-                         const Tensor<NHWC, C3, U8> &inputImage, const Array<BBox> &inputBBox,
-                         const Array<ArrayN<Vector2f, GazeNetPreProcessor::NUM_LANDMARKS>> &inputLandmarks,
-                         FeatureType type = FeatureType::FACEGRID, cudaStream_t stream = 0);
+    /**
+     * Set the mean and standard deviation of the landmarks for the model.
+     * @param landmarksMean mean of the landmarks.
+     * @param landmarksStd standard deviation of the landmarks.
+     */
+    void setLandmarksMeanAndVariance(const Array<Vector2f> &landmarksMean,
+                                     const Array<Vector2f> &landmarksStd);
 
-        private:
-            /**
-             * Implementation of GazeNetPreProcessor.
-             */
-            struct GazeNetPreProcessorImpl;
-            std::unique_ptr<GazeNetPreProcessorImpl> m_pImpl;
-        };
+    /**
+     * Main interface to run pre-processing.
+     * @param outputFace output tensor for face region.
+     * @param outputLeft output tensor for left eye.
+     * @param outputRight output tensor for right eye.
+     * @param outputFeatures output normalized landmarks or facegrid.
+     * @param inputImage input image tensor.
+     * @param inputBBox input BBox of the face.
+     * @param inputLandmarks input raw facial landmarks.
+     * @param type whether to use facegrid model or landmarks model.
+     * @param stream cuda stream.
+     */
+    void execute(Tensor<NHWC, C1, F32> &outputFace,
+                 Tensor<NHWC, C1, F32> &outputLeft,
+                 Tensor<NHWC, C1, F32> &outputRight,
+                 Tensor<CL, CX, F32> &outputFeatures,
+                 const Tensor<NHWC, C3, U8> &inputImage,
+                 const Array<BBox> &inputBBox,
+                 const Array<ArrayN<Vector2f, GazeNetPreProcessor::NUM_LANDMARKS>> &inputLandmarks,
+                 FeatureType type = FeatureType::FACEGRID,
+                 cudaStream_t stream = 0);
 
-        /**
-         * Interface for loading and running GazeNet.
-         */
-        class CVCORE_API GazeNet
-        {
-        public:
-            /**
-             * Number of elements in network output.
-             */
-            static constexpr size_t OUTPUT_SIZE = 5;
+private:
+    /**
+     * Implementation of GazeNetPreProcessor.
+     */
+    struct GazeNetPreProcessorImpl;
+    std::unique_ptr<GazeNetPreProcessorImpl> m_pImpl;
+};
 
-            /**
-             * Width of facegrid.
-             */
-            static constexpr size_t FACEGRID_WIDTH = 25;
+/**
+ * Interface for loading and running GazeNet.
+ */
+class CVCORE_API GazeNet {
+public:
+    /**
+     * Number of elements in network output.
+     */
+    static constexpr size_t OUTPUT_SIZE = 5;
 
-            /**
-             * Height of facegrid.
-             */
-            static constexpr size_t FACEGRID_HEIGHT = 25;
+    /**
+     * Width of facegrid.
+     */
+    static constexpr size_t FACEGRID_WIDTH = 25;
 
-            /**
-             * Starting index of left eye region.
-             */
-            static constexpr size_t LANDMARKS_EYE_LEFT_BEGIN = 42;
+    /**
+     * Height of facegrid.
+     */
+    static constexpr size_t FACEGRID_HEIGHT = 25;
 
-            /**
-             * End index of left eye region.
-             */
-            static constexpr size_t LANDMARKS_EYE_LEFT_END = 48;
+    /**
+     * Starting index of left eye region.
+     */
+    static constexpr size_t LANDMARKS_EYE_LEFT_BEGIN = 42;
 
-            /**
-             * Starting index of right eye region.
-             */
-            static constexpr size_t LANDMARKS_EYE_RIGHT_BEGIN = 36;
+    /**
+     * End index of left eye region.
+     */
+    static constexpr size_t LANDMARKS_EYE_LEFT_END = 48;
 
-            /**
-             * End index of right eye region.
-             */
-            static constexpr size_t LANDMARKS_EYE_RIGHT_END = 42;
+    /**
+     * Starting index of right eye region.
+     */
+    static constexpr size_t LANDMARKS_EYE_RIGHT_BEGIN = 36;
 
-            /**
-             * Default constructor is deleted.
-             */
-            GazeNet() = delete;
+    /**
+     * End index of right eye region.
+     */
+    static constexpr size_t LANDMARKS_EYE_RIGHT_END = 42;
 
-            /**
-             * Constructor of GazeNet.
-             * @param preProcessorParams custom pre-processor params.
-             * @param modelInputParams custom model input params for the network.
-             * @param inferenceParams custom inference params for the network.
-             */
-            GazeNet(const ImagePreProcessingParams &preProcessorParams, const ModelInputParams &modelInputParams,
-                    const ModelInferenceParams &inferenceParams);
+    /**
+     * Default constructor is deleted.
+     */
+    GazeNet() = delete;
 
-            /**
-             * Destructor of GazeNet.
-             */
-            ~GazeNet();
+    /**
+     * Constructor of GazeNet.
+     * @param preProcessorParams custom pre-processor params.
+     * @param modelInputParams custom model input params for the network.
+     * @param inferenceParams custom inference params for the network.
+     */
+    GazeNet(const ImagePreProcessingParams &preProcessorParams,
+            const ModelInputParams &modelInputParams,
+            const ModelInferenceParams &inferenceParams);
 
-            /**
-             * Set the mean and standard deviation of the landmarks for the model.
-             * @param landmarksMean mean of the landmarks.
-             * @param landmarksStd standard deviation of the landmarks.
-             */
-            void setLandmarksMeanAndVariance(const Array<Vector2f> &landmarksMean, const Array<Vector2f> &landmarksStd);
+    /**
+     * Destructor of GazeNet.
+     */
+    ~GazeNet();
 
-            /**
-             * Main interface to run inference.
-             * @param outputGaze output gaze results.
-             * @param inputImage input RGB/BGR interleaved image.
-             * @param inputBBox input Bounding box for face region.
-             * @param inputLandmarks input landmarks coordinates of the face.
-             * @param type whether to use facegrid model or landmarks model.
-             * @param stream cuda stream.
-             */
-            void execute(Array<ArrayN<float, GazeNet::OUTPUT_SIZE>> &outputGaze, const Tensor<NHWC, C3, U8> &inputImage,
-                         const Array<BBox> &inputBBox,
-                         const Array<ArrayN<Vector2f, GazeNetPreProcessor::NUM_LANDMARKS>> &inputLandmarks,
-                         FeatureType type = FeatureType::FACEGRID, cudaStream_t stream = 0);
+    /**
+     * Set the mean and standard deviation of the landmarks for the model.
+     * @param landmarksMean mean of the landmarks.
+     * @param landmarksStd standard deviation of the landmarks.
+     */
+    void setLandmarksMeanAndVariance(const Array<Vector2f> &landmarksMean,
+                                     const Array<Vector2f> &landmarksStd);
 
-        private:
-            /**
-             * Implementation of GazeNet.
-             */
-            struct GazeNetImpl;
-            std::unique_ptr<GazeNetImpl> m_pImpl;
-        };
+    /**
+     * Main interface to run inference.
+     * @param outputGaze output gaze results.
+     * @param inputImage input RGB/BGR interleaved image.
+     * @param inputBBox input Bounding box for face region.
+     * @param inputLandmarks input landmarks coordinates of the face.
+     * @param type whether to use facegrid model or landmarks model.
+     * @param stream cuda stream.
+     */
+    void execute(Array<ArrayN<float, GazeNet::OUTPUT_SIZE>> &outputGaze,
+                 const Tensor<NHWC, C3, U8> &inputImage,
+                 const Array<BBox> &inputBBox,
+                 const Array<ArrayN<Vector2f, GazeNetPreProcessor::NUM_LANDMARKS>> &inputLandmarks,
+                 FeatureType type = FeatureType::FACEGRID,
+                 cudaStream_t stream = 0);
 
-        /**
-         * Interface for visualize the results of GazeNet
-         */
-        class CVCORE_API GazeNetVisualizer
-        {
-        public:
-            /**
-             * Constructor of GazeNetVisualizer.
-             * @param cameraParams intrinsic parameters of camera.
-             */
-            GazeNetVisualizer(const CameraIntrinsics &cameraParams);
+private:
+    /**
+     * Implementation of GazeNet.
+     */
+    struct GazeNetImpl;
+    std::unique_ptr<GazeNetImpl> m_pImpl;
+};
 
-            /**
-             * Constructor of GazeNetVisualizer.
-             * @param params custom visualization params.
-             * @param cameraParams intrinsic parameters of camera.
-             */
-            GazeNetVisualizer(const GazeNetVisualizerParams &params, const CameraIntrinsics &cameraParams);
+/**
+ * Interface for visualize the results of GazeNet
+ */
+class CVCORE_API GazeNetVisualizer {
+public:
+    /**
+     * Constructor of GazeNetVisualizer.
+     * @param cameraParams intrinsic parameters of camera.
+     */
+    GazeNetVisualizer(const CameraIntrinsics &cameraParams);
 
-            /**
-             * Destructor of GazeNetVisualizer.
-             */
-            ~GazeNetVisualizer();
+    /**
+     * Constructor of GazeNetVisualizer.
+     * @param params custom visualization params.
+     * @param cameraParams intrinsic parameters of camera.
+     */
+    GazeNetVisualizer(const GazeNetVisualizerParams &params, const CameraIntrinsics &cameraParams);
 
-            /**
-             * Main interface to get the output visualization vector
-             * @param outputGazeLeftEndPt end point for the arrow corresponding to left eye.
-             * @param outputGazeLeftStartPt start point for the arrow corresponding to left eye.
-             * @param outputGazeRightEndPt end point for the arrow corresponding to right eye.
-             * @param outputGazeRightStartPt start point for the arrow corresponding to right eye.
-             * @param input2DLandmarks input 2d facial landmarks.
-             * @param inputGaze input gazenet inference results.
-             */
-            void execute(Array<Vector2i> &outputGazeLeftEndPt, Array<Vector2i> &outputGazeLeftStartPt,
-                         Array<Vector2i> &outputGazeRightEndPt, Array<Vector2i> &outputGazeRightStartPt,
-                         const Array<ArrayN<Vector2f, GazeNetPreProcessor::NUM_LANDMARKS>> &input2DLandmarks,
-                         const Array<ArrayN<float, GazeNet::OUTPUT_SIZE>> &inputGaze);
+    /**
+     * Destructor of GazeNetVisualizer.
+     */
+    ~GazeNetVisualizer();
 
-        private:
-            /**
-             * Implementation of GazeNetVisualizer.
-             */
-            struct GazeNetVisualizerImpl;
-            std::unique_ptr<GazeNetVisualizerImpl> m_pImpl;
-        };
+    /**
+     * Main interface to get the output visualization vector
+     * @param outputGazeLeftEndPt end point for the arrow corresponding to left eye.
+     * @param outputGazeLeftStartPt start point for the arrow corresponding to left eye.
+     * @param outputGazeRightEndPt end point for the arrow corresponding to right eye.
+     * @param outputGazeRightStartPt start point for the arrow corresponding to right eye.
+     * @param input2DLandmarks input 2d facial landmarks.
+     * @param inputGaze input gazenet inference results.
+     */
+    void execute(
+        Array<Vector2i> &outputGazeLeftEndPt,
+        Array<Vector2i> &outputGazeLeftStartPt,
+        Array<Vector2i> &outputGazeRightEndPt,
+        Array<Vector2i> &outputGazeRightStartPt,
+        const Array<ArrayN<Vector2f, GazeNetPreProcessor::NUM_LANDMARKS>> &input2DLandmarks,
+        const Array<ArrayN<float, GazeNet::OUTPUT_SIZE>> &inputGaze);
 
-    }
-} // namespace cvcore::gazenet
+private:
+    /**
+     * Implementation of GazeNetVisualizer.
+     */
+    struct GazeNetVisualizerImpl;
+    std::unique_ptr<GazeNetVisualizerImpl> m_pImpl;
+};
+
+} // namespace gazenet
+} // namespace cvcore
 
 #endif

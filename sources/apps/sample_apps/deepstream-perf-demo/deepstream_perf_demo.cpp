@@ -20,18 +20,18 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <cuda_runtime_api.h>
+#include <dirent.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <gst/gstpipeline.h>
-
 #include <stdio.h>
 #include <stdlib.h>
-#include <dirent.h>
 #include <string.h>
-#include <vector>
-#include <iostream>
 #include <sys/time.h>
-#include <cuda_runtime_api.h>
+
+#include <iostream>
+#include <vector>
 
 #define PGIE_CONFIG_FILE "perf_demo_pgie_config.txt"
 #define SGIE1_CONFIG_FILE "perf_demo_sgie1_config.txt"
@@ -79,13 +79,12 @@ static void profile_end()
 
 static void profile_result()
 {
-    g_accumulated_time_macro += 1000000 * (g_end.tv_sec - g_start.tv_sec) + g_end.tv_usec - g_start.tv_usec;
+    g_accumulated_time_macro +=
+        1000000 * (g_end.tv_sec - g_start.tv_sec) + g_end.tv_usec - g_start.tv_usec;
     // Be careful 1000000 * g_accumulated_time_macro may be overflow.
     float fps = (float)((frame_number - 100) / (float)(g_accumulated_time_macro / 1000000));
-    std::cout << "The average frame rate is " << fps
-              << ", frame num " << frame_number - 100
-              << ", time accumulated " << g_accumulated_time_macro / 1000000
-              << std::endl;
+    std::cout << "The average frame rate is " << fps << ", frame num " << frame_number - 100
+              << ", time accumulated " << g_accumulated_time_macro / 1000000 << std::endl;
 }
 #endif
 
@@ -93,28 +92,18 @@ static char *getOneFileName(DIR *pDir, int &isFile)
 {
     struct dirent *ent;
 
-    while (1)
-    {
+    while (1) {
         ent = readdir(pDir);
-        if (ent == NULL)
-        {
+        if (ent == NULL) {
             isFile = 0;
             return NULL;
-        }
-        else
-        {
-            if (ent->d_type & DT_REG)
-            {
+        } else {
+            if (ent->d_type & DT_REG) {
                 isFile = 1;
                 return ent->d_name;
-            }
-            else if (strcmp(ent->d_name, ".") == 0 ||
-                     strcmp(ent->d_name, "..") == 0)
-            {
+            } else if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
                 continue;
-            }
-            else
-            {
+            } else {
                 isFile = 0;
                 return ent->d_name;
             }
@@ -135,18 +124,14 @@ static void get_file_list(char *inputDir)
 
     DIR *dir = opendir(inputDir);
 
-    while (1)
-    {
+    while (1) {
         fn = getOneFileName(dir, isFile);
 
-        if (isFile)
-        {
+        if (isFile) {
             fnStd = fn;
             fullName = dirNameStd + "/" + fnStd;
             file_list.push_back(fullName);
-        }
-        else
-        {
+        } else {
             break;
         }
     }
@@ -164,8 +149,7 @@ static gboolean source_switch_thread(gpointer *data)
     gst_element_set_state(pipeline, GST_STATE_PAUSED);
     GstStateChangeReturn ret = GST_STATE_CHANGE_FAILURE;
     ret = gst_element_set_state(source, GST_STATE_NULL);
-    if (ret == GST_STATE_CHANGE_FAILURE)
-    {
+    if (ret == GST_STATE_CHANGE_FAILURE) {
         g_print("Unable to set state change for source element \n");
         g_main_loop_quit(loop);
     }
@@ -201,33 +185,23 @@ static GstPadProbeReturn eos_probe_cb(GstPad *pad, GstPadProbeInfo *info, gpoint
     static guint64 prev_accumulated_base = 0;
     static guint64 accumulated_base = 0;
 
-    if ((info->type & GST_PAD_PROBE_TYPE_BUFFER))
-    {
+    if ((info->type & GST_PAD_PROBE_TYPE_BUFFER)) {
         GST_BUFFER_PTS(GST_BUFFER(info->data)) += prev_accumulated_base;
     }
 
-    if ((info->type & GST_PAD_PROBE_TYPE_EVENT_BOTH))
-    {
-        if (GST_EVENT_TYPE(event) == GST_EVENT_EOS)
-        {
-            ret = gst_element_seek((GstElement *)u_data,
-                                   1.0,
-                                   GST_FORMAT_TIME,
+    if ((info->type & GST_PAD_PROBE_TYPE_EVENT_BOTH)) {
+        if (GST_EVENT_TYPE(event) == GST_EVENT_EOS) {
+            ret = gst_element_seek((GstElement *)u_data, 1.0, GST_FORMAT_TIME,
                                    (GstSeekFlags)(GST_SEEK_FLAG_KEY_UNIT | GST_SEEK_FLAG_FLUSH),
-                                   GST_SEEK_TYPE_SET,
-                                   0,
-                                   GST_SEEK_TYPE_NONE,
-                                   GST_CLOCK_TIME_NONE);
-            if (!ret)
-            {
+                                   GST_SEEK_TYPE_SET, 0, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE);
+            if (!ret) {
                 g_print("###Error in seeking pipeline\n");
             }
             g_idle_add((GSourceFunc)source_switch_thread, u_data);
         }
     }
 
-    if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT)
-    {
+    if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT) {
         GstSegment *segment;
 
         gst_event_parse_segment(event, (const GstSegment **)&segment);
@@ -236,8 +210,7 @@ static GstPadProbeReturn eos_probe_cb(GstPad *pad, GstPadProbeInfo *info, gpoint
         accumulated_base += segment->stop;
     }
 
-    switch (GST_EVENT_TYPE(event))
-    {
+    switch (GST_EVENT_TYPE(event)) {
     case GST_EVENT_EOS:
     /* QOS events from downstream sink elements cause decoder to drop
      * frames after looping the file since the timestamps reset to 0.
@@ -256,14 +229,12 @@ static GstPadProbeReturn eos_probe_cb(GstPad *pad, GstPadProbeInfo *info, gpoint
 static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 {
     GMainLoop *loop = (GMainLoop *)data;
-    switch (GST_MESSAGE_TYPE(msg))
-    {
+    switch (GST_MESSAGE_TYPE(msg)) {
     case GST_MESSAGE_EOS:
         g_print("End of stream\n");
         g_main_loop_quit(loop);
         break;
-    case GST_MESSAGE_ERROR:
-    {
+    case GST_MESSAGE_ERROR: {
         gchar *debug;
         GError *error;
         gst_message_parse_error(msg, &error, &debug);
@@ -282,10 +253,9 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 
 int main(int argc, char *argv[])
 {
-
     GstElement *pipeline = NULL, *source = NULL, *h264parser = NULL, *streammux = NULL,
-               *decoder = NULL, *sink = NULL, *nvvidconv = NULL, *nvosd = NULL,
-               *pgie = NULL, *sgie1 = NULL, *sgie2 = NULL, *sgie3 = NULL;
+               *decoder = NULL, *sink = NULL, *nvvidconv = NULL, *nvosd = NULL, *pgie = NULL,
+               *sgie1 = NULL, *sgie2 = NULL, *sgie3 = NULL;
     GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
@@ -297,8 +267,7 @@ int main(int argc, char *argv[])
     cudaGetDeviceProperties(&prop, current_device);
 
     /* Check input arguments */
-    if (argc != 4)
-    {
+    if (argc != 4) {
         g_printerr("Usage: %s <rows num> <columns num> <streams dir>\n", argv[0]);
         return -1;
     }
@@ -326,8 +295,7 @@ int main(int argc, char *argv[])
     /* Create nvstreammux instance to form batches from one or more sources. */
     streammux = gst_element_factory_make("nvstreammux", "stream-muxer");
 
-    if (!pipeline || !streammux)
-    {
+    if (!pipeline || !streammux) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
@@ -349,22 +317,20 @@ int main(int argc, char *argv[])
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
     /* Finally render the osd output */
-    if (prop.integrated)
-    {
+    if (prop.integrated) {
         transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
     }
     sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     /* caps filter for nvvidconv to convert NV12 to RGBA as nvosd expects input
      * in RGBA format */
-    if (!source || !h264parser || !decoder || !nvvidconv || !pgie || !sgie1 || !sgie2 || !sgie3 || !nvosd || !sink)
-    {
+    if (!source || !h264parser || !decoder || !nvvidconv || !pgie || !sgie1 || !sgie2 || !sgie3 ||
+        !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    if (!transform && prop.integrated)
-    {
+    if (!transform && prop.integrated) {
         g_printerr("One tegra element could not be created. Exiting.\n");
         return -1;
     }
@@ -372,9 +338,8 @@ int main(int argc, char *argv[])
     /* Set the input filename to the source element */
     g_object_set(G_OBJECT(source), "location", file_list[0].c_str(), NULL);
 
-    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
-                 MUXER_OUTPUT_HEIGHT, "batch-size", 1,
-                 "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
+    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
+                 "batch-size", 1, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
     g_object_set(G_OBJECT(decoder), "gpu-id", GPU_ID, NULL);
     g_object_set(G_OBJECT(nvvidconv), "gpu-id", GPU_ID, NULL);
@@ -395,8 +360,7 @@ int main(int argc, char *argv[])
     g_object_set(G_OBJECT(sgie2), "gpu-id", GPU_ID, NULL);
     g_object_set(G_OBJECT(sgie3), "gpu-id", GPU_ID, NULL);
 
-    g_object_set(G_OBJECT(sink), "sync", FALSE, "max-lateness", -1,
-                 "async", FALSE, NULL);
+    g_object_set(G_OBJECT(sink), "sync", FALSE, "max-lateness", -1, "async", FALSE, NULL);
     g_object_set(G_OBJECT(sink), "gpu-id", GPU_ID, NULL);
     g_object_set(G_OBJECT(sink), "rows", atoi(argv[1]), NULL);
     g_object_set(G_OBJECT(sink), "columns", atoi(argv[2]), NULL);
@@ -408,17 +372,12 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    if (prop.integrated)
-    {
-        gst_bin_add_many(GST_BIN(pipeline),
-                         source, h264parser, decoder, streammux, pgie, sgie1, sgie2, sgie3,
-                         nvvidconv, nvosd, transform, sink, NULL);
-    }
-    else
-    {
-        gst_bin_add_many(GST_BIN(pipeline),
-                         source, h264parser, decoder, streammux, pgie, sgie1, sgie2, sgie3,
-                         nvvidconv, nvosd, sink, NULL);
+    if (prop.integrated) {
+        gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, sgie1,
+                         sgie2, sgie3, nvvidconv, nvosd, transform, sink, NULL);
+    } else {
+        gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, sgie1,
+                         sgie2, sgie3, nvvidconv, nvosd, sink, NULL);
     }
 
     GstPad *sinkpad, *srcpad;
@@ -426,21 +385,18 @@ int main(int argc, char *argv[])
     gchar pad_name_src[16] = "src";
 
     sinkpad = gst_element_get_request_pad(streammux, pad_name_sink);
-    if (!sinkpad)
-    {
+    if (!sinkpad) {
         g_printerr("Streammux request sink pad failed. Exiting.\n");
         return -1;
     }
 
     srcpad = gst_element_get_static_pad(decoder, pad_name_src);
-    if (!srcpad)
-    {
+    if (!srcpad) {
         g_printerr("Decoder request src pad failed. Exiting.\n");
         return -1;
     }
 
-    if (gst_pad_link(srcpad, sinkpad) != GST_PAD_LINK_OK)
-    {
+    if (gst_pad_link(srcpad, sinkpad) != GST_PAD_LINK_OK) {
         g_printerr("Failed to link decoder to stream muxer. Exiting.\n");
         return -1;
     }
@@ -449,43 +405,34 @@ int main(int argc, char *argv[])
     gst_object_unref(srcpad);
 
     /* Link the elements together */
-    if (!gst_element_link_many(source, h264parser, decoder, NULL))
-    {
+    if (!gst_element_link_many(source, h264parser, decoder, NULL)) {
         g_printerr("Elements could not be linked: 1. Exiting.\n");
         return -1;
     }
 
-    if (prop.integrated)
-    {
-        if (!gst_element_link_many(streammux, pgie, sgie1,
-                                   sgie2, sgie3, nvvidconv, nvosd, transform, sink, NULL))
-        {
+    if (prop.integrated) {
+        if (!gst_element_link_many(streammux, pgie, sgie1, sgie2, sgie3, nvvidconv, nvosd,
+                                   transform, sink, NULL)) {
             g_printerr("Elements could not be linked. Exiting.\n");
             return -1;
         }
-    }
-    else
-    {
-        if (!gst_element_link_many(streammux, pgie, sgie1,
-                                   sgie2, sgie3, nvvidconv, nvosd, sink, NULL))
-        {
+    } else {
+        if (!gst_element_link_many(streammux, pgie, sgie1, sgie2, sgie3, nvvidconv, nvosd, sink,
+                                   NULL)) {
             g_printerr("Elements could not be linked. Exiting.\n");
             return -1;
         }
     }
 
     dec_src_pad = gst_element_get_static_pad(decoder, "sink");
-    if (!dec_src_pad)
-    {
+    if (!dec_src_pad) {
         g_print("Unable to get h264parser src pad \n");
-    }
-    else
-    {
-        gst_pad_add_probe(dec_src_pad,
-                          (GstPadProbeType)(GST_PAD_PROBE_TYPE_EVENT_BOTH |
-                                            GST_PAD_PROBE_TYPE_EVENT_FLUSH |
-                                            GST_PAD_PROBE_TYPE_BUFFER),
-                          eos_probe_cb, pipeline, NULL);
+    } else {
+        gst_pad_add_probe(
+            dec_src_pad,
+            (GstPadProbeType)(GST_PAD_PROBE_TYPE_EVENT_BOTH | GST_PAD_PROBE_TYPE_EVENT_FLUSH |
+                              GST_PAD_PROBE_TYPE_BUFFER),
+            eos_probe_cb, pipeline, NULL);
         gst_object_unref(dec_src_pad);
     }
     /* Set the pipeline to "playing" state */

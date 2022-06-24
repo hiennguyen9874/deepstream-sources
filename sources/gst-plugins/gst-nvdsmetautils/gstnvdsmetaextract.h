@@ -24,48 +24,44 @@
 #ifndef __GST_NVDSMETAEXTRACT_H__
 #define __GST_NVDSMETAEXTRACT_H__
 
-#include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
+#include <gst/gst.h>
 
 G_BEGIN_DECLS
 
 /* #defines don't like whitespacey bits */
-#define GST_TYPE_NVDSMETAEXTRACT \
-  (gst_nvdsmetaextract_get_type())
+#define GST_TYPE_NVDSMETAEXTRACT (gst_nvdsmetaextract_get_type())
 #define GST_NVDSMETAEXTRACT(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_NVDSMETAEXTRACT, Gstnvdsmetaextract))
+    (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_NVDSMETAEXTRACT, Gstnvdsmetaextract))
 #define GST_NVDSMETAEXTRACT_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_NVDSMETAEXTRACT, GstnvdsmetaextractClass))
-#define GST_IS_NVDSMETAEXTRACT(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_NVDSMETAEXTRACT))
+    (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_NVDSMETAEXTRACT, GstnvdsmetaextractClass))
+#define GST_IS_NVDSMETAEXTRACT(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_NVDSMETAEXTRACT))
 #define GST_IS_NVDSMETAEXTRACT_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_NVDSMETAEXTRACT))
+    (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_NVDSMETAEXTRACT))
 
 typedef struct _Gstnvdsmetaextract Gstnvdsmetaextract;
 typedef struct _GstnvdsmetaextractClass GstnvdsmetaextractClass;
 
-struct _Gstnvdsmetaextract
-{
-  GstBaseTransform element;
+struct _Gstnvdsmetaextract {
+    GstBaseTransform element;
 
-  GstPad *sinkpad, *srcpad;
-  gboolean is_same_caps;
+    GstPad *sinkpad, *srcpad;
+    gboolean is_same_caps;
 
-  /* source and sink pad caps */
-  GstCaps *sinkcaps;
-  GstCaps *srccaps;
+    /* source and sink pad caps */
+    GstCaps *sinkcaps;
+    GstCaps *srccaps;
 
-  guint frame_width;
-  guint frame_height;
+    guint frame_width;
+    guint frame_height;
 
-  void *lib_handle;
-  gchar *deserialization_lib_name;
-  void (*deserialize_func)(GstBuffer *buf);
+    void *lib_handle;
+    gchar *deserialization_lib_name;
+    void (*deserialize_func)(GstBuffer *buf);
 };
 
-struct _GstnvdsmetaextractClass
-{
-  GstBaseTransformClass parent_class;
+struct _GstnvdsmetaextractClass {
+    GstBaseTransformClass parent_class;
 };
 
 GType gst_nvdsmetaextract_get_type(void);

@@ -25,11 +25,9 @@
 
 #include <nvdsmeta.h>
 
-#define NVDS_USER_CUSTOM_META \
-    (nvds_get_user_meta_type((gchar *)"NVIDIA.USER.CUSTOM_META"))
+#define NVDS_USER_CUSTOM_META (nvds_get_user_meta_type((gchar *)"NVIDIA.USER.CUSTOM_META"))
 
-typedef struct _NVDS_CUSTOM_PAYLOAD
-{
+typedef struct _NVDS_CUSTOM_PAYLOAD {
     uint32_t payloadType;
     uint32_t payloadSize;
     uint8_t *payload;

@@ -64,10 +64,8 @@ namespace dsis = nvdsinferserver;
 
 #ifndef INFER_ASSERT
 #define INFER_ASSERT(expr)                                                     \
-    do                                                                         \
-    {                                                                          \
-        if (!(expr))                                                           \
-        {                                                                      \
+    do {                                                                       \
+        if (!(expr)) {                                                         \
             fprintf(stderr, "%s:%d ASSERT(%s) \n", __FILE__, __LINE__, #expr); \
             std::abort();                                                      \
         }                                                                      \
@@ -82,9 +80,9 @@ constexpr uint32_t kInferHeight = 375;
 constexpr uint32_t kInferChannel = 3;
 static const std::vector<float> kDefaultImageInfo{(float)kInferHeight, (float)kInferWidth, 1.0f};
 static const std::vector<std::string> kClassLabels = {
-    "background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus",
-    "car", "cat", "chair", "cow", "diningtable", "dog", "horse",
-    "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"};
+    "background", "aeroplane", "bicycle",     "bird",  "boat",        "bottle", "bus",
+    "car",        "cat",       "chair",       "cow",   "diningtable", "dog",    "horse",
+    "motorbike",  "person",    "pottedplant", "sheep", "sofa",        "train",  "tvmonitor"};
 
 /** Define a function for custom processor for DeepStream Triton plugin(nvinferserver)
  * do custom extra input preprocess and custom postprocess on triton based models.
@@ -95,78 +93,66 @@ static const std::vector<std::string> kClassLabels = {
  *       custom_process_funcion: "CreateInferServerCustomProcess"
  *     }}
  */
-extern "C" dsis::IInferCustomProcessor *
-CreateInferServerCustomProcess(const char *config, uint32_t configLen);
+extern "C" dsis::IInferCustomProcessor *CreateInferServerCustomProcess(const char *config,
+                                                                       uint32_t configLen);
 
-namespace
+namespace {
+// return buffer description string
+std::string strOfBufDesc(const dsis::InferBufferDescription &desc)
 {
-    // return buffer description string
-    std::string
-    strOfBufDesc(const dsis::InferBufferDescription &desc)
-    {
-        std::stringstream ss;
-        ss << "*" << desc.name << "*, shape: ";
-        for (uint32_t i = 0; i < desc.dims.numDims; ++i)
-        {
-            if (i != 0)
-            {
-                ss << "x";
-            }
-            else
-            {
-                ss << "[";
-            }
-            ss << desc.dims.d[i];
-            if (i == desc.dims.numDims - 1)
-            {
-                ss << "]";
-            }
+    std::stringstream ss;
+    ss << "*" << desc.name << "*, shape: ";
+    for (uint32_t i = 0; i < desc.dims.numDims; ++i) {
+        if (i != 0) {
+            ss << "x";
+        } else {
+            ss << "[";
         }
-        ss << ", dataType:" << (int)desc.dataType;
-        ss << ", memType:" << (int)desc.memType;
-        return ss.str();
+        ss << desc.dims.d[i];
+        if (i == desc.dims.numDims - 1) {
+            ss << "]";
+        }
     }
+    ss << ", dataType:" << (int)desc.dataType;
+    ss << ", memType:" << (int)desc.memType;
+    return ss.str();
+}
 
-    // non-maximum suppression for bbox
-    std::vector<NvDsInferObjectDetectionInfo>
-    nms(std::vector<NvDsInferObjectDetectionInfo> &objs)
-    {
-        std::vector<NvDsInferObjectDetectionInfo> final;
-        final.reserve(objs.size());
-        std::stable_sort(objs.begin(), objs.end(), [](const auto &a, const auto &b)
-                         { return a.detectionConfidence > b.detectionConfidence; });
-        auto iou = [](const auto &a, const auto &b)
-        {
-            float x0 = std::max<float>(a.left, b.left);
-            float x1 = std::min<float>(a.left + a.width, b.left + b.width);
-            float y0 = std::max<float>(a.top, b.top);
-            float y1 = std::min<float>(a.top + a.height, b.top + b.height);
-            float overlap = (x1 - x0) * (y1 - y0);
-            float unionArea = a.width * a.height + b.width * b.height - overlap;
-            if (unionArea < 0.1f)
-                return 0.0f;
-            return overlap / unionArea;
-        };
-        for (size_t i = 0; i < objs.size(); ++i)
-        {
-            const auto &ref = objs[i];
-            if (ref.detectionConfidence < kScoreThreshold)
+// non-maximum suppression for bbox
+std::vector<NvDsInferObjectDetectionInfo> nms(std::vector<NvDsInferObjectDetectionInfo> &objs)
+{
+    std::vector<NvDsInferObjectDetectionInfo> final;
+    final.reserve(objs.size());
+    std::stable_sort(objs.begin(), objs.end(), [](const auto &a, const auto &b) {
+        return a.detectionConfidence > b.detectionConfidence;
+    });
+    auto iou = [](const auto &a, const auto &b) {
+        float x0 = std::max<float>(a.left, b.left);
+        float x1 = std::min<float>(a.left + a.width, b.left + b.width);
+        float y0 = std::max<float>(a.top, b.top);
+        float y1 = std::min<float>(a.top + a.height, b.top + b.height);
+        float overlap = (x1 - x0) * (y1 - y0);
+        float unionArea = a.width * a.height + b.width * b.height - overlap;
+        if (unionArea < 0.1f)
+            return 0.0f;
+        return overlap / unionArea;
+    };
+    for (size_t i = 0; i < objs.size(); ++i) {
+        const auto &ref = objs[i];
+        if (ref.detectionConfidence < kScoreThreshold)
+            continue;
+        final.push_back(ref);
+        for (size_t j = i + 1; j < objs.size(); ++j) {
+            if (ref.detectionConfidence < kScoreThreshold) {
                 continue;
-            final.push_back(ref);
-            for (size_t j = i + 1; j < objs.size(); ++j)
-            {
-                if (ref.detectionConfidence < kScoreThreshold)
-                {
-                    continue;
-                }
-                if (objs[j].classId == ref.classId && iou(ref, objs[j]) >= kIouThreshold)
-                {
-                    objs[j].detectionConfidence = 0;
-                }
+            }
+            if (objs[j].classId == ref.classId && iou(ref, objs[j]) >= kIouThreshold) {
+                objs[j].detectionConfidence = 0;
             }
         }
-        return final;
     }
+    return final;
+}
 
 } // namespace
 
@@ -181,8 +167,7 @@ namespace
  *     }
  *   }
  */
-class NvInferServerCustomProcess : public dsis::IInferCustomProcessor
-{
+class NvInferServerCustomProcess : public dsis::IInferCustomProcessor {
 private:
     std::map<uint64_t, std::vector<float>> _streamFeedback;
     std::mutex _streamMutex;
@@ -213,9 +198,9 @@ public:
      *           see infer_ioptions.h to see all the potential key name and structures
      *           in the key-value table.
      */
-    NvDsInferStatus extraInputProcess(
-        const std::vector<dsis::IBatchBuffer *> &primaryInputs,
-        std::vector<dsis::IBatchBuffer *> &extraInputs, const dsis::IOptions *options) override
+    NvDsInferStatus extraInputProcess(const std::vector<dsis::IBatchBuffer *> &primaryInputs,
+                                      std::vector<dsis::IBatchBuffer *> &extraInputs,
+                                      const dsis::IOptions *options) override
     {
         INFER_ASSERT(primaryInputs.size() > 0);
         INFER_ASSERT(extraInputs.size() == 1);
@@ -232,38 +217,29 @@ public:
         INFER_ASSERT(batchSize >= 1);
         INFER_ASSERT(extraInputs[0]->getTotalBytes() >= (uint32_t)batchSize * sizeof(float));
         std::vector<uint64_t> streamIds;
-        if (options)
-        {
-            INFER_ASSERT(
-                options->getValueArray(OPTION_NVDS_SREAM_IDS, streamIds) == NVDSINFER_SUCCESS);
+        if (options) {
+            INFER_ASSERT(options->getValueArray(OPTION_NVDS_SREAM_IDS, streamIds) ==
+                         NVDSINFER_SUCCESS);
             INFER_ASSERT(streamIds.size() == (uint32_t)batchSize);
         }
 
         float *input1 = (float *)extraInputs[0]->getBufPtr(0);
-        if (!requireInferLoop())
-        {
+        if (!requireInferLoop()) {
             // if loop not required, just copy the default image size
-            for (int i = 0; i < batchSize; ++i)
-            {
+            for (int i = 0; i < batchSize; ++i) {
                 memcpy(&input1[i * 3], kDefaultImageInfo.data(), sizeof(float) * 3);
             }
-        }
-        else
-        {
+        } else {
             /** if loop required, check stream feedbacks from last inference result.
              * It is a just sample purpose how to customize loop, not required
              *  for FasterRCNN.
              */
             std::unique_lock<std::mutex> locker(_streamMutex);
-            for (int i = 0; i < batchSize; ++i)
-            {
+            for (int i = 0; i < batchSize; ++i) {
                 if (streamIds.size() &&
-                    _streamFeedback.find(streamIds[i]) != _streamFeedback.end())
-                {
+                    _streamFeedback.find(streamIds[i]) != _streamFeedback.end()) {
                     memcpy(&input1[i * 3], _streamFeedback[streamIds[i]].data(), sizeof(float) * 3);
-                }
-                else
-                {
+                } else {
                     memcpy(&input1[i * 3], kDefaultImageInfo.data(), sizeof(float) * 3);
                 }
             }
@@ -280,21 +256,19 @@ public:
      *     }
      * User can even attach parsed metadata into GstBuffer from this function
      */
-    NvDsInferStatus inferenceDone(
-        const dsis::IBatchArray *outputs, const dsis::IOptions *inOptions) override
+    NvDsInferStatus inferenceDone(const dsis::IBatchArray *outputs,
+                                  const dsis::IOptions *inOptions) override
     {
-        if (requireInferLoop())
-        {
+        if (requireInferLoop()) {
             feedbackStreamInput(outputs, inOptions);
         }
         std::vector<uint64_t> streamIds;
-        INFER_ASSERT(
-            inOptions->getValueArray(OPTION_NVDS_SREAM_IDS, streamIds) == NVDSINFER_SUCCESS);
+        INFER_ASSERT(inOptions->getValueArray(OPTION_NVDS_SREAM_IDS, streamIds) ==
+                     NVDSINFER_SUCCESS);
         INFER_ASSERT(!streamIds.empty());
         uint32_t batchSize = streamIds.size();
 
-        for (uint32_t iBatch = 0; iBatch < batchSize; ++iBatch)
-        {
+        for (uint32_t iBatch = 0; iBatch < batchSize; ++iBatch) {
             std::vector<NvDsInferObjectDetectionInfo> parsedBboxes;
             INFER_ASSERT(parseObjBbox(outputs, parsedBboxes, iBatch) == NVDSINFER_SUCCESS);
             INFER_ASSERT(attachObjMetas(inOptions, parsedBboxes, iBatch) == NVDSINFER_SUCCESS);
@@ -315,33 +289,31 @@ public:
 private:
     /** function for loop processing only. not requried for fasterRCNN
      */
-    NvDsInferStatus feedbackStreamInput(
-        const dsis::IBatchArray *outputs, const dsis::IOptions *inOptions);
+    NvDsInferStatus feedbackStreamInput(const dsis::IBatchArray *outputs,
+                                        const dsis::IOptions *inOptions);
 
     /** parse all bounding boxes from inferenced tensors
      */
-    NvDsInferStatus parseObjBbox(
-        const dsis::IBatchArray *tensors, std::vector<NvDsInferObjectDetectionInfo> &outObjs,
-        uint32_t batchIdx);
+    NvDsInferStatus parseObjBbox(const dsis::IBatchArray *tensors,
+                                 std::vector<NvDsInferObjectDetectionInfo> &outObjs,
+                                 uint32_t batchIdx);
     /**
      * attach bounding boxes into NvDsBatchMeta and NvDsFrameMeta
      */
-    NvDsInferStatus attachObjMetas(
-        const dsis::IOptions *inOptions, const std::vector<NvDsInferObjectDetectionInfo> &objs,
-        uint32_t batchIdx);
+    NvDsInferStatus attachObjMetas(const dsis::IOptions *inOptions,
+                                   const std::vector<NvDsInferObjectDetectionInfo> &objs,
+                                   uint32_t batchIdx);
 };
 
 /** Implementation to Create a custom processor for DeepStream Triton
  * plugin(nvinferserver) to do custom extra input preprocess and custom
  * postprocess on triton based models.
  */
-extern "C"
+extern "C" {
+dsis::IInferCustomProcessor *CreateInferServerCustomProcess(const char *config, uint32_t configLen)
 {
-    dsis::IInferCustomProcessor *
-    CreateInferServerCustomProcess(const char *config, uint32_t configLen)
-    {
-        return new NvInferServerCustomProcess();
-    }
+    return new NvInferServerCustomProcess();
+}
 }
 
 /** An example to show how to get each stream's output.
@@ -349,18 +321,15 @@ extern "C"
  * This function is an example to get LSTM output and feedback to input.
  * @param inOptions, carries all nvds meta data and stream info.
  */
-NvDsInferStatus
-NvInferServerCustomProcess::feedbackStreamInput(
-    const dsis::IBatchArray *outputs, const dsis::IOptions *inOptions)
+NvDsInferStatus NvInferServerCustomProcess::feedbackStreamInput(const dsis::IBatchArray *outputs,
+                                                                const dsis::IOptions *inOptions)
 {
     static constexpr const char *kOutName = "cls_prob";
     const dsis::IBatchBuffer *state = nullptr;
     float *stateBuf = nullptr;
-    for (uint32_t iBuf = 0; iBuf < outputs->getSize(); ++iBuf)
-    {
+    for (uint32_t iBuf = 0; iBuf < outputs->getSize(); ++iBuf) {
         const dsis::IBatchBuffer *out = outputs->getBuffer(iBuf);
-        if (out->getBufDesc().name == kOutName)
-        {
+        if (out->getBufDesc().name == kOutName) {
             state = out;
             stateBuf = (float *)out->getBufPtr(0);
         }
@@ -372,8 +341,7 @@ NvInferServerCustomProcess::feedbackStreamInput(
     dsis::InferBufferDescription outDesc = state->getBufDesc();
     LOG_DEBUG("infer_done for tensor: %s", strOfBufDesc(outDesc).c_str());
     if (outDesc.memType != dsis::InferMemType::kCpu &&
-        outDesc.memType != dsis::InferMemType::kCpuCuda)
-    {
+        outDesc.memType != dsis::InferMemType::kCpuCuda) {
         LOG_ERROR(
             "output tensor: %s is not CPU memory, "
             "update config file with infer_config{ backend{ output_mem_type: MEMORY_TYPE_CPU } "
@@ -382,15 +350,13 @@ NvInferServerCustomProcess::feedbackStreamInput(
         return NVDSINFER_CUSTOM_LIB_FAILED;
     }
 
-    if (inOptions)
-    {
+    if (inOptions) {
         std::vector<uint64_t> streamIds;
-        INFER_ASSERT(
-            inOptions->getValueArray(OPTION_NVDS_SREAM_IDS, streamIds) == NVDSINFER_SUCCESS);
+        INFER_ASSERT(inOptions->getValueArray(OPTION_NVDS_SREAM_IDS, streamIds) ==
+                     NVDSINFER_SUCCESS);
         std::unique_lock<std::mutex> locker(_streamMutex);
         {
-            for (size_t i = 0; i < streamIds.size(); ++i)
-            {
+            for (size_t i = 0; i < streamIds.size(); ++i) {
                 /** for LSTM loop processing, feed the output data to stream hash table.
                  * e.g.
                  *  memcpy(_streamFeedback[streamIds[i]].data(), &stateBuf[i * 3], sizeof(float)*3);
@@ -406,9 +372,9 @@ NvInferServerCustomProcess::feedbackStreamInput(
 
 /** parse all bounding boxes from inferenced tensors
  */
-NvDsInferStatus
-NvInferServerCustomProcess::parseObjBbox(
-    const dsis::IBatchArray *tensors, std::vector<NvDsInferObjectDetectionInfo> &outObjs,
+NvDsInferStatus NvInferServerCustomProcess::parseObjBbox(
+    const dsis::IBatchArray *tensors,
+    std::vector<NvDsInferObjectDetectionInfo> &outObjs,
     uint32_t batchIdx)
 {
     const NvDsInferNetworkInfo networkInfo = {kInferWidth, kInferHeight, kInferChannel};
@@ -419,8 +385,7 @@ NvInferServerCustomProcess::parseObjBbox(
      */
     params.perClassPreclusterThreshold[0] = 1.1f;
     std::vector<NvDsInferLayerInfo> outputLayers;
-    for (uint32_t iBuf = 0; iBuf < tensors->getSize(); ++iBuf)
-    {
+    for (uint32_t iBuf = 0; iBuf < tensors->getSize(); ++iBuf) {
         const dsis::IBatchBuffer *out = tensors->getBuffer(iBuf);
         INFER_ASSERT(out);
         NvDsInferLayerInfo capiLayer = {FLOAT, {{0, {0}, 0}}};
@@ -435,10 +400,9 @@ NvInferServerCustomProcess::parseObjBbox(
         uint32_t batchSize = outDesc.dims.d[0];
         INFER_ASSERT(batchIdx < batchSize);
         std::copy(outDesc.dims.d + 1, outDesc.dims.d + outDesc.dims.numDims, capiLayer.inferDims.d);
-        uint32_t perBatchSize = std::accumulate(
-            capiLayer.inferDims.d, capiLayer.inferDims.d + capiLayer.inferDims.numDims, 1,
-            [](int s, int i)
-            { return s * i; });
+        uint32_t perBatchSize = std::accumulate(capiLayer.inferDims.d,
+                                                capiLayer.inferDims.d + capiLayer.inferDims.numDims,
+                                                1, [](int s, int i) { return s * i; });
         /// sample model's data type is kFp32
         capiLayer.buffer = (float *)out->getBufPtr(0) + perBatchSize * batchIdx;
         outputLayers.push_back(capiLayer);
@@ -446,8 +410,7 @@ NvInferServerCustomProcess::parseObjBbox(
 
     // call ds nvinfer custom parse to get all objects
     std::vector<NvDsInferObjectDetectionInfo> detectObjs;
-    if (!NvDsInferParseCustomFasterRCNN(outputLayers, networkInfo, params, detectObjs))
-    {
+    if (!NvDsInferParseCustomFasterRCNN(outputLayers, networkInfo, params, detectObjs)) {
         LOG_ERROR("DS-triton inferserver custom tensor parse failed");
         return NVDSINFER_CUSTOM_LIB_FAILED;
     }
@@ -461,9 +424,9 @@ NvInferServerCustomProcess::parseObjBbox(
 /**
  * attach bounding boxes into NvDsBatchMeta and NvDsFrameMeta
  */
-NvDsInferStatus
-NvInferServerCustomProcess::attachObjMetas(
-    const dsis::IOptions *inOptions, const std::vector<NvDsInferObjectDetectionInfo> &detectObjs,
+NvDsInferStatus NvInferServerCustomProcess::attachObjMetas(
+    const dsis::IOptions *inOptions,
+    const std::vector<NvDsInferObjectDetectionInfo> &detectObjs,
     uint32_t batchIdx)
 {
     INFER_ASSERT(inOptions);
@@ -475,53 +438,44 @@ NvInferServerCustomProcess::attachObjMetas(
     int64_t unique_id = 0;
 
     // get GstBuffer
-    if (inOptions->hasValue(OPTION_NVDS_GST_BUFFER))
-    {
+    if (inOptions->hasValue(OPTION_NVDS_GST_BUFFER)) {
         INFER_ASSERT(inOptions->getObj(OPTION_NVDS_GST_BUFFER, gstBuf) == NVDSINFER_SUCCESS);
     }
     INFER_ASSERT(gstBuf);
 
     // get NvBufSurface
-    if (inOptions->hasValue(OPTION_NVDS_BUF_SURFACE))
-    {
+    if (inOptions->hasValue(OPTION_NVDS_BUF_SURFACE)) {
         INFER_ASSERT(inOptions->getObj(OPTION_NVDS_BUF_SURFACE, bufSurf) == NVDSINFER_SUCCESS);
     }
     INFER_ASSERT(bufSurf);
 
     // get NvDsBatchMeta
-    if (inOptions->hasValue(OPTION_NVDS_BATCH_META))
-    {
+    if (inOptions->hasValue(OPTION_NVDS_BATCH_META)) {
         INFER_ASSERT(inOptions->getObj(OPTION_NVDS_BATCH_META, batchMeta) == NVDSINFER_SUCCESS);
     }
     INFER_ASSERT(batchMeta);
 
     // get all frame meta list into vector<NvDsFrameMeta*>
-    if (inOptions->hasValue(OPTION_NVDS_FRAME_META_LIST))
-    {
-        INFER_ASSERT(
-            inOptions->getValueArray(OPTION_NVDS_FRAME_META_LIST, frameMetaList) ==
-            NVDSINFER_SUCCESS);
+    if (inOptions->hasValue(OPTION_NVDS_FRAME_META_LIST)) {
+        INFER_ASSERT(inOptions->getValueArray(OPTION_NVDS_FRAME_META_LIST, frameMetaList) ==
+                     NVDSINFER_SUCCESS);
     }
     INFER_ASSERT(batchIdx < frameMetaList.size()); // batchsize
 
     // get unique_id
-    if (inOptions->hasValue(OPTION_NVDS_UNIQUE_ID))
-    {
+    if (inOptions->hasValue(OPTION_NVDS_UNIQUE_ID)) {
         INFER_ASSERT(inOptions->getInt(OPTION_NVDS_UNIQUE_ID, unique_id) == NVDSINFER_SUCCESS);
     }
 
     // get all surface params list into vector<NvBufSurfaceParams*>
-    if (inOptions->hasValue(OPTION_NVDS_BUF_SURFACE_PARAMS_LIST))
-    {
-        INFER_ASSERT(
-            inOptions->getValueArray(OPTION_NVDS_BUF_SURFACE_PARAMS_LIST, surfParamsList) ==
-            NVDSINFER_SUCCESS);
+    if (inOptions->hasValue(OPTION_NVDS_BUF_SURFACE_PARAMS_LIST)) {
+        INFER_ASSERT(inOptions->getValueArray(OPTION_NVDS_BUF_SURFACE_PARAMS_LIST,
+                                              surfParamsList) == NVDSINFER_SUCCESS);
     }
     INFER_ASSERT(batchIdx < surfParamsList.size()); // batchsize
 
     // attach object's boundingbox
-    for (const auto &obj : detectObjs)
-    {
+    for (const auto &obj : detectObjs) {
         NvDsObjectMeta *objMeta = nvds_acquire_obj_meta_from_pool(batchMeta);
         objMeta->unique_component_id = unique_id;
         objMeta->confidence = obj.detectionConfidence;
@@ -545,8 +499,7 @@ NvInferServerCustomProcess::attachObjMetas(
         rect_params.border_color = (NvOSD_ColorParams){1, 0, 0, 1};
 
         /* display_text requires heap allocated memory. */
-        if (obj.classId < kClassLabels.size())
-        {
+        if (obj.classId < kClassLabels.size()) {
             text_params.display_text = g_strdup(kClassLabels[obj.classId].c_str());
             strncpy(objMeta->obj_label, kClassLabels[obj.classId].c_str(), MAX_LABEL_SIZE - 1);
             objMeta->obj_label[MAX_LABEL_SIZE - 1] = 0;

@@ -58,73 +58,70 @@ typedef GList NvDsUserMetaList;
 /**
  * Data type used for model in infer
  */
-typedef enum
-{
-  /** FP32 data type */
-  NvDsDataType_FP32,
-  /** UINT8 data type */
-  NvDsDataType_UINT8,
-  /** INT8 data type */
-  NvDsDataType_INT8,
-  /** UINT32 data type */
-  NvDsDataType_UINT32,
-  /** INT32 data type */
-  NvDsDataType_INT32,
-  /** FP16 data type */
-  NvDsDataType_FP16,
+typedef enum {
+    /** FP32 data type */
+    NvDsDataType_FP32,
+    /** UINT8 data type */
+    NvDsDataType_UINT8,
+    /** INT8 data type */
+    NvDsDataType_INT8,
+    /** UINT32 data type */
+    NvDsDataType_UINT32,
+    /** INT32 data type */
+    NvDsDataType_INT32,
+    /** FP16 data type */
+    NvDsDataType_FP16,
 } NvDsDataType;
 
 /**
  * Unit Type Fullframe/ROI/Crop Objects
  */
-typedef enum
-{
-  /** Full frames */
-  NvDsUnitType_FullFrame = 0,
-  /** Region of Interests (ROIs) */
-  NvDsUnitType_ROI,
-  /** object mode */
-  NvDsUnitType_Object,
+typedef enum {
+    /** Full frames */
+    NvDsUnitType_FullFrame = 0,
+    /** Region of Interests (ROIs) */
+    NvDsUnitType_ROI,
+    /** object mode */
+    NvDsUnitType_Object,
 } NvDsUnitType;
 
 /**
  * Holds Information about ROI Metadata
  */
-typedef struct NvDsRoiMeta
-{
-  /* per roi information */
-  NvOSD_RectParams roi;
+typedef struct NvDsRoiMeta {
+    /* per roi information */
+    NvOSD_RectParams roi;
 
-  /** currently not being used */
-  guint roi_polygon[DS_MAX_POLYGON_POINTS][2];
+    /** currently not being used */
+    guint roi_polygon[DS_MAX_POLYGON_POINTS][2];
 
-  /* Scaled & converted buffer to processing width/height */
-  NvBufSurfaceParams *converted_buffer;
+    /* Scaled & converted buffer to processing width/height */
+    NvBufSurfaceParams *converted_buffer;
 
-  /* Deepstream frame meta */
-  NvDsFrameMeta *frame_meta;
+    /* Deepstream frame meta */
+    NvDsFrameMeta *frame_meta;
 
-  /** Ratio by which the frame/ROI crop was scaled in horizontal direction
-   * Required when scaling co-ordinates/sizes in metadata
-   * back to input resolution. */
-  gdouble scale_ratio_x;
+    /** Ratio by which the frame/ROI crop was scaled in horizontal direction
+     * Required when scaling co-ordinates/sizes in metadata
+     * back to input resolution. */
+    gdouble scale_ratio_x;
 
-  /** Ratio by which the frame/ROI crop was scaled in vertical direction
-   * Required when scaling co-ordinates/sizes in metadata
-   * back to input resolution. */
-  gdouble scale_ratio_y;
+    /** Ratio by which the frame/ROI crop was scaled in vertical direction
+     * Required when scaling co-ordinates/sizes in metadata
+     * back to input resolution. */
+    gdouble scale_ratio_y;
 
-  /** offsets in horizontal direction while scaling */
-  gdouble offset_left;
+    /** offsets in horizontal direction while scaling */
+    gdouble offset_left;
 
-  /** offsets in vertical direction while scaling */
-  gdouble offset_top;
+    /** offsets in vertical direction while scaling */
+    gdouble offset_top;
 
-  /** Holds a pointer to a list of pointers of type @ref NvDsClassifierMeta. */
-  NvDsClassifierMetaList *classifier_meta_list;
+    /** Holds a pointer to a list of pointers of type @ref NvDsClassifierMeta. */
+    NvDsClassifierMetaList *classifier_meta_list;
 
-  /** Holds a pointer to a list of pointers of type @ref NvDsUserMeta. */
-  NvDsUserMetaList *roi_user_meta_list;
+    /** Holds a pointer to a list of pointers of type @ref NvDsUserMeta. */
+    NvDsUserMetaList *roi_user_meta_list;
 
 } NvDsRoiMeta;
 

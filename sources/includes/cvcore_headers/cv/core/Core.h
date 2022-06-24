@@ -11,8 +11,7 @@
 #ifndef CORE_H
 #define CORE_H
 
-namespace cvcore
-{
+namespace cvcore {
 
 // Enable dll imports/exports in case of windows support
 #ifdef _WIN32

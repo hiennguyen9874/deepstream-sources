@@ -25,13 +25,13 @@
 #define __POST_PROCESS_STRUCT_HPP__
 
 #include <iostream>
-#include <vector>
 #include <memory>
+#include <vector>
+
 #include "gstnvdsinfer.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define _PATH_MAX 4096
@@ -41,51 +41,48 @@ extern "C"
  * structure.
  */
 #define getDimsCHWFromDims(dimsCHW, dims) \
-  do                                      \
-  {                                       \
-    (dimsCHW).c = (dims).d[0];            \
-    (dimsCHW).h = (dims).d[1];            \
-    (dimsCHW).w = (dims).d[2];            \
-  } while (0)
+    do {                                  \
+        (dimsCHW).c = (dims).d[0];        \
+        (dimsCHW).h = (dims).d[1];        \
+        (dimsCHW).w = (dims).d[2];        \
+    } while (0)
 
 #define getDimsHWCFromDims(dimsCHW, dims) \
-  do                                      \
-  {                                       \
-    (dimsCHW).h = (dims).d[0];            \
-    (dimsCHW).w = (dims).d[1];            \
-    (dimsCHW).c = (dims).d[2];            \
-  } while (0)
+    do {                                  \
+        (dimsCHW).h = (dims).d[0];        \
+        (dimsCHW).w = (dims).d[1];        \
+        (dimsCHW).c = (dims).d[2];        \
+    } while (0)
 
 #define DIVIDE_AND_ROUND_UP(a, b) ((a + b - 1) / b)
 
-  inline const char *safeStr(const std::string &str)
-  {
+inline const char *safeStr(const std::string &str)
+{
     return str.c_str();
-  }
+}
 
-  inline bool string_empty(const char *str)
-  {
+inline bool string_empty(const char *str)
+{
     return !str || strlen(str) == 0;
-  }
+}
 
-  constexpr float DEFAULT_PRE_CLUSTER_THRESHOLD = 0.2;
-  constexpr float DEFAULT_POST_CLUSTER_THRESHOLD = 0.0;
-  constexpr float DEFAULT_EPS = 0.0;
-  constexpr int DEFAULT_GROUP_THRESHOLD = 0;
-  constexpr int DEFAULT_MIN_BOXES = 0;
-  constexpr float DEFAULT_DBSCAN_MIN_SCORE = 0;
-  constexpr float DEFAULT_NMS_IOU_THRESHOLD = 0.3;
-  constexpr int DEFAULT_TOP_K = -1;
-  constexpr bool ATHR_ENABLED = true;
-  constexpr float ATHR_THRESHOLD = 60.0;
-  constexpr int PROCESS_MODEL_FULL_FRAME = 1;
-  constexpr int PROCESS_MODEL_OBJECTS = 2;
+constexpr float DEFAULT_PRE_CLUSTER_THRESHOLD = 0.2;
+constexpr float DEFAULT_POST_CLUSTER_THRESHOLD = 0.0;
+constexpr float DEFAULT_EPS = 0.0;
+constexpr int DEFAULT_GROUP_THRESHOLD = 0;
+constexpr int DEFAULT_MIN_BOXES = 0;
+constexpr float DEFAULT_DBSCAN_MIN_SCORE = 0;
+constexpr float DEFAULT_NMS_IOU_THRESHOLD = 0.3;
+constexpr int DEFAULT_TOP_K = -1;
+constexpr bool ATHR_ENABLED = true;
+constexpr float ATHR_THRESHOLD = 60.0;
+constexpr int PROCESS_MODEL_FULL_FRAME = 1;
+constexpr int PROCESS_MODEL_OBJECTS = 2;
 
-  /**
-   * Enum for the status codes returned by NvDsPostProcessAlgorithm.
-   */
-  typedef enum
-  {
+/**
+ * Enum for the status codes returned by NvDsPostProcessAlgorithm.
+ */
+typedef enum {
     /**  operation succeeded. */
     NVDSPOSTPROCESS_SUCCESS = 0,
     /** Failed to configure the  instance possibly due to an
@@ -103,101 +100,90 @@ extern "C"
     NVDSPOSTPROCESS_RESOURCE_ERROR,
     /** Unknown error was encountered. */
     NVDSPOSTPROCESS_UNKNOWN_ERROR
-  } NvDsPostProcessStatus;
+} NvDsPostProcessStatus;
 
-  typedef enum
-  {
+typedef enum {
     NVDSPOSTPROCESS_LOG_ERROR = 0,
     NVDSPOSTPROCESS_LOG_WARNING,
     NVDSPOSTPROCESS_LOG_INFO,
     NVDSPOSTPROCESS_LOG_DEBUG,
-  } NvDsPostProcesLogLevel;
+} NvDsPostProcesLogLevel;
 
-#define printMsg(level, tag_str, fmt, ...)                     \
-  do                                                           \
-  {                                                            \
-    char *baseName = strrchr((char *)__FILE__, '/');           \
-    baseName = (baseName) ? (baseName + 1) : (char *)__FILE__; \
-    char logMsgBuffer[5 * _MAX_STR_LENGTH + 1];                \
-    snprintf(logMsgBuffer, 5 * _MAX_STR_LENGTH,                \
-             tag_str " NvDsPostProcess::%s() <%s:%d> : " fmt,  \
-             __func__, baseName, __LINE__, ##__VA_ARGS__);     \
-    fprintf(stderr, "%s\n", logMsgBuffer);                     \
-  } while (0)
+#define printMsg(level, tag_str, fmt, ...)                                                      \
+    do {                                                                                        \
+        char *baseName = strrchr((char *)__FILE__, '/');                                        \
+        baseName = (baseName) ? (baseName + 1) : (char *)__FILE__;                              \
+        char logMsgBuffer[5 * _MAX_STR_LENGTH + 1];                                             \
+        snprintf(logMsgBuffer, 5 * _MAX_STR_LENGTH,                                             \
+                 tag_str " NvDsPostProcess::%s() <%s:%d> : " fmt, __func__, baseName, __LINE__, \
+                 ##__VA_ARGS__);                                                                \
+        fprintf(stderr, "%s\n", logMsgBuffer);                                                  \
+    } while (0)
 
-#define printError(fmt, ...)                                       \
-  do                                                               \
-  {                                                                \
-    printMsg(NVDSINFER_LOG_ERROR, "Error in", fmt, ##__VA_ARGS__); \
-  } while (0)
+#define printError(fmt, ...)                                           \
+    do {                                                               \
+        printMsg(NVDSINFER_LOG_ERROR, "Error in", fmt, ##__VA_ARGS__); \
+    } while (0)
 
-#define printWarning(fmt, ...)                                           \
-  do                                                                     \
-  {                                                                      \
-    printMsg(NVDSINFER_LOG_WARNING, "Warning from", fmt, ##__VA_ARGS__); \
-  } while (0)
+#define printWarning(fmt, ...)                                               \
+    do {                                                                     \
+        printMsg(NVDSINFER_LOG_WARNING, "Warning from", fmt, ##__VA_ARGS__); \
+    } while (0)
 
-#define printInfo(fmt, ...)                                        \
-  do                                                               \
-  {                                                                \
-    printMsg(NVDSINFER_LOG_INFO, "Info from", fmt, ##__VA_ARGS__); \
-  } while (0)
+#define printInfo(fmt, ...)                                            \
+    do {                                                               \
+        printMsg(NVDSINFER_LOG_INFO, "Info from", fmt, ##__VA_ARGS__); \
+    } while (0)
 
-#define printDebug(fmt, ...)                                    \
-  do                                                            \
-  {                                                             \
-    printMsg(NVDSINFER_LOG_DEBUG, "DEBUG", fmt, ##__VA_ARGS__); \
-  } while (0)
+#define printDebug(fmt, ...)                                        \
+    do {                                                            \
+        printMsg(NVDSINFER_LOG_DEBUG, "DEBUG", fmt, ##__VA_ARGS__); \
+    } while (0)
 
-  typedef struct
-  {
+typedef struct {
     unsigned int roiTopOffset;
     unsigned int roiBottomOffset;
     unsigned int detectionMinWidth;
     unsigned int detectionMinHeight;
     unsigned int detectionMaxWidth;
     unsigned int detectionMaxHeight;
-  } NvDsPostProcessDetectionFilterParams;
+} NvDsPostProcessDetectionFilterParams;
 
-  /**
-   * Holds the bounding box coloring information for one class;
-   */
-  typedef struct
-  {
+/**
+ * Holds the bounding box coloring information for one class;
+ */
+typedef struct {
     int have_border_color;
     NvOSD_ColorParams border_color;
 
     int have_bg_color;
     NvOSD_ColorParams bg_color;
-  } NvDsPostProcessColorParams;
+} NvDsPostProcessColorParams;
 
-  /**
-   * Enum for clustering mode for detectors
-   */
-  typedef enum
-  {
+/**
+ * Enum for clustering mode for detectors
+ */
+typedef enum {
     NVDSPOSTPROCESS_CLUSTER_GROUP_RECTANGLES = 0,
     NVDSPOSTPROCESS_CLUSTER_DBSCAN,
     NVDSPOSTPROCESS_CLUSTER_NMS,
     NVDSPOSTPROCESS_CLUSTER_DBSCAN_NMS_HYBRID,
     NVDSPOSTPROCESS_CLUSTER_NONE
-  } NvDsPostProcessClusterMode;
+} NvDsPostProcessClusterMode;
 
-  /**
-   * Defines UFF layer orders.
-   */
-  typedef enum
-  {
+/**
+ * Defines UFF layer orders.
+ */
+typedef enum {
     NvDsPostProcessTensorOrder_kNCHW,
     NvDsPostProcessTensorOrder_kNHWC,
     NvDsPostProcessTensorOrder_kNC,
-  } NvDsPostProcessTensorOrder;
+} NvDsPostProcessTensorOrder;
 
-  /**
-   * Defines network types.
-   */
-  typedef enum
-  {
+/**
+ * Defines network types.
+ */
+typedef enum {
     /** Specifies a detector. Detectors find objects and their coordinates,
      and their classes in an input frame. */
     NvDsPostProcessNetworkType_Detector,
@@ -216,13 +202,12 @@ extern "C"
      Output can be parsed by the NvDsPostProcessContext client or can be combined
      with the Gst-nvinfer feature to flow output tensors as metadata. */
     NvDsPostProcessNetworkType_Other = 100
-  } NvDsPostProcessNetworkType;
+} NvDsPostProcessNetworkType;
 
-  /**
-   * Holds detection and bounding box grouping parameters.
-   */
-  typedef struct
-  {
+/**
+ * Holds detection and bounding box grouping parameters.
+ */
+typedef struct {
     /** Holds the bounding box detection threshold to be applied prior
      * to clustering operation. */
     float preClusterThreshold;
@@ -258,13 +243,12 @@ extern "C"
     unsigned int detectionMaxHeight;
     NvDsPostProcessColorParams color_params;
 
-  } NvDsPostProcessDetectionParams;
+} NvDsPostProcessDetectionParams;
 
-  /**
-   * Holds the initialization parameters required for the NvDsPostProcessContext interface.
-   */
-  typedef struct _NvDsPostProcessContextInitParams
-  {
+/**
+ * Holds the initialization parameters required for the NvDsPostProcessContext interface.
+ */
+typedef struct _NvDsPostProcessContextInitParams {
     /** Holds a unique identifier for the instance. This can be used
      to identify the instance that is generating log and error messages. */
     unsigned int uniqueID;
@@ -324,13 +308,12 @@ extern "C"
     NvDsPostProcessTensorOrder segmentationOutputOrder;
 
     char *classifier_type;
-  } NvDsPostProcessContextInitParams;
+} NvDsPostProcessContextInitParams;
 
-  /**
-   * Holds information about one parsed object from a detector's output.
-   */
-  typedef struct
-  {
+/**
+ * Holds information about one parsed object from a detector's output.
+ */
+typedef struct {
     /** Holds the ID of the class to which the object belongs. */
     unsigned int classId;
 
@@ -346,13 +329,12 @@ extern "C"
     /** Holds the object detection confidence level; must in the range
      [0.0,1.0]. */
     float detectionConfidence;
-  } NvDsPostProcessObjectDetectionInfo;
+} NvDsPostProcessObjectDetectionInfo;
 
-  /**
-   * Holds information about one classified attribute.
-   */
-  typedef struct
-  {
+/**
+ * Holds information about one classified attribute.
+ */
+typedef struct {
     /** Holds the index of the attribute's label. This index corresponds to
      the order of output layers specified in the @a outputCoverageLayerNames
      vector during initialization. */
@@ -365,18 +347,17 @@ extern "C"
      Memory for the string must not be freed. Custom parsing functions must
      allocate strings on heap using strdup or equivalent. */
     char *attributeLabel;
-  } NvDsPostProcessAttribute;
+} NvDsPostProcessAttribute;
 
-  /**
-   * A typedef defined to maintain backward compatibility.
-   */
-  typedef NvDsPostProcessObjectDetectionInfo NvDsPostProcessParseObjectInfo;
+/**
+ * A typedef defined to maintain backward compatibility.
+ */
+typedef NvDsPostProcessObjectDetectionInfo NvDsPostProcessParseObjectInfo;
 
-  /**
-   * Holds information about one parsed object and instance mask from a detector's output.
-   */
-  typedef struct
-  {
+/**
+ * Holds information about one parsed object and instance mask from a detector's output.
+ */
+typedef struct {
     /** Holds the ID of the class to which the object belongs. */
     unsigned int classId;
 
@@ -401,13 +382,12 @@ extern "C"
     unsigned int mask_height;
     /** Holds size of mask in bytes*/
     unsigned int mask_size;
-  } NvDsPostProcessInstanceMaskInfo;
+} NvDsPostProcessInstanceMaskInfo;
 
-  /**
-   * Holds information about one detected object.
-   */
-  typedef struct
-  {
+/**
+ * Holds information about one detected object.
+ */
+typedef struct {
     /** Holds the object's offset from the left boundary of the frame. */
     float left;
     /** Holds the object's offset from the top boundary of the frame. */
@@ -430,26 +410,24 @@ extern "C"
     unsigned int mask_height;
     /** Holds size of mask in bytes*/
     unsigned int mask_size;
-  } NvDsPostProcessObject;
+} NvDsPostProcessObject;
 
-  /**
-   * Holds information on all objects detected by a detector network in one
-   * frame.
-   */
-  typedef struct
-  {
+/**
+ * Holds information on all objects detected by a detector network in one
+ * frame.
+ */
+typedef struct {
     /** Holds a pointer to an array of objects. */
     NvDsPostProcessObject *objects;
     /** Holds the number of objects in @a objects. */
     unsigned int numObjects;
-  } NvDsPostProcessDetectionOutput;
+} NvDsPostProcessDetectionOutput;
 
-  /**
-   * Holds information on all attributes classifed by a classifier network for
-   * one frame.
-   */
-  typedef struct
-  {
+/**
+ * Holds information on all attributes classifed by a classifier network for
+ * one frame.
+ */
+typedef struct {
     /** Holds a pointer to an array of attributes. There may be more than
      one attribute, depending on the number of output coverage layers
      (multi-label classifiers). */
@@ -459,13 +437,12 @@ extern "C"
     /** Holds a pointer to a string containing a label for the
      classified output. */
     char *label;
-  } NvDsPostProcessClassificationOutput;
+} NvDsPostProcessClassificationOutput;
 
-  /**
-   * Holds information parsed from segmentation network output for one frame.
-   */
-  typedef struct
-  {
+/**
+ * Holds information parsed from segmentation network output for one frame.
+ */
+typedef struct {
     /** Holds the width of the output. Same as network width. */
     unsigned int width;
     /** Holds the height of the output. Same as network height. */
@@ -479,39 +456,36 @@ extern "C"
      The probability for class @a c and pixel (x,y) is at index
      (c*width*height + y*width+x). */
     float *class_probability_map;
-  } NvDsPostProcessSegmentationOutput;
+} NvDsPostProcessSegmentationOutput;
 
-  /**
-   * Holds the information inferred by the network on one frame.
-   */
-  typedef struct
-  {
+/**
+ * Holds the information inferred by the network on one frame.
+ */
+typedef struct {
     /** Holds an output type indicating the valid member in the union
      of @a detectionOutput, @a classificationOutput, and @a  segmentationOutput.
      This is basically the network type. */
     NvDsPostProcessNetworkType outputType;
     /** Holds a union of supported outputs. The valid member is determined by
      @a outputType. */
-    union
-    {
-      /** Holds detector output. Valid when @a outputType is
-       @ref NvDsPostProcessNetworkType_Detector. */
-      NvDsPostProcessDetectionOutput detectionOutput;
-      /** Holds classifier output. Valid when @a outputType is
-       @ref NvDsPostProcessNetworkType_Classifier. */
-      NvDsPostProcessClassificationOutput classificationOutput;
-      /** Holds classifier output. Valid when @a outputType is
-       @ref NvDsPostProcessNetworkType_Classifier. */
-      NvDsPostProcessSegmentationOutput segmentationOutput;
+    union {
+        /** Holds detector output. Valid when @a outputType is
+         @ref NvDsPostProcessNetworkType_Detector. */
+        NvDsPostProcessDetectionOutput detectionOutput;
+        /** Holds classifier output. Valid when @a outputType is
+         @ref NvDsPostProcessNetworkType_Classifier. */
+        NvDsPostProcessClassificationOutput classificationOutput;
+        /** Holds classifier output. Valid when @a outputType is
+         @ref NvDsPostProcessNetworkType_Classifier. */
+        NvDsPostProcessSegmentationOutput segmentationOutput;
     };
-  } NvDsPostProcessFrameOutput;
+} NvDsPostProcessFrameOutput;
 
-  /**
-   * Holds the output for all of the frames in a batch (an array of frame),
-   * and related buffer information.
-   */
-  typedef struct
-  {
+/**
+ * Holds the output for all of the frames in a batch (an array of frame),
+ * and related buffer information.
+ */
+typedef struct {
     /** Holds a pointer to an array of outputs for each frame in the batch. */
     NvDsPostProcessFrameOutput *frames;
     /** Holds the number of elements in @a frames. */
@@ -531,7 +505,7 @@ extern "C"
 
     /** Holds a private context pointer for the set of output buffers. */
     void *priv;
-  } NvDsPostProcessBatchOutput;
+} NvDsPostProcessBatchOutput;
 
 #ifdef __cplusplus
 }
@@ -540,61 +514,57 @@ extern "C"
 /**
  * Holds the detection parameters required for parsing objects.
  */
-typedef struct
-{
-  /** Holds the number of classes requested to be parsed, starting with
-   class ID 0. Parsing functions may only output objects with
-   class ID less than this value. */
-  unsigned int numClassesConfigured;
-  /** Holds a per-class vector of detection confidence thresholds
-   to be applied prior to the clustering operation.
-   Parsing functions may only output an object with detection confidence
-   greater than or equal to the vector element indexed by the object's
-   class ID. */
-  std::vector<float> perClassPreclusterThreshold;
-  /* Per-class threshold to be applied after the clustering operation. */
-  std::vector<float> perClassPostclusterThreshold;
+typedef struct {
+    /** Holds the number of classes requested to be parsed, starting with
+     class ID 0. Parsing functions may only output objects with
+     class ID less than this value. */
+    unsigned int numClassesConfigured;
+    /** Holds a per-class vector of detection confidence thresholds
+     to be applied prior to the clustering operation.
+     Parsing functions may only output an object with detection confidence
+     greater than or equal to the vector element indexed by the object's
+     class ID. */
+    std::vector<float> perClassPreclusterThreshold;
+    /* Per-class threshold to be applied after the clustering operation. */
+    std::vector<float> perClassPostclusterThreshold;
 
 } NvDsPostProcessParseDetectionParams;
 
 /** Holds the cached information of an object. */
-struct NvDsPostProcessObjectInfo
-{
-  /** Vector of cached classification attributes. */
-  std::vector<NvDsPostProcessAttribute> attributes;
-  /** Cached string label. */
-  std::string label;
+struct NvDsPostProcessObjectInfo {
+    /** Vector of cached classification attributes. */
+    std::vector<NvDsPostProcessAttribute> attributes;
+    /** Cached string label. */
+    std::string label;
 
-  NvDsPostProcessObjectInfo(const NvDsPostProcessObjectInfo &) = delete;
-  NvDsPostProcessObjectInfo() = default;
-  ~NvDsPostProcessObjectInfo()
-  {
-    for (auto &attr : attributes)
+    NvDsPostProcessObjectInfo(const NvDsPostProcessObjectInfo &) = delete;
+    NvDsPostProcessObjectInfo() = default;
+    ~NvDsPostProcessObjectInfo()
     {
-      if (attr.attributeLabel)
-        free(attr.attributeLabel);
+        for (auto &attr : attributes) {
+            if (attr.attributeLabel)
+                free(attr.attributeLabel);
+        }
     }
-  }
 };
 
 /**
  * Holds the inference information/history for one object based on it's
  * tracking id.
  */
-typedef struct _NvDsPostProcessObjectHistory
-{
-  /** Boolean indicating if the object is already being inferred on. */
-  int under_inference;
-  /** Bounding box co-ordinates of the object when it was last inferred on. */
-  NvOSD_RectParams last_inferred_coords;
-  /** Number of the frame in the stream when the object was last inferred on. */
-  unsigned long last_inferred_frame_num;
-  /** Number of the frame in the stream when the object was last accessed. This
-   * is useful for clearing stale enteries in map of the object histories and
-   * keeping the size of the map in check. */
-  unsigned long last_accessed_frame_num;
-  /** Cached object information. */
-  NvDsPostProcessObjectInfo cached_info;
+typedef struct _NvDsPostProcessObjectHistory {
+    /** Boolean indicating if the object is already being inferred on. */
+    int under_inference;
+    /** Bounding box co-ordinates of the object when it was last inferred on. */
+    NvOSD_RectParams last_inferred_coords;
+    /** Number of the frame in the stream when the object was last inferred on. */
+    unsigned long last_inferred_frame_num;
+    /** Number of the frame in the stream when the object was last accessed. This
+     * is useful for clearing stale enteries in map of the object histories and
+     * keeping the size of the map in check. */
+    unsigned long last_accessed_frame_num;
+    /** Cached object information. */
+    NvDsPostProcessObjectInfo cached_info;
 } NvDsPostProcessObjectHistory;
 
 #endif

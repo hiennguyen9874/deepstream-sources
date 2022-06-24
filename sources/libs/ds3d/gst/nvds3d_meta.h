@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
  * property and proprietary rights in and to this material, related
@@ -27,27 +27,31 @@
 
 #define NVDS_3D_DATAMAP_META_TYPE (NvDsMetaType)((uint32_t)NVDS_GST_CUSTOM_META + 128)
 
-struct NvDs3DBuffer
-{
+struct NvDs3DBuffer {
     uint32_t magicID; // must be 'DS3D'
     ds3d::abiRefDataMap *datamap;
 };
 
 DS3D_EXTERN_C_BEGIN
 
-DS3D_EXPORT_API ds3d::ErrCode NvDs3D_CreateGstBuf(GstBuffer *&outBuf, ds3d::abiRefDataMap *datamap, bool takeOwner);
+DS3D_EXPORT_API ds3d::ErrCode NvDs3D_CreateGstBuf(GstBuffer *&outBuf,
+                                                  ds3d::abiRefDataMap *datamap,
+                                                  bool takeOwner);
 
-DS3D_EXPORT_API ds3d::ErrCode NvDs3D_CreateEmptyBatchMeta(
-    GstBuffer *buf, NvDsBatchMeta *&batchMeta, uint32_t maxBatch);
+DS3D_EXPORT_API ds3d::ErrCode NvDs3D_CreateEmptyBatchMeta(GstBuffer *buf,
+                                                          NvDsBatchMeta *&batchMeta,
+                                                          uint32_t maxBatch);
 
 DS3D_EXPORT_API bool NvDs3D_IsDs3DBuf(GstBuffer *buf);
 
-DS3D_EXPORT_API ds3d::ErrCode NvDs3D_BatchMeta_SetDataMapAsMeta(
-    NvDsBatchMeta *batchMeta, const ds3d::abiRefDataMap *datamap);
+DS3D_EXPORT_API ds3d::ErrCode NvDs3D_BatchMeta_SetDataMapAsMeta(NvDsBatchMeta *batchMeta,
+                                                                const ds3d::abiRefDataMap *datamap);
 
-DS3D_EXPORT_API ds3d::ErrCode NvDs3D_Find1stDataMap(GstBuffer *buf, const ds3d::abiRefDataMap *&datamap);
+DS3D_EXPORT_API ds3d::ErrCode NvDs3D_Find1stDataMap(GstBuffer *buf,
+                                                    const ds3d::abiRefDataMap *&datamap);
 
-DS3D_EXPORT_API ds3d::ErrCode NvDs3D_UpdateDataMap(GstBuffer *buf, const ds3d::abiRefDataMap *datamap);
+DS3D_EXPORT_API ds3d::ErrCode NvDs3D_UpdateDataMap(GstBuffer *buf,
+                                                   const ds3d::abiRefDataMap *datamap);
 
 DS3D_EXTERN_C_END
 

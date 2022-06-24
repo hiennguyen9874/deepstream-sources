@@ -25,47 +25,45 @@
 
 #include "post_processor.h"
 
-class SegmentationModelPostProcessor : public ModelPostProcessor
-{
-
+class SegmentationModelPostProcessor : public ModelPostProcessor {
 public:
-  SegmentationModelPostProcessor(int id, int gpuId = 0)
-      : ModelPostProcessor(NvDsPostProcessNetworkType_Segmentation, id, gpuId) {}
+    SegmentationModelPostProcessor(int id, int gpuId = 0)
+        : ModelPostProcessor(NvDsPostProcessNetworkType_Segmentation, id, gpuId)
+    {
+    }
 
-  ~SegmentationModelPostProcessor() override = default;
+    ~SegmentationModelPostProcessor() override = default;
 
-  NvDsPostProcessStatus
-  initResource(NvDsPostProcessContextInitParams &initParams) override;
+    NvDsPostProcessStatus initResource(NvDsPostProcessContextInitParams &initParams) override;
 
-  NvDsPostProcessStatus parseEachFrame(const std::vector<NvDsInferLayerInfo> &
-                                           outputLayers,
-                                       NvDsPostProcessFrameOutput &result) override;
+    NvDsPostProcessStatus parseEachFrame(const std::vector<NvDsInferLayerInfo> &outputLayers,
+                                         NvDsPostProcessFrameOutput &result) override;
 
-  void
-  attachMetadata(NvBufSurface *surf, gint batch_idx,
-                 NvDsBatchMeta *batch_meta,
-                 NvDsFrameMeta *frame_meta,
-                 NvDsObjectMeta *object_meta,
-                 NvDsObjectMeta *parent_obj_meta,
-                 NvDsPostProcessFrameOutput &detection_output,
-                 NvDsPostProcessDetectionParams *all_params,
-                 std::set<gint> &filterOutClassIds,
-                 int32_t unique_id,
-                 gboolean output_instance_mask,
-                 gboolean process_full_frame,
-                 float segmentationThreshold,
-                 gboolean maintain_aspect_ratio) override;
+    void attachMetadata(NvBufSurface *surf,
+                        gint batch_idx,
+                        NvDsBatchMeta *batch_meta,
+                        NvDsFrameMeta *frame_meta,
+                        NvDsObjectMeta *object_meta,
+                        NvDsObjectMeta *parent_obj_meta,
+                        NvDsPostProcessFrameOutput &detection_output,
+                        NvDsPostProcessDetectionParams *all_params,
+                        std::set<gint> &filterOutClassIds,
+                        int32_t unique_id,
+                        gboolean output_instance_mask,
+                        gboolean process_full_frame,
+                        float segmentationThreshold,
+                        gboolean maintain_aspect_ratio) override;
 
-  void releaseFrameOutput(NvDsPostProcessFrameOutput &frameOutput) override;
+    void releaseFrameOutput(NvDsPostProcessFrameOutput &frameOutput) override;
 
 private:
-  NvDsPostProcessStatus fillSegmentationOutput(
-      const std::vector<NvDsInferLayerInfo> &outputLayers,
-      NvDsPostProcessSegmentationOutput &output);
+    NvDsPostProcessStatus fillSegmentationOutput(
+        const std::vector<NvDsInferLayerInfo> &outputLayers,
+        NvDsPostProcessSegmentationOutput &output);
 
-  float m_SegmentationThreshold = 0.50;
-  NvDsPostProcessTensorOrder m_SegmentationOutputOrder = NvDsPostProcessTensorOrder_kNCHW;
-  uint32_t m_NumClasses = 0;
+    float m_SegmentationThreshold = 0.50;
+    NvDsPostProcessTensorOrder m_SegmentationOutputOrder = NvDsPostProcessTensorOrder_kNCHW;
+    uint32_t m_NumClasses = 0;
 };
 
 #endif

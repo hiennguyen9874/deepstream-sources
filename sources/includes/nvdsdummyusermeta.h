@@ -25,16 +25,13 @@
 
 #include <nvdsmeta.h>
 
-#define NVDS_DUMMY_BBOX_META \
-    (nvds_get_user_meta_type((gchar *)"NVIDIA.DUMMY.BBOX.META"))
+#define NVDS_DUMMY_BBOX_META (nvds_get_user_meta_type((gchar *)"NVIDIA.DUMMY.BBOX.META"))
 
-typedef enum _payload_type
-{
+typedef enum _payload_type {
     NVDS_PAYLOAD_TYPE_DUMMY_BBOX = NVDS_START_USER_META + 4096,
 } payload_type;
 
-typedef struct faceboxes
-{
+typedef struct faceboxes {
     float x;
     float y;
     float width;

@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
  * property and proprietary rights in and to this material, related
@@ -51,8 +51,7 @@
     fflush(stdout)
 
 #define LOG_DEBUG(fmt, ...)                                 \
-    if (ENABLE_DEBUG)                                       \
-    {                                                       \
+    if (ENABLE_DEBUG) {                                     \
         DS3D_LOG_PRINT_(stdout, DEBUG, fmt, ##__VA_ARGS__); \
     }
 
@@ -62,31 +61,26 @@
 
 // check ERROR
 #define DS3D_FAILED_RETURN(condition, ret, fmt, ...)         \
-    do                                                       \
-    {                                                        \
-        if (!(condition))                                    \
-        {                                                    \
+    do {                                                     \
+        if (!(condition)) {                                  \
             LOG_ERROR(fmt ", check failure", ##__VA_ARGS__); \
             return (ret);                                    \
         }                                                    \
     } while (0)
 
 #define DS3D_ERROR_RETURN(code, fmt, ...)                           \
-    do                                                              \
-    {                                                               \
+    do {                                                            \
         ErrCode __cd = (code);                                      \
         DS3D_FAILED_RETURN(isGood(__cd), __cd, fmt, ##__VA_ARGS__); \
     } while (0)
 
 #define DS3D_THROW_ERROR(statement, code, msg) \
-    if (!(statement))                          \
-    {                                          \
+    if (!(statement)) {                        \
         throwError(code, msg);                 \
     }
 
 #define DS3D_THROW_ERROR_FMT(statement, code, fmt, ...)           \
-    if (!(statement))                                             \
-    {                                                             \
+    if (!(statement)) {                                           \
         char __smsg[2048] = {0};                                  \
         snprintf(__smsg, sizeof(__smsg) - 1, fmt, ##__VA_ARGS__); \
         throwError(code, __smsg);                                 \
@@ -116,9 +110,7 @@
     }
 
 #define DS3D_EXPORT_API __attribute__((__visibility__("default")))
-#define DS3D_EXTERN_C_BEGIN \
-    extern "C"              \
-    {
+#define DS3D_EXTERN_C_BEGIN extern "C" {
 #define DS3D_EXTERN_C_END }
 
 #define DS3D_STR_PREFIX "DS3D::"

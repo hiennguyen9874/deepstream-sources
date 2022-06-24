@@ -23,19 +23,21 @@
 
 #include "post_processor_detect.h"
 
-extern "C" bool NvDsPostProcessParseCustomResnet(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-                                                 NvDsInferNetworkInfo const &networkInfo,
-                                                 NvDsPostProcessParseDetectionParams const &detectionParams,
-                                                 std::vector<NvDsPostProcessObjectDetectionInfo> &objectList);
+extern "C" bool NvDsPostProcessParseCustomResnet(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    NvDsPostProcessParseDetectionParams const &detectionParams,
+    std::vector<NvDsPostProcessObjectDetectionInfo> &objectList);
 
 /* This is a sample bounding box parsing function for the tensorflow SSD models
  * detector model provided with the SDK. */
 
 /* C-linkage to prevent name-mangling */
-extern "C" bool NvDsPostProcessParseCustomTfSSD(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-                                                NvDsInferNetworkInfo const &networkInfo,
-                                                NvDsPostProcessParseDetectionParams const &detectionParams,
-                                                std::vector<NvDsPostProcessObjectDetectionInfo> &objectList);
+extern "C" bool NvDsPostProcessParseCustomTfSSD(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    NvDsPostProcessParseDetectionParams const &detectionParams,
+    std::vector<NvDsPostProcessObjectDetectionInfo> &objectList);
 
 extern "C" bool NvDsPostProcessParseCustomNMSTLT(
     std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
@@ -55,10 +57,11 @@ extern "C" bool NvDsPostProcessParseCustomFasterRCNN(
     NvDsPostProcessParseDetectionParams const &detectionParams,
     std::vector<NvDsPostProcessObjectDetectionInfo> &objectList);
 
-extern "C" bool NvDsPostProcessParseCustomSSD(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-                                              NvDsInferNetworkInfo const &networkInfo,
-                                              NvDsPostProcessParseDetectionParams const &detectionParams,
-                                              std::vector<NvDsPostProcessObjectDetectionInfo> &objectList);
+extern "C" bool NvDsPostProcessParseCustomSSD(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    NvDsPostProcessParseDetectionParams const &detectionParams,
+    std::vector<NvDsPostProcessObjectDetectionInfo> &objectList);
 
 extern "C" bool NvDsPostProcessParseCustomYoloV3(
     std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
@@ -89,7 +92,8 @@ using namespace std;
 /**
  * Attach metadata for the detector. We will be adding a new metadata.
  */
-void DetectModelPostProcessor::attachMetadata(NvBufSurface *surf, gint batch_idx,
+void DetectModelPostProcessor::attachMetadata(NvBufSurface *surf,
+                                              gint batch_idx,
                                               NvDsBatchMeta *batch_meta,
                                               NvDsFrameMeta *frame_meta,
                                               NvDsObjectMeta *object_meta,
@@ -108,32 +112,24 @@ void DetectModelPostProcessor::attachMetadata(NvBufSurface *surf, gint batch_idx
     nvds_acquire_meta_lock(batch_meta);
     gint surf_width = surf->surfaceList[batch_idx].width;
     gint surf_height = surf->surfaceList[batch_idx].height;
-    float scale_x =
-        (float)surf_width / (float)m_NetworkInfo.width;
-    float scale_y =
-        (float)surf_height / (float)m_NetworkInfo.height;
+    float scale_x = (float)surf_width / (float)m_NetworkInfo.width;
+    float scale_y = (float)surf_height / (float)m_NetworkInfo.height;
 
     // FIXME: Get preprocess data and scale ROI
 
     frame_meta->bInferDone = TRUE;
     /* Iterate through the inference output for one frame and attach the detected
      * bnounding boxes. */
-    for (guint i = 0; i < detection_output.detectionOutput.numObjects; i++)
-    {
+    for (guint i = 0; i < detection_output.detectionOutput.numObjects; i++) {
         NvDsPostProcessObject &obj = detection_output.detectionOutput.objects[i];
-        NvDsPostProcessDetectionParams &filter_params =
-            all_params[obj.classIndex];
+        NvDsPostProcessDetectionParams &filter_params = all_params[obj.classIndex];
 
         /* Scale the bounding boxes proportionally based on how the object/frame was
          * scaled during input. */
-        if (maintain_aspect_ratio)
-        {
-            if (scale_x > scale_y)
-            {
+        if (maintain_aspect_ratio) {
+            if (scale_x > scale_y) {
                 scale_y = scale_x;
-            }
-            else
-            {
+            } else {
                 scale_x = scale_y;
             }
         }
@@ -150,16 +146,13 @@ void DetectModelPostProcessor::attachMetadata(NvBufSurface *surf, gint batch_idx
             continue;
         if (obj.height < filter_params.detectionMinHeight)
             continue;
-        if (filter_params.detectionMaxWidth > 0 &&
-            obj.width > filter_params.detectionMaxWidth)
+        if (filter_params.detectionMaxWidth > 0 && obj.width > filter_params.detectionMaxWidth)
             continue;
-        if (filter_params.detectionMaxHeight > 0 &&
-            obj.height > filter_params.detectionMaxHeight)
+        if (filter_params.detectionMaxHeight > 0 && obj.height > filter_params.detectionMaxHeight)
             continue;
         if (obj.top < filter_params.roiTopOffset)
             continue;
-        if (obj.top + obj.height >
-            (surf_height - filter_params.roiBottomOffset))
+        if (obj.top + obj.height > (surf_height - filter_params.roiBottomOffset))
             continue;
         obj_meta = nvds_acquire_obj_meta_from_pool(batch_meta);
 
@@ -180,8 +173,7 @@ void DetectModelPostProcessor::attachMetadata(NvBufSurface *surf, gint batch_idx
         rect_params.width = obj.width;
         rect_params.height = obj.height;
 
-        if (process_full_frame == PROCESS_MODEL_OBJECTS)
-        {
+        if (process_full_frame == PROCESS_MODEL_OBJECTS) {
             rect_params.left += parent_obj_meta->rect_params.left;
             rect_params.top += parent_obj_meta->rect_params.top;
         }
@@ -208,16 +200,13 @@ void DetectModelPostProcessor::attachMetadata(NvBufSurface *surf, gint batch_idx
         text_params.y_offset = rect_params.top - 10;
         /* Set black background for the text. */
         text_params.set_bg_clr = 1;
-        text_params.text_bg_clr = (NvOSD_ColorParams){
-            0, 0, 0, 1};
+        text_params.text_bg_clr = (NvOSD_ColorParams){0, 0, 0, 1};
         /* Font face, size and color. */
         text_params.font_params.font_name = font_name;
         text_params.font_params.font_size = 11;
-        text_params.font_params.font_color = (NvOSD_ColorParams){
-            1, 1, 1, 1};
+        text_params.font_params.font_color = (NvOSD_ColorParams){1, 1, 1, 1};
 
-        if (output_instance_mask && obj.mask)
-        {
+        if (output_instance_mask && obj.mask) {
             float *mask = (float *)g_malloc(obj.mask_size);
             memcpy(mask, obj.mask, obj.mask_size);
             obj_meta->mask_params.data = mask;
@@ -232,77 +221,50 @@ void DetectModelPostProcessor::attachMetadata(NvBufSurface *surf, gint batch_idx
     nvds_release_meta_lock(batch_meta);
 }
 
-NvDsPostProcessStatus
-DetectModelPostProcessor::initResource(NvDsPostProcessContextInitParams &initParams)
+NvDsPostProcessStatus DetectModelPostProcessor::initResource(
+    NvDsPostProcessContextInitParams &initParams)
 {
     ModelPostProcessor::initResource(initParams),
 
         m_ClusterMode = initParams.clusterMode;
 
     m_NumDetectedClasses = initParams.numDetectedClasses;
-    if (initParams.numDetectedClasses > 0 &&
-        initParams.perClassDetectionParams == nullptr)
-    {
+    if (initParams.numDetectedClasses > 0 && initParams.perClassDetectionParams == nullptr) {
         printError(
             "NumDetectedClasses > 0 but PerClassDetectionParams array not "
             "specified");
         return NVDSPOSTPROCESS_CONFIG_FAILED;
     }
 
-    if (!string_empty(initParams.customBBoxParseFuncName))
-    {
-        if (!strcmp("NvDsPostProcessParseCustomResnet",
-                    initParams.customBBoxParseFuncName))
-        {
+    if (!string_empty(initParams.customBBoxParseFuncName)) {
+        if (!strcmp("NvDsPostProcessParseCustomResnet", initParams.customBBoxParseFuncName)) {
             m_CustomBBoxParseFunc = NvDsPostProcessParseCustomResnet;
-        }
-        else if (!strcmp("NvDsPostProcessParseCustomTfSSD",
-                         initParams.customBBoxParseFuncName))
-        {
+        } else if (!strcmp("NvDsPostProcessParseCustomTfSSD", initParams.customBBoxParseFuncName)) {
             m_CustomBBoxParseFunc = NvDsPostProcessParseCustomTfSSD;
-        }
-        else if (!strcmp("NvDsPostProcessParseCustomNMSTLT",
-                         initParams.customBBoxParseFuncName))
-        {
+        } else if (!strcmp("NvDsPostProcessParseCustomNMSTLT",
+                           initParams.customBBoxParseFuncName)) {
             m_CustomBBoxParseFunc = NvDsPostProcessParseCustomNMSTLT;
-        }
-        else if (!strcmp("NvDsPostProcessParseCustomBatchedNMSTLT",
-                         initParams.customBBoxParseFuncName))
-        {
+        } else if (!strcmp("NvDsPostProcessParseCustomBatchedNMSTLT",
+                           initParams.customBBoxParseFuncName)) {
             m_CustomBBoxParseFunc = NvDsPostProcessParseCustomBatchedNMSTLT;
-        }
-        else if (!strcmp("NvDsPostProcessParseCustomFasterRCNN",
-                         initParams.customBBoxParseFuncName))
-        {
+        } else if (!strcmp("NvDsPostProcessParseCustomFasterRCNN",
+                           initParams.customBBoxParseFuncName)) {
             m_CustomBBoxParseFunc = NvDsPostProcessParseCustomFasterRCNN;
-        }
-        else if (!strcmp("NvDsPostProcessParseCustomSSD",
-                         initParams.customBBoxParseFuncName))
-        {
+        } else if (!strcmp("NvDsPostProcessParseCustomSSD", initParams.customBBoxParseFuncName)) {
             m_CustomBBoxParseFunc = NvDsPostProcessParseCustomSSD;
-        }
-        else if (!strcmp("NvDsPostProcessParseCustomYoloV3",
-                         initParams.customBBoxParseFuncName))
-        {
+        } else if (!strcmp("NvDsPostProcessParseCustomYoloV3",
+                           initParams.customBBoxParseFuncName)) {
             m_CustomBBoxParseFunc = NvDsPostProcessParseCustomYoloV3;
-        }
-        else if (!strcmp("NvDsPostProcessParseCustomYoloV3Tiny",
-                         initParams.customBBoxParseFuncName))
-        {
+        } else if (!strcmp("NvDsPostProcessParseCustomYoloV3Tiny",
+                           initParams.customBBoxParseFuncName)) {
             m_CustomBBoxParseFunc = NvDsPostProcessParseCustomYoloV3Tiny;
-        }
-        else if (!strcmp("NvDsPostProcessParseCustomYoloV2",
-                         initParams.customBBoxParseFuncName))
-        {
+        } else if (!strcmp("NvDsPostProcessParseCustomYoloV2",
+                           initParams.customBBoxParseFuncName)) {
             m_CustomBBoxParseFunc = NvDsPostProcessParseCustomYoloV2;
-        }
-        else if (!strcmp("NvDsPostProcessParseCustomYoloV2Tiny",
-                         initParams.customBBoxParseFuncName))
-        {
+        } else if (!strcmp("NvDsPostProcessParseCustomYoloV2Tiny",
+                           initParams.customBBoxParseFuncName)) {
             m_CustomBBoxParseFunc = NvDsPostProcessParseCustomYoloV2Tiny;
-        }
-        else
-        {
+        } else {
             printError(
                 "Custom parsing function %s not present "
                 "specified",
@@ -313,17 +275,16 @@ DetectModelPostProcessor::initResource(NvDsPostProcessContextInitParams &initPar
 
 #ifndef WITH_OPENCV
     if (initParams.clusterMode == NVDSPOSTPROCESS_CLUSTER_GROUP_RECTANGLES &&
-        initParams.networkType == NvDsPostProcessNetworkType_Detector)
-    {
+        initParams.networkType == NvDsPostProcessNetworkType_Detector) {
         initParams.clusterMode = NVDSPOSTPROCESS_CLUSTER_NMS;
-        for (unsigned int i = 0; i < initParams.numDetectedClasses &&
-                                 initParams.perClassDetectionParams;
-             i++)
-        {
+        for (unsigned int i = 0;
+             i < initParams.numDetectedClasses && initParams.perClassDetectionParams; i++) {
             initParams.perClassDetectionParams[i].topK = 20;
             initParams.perClassDetectionParams[i].nmsIOUThreshold = 0.5;
         }
-        printWarning("Warning, OpenCV has been deprecated. Using NMS for clustering instead of cv::groupRectangles with topK = 20 and NMS Threshold = 0.5");
+        printWarning(
+            "Warning, OpenCV has been deprecated. Using NMS for clustering instead of "
+            "cv::groupRectangles with topK = 20 and NMS Threshold = 0.5");
     }
 #endif
 
@@ -336,16 +297,14 @@ DetectModelPostProcessor::initResource(NvDsPostProcessContextInitParams &initPar
     /* Resize the per class vector to the number of detected classes. */
     m_PerClassObjectList.resize(initParams.numDetectedClasses);
 #ifdef WITH_OPENCV
-    if (m_ClusterMode == NVDSPOSTPROCESS_CLUSTER_GROUP_RECTANGLES)
-    {
+    if (m_ClusterMode == NVDSPOSTPROCESS_CLUSTER_GROUP_RECTANGLES) {
         m_PerClassCvRectList.resize(initParams.numDetectedClasses);
     }
 #endif
 
     /* Fill the class thresholds in the m_DetectionParams structure. This
      * will be required during parsing. */
-    for (unsigned int i = 0; i < initParams.numDetectedClasses; i++)
-    {
+    for (unsigned int i = 0; i < initParams.numDetectedClasses; i++) {
         m_DetectionParams.perClassPreclusterThreshold[i] =
             m_PerClassDetectionParams[i].preClusterThreshold;
         m_DetectionParams.perClassPostclusterThreshold[i] =
@@ -353,15 +312,12 @@ DetectModelPostProcessor::initResource(NvDsPostProcessContextInitParams &initPar
     }
 
     if (m_ClusterMode == NVDSPOSTPROCESS_CLUSTER_DBSCAN ||
-        m_ClusterMode == NVDSPOSTPROCESS_CLUSTER_DBSCAN_NMS_HYBRID)
-    {
-        m_DBScanHandle.reset(
-            NvDsInferDBScanCreate(), [](NvDsInferDBScanHandle handle)
-            {
-                if (handle)
-                    NvDsInferDBScanDestroy(handle); });
-        if (!m_DBScanHandle)
-        {
+        m_ClusterMode == NVDSPOSTPROCESS_CLUSTER_DBSCAN_NMS_HYBRID) {
+        m_DBScanHandle.reset(NvDsInferDBScanCreate(), [](NvDsInferDBScanHandle handle) {
+            if (handle)
+                NvDsInferDBScanDestroy(handle);
+        });
+        if (!m_DBScanHandle) {
             printf("Detect-postprocessor failed to create dbscan handle");
             return NVDSPOSTPROCESS_RESOURCE_ERROR;
         }
@@ -370,8 +326,7 @@ DetectModelPostProcessor::initResource(NvDsPostProcessContextInitParams &initPar
     return NVDSPOSTPROCESS_SUCCESS;
 }
 
-NvDsPostProcessStatus
-DetectModelPostProcessor::parseEachFrame(
+NvDsPostProcessStatus DetectModelPostProcessor::parseEachFrame(
     const std::vector<NvDsInferLayerInfo> &outputLayers,
     NvDsPostProcessFrameOutput &result)
 {
@@ -380,50 +335,41 @@ DetectModelPostProcessor::parseEachFrame(
     return NVDSPOSTPROCESS_SUCCESS;
 }
 
-bool DetectModelPostProcessor::parseBoundingBox(vector<NvDsInferLayerInfo> const &outputLayersInfo,
-                                                NvDsInferNetworkInfo const &networkInfo,
-                                                NvDsPostProcessParseDetectionParams const &detectionParams,
-                                                vector<NvDsPostProcessObjectDetectionInfo> &objectList)
+bool DetectModelPostProcessor::parseBoundingBox(
+    vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    NvDsPostProcessParseDetectionParams const &detectionParams,
+    vector<NvDsPostProcessObjectDetectionInfo> &objectList)
 {
-
     int outputCoverageLayerIndex = -1;
     int outputBBoxLayerIndex = -1;
 
-    for (unsigned int i = 0; i < outputLayersInfo.size(); i++)
-    {
-        if (strstr(outputLayersInfo[i].layerName, "bbox") != nullptr)
-        {
+    for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
+        if (strstr(outputLayersInfo[i].layerName, "bbox") != nullptr) {
             outputBBoxLayerIndex = i;
         }
-        if (strstr(outputLayersInfo[i].layerName, "cov") != nullptr)
-        {
+        if (strstr(outputLayersInfo[i].layerName, "cov") != nullptr) {
             outputCoverageLayerIndex = i;
         }
     }
 
-    if (outputCoverageLayerIndex == -1)
-    {
+    if (outputCoverageLayerIndex == -1) {
         printf("Could not find output coverage layer for parsing objects");
         return false;
     }
-    if (outputBBoxLayerIndex == -1)
-    {
+    if (outputBBoxLayerIndex == -1) {
         printf("Could not find output bbox layer for parsing objects");
         return false;
     }
 
-    float *outputCoverageBuffer =
-        (float *)outputLayersInfo[outputCoverageLayerIndex].buffer;
-    float *outputBboxBuffer =
-        (float *)outputLayersInfo[outputBBoxLayerIndex].buffer;
+    float *outputCoverageBuffer = (float *)outputLayersInfo[outputCoverageLayerIndex].buffer;
+    float *outputBboxBuffer = (float *)outputLayersInfo[outputBBoxLayerIndex].buffer;
 
     NvDsInferDimsCHW outputCoverageDims;
     NvDsInferDimsCHW outputBBoxDims;
 
-    getDimsCHWFromDims(outputCoverageDims,
-                       outputLayersInfo[outputCoverageLayerIndex].inferDims);
-    getDimsCHWFromDims(
-        outputBBoxDims, outputLayersInfo[outputBBoxLayerIndex].inferDims);
+    getDimsCHWFromDims(outputCoverageDims, outputLayersInfo[outputCoverageLayerIndex].inferDims);
+    getDimsCHWFromDims(outputBBoxDims, outputLayersInfo[outputBBoxLayerIndex].inferDims);
 
     unsigned int targetShape[2] = {outputCoverageDims.w, outputCoverageDims.h};
     float bboxNorm[2] = {35.0, 35.0};
@@ -433,25 +379,21 @@ bool DetectModelPostProcessor::parseBoundingBox(vector<NvDsInferLayerInfo> const
     int strideX = DIVIDE_AND_ROUND_UP(networkInfo.width, outputBBoxDims.w);
     int strideY = DIVIDE_AND_ROUND_UP(networkInfo.height, outputBBoxDims.h);
 
-    for (unsigned int i = 0; i < targetShape[0]; i++)
-    {
+    for (unsigned int i = 0; i < targetShape[0]; i++) {
         gcCenters0[i] = (float)(i * strideX + 0.5);
         gcCenters0[i] /= (float)bboxNorm[0];
     }
-    for (unsigned int i = 0; i < targetShape[1]; i++)
-    {
+    for (unsigned int i = 0; i < targetShape[1]; i++) {
         gcCenters1[i] = (float)(i * strideY + 0.5);
         gcCenters1[i] /= (float)bboxNorm[1];
     }
 
-    unsigned int numClasses =
-        std::min(outputCoverageDims.c, detectionParams.numClassesConfigured);
-    for (unsigned int classIndex = 0; classIndex < numClasses; classIndex++)
-    {
-
+    unsigned int numClasses = std::min(outputCoverageDims.c, detectionParams.numClassesConfigured);
+    for (unsigned int classIndex = 0; classIndex < numClasses; classIndex++) {
         /* Pointers to memory regions containing the (x1,y1) and (x2,y2) coordinates
          * of rectangles in the output bounding box layer. */
-        float *outputX1 = outputBboxBuffer + classIndex * sizeof(float) * outputBBoxDims.h * outputBBoxDims.w;
+        float *outputX1 =
+            outputBboxBuffer + classIndex * sizeof(float) * outputBBoxDims.h * outputBBoxDims.w;
 
         float *outputY1 = outputX1 + gridSize;
         float *outputX2 = outputY1 + gridSize;
@@ -459,10 +401,8 @@ bool DetectModelPostProcessor::parseBoundingBox(vector<NvDsInferLayerInfo> const
 
         /* Iterate through each point in the grid and check if the rectangle at that
          * point meets the minimum threshold criteria. */
-        for (unsigned int h = 0; h < outputCoverageDims.h; h++)
-        {
-            for (unsigned int w = 0; w < outputCoverageDims.w; w++)
-            {
+        for (unsigned int h = 0; h < outputCoverageDims.h; h++) {
+            for (unsigned int w = 0; w < outputCoverageDims.w; w++) {
                 int i = w + h * outputCoverageDims.w;
                 float confidence = outputCoverageBuffer[classIndex * gridSize + i];
 
@@ -472,14 +412,10 @@ bool DetectModelPostProcessor::parseBoundingBox(vector<NvDsInferLayerInfo> const
                 float rectX1Float, rectY1Float, rectX2Float, rectY2Float;
 
                 /* Centering and normalization of the rectangle. */
-                rectX1Float =
-                    outputX1[w + h * outputCoverageDims.w] - gcCenters0[w];
-                rectY1Float =
-                    outputY1[w + h * outputCoverageDims.w] - gcCenters1[h];
-                rectX2Float =
-                    outputX2[w + h * outputCoverageDims.w] + gcCenters0[w];
-                rectY2Float =
-                    outputY2[w + h * outputCoverageDims.w] + gcCenters1[h];
+                rectX1Float = outputX1[w + h * outputCoverageDims.w] - gcCenters0[w];
+                rectY1Float = outputY1[w + h * outputCoverageDims.w] - gcCenters1[h];
+                rectX2Float = outputX2[w + h * outputCoverageDims.w] + gcCenters0[w];
+                rectY2Float = outputY2[w + h * outputCoverageDims.w] + gcCenters1[h];
 
                 rectX1Float *= -bboxNorm[0];
                 rectY1Float *= -bboxNorm[1];
@@ -509,9 +445,9 @@ bool DetectModelPostProcessor::parseBoundingBox(vector<NvDsInferLayerInfo> const
                 if (((rectX2Float - rectX1Float) < 0) || ((rectY2Float - rectY1Float) < 0))
                     continue;
 
-                objectList.push_back({classIndex, rectX1Float,
-                                      rectY1Float, (rectX2Float - rectX1Float),
-                                      (rectY2Float - rectY1Float), confidence});
+                objectList.push_back({classIndex, rectX1Float, rectY1Float,
+                                      (rectX2Float - rectX1Float), (rectY2Float - rectY1Float),
+                                      confidence});
             }
         }
     }
@@ -526,52 +462,56 @@ void DetectModelPostProcessor::preClusteringThreshold(
     NvDsPostProcessParseDetectionParams const &detectionParams,
     std::vector<NvDsPostProcessObjectDetectionInfo> &objectList)
 {
-    objectList.erase(std::remove_if(objectList.begin(), objectList.end(),
-                                    [detectionParams](const NvDsPostProcessObjectDetectionInfo &obj)
-                                    { return (obj.classId >= detectionParams.numClassesConfigured) ||
-                                                     (obj.detectionConfidence <
-                                                      detectionParams.perClassPreclusterThreshold[obj.classId])
-                                                 ? true
-                                                 : false; }),
-                     objectList.end());
+    objectList.erase(
+        std::remove_if(objectList.begin(), objectList.end(),
+                       [detectionParams](const NvDsPostProcessObjectDetectionInfo &obj) {
+                           return (obj.classId >= detectionParams.numClassesConfigured) ||
+                                          (obj.detectionConfidence <
+                                           detectionParams.perClassPreclusterThreshold[obj.classId])
+                                      ? true
+                                      : false;
+                       }),
+        objectList.end());
 }
 
 /**
  * Filter out the top k objects with the highest probability and ignore the
  * rest
  */
-void DetectModelPostProcessor::filterTopKOutputs(const int topK,
-                                                 std::vector<NvDsPostProcessObjectDetectionInfo> &objectList)
+void DetectModelPostProcessor::filterTopKOutputs(
+    const int topK,
+    std::vector<NvDsPostProcessObjectDetectionInfo> &objectList)
 {
     if (topK < 0)
         return;
 
     std::stable_sort(objectList.begin(), objectList.end(),
                      [](const NvDsPostProcessObjectDetectionInfo &obj1,
-                        const NvDsPostProcessObjectDetectionInfo &obj2)
-                     { return obj1.detectionConfidence > obj2.detectionConfidence; });
+                        const NvDsPostProcessObjectDetectionInfo &obj2) {
+                         return obj1.detectionConfidence > obj2.detectionConfidence;
+                     });
     objectList.resize(static_cast<size_t>(topK) <= objectList.size() ? topK : objectList.size());
 }
 
-std::vector<int>
-DetectModelPostProcessor::nonMaximumSuppression(std::vector<std::pair<float, int>> &scoreIndex,
-                                                std::vector<NvDsPostProcessParseObjectInfo> &bbox,
-                                                const float nmsThreshold)
+std::vector<int> DetectModelPostProcessor::nonMaximumSuppression(
+    std::vector<std::pair<float, int>> &scoreIndex,
+    std::vector<NvDsPostProcessParseObjectInfo> &bbox,
+    const float nmsThreshold)
 {
-    auto overlap1D = [](float x1min, float x1max, float x2min, float x2max) -> float
-    {
-        if (x1min > x2min)
-        {
+    auto overlap1D = [](float x1min, float x1max, float x2min, float x2max) -> float {
+        if (x1min > x2min) {
             std::swap(x1min, x2min);
             std::swap(x1max, x2max);
         }
         return x1max < x2min ? 0 : std::min(x1max, x2max) - x2min;
     };
 
-    auto computeIoU = [&overlap1D](NvDsPostProcessParseObjectInfo &bbox1, NvDsPostProcessParseObjectInfo &bbox2) -> float
-    {
-        float overlapX = overlap1D(bbox1.left, bbox1.left + bbox1.width, bbox2.left, bbox2.left + bbox2.width);
-        float overlapY = overlap1D(bbox1.top, bbox1.top + bbox1.height, bbox2.top, bbox2.top + bbox2.height);
+    auto computeIoU = [&overlap1D](NvDsPostProcessParseObjectInfo &bbox1,
+                                   NvDsPostProcessParseObjectInfo &bbox2) -> float {
+        float overlapX =
+            overlap1D(bbox1.left, bbox1.left + bbox1.width, bbox2.left, bbox2.left + bbox2.width);
+        float overlapY =
+            overlap1D(bbox1.top, bbox1.top + bbox1.height, bbox2.top, bbox2.top + bbox2.height);
         float area1 = (bbox1.width) * (bbox1.height);
         float area2 = (bbox2.width) * (bbox2.height);
         float overlap2D = overlapX * overlapY;
@@ -580,25 +520,19 @@ DetectModelPostProcessor::nonMaximumSuppression(std::vector<std::pair<float, int
     };
 
     std::vector<int> indices;
-    for (auto i : scoreIndex)
-    {
+    for (auto i : scoreIndex) {
         const int idx = i.second;
         bool keep = true;
-        for (unsigned k = 0; k < indices.size(); ++k)
-        {
-            if (keep)
-            {
+        for (unsigned k = 0; k < indices.size(); ++k) {
+            if (keep) {
                 const int kept_idx = indices[k];
                 float overlap = computeIoU(bbox.at(idx), bbox.at(kept_idx));
                 keep = overlap <= nmsThreshold;
-            }
-            else
-            {
+            } else {
                 break;
             }
         }
-        if (keep)
-        {
+        if (keep) {
             indices.push_back(idx);
         }
     }
@@ -606,54 +540,54 @@ DetectModelPostProcessor::nonMaximumSuppression(std::vector<std::pair<float, int
 }
 
 /** Cluster objects using Non Max Suppression */
-void DetectModelPostProcessor::clusterAndFillDetectionOutputNMS(NvDsPostProcessDetectionOutput &output)
+void DetectModelPostProcessor::clusterAndFillDetectionOutputNMS(
+    NvDsPostProcessDetectionOutput &output)
 {
     auto maxComp = [](const std::vector<NvDsPostProcessObjectDetectionInfo> &c1,
-                      const std::vector<NvDsPostProcessObjectDetectionInfo> &c2) -> bool
-    { return c1.size() < c2.size(); };
+                      const std::vector<NvDsPostProcessObjectDetectionInfo> &c2) -> bool {
+        return c1.size() < c2.size();
+    };
 
     std::vector<std::pair<float, int>> scoreIndex;
     std::vector<NvDsPostProcessObjectDetectionInfo> clusteredBboxes;
-    auto maxElement = *std::max_element(m_PerClassObjectList.begin(),
-                                        m_PerClassObjectList.end(), maxComp);
+    auto maxElement =
+        *std::max_element(m_PerClassObjectList.begin(), m_PerClassObjectList.end(), maxComp);
     clusteredBboxes.reserve(maxElement.size() * m_NumDetectedClasses);
 
-    for (unsigned int c = 0; c < m_NumDetectedClasses; c++)
-    {
-        if (!m_PerClassObjectList[c].empty())
-        {
+    for (unsigned int c = 0; c < m_NumDetectedClasses; c++) {
+        if (!m_PerClassObjectList[c].empty()) {
             scoreIndex.reserve(m_PerClassObjectList[c].size());
             scoreIndex.clear();
-            for (size_t r = 0; r < m_PerClassObjectList[c].size(); ++r)
-            {
-                scoreIndex.emplace_back(std::make_pair(m_PerClassObjectList[c][r].detectionConfidence, r));
+            for (size_t r = 0; r < m_PerClassObjectList[c].size(); ++r) {
+                scoreIndex.emplace_back(
+                    std::make_pair(m_PerClassObjectList[c][r].detectionConfidence, r));
             }
-            std::stable_sort(scoreIndex.begin(), scoreIndex.end(),
-                             [](const std::pair<float, int> &pair1, const std::pair<float, int> &pair2)
-                             { return pair1.first > pair2.first; });
+            std::stable_sort(
+                scoreIndex.begin(), scoreIndex.end(),
+                [](const std::pair<float, int> &pair1, const std::pair<float, int> &pair2) {
+                    return pair1.first > pair2.first;
+                });
             // Apply NMS algorithm
-            const std::vector<int> indices = nonMaximumSuppression(scoreIndex, m_PerClassObjectList[c],
-                                                                   m_PerClassDetectionParams[c].nmsIOUThreshold);
+            const std::vector<int> indices = nonMaximumSuppression(
+                scoreIndex, m_PerClassObjectList[c], m_PerClassDetectionParams[c].nmsIOUThreshold);
 
             std::vector<NvDsPostProcessObjectDetectionInfo> postNMSBboxes;
-            for (auto idx : indices)
-            {
+            for (auto idx : indices) {
                 if (m_PerClassObjectList[c][idx].detectionConfidence >
-                    m_PerClassDetectionParams[c].postClusterThreshold)
-                {
+                    m_PerClassDetectionParams[c].postClusterThreshold) {
                     postNMSBboxes.emplace_back(m_PerClassObjectList[c][idx]);
                 }
             }
             filterTopKOutputs(m_PerClassDetectionParams.at(c).topK, postNMSBboxes);
-            clusteredBboxes.insert(clusteredBboxes.end(), postNMSBboxes.begin(), postNMSBboxes.end());
+            clusteredBboxes.insert(clusteredBboxes.end(), postNMSBboxes.begin(),
+                                   postNMSBboxes.end());
         }
     }
 
     output.objects = new NvDsPostProcessObject[clusteredBboxes.size()];
     output.numObjects = 0;
 
-    for (uint i = 0; i < clusteredBboxes.size(); ++i)
-    {
+    for (uint i = 0; i < clusteredBboxes.size(); ++i) {
         NvDsPostProcessObject &object = output.objects[output.numObjects];
         object.left = clusteredBboxes[i].left;
         object.top = clusteredBboxes[i].top;
@@ -662,7 +596,8 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputNMS(NvDsPostProcessD
         object.classIndex = clusteredBboxes[i].classId;
         object.label = nullptr;
         object.mask = nullptr;
-        if (object.classIndex < static_cast<int>(m_Labels.size()) && m_Labels[object.classIndex].size() > 0)
+        if (object.classIndex < static_cast<int>(m_Labels.size()) &&
+            m_Labels[object.classIndex].size() > 0)
             object.label = strdup(m_Labels[object.classIndex][0].c_str());
         object.confidence = clusteredBboxes[i].detectionConfidence;
         output.numObjects++;
@@ -673,7 +608,8 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputNMS(NvDsPostProcessD
 /**
  * Cluster objects using OpenCV groupRectangles and fill the output structure.
  */
-void DetectModelPostProcessor::clusterAndFillDetectionOutputCV(NvDsPostProcessDetectionOutput &output)
+void DetectModelPostProcessor::clusterAndFillDetectionOutputCV(
+    NvDsPostProcessDetectionOutput &output)
 {
     size_t totalObjects = 0;
 
@@ -682,14 +618,12 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputCV(NvDsPostProcessDe
 
     /* The above functions will add all objects in the m_ObjectList vector.
      * Need to seperate them per class for grouping. */
-    for (auto &object : m_ObjectList)
-    {
-        m_PerClassCvRectList[object.classId].emplace_back(object.left,
-                                                          object.top, object.width, object.height);
+    for (auto &object : m_ObjectList) {
+        m_PerClassCvRectList[object.classId].emplace_back(object.left, object.top, object.width,
+                                                          object.height);
     }
 
-    for (unsigned int c = 0; c < m_NumDetectedClasses; c++)
-    {
+    for (unsigned int c = 0; c < m_NumDetectedClasses; c++) {
         /* Cluster together rectangles with similar locations and sizes
          * since these rectangles might represent the same object. Refer
          * to opencv documentation of groupRectangles for more
@@ -704,12 +638,10 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputCV(NvDsPostProcessDe
     output.objects = new NvDsPostProcessObject[totalObjects];
     output.numObjects = 0;
 
-    for (unsigned int c = 0; c < m_NumDetectedClasses; c++)
-    {
+    for (unsigned int c = 0; c < m_NumDetectedClasses; c++) {
         /* Add coordinates and class ID and the label of all objects
          * detected in the frame to the frame output. */
-        for (auto &rect : m_PerClassCvRectList[c])
-        {
+        for (auto &rect : m_PerClassCvRectList[c]) {
             NvDsPostProcessObject &object = output.objects[output.numObjects];
             object.left = rect.x;
             object.top = rect.y;
@@ -730,7 +662,8 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputCV(NvDsPostProcessDe
 /**
  * Cluster objects using DBSCAN and fill the output structure.
  */
-void DetectModelPostProcessor::clusterAndFillDetectionOutputDBSCAN(NvDsPostProcessDetectionOutput &output)
+void DetectModelPostProcessor::clusterAndFillDetectionOutputDBSCAN(
+    NvDsPostProcessDetectionOutput &output)
 {
     size_t totalObjects = 0;
     NvDsInferDBScanClusteringParams clusteringParams;
@@ -738,8 +671,7 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputDBSCAN(NvDsPostProce
     clusteringParams.thresholdATHR = ATHR_THRESHOLD;
     assert(m_DBScanHandle);
 
-    for (unsigned int c = 0; c < m_NumDetectedClasses; c++)
-    {
+    for (unsigned int c = 0; c < m_NumDetectedClasses; c++) {
         NvDsInferObjectDetectionInfo *objArray =
             (NvDsInferObjectDetectionInfo *)(m_PerClassObjectList[c].data());
         size_t numObjects = m_PerClassObjectList[c].size();
@@ -752,20 +684,18 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputDBSCAN(NvDsPostProce
         /* Cluster together rectangles with similar locations and sizes
          * since these rectangles might represent the same object using
          * DBSCAN. */
-        if (detectionParams.minBoxes > 0)
-        {
-            NvDsInferDBScanCluster(
-                m_DBScanHandle.get(), &clusteringParams, objArray, &numObjects);
+        if (detectionParams.minBoxes > 0) {
+            NvDsInferDBScanCluster(m_DBScanHandle.get(), &clusteringParams, objArray, &numObjects);
         }
         m_PerClassObjectList[c].resize(numObjects);
-        m_PerClassObjectList[c].erase(std::remove_if(m_PerClassObjectList[c].begin(),
-                                                     m_PerClassObjectList[c].end(),
-                                                     [detectionParams](const NvDsPostProcessObjectDetectionInfo &obj)
-                                                     { return (obj.detectionConfidence <
-                                                               detectionParams.postClusterThreshold)
-                                                                  ? true
-                                                                  : false; }),
-                                      m_PerClassObjectList[c].end());
+        m_PerClassObjectList[c].erase(
+            std::remove_if(
+                m_PerClassObjectList[c].begin(), m_PerClassObjectList[c].end(),
+                [detectionParams](const NvDsPostProcessObjectDetectionInfo &obj) {
+                    return (obj.detectionConfidence < detectionParams.postClusterThreshold) ? true
+                                                                                            : false;
+                }),
+            m_PerClassObjectList[c].end());
         filterTopKOutputs(m_PerClassDetectionParams.at(c).topK, m_PerClassObjectList.at(c));
         totalObjects += m_PerClassObjectList[c].size();
     }
@@ -773,12 +703,10 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputDBSCAN(NvDsPostProce
     output.objects = new NvDsPostProcessObject[totalObjects];
     output.numObjects = 0;
 
-    for (unsigned int c = 0; c < m_NumDetectedClasses; c++)
-    {
+    for (unsigned int c = 0; c < m_NumDetectedClasses; c++) {
         /* Add coordinates and class ID and the label of all objects
          * detected in the frame to the frame output. */
-        for (size_t i = 0; i < m_PerClassObjectList[c].size(); i++)
-        {
+        for (size_t i = 0; i < m_PerClassObjectList[c].size(); i++) {
             NvDsPostProcessObject &object = output.objects[output.numObjects];
             object.left = m_PerClassObjectList[c][i].left;
             object.top = m_PerClassObjectList[c][i].top;
@@ -799,15 +727,15 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputDBSCAN(NvDsPostProce
  * Cluster objects using a hybrid algorithm of DBSCAN + NMS
  * and fill the output structure.
  */
-void DetectModelPostProcessor::clusterAndFillDetectionOutputHybrid(NvDsPostProcessDetectionOutput &output)
+void DetectModelPostProcessor::clusterAndFillDetectionOutputHybrid(
+    NvDsPostProcessDetectionOutput &output)
 {
     NvDsInferDBScanClusteringParams clusteringParams;
     clusteringParams.enableATHRFilter = ATHR_ENABLED;
     clusteringParams.thresholdATHR = ATHR_THRESHOLD;
     assert(m_DBScanHandle);
 
-    for (unsigned int c = 0; c < m_NumDetectedClasses; c++)
-    {
+    for (unsigned int c = 0; c < m_NumDetectedClasses; c++) {
         NvDsInferObjectDetectionInfo *objArray =
             (NvDsInferObjectDetectionInfo *)m_PerClassObjectList[c].data();
         size_t numObjects = m_PerClassObjectList[c].size();
@@ -819,10 +747,9 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputHybrid(NvDsPostProce
         /* Cluster together rectangles with similar locations and sizes
          * since these rectangles might represent the same object using
          * DBSCAN. */
-        if (m_PerClassDetectionParams[c].minBoxes > 0)
-        {
-            NvDsInferDBScanClusterHybrid(
-                m_DBScanHandle.get(), &clusteringParams, objArray, &numObjects);
+        if (m_PerClassDetectionParams[c].minBoxes > 0) {
+            NvDsInferDBScanClusterHybrid(m_DBScanHandle.get(), &clusteringParams, objArray,
+                                         &numObjects);
         }
         m_PerClassObjectList[c].resize(numObjects);
     }
@@ -836,24 +763,20 @@ void DetectModelPostProcessor::clusterAndFillDetectionOutputHybrid(NvDsPostProce
 
 void DetectModelPostProcessor::fillUnclusteredOutput(NvDsPostProcessDetectionOutput &output)
 {
-    for (auto &object : m_ObjectList)
-    {
+    for (auto &object : m_ObjectList) {
         m_PerClassObjectList[object.classId].emplace_back(object);
     }
 
     unsigned int totalObjects = 0;
-    for (unsigned int c = 0; c < m_NumDetectedClasses; c++)
-    {
+    for (unsigned int c = 0; c < m_NumDetectedClasses; c++) {
         filterTopKOutputs(m_PerClassDetectionParams.at(c).topK, m_PerClassObjectList.at(c));
         totalObjects += m_PerClassObjectList.at(c).size();
     }
 
     output.objects = new NvDsPostProcessObject[totalObjects];
     output.numObjects = 0;
-    for (const auto &perClassList : m_PerClassObjectList)
-    {
-        for (const auto &obj : perClassList)
-        {
+    for (const auto &perClassList : m_PerClassObjectList) {
+        for (const auto &obj : perClassList) {
             NvDsPostProcessObject &object = output.objects[output.numObjects];
             object.left = obj.left;
             object.top = obj.top;
@@ -871,8 +794,7 @@ void DetectModelPostProcessor::fillUnclusteredOutput(NvDsPostProcessDetectionOut
     }
 }
 
-NvDsPostProcessStatus
-DetectModelPostProcessor::fillDetectionOutput(
+NvDsPostProcessStatus DetectModelPostProcessor::fillDetectionOutput(
     const std::vector<NvDsInferLayerInfo> &outputLayers,
     NvDsPostProcessDetectionOutput &output)
 {
@@ -883,20 +805,13 @@ DetectModelPostProcessor::fillDetectionOutput(
     for (auto &list : m_PerClassObjectList)
         list.clear();
 
-    if (m_CustomBBoxParseFunc)
-    {
-        if (!m_CustomBBoxParseFunc(outputLayers, m_NetworkInfo,
-                                   m_DetectionParams, m_ObjectList))
-        {
+    if (m_CustomBBoxParseFunc) {
+        if (!m_CustomBBoxParseFunc(outputLayers, m_NetworkInfo, m_DetectionParams, m_ObjectList)) {
             printf("Failed to parse bboxes");
             return NVDSPOSTPROCESS_OUTPUT_PARSING_FAILED;
         }
-    }
-    else
-    {
-        if (!parseBoundingBox(outputLayers, m_NetworkInfo,
-                              m_DetectionParams, m_ObjectList))
-        {
+    } else {
+        if (!parseBoundingBox(outputLayers, m_NetworkInfo, m_DetectionParams, m_ObjectList)) {
             printf("Failed to parse bboxes");
             return NVDSPOSTPROCESS_OUTPUT_PARSING_FAILED;
         }
@@ -913,14 +828,12 @@ DetectModelPostProcessor::fillDetectionOutput(
         (m_ClusterMode != NVDSPOSTPROCESS_CLUSTER_NONE))
 #endif
     {
-        for (auto &object : m_ObjectList)
-        {
+        for (auto &object : m_ObjectList) {
             m_PerClassObjectList[object.classId].emplace_back(object);
         }
     }
 
-    switch (m_ClusterMode)
-    {
+    switch (m_ClusterMode) {
     case NVDSPOSTPROCESS_CLUSTER_NMS:
         clusterAndFillDetectionOutputNMS(output);
         break;
@@ -952,12 +865,9 @@ DetectModelPostProcessor::fillDetectionOutput(
 
 void DetectModelPostProcessor::releaseFrameOutput(NvDsPostProcessFrameOutput &frameOutput)
 {
-    switch (frameOutput.outputType)
-    {
+    switch (frameOutput.outputType) {
     case NvDsPostProcessNetworkType_Detector:
-        for (unsigned int j = 0; j < frameOutput.detectionOutput.numObjects;
-             j++)
-        {
+        for (unsigned int j = 0; j < frameOutput.detectionOutput.numObjects; j++) {
             free(frameOutput.detectionOutput.objects[j].label);
         }
         delete[] frameOutput.detectionOutput.objects;

@@ -43,58 +43,56 @@ typedef bool (*NvDsPostProcessInstanceMaskParseCustomFunc)(
     NvDsPostProcessParseDetectionParams const &detectionParams,
     std::vector<NvDsPostProcessInstanceMaskInfo> &objectList);
 
-class InstanceSegmentModelPostProcessor : public ModelPostProcessor
-{
-
+class InstanceSegmentModelPostProcessor : public ModelPostProcessor {
 public:
-  InstanceSegmentModelPostProcessor(int id, int gpuId = 0)
-      : ModelPostProcessor(NvDsPostProcessNetworkType_InstanceSegmentation, id, gpuId) {}
+    InstanceSegmentModelPostProcessor(int id, int gpuId = 0)
+        : ModelPostProcessor(NvDsPostProcessNetworkType_InstanceSegmentation, id, gpuId)
+    {
+    }
 
-  NvDsPostProcessStatus
-  initResource(NvDsPostProcessContextInitParams &initParams) override;
-  ~InstanceSegmentModelPostProcessor() override = default;
-  NvDsPostProcessStatus parseEachFrame(const std::vector<NvDsInferLayerInfo> &
-                                           outputLayers,
-                                       NvDsPostProcessFrameOutput &result) override;
-  void
-  attachMetadata(NvBufSurface *surf, gint batch_idx,
-                 NvDsBatchMeta *batch_meta,
-                 NvDsFrameMeta *frame_meta,
-                 NvDsObjectMeta *object_meta,
-                 NvDsObjectMeta *parent_obj_meta,
-                 NvDsPostProcessFrameOutput &detection_output,
-                 NvDsPostProcessDetectionParams *all_params,
-                 std::set<gint> &filterOutClassIds,
-                 int32_t unique_id,
-                 gboolean output_instance_mask,
-                 gboolean process_full_frame,
-                 float segmentationThreshold,
-                 gboolean maintain_aspect_ratio) override;
+    NvDsPostProcessStatus initResource(NvDsPostProcessContextInitParams &initParams) override;
+    ~InstanceSegmentModelPostProcessor() override = default;
+    NvDsPostProcessStatus parseEachFrame(const std::vector<NvDsInferLayerInfo> &outputLayers,
+                                         NvDsPostProcessFrameOutput &result) override;
+    void attachMetadata(NvBufSurface *surf,
+                        gint batch_idx,
+                        NvDsBatchMeta *batch_meta,
+                        NvDsFrameMeta *frame_meta,
+                        NvDsObjectMeta *object_meta,
+                        NvDsObjectMeta *parent_obj_meta,
+                        NvDsPostProcessFrameOutput &detection_output,
+                        NvDsPostProcessDetectionParams *all_params,
+                        std::set<gint> &filterOutClassIds,
+                        int32_t unique_id,
+                        gboolean output_instance_mask,
+                        gboolean process_full_frame,
+                        float segmentationThreshold,
+                        gboolean maintain_aspect_ratio) override;
 
-  void releaseFrameOutput(NvDsPostProcessFrameOutput &frameOutput) override;
-
-private:
-  void fillUnclusteredOutput(NvDsPostProcessDetectionOutput &output);
-  NvDsPostProcessStatus fillDetectionOutput(const std::vector<NvDsInferLayerInfo> &outputLayers,
-                                            NvDsPostProcessDetectionOutput &output);
-  void preClusteringThreshold(NvDsPostProcessParseDetectionParams const &detectionParams,
-                              std::vector<NvDsPostProcessInstanceMaskInfo> &objectList);
-  void filterTopKOutputs(int const topK,
-                         std::vector<NvDsPostProcessInstanceMaskInfo> &objectList);
+    void releaseFrameOutput(NvDsPostProcessFrameOutput &frameOutput) override;
 
 private:
-  NvDsPostProcessClusterMode m_ClusterMode;
+    void fillUnclusteredOutput(NvDsPostProcessDetectionOutput &output);
+    NvDsPostProcessStatus fillDetectionOutput(const std::vector<NvDsInferLayerInfo> &outputLayers,
+                                              NvDsPostProcessDetectionOutput &output);
+    void preClusteringThreshold(NvDsPostProcessParseDetectionParams const &detectionParams,
+                                std::vector<NvDsPostProcessInstanceMaskInfo> &objectList);
+    void filterTopKOutputs(int const topK,
+                           std::vector<NvDsPostProcessInstanceMaskInfo> &objectList);
 
-  uint32_t m_NumDetectedClasses = 0;
+private:
+    NvDsPostProcessClusterMode m_ClusterMode;
 
-  std::vector<NvDsPostProcessDetectionParams> m_PerClassDetectionParams;
-  NvDsPostProcessParseDetectionParams m_DetectionParams = {0, {}, {}};
+    uint32_t m_NumDetectedClasses = 0;
 
-  std::vector<NvDsPostProcessInstanceMaskInfo> m_InstanceMaskList;
-  /* Vector of NvDsPostProcessInstanceMaskInfo vectors for each class. */
-  std::vector<std::vector<NvDsPostProcessInstanceMaskInfo>> m_PerClassInstanceMaskList;
+    std::vector<NvDsPostProcessDetectionParams> m_PerClassDetectionParams;
+    NvDsPostProcessParseDetectionParams m_DetectionParams = {0, {}, {}};
 
-  NvDsPostProcessInstanceMaskParseCustomFunc m_CustomParseFunc = nullptr;
+    std::vector<NvDsPostProcessInstanceMaskInfo> m_InstanceMaskList;
+    /* Vector of NvDsPostProcessInstanceMaskInfo vectors for each class. */
+    std::vector<std::vector<NvDsPostProcessInstanceMaskInfo>> m_PerClassInstanceMaskList;
+
+    NvDsPostProcessInstanceMaskParseCustomFunc m_CustomParseFunc = nullptr;
 };
 
 #endif

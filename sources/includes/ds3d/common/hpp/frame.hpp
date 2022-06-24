@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
  * property and proprietary rights in and to this material, related
@@ -18,10 +18,9 @@
 
 #include <ds3d/common/hpp/obj.hpp>
 
-namespace ds3d
-{
+namespace ds3d {
 
-    using FrameGuard = GuardDataT<abiFrame>;
+using FrameGuard = GuardDataT<abiFrame>;
 
 #if 0
 // abiFrame Guard
@@ -48,8 +47,8 @@ public:
 };
 #endif
 
-    // abi2DFrame Guard
-    using Frame2DGuard = GuardDataT<abi2DFrame>;
+// abi2DFrame Guard
+using Frame2DGuard = GuardDataT<abi2DFrame>;
 
 } // namespace ds3d
 

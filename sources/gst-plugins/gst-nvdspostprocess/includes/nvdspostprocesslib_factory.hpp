@@ -26,8 +26,8 @@
 #include <dlfcn.h>
 #include <errno.h>
 
-#include <iostream>
 #include <functional>
+#include <iostream>
 
 #include "nvdspostprocesslib_interface.hpp"
 
@@ -37,42 +37,35 @@ T *dlsym_ptr(void *handle, char const *name)
     return reinterpret_cast<T *>(dlsym(handle, name));
 }
 
-class DSPostProcessLibrary_Factory
-{
+class DSPostProcessLibrary_Factory {
 public:
-    DSPostProcessLibrary_Factory()
-    {
-    }
+    DSPostProcessLibrary_Factory() {}
 
     ~DSPostProcessLibrary_Factory()
     {
-        if (m_libHandle)
-        {
+        if (m_libHandle) {
             dlclose(m_libHandle);
             m_libHandle = NULL;
             m_libName.clear();
         }
     }
 
-    IDSPostProcessLibrary *CreateCustomAlgoCtx(std::string libName, DSPostProcess_CreateParams *params)
+    IDSPostProcessLibrary *CreateCustomAlgoCtx(std::string libName,
+                                               DSPostProcess_CreateParams *params)
     {
         m_libName.assign(libName);
 
         m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW);
-        if (m_libHandle)
-        {
+        if (m_libHandle) {
             // std::cout << "Library Opened Successfully" << std::endl;
-            m_CreateAlgoCtx = dlsym_ptr<IDSPostProcessLibrary *(DSPostProcess_CreateParams *)>(m_libHandle, "CreateCustomAlgoCtx");
-            if (!m_CreateAlgoCtx)
-            {
-
+            m_CreateAlgoCtx = dlsym_ptr<IDSPostProcessLibrary *(DSPostProcess_CreateParams *)>(
+                m_libHandle, "CreateCustomAlgoCtx");
+            if (!m_CreateAlgoCtx) {
                 // throw std::runtime_error("CreateCustomAlgoCtx function not found in library");
                 std::cout << "CreateCustomAlgoCtx function not found in library" << std::endl;
                 return nullptr;
             }
-        }
-        else
-        {
+        } else {
             // throw std::runtime_error(dlerror());
             std::cout << dlerror() << std::endl;
             return nullptr;

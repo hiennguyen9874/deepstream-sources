@@ -23,7 +23,11 @@
 #ifndef __NVDSPREPROCESS_IMPL_H__
 #define __NVDSPREPROCESS_IMPL_H__
 
+#include <assert.h>
+#include <cuda_runtime_api.h>
 #include <stdarg.h>
+#include <stdio.h>
+
 #include <condition_variable>
 #include <functional>
 #include <list>
@@ -31,12 +35,7 @@
 #include <mutex>
 #include <queue>
 
-#include <cuda_runtime_api.h>
-
 #include "nvdspreprocess_interface.h"
-
-#include <stdio.h>
-#include <assert.h>
 
 /** Defines the maximum number of channels supported by the API
  for image input layers. */
@@ -78,8 +77,7 @@ inline bool file_accessible(const std::string &path)
 /**
  * Custom parameters for normalization and mean subtractions
  */
-typedef struct
-{
+typedef struct {
     /** Holds the pathname of the labels file containing strings for the class
      * labels. The labels file is optional. The file format is described in the
      * custom models section of the DeepStream SDK documentation. */
@@ -104,8 +102,7 @@ typedef struct
 /**
  * Helper class for managing Cuda Streams.
  */
-class CudaStream
-{
+class CudaStream {
 public:
     explicit CudaStream(uint flag = cudaStreamDefault, int priority = 0);
     ~CudaStream();
@@ -130,8 +127,7 @@ private:
 /**
  * Helper base class for managing Cuda allocated buffers.
  */
-class CudaBuffer
-{
+class CudaBuffer {
 public:
     virtual ~CudaBuffer() = default;
     /** size of cuda buffer in bytes */
@@ -168,8 +164,7 @@ protected:
 /**
  * CUDA device buffers.
  */
-class CudaDeviceBuffer : public CudaBuffer
-{
+class CudaDeviceBuffer : public CudaBuffer {
 public:
     /** constructor */
     explicit CudaDeviceBuffer(size_t size);
@@ -180,11 +175,11 @@ public:
 /**
  * Provides pre-processing functionality like mean subtraction and normalization.
  */
-class NvDsPreProcessTensorImpl
-{
+class NvDsPreProcessTensorImpl {
 public:
     /** constructor for tensor preparation implementation */
-    NvDsPreProcessTensorImpl(const NvDsPreProcessNetworkSize &size, NvDsPreProcessFormat format,
+    NvDsPreProcessTensorImpl(const NvDsPreProcessNetworkSize &size,
+                             NvDsPreProcessFormat format,
                              int id = 0);
     virtual ~NvDsPreProcessTensorImpl() = default;
 
@@ -199,8 +194,7 @@ public:
     /** synchronize cuda stream */
     NvDsPreProcessStatus syncStream();
     /** method to prepare tensor using cuda kernels */
-    NvDsPreProcessStatus prepare_tensor(NvDsPreProcessBatch *batch,
-                                        void *&devBuf);
+    NvDsPreProcessStatus prepare_tensor(NvDsPreProcessBatch *batch, void *&devBuf);
 
 private:
     NvDsPreProcessStatus readMeanImageFile();
@@ -225,9 +219,10 @@ private:
 /**
  * Initialize for pixel normalization and mean subtraction
  */
-extern "C" NvDsPreProcessStatus
-normalization_mean_subtraction_impl_initialize(CustomMeanSubandNormParams *custom_params,
-                                               NvDsPreProcessTensorParams *tensor_params,
-                                               std::unique_ptr<NvDsPreProcessTensorImpl> &m_Preprocessor, int unique_id);
+extern "C" NvDsPreProcessStatus normalization_mean_subtraction_impl_initialize(
+    CustomMeanSubandNormParams *custom_params,
+    NvDsPreProcessTensorParams *tensor_params,
+    std::unique_ptr<NvDsPreProcessTensorImpl> &m_Preprocessor,
+    int unique_id);
 
 #endif

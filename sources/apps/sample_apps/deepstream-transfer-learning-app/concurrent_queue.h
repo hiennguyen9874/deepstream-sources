@@ -22,15 +22,14 @@
 
 #pragma once
 
-#include <queue>
 #include <mutex>
+#include <queue>
 
 /// Simple concurrent Queue class using an stl queue.
 /// Nothing is special here compare to stl queue except
 /// it has only simple operations and it is thread safe.
 template <typename T>
-class ConcurrentQueue
-{
+class ConcurrentQueue {
 public:
     void push(const T &elm);
     T pop();
