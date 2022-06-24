@@ -71,8 +71,11 @@ extern "C" NvDsPreProcessStatus CustomAsyncTransformation(NvBufSurface *in_surf,
 /**
  * Custom tensor preparation function for NCHW/NHWC network order
  */
-extern "C" NvDsPreProcessStatus CustomTensorPreparation(CustomCtx *ctx, NvDsPreProcessBatch *batch, NvDsPreProcessCustomBuf *&buf,
-                                                        CustomTensorParams &tensorParam, NvDsPreProcessAcquirer *acquirer);
+extern "C" NvDsPreProcessStatus CustomTensorPreparation(CustomCtx *ctx,
+                                                        NvDsPreProcessBatch *batch,
+                                                        NvDsPreProcessCustomBuf *&buf,
+                                                        CustomTensorParams &tensorParam,
+                                                        NvDsPreProcessAcquirer *acquirer);
 
 /**
  * custom library initialization function

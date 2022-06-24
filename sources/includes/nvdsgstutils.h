@@ -19,7 +19,8 @@
 /**
  * @defgroup  gstreamer_utils  Utilities: Gstreamer utilities API
  *
- * Specifies GStreamer utilities functions, used to configure the source to generate NTP Sync values.
+ * Specifies GStreamer utilities functions, used to configure the source to generate NTP Sync
+ * values.
  *
  * @ingroup NvDsUtilsApi
  * @{
@@ -30,26 +31,25 @@
 #include <gst/gst.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 #include <gst/gst.h>
 
-    /**
-     * Configure the source to generate NTP sync values for RTSP sources.
-     *
-     * These values are used by the DeepStream GStreamer element NvStreamMux to
-     * calculate the NTP time of the frames at the source.
-     *
-     * This functionality is dependent on the RTSP sending the RTCP Sender Reports.
-     * source.
-     *
-     * This function only works for RTSP sources i.e. GStreamer elements "rtspsrc"
-     * or "uridecodebin" with an RTSP uri.
-     *
-     * params[in] src_elem GStreamer source element to be configured.
-     */
-    void configure_source_for_ntp_sync(GstElement *src_elem);
+/**
+ * Configure the source to generate NTP sync values for RTSP sources.
+ *
+ * These values are used by the DeepStream GStreamer element NvStreamMux to
+ * calculate the NTP time of the frames at the source.
+ *
+ * This functionality is dependent on the RTSP sending the RTCP Sender Reports.
+ * source.
+ *
+ * This function only works for RTSP sources i.e. GStreamer elements "rtspsrc"
+ * or "uridecodebin" with an RTSP uri.
+ *
+ * params[in] src_elem GStreamer source element to be configured.
+ */
+void configure_source_for_ntp_sync(GstElement *src_elem);
 
 #ifdef __cplusplus
 }

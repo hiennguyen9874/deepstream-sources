@@ -112,8 +112,7 @@
 /**
  * Defines internal data formats used by the inference engine.
  */
-typedef enum
-{
+typedef enum {
     NvDsInferNetworkMode_FP32,
     NvDsInferNetworkMode_INT8,
     NvDsInferNetworkMode_FP16
@@ -122,8 +121,7 @@ typedef enum
 /**
  * Defines network types.
  */
-typedef enum
-{
+typedef enum {
     /** Specifies a detector. Detectors find objects and their coordinates,
      and their classes in an input frame. */
     NvDsInferNetworkType_Detector,
@@ -147,8 +145,7 @@ typedef enum
 /**
  * Defines color formats.
  */
-typedef enum
-{
+typedef enum {
     /** Specifies 24-bit interleaved R-G-B format. */
     NvDsInferFormat_RGB,
     /** Specifies 24-bit interleaved B-G-R format. */
@@ -167,28 +164,30 @@ typedef enum
 /**
  * Defines UFF input layer orders.
  */
-typedef enum
-{
+typedef enum {
     NvDsInferTensorOrder_kNCHW,
     NvDsInferTensorOrder_kNHWC,
     NvDsInferTensorOrder_kNC,
-    NvDsInferUffOrder_kNCHW _DS_DEPRECATED_("Use NvDsInferTensorOrder_kNCHW instead") = NvDsInferTensorOrder_kNCHW,
-    NvDsInferUffOrder_kNHWC _DS_DEPRECATED_("Use NvDsInferTensorOrder_kNCWH instead") = NvDsInferTensorOrder_kNHWC,
-    NvDsInferUffOrder_kNC _DS_DEPRECATED_("Use NvDsInferTensorOrder_kNC instead") = NvDsInferTensorOrder_kNC
+    NvDsInferUffOrder_kNCHW _DS_DEPRECATED_("Use NvDsInferTensorOrder_kNCHW instead") =
+        NvDsInferTensorOrder_kNCHW,
+    NvDsInferUffOrder_kNHWC _DS_DEPRECATED_("Use NvDsInferTensorOrder_kNCWH instead") =
+        NvDsInferTensorOrder_kNHWC,
+    NvDsInferUffOrder_kNC _DS_DEPRECATED_("Use NvDsInferTensorOrder_kNC instead") =
+        NvDsInferTensorOrder_kNC
 } NvDsInferTensorOrder;
 
-#define NvDsInferUffOrder _Pragma("GCC warning \"'NvDsInferUffOrder' macro is deprecated. Use NvDsInferTensorOrder instead.\"") \
-    NvDsInferTensorOrder
+#define NvDsInferUffOrder                                                                  \
+    _Pragma(                                                                               \
+        "GCC warning \"'NvDsInferUffOrder' macro is deprecated. Use NvDsInferTensorOrder " \
+        "instead.\"") NvDsInferTensorOrder
 
 /**
  * Holds detection and bounding box grouping parameters.
  */
-typedef struct
-{
+typedef struct {
     /** Holds the bounding box detection threshold to be applied prior
      * to clustering operation. */
-    union
-    {
+    union {
         float threshold _DS_DEPRECATED_("Use preclusterThreshold instead.");
         float preClusterThreshold;
     };
@@ -220,8 +219,7 @@ typedef struct
 /**
  * Enum for clustering mode for detectors
  */
-typedef enum
-{
+typedef enum {
     NVDSINFER_CLUSTER_GROUP_RECTANGLES = 0,
     NVDSINFER_CLUSTER_DBSCAN,
     NVDSINFER_CLUSTER_NMS,
@@ -231,8 +229,7 @@ typedef enum
 /**
  * Holds the initialization parameters required for the NvDsInferContext interface.
  */
-typedef struct _NvDsInferContextInitParams
-{
+typedef struct _NvDsInferContextInitParams {
     /** Holds a unique identifier for the instance. This can be used
      to identify the instance that is generating log and error messages. */
     unsigned int uniqueID;
@@ -255,8 +252,7 @@ typedef struct _NvDsInferContextInitParams
      Required only when using INT8 mode. */
     char int8CalibrationFilePath[_PATH_MAX];
 
-    union
-    {
+    union {
         /** Holds the input dimensions for the model. */
         NvDsInferDimsCHW inputDims;
         /** Holds the input dimensions for the UFF model. */
@@ -421,8 +417,7 @@ typedef void (*NvDsInferContextReturnInputAsyncFunc)(void *data);
 /**
  * Holds information about one batch to be inferred.
  */
-typedef struct
-{
+typedef struct {
     /** Holds a pointer to an array of pointers to input frame buffers.
      The size of the array must be at least @a numInputFrames. */
     void **inputFrames;
@@ -439,8 +434,7 @@ typedef struct
     void *returnFuncData;
 } NvDsInferContextBatchInput;
 
-typedef struct
-{
+typedef struct {
     NvDsInferLayerInfo *tensors;
     /** Holds the number of input tensors. */
     unsigned int numInputTensors;
@@ -454,8 +448,7 @@ typedef struct
 /**
  * Holds information about one detected object.
  */
-typedef struct
-{
+typedef struct {
     /** Holds the object's offset from the left boundary of the frame. */
     float left;
     /** Holds the object's offset from the top boundary of the frame. */
@@ -484,8 +477,7 @@ typedef struct
  * Holds information on all objects detected by a detector network in one
  * frame.
  */
-typedef struct
-{
+typedef struct {
     /** Holds a pointer to an array of objects. */
     NvDsInferObject *objects;
     /** Holds the number of objects in @a objects. */
@@ -496,8 +488,7 @@ typedef struct
  * Holds information on all attributes classifed by a classifier network for
  * one frame.
  */
-typedef struct
-{
+typedef struct {
     /** Holds a pointer to an array of attributes. There may be more than
      one attribute, depending on the number of output coverage layers
      (multi-label classifiers). */
@@ -512,8 +503,7 @@ typedef struct
 /**
  * Holds information parsed from segmentation network output for one frame.
  */
-typedef struct
-{
+typedef struct {
     /** Holds the width of the output. Same as network width. */
     unsigned int width;
     /** Holds the height of the output. Same as network height. */
@@ -532,16 +522,14 @@ typedef struct
 /**
  * Holds the information inferred by the network on one frame.
  */
-typedef struct
-{
+typedef struct {
     /** Holds an output type indicating the valid member in the union
      of @a detectionOutput, @a classificationOutput, and @a  segmentationOutput.
      This is basically the network type. */
     NvDsInferNetworkType outputType;
     /** Holds a union of supported outputs. The valid member is determined by
      @a outputType. */
-    union
-    {
+    union {
         /** Holds detector output. Valid when @a outputType is
          @ref NvDsInferNetworkType_Detector. */
         NvDsInferDetectionOutput detectionOutput;
@@ -558,8 +546,7 @@ typedef struct
  * Holds the output for all of the frames in a batch (an array of frame),
  * and related buffer information.
  */
-typedef struct
-{
+typedef struct {
     /** Holds a pointer to an array of outputs for each frame in the batch. */
     NvDsInferFrameOutput *frames;
     /** Holds the number of elements in @a frames. */
@@ -601,31 +588,32 @@ typedef struct INvDsInferContext *NvDsInferContextHandle;
  *                          when creating the NvDsInferContext instance.
  */
 typedef void (*NvDsInferContextLoggingFunc)(NvDsInferContextHandle handle,
-                                            unsigned int uniqueID, NvDsInferLogLevel logLevel, const char *logMessage,
+                                            unsigned int uniqueID,
+                                            NvDsInferLogLevel logLevel,
+                                            const char *logMessage,
                                             void *userCtx);
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-    /**
-     * Resets a context parameter structure to default values.
-     *
-     * @param[in] initParams    A pointer to a context parameter structure.
-     */
-    void NvDsInferContext_ResetInitParams(NvDsInferContextInitParams *initParams);
+/**
+ * Resets a context parameter structure to default values.
+ *
+ * @param[in] initParams    A pointer to a context parameter structure.
+ */
+void NvDsInferContext_ResetInitParams(NvDsInferContextInitParams *initParams);
 
-    /**
-     * Gets the string name of the status.
-     *
-     * @param[in] status    An inference status code.
-     * @return  A pointer to a string containing the status's name, or NULL if
-     *  the status is unrecognized. Memory is owned by the function; the caller
-     *  may not free it.
-     */
-    _DS_DEPRECATED_("NvDsInferContext_GetStatusName is deprecated. Use NvDsInferStatus2Str instead")
-    const char *NvDsInferContext_GetStatusName(NvDsInferStatus status);
+/**
+ * Gets the string name of the status.
+ *
+ * @param[in] status    An inference status code.
+ * @return  A pointer to a string containing the status's name, or NULL if
+ *  the status is unrecognized. Memory is owned by the function; the caller
+ *  may not free it.
+ */
+_DS_DEPRECATED_("NvDsInferContext_GetStatusName is deprecated. Use NvDsInferStatus2Str instead")
+const char *NvDsInferContext_GetStatusName(NvDsInferStatus status);
 
 #ifdef __cplusplus
 }
@@ -646,8 +634,7 @@ extern "C"
 /**
  * Holds the DeepStream inference interface class.
  */
-struct INvDsInferContext
-{
+struct INvDsInferContext {
 public:
     /**
      * Queues a batch of input frames for preprocessing and inferencing.
@@ -732,7 +719,8 @@ public:
      * @return  NVDSINFER_SUCCESS if preprocessing and queueing succeeded, or
      *  an error status otherwise.
      */
-    virtual NvDsInferStatus queueInputBatchPreprocessed(NvDsInferContextBatchPreprocessedInput &batchInput) = 0;
+    virtual NvDsInferStatus queueInputBatchPreprocessed(
+        NvDsInferContextBatchPreprocessedInput &batchInput) = 0;
 };
 
 /**
@@ -764,117 +752,117 @@ NvDsInferStatus createNvDsInferContext(NvDsInferContextHandle *handle,
  */
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-    /**
-     * Creates a new NvDsInferContext object with specified
-     * initialization parameters.
-     *
-     * @param[out] handle       A pointer to an NvDsInferContext handle.
-     * @param[in]  initParams   A pointer to a parameter structure to be used to
-     *                          initialize the context.
-     * @param[in]  userCtx      A pointer to an opaque user context, with callbacks,
-     *                          generated by the NvDsInferContext instance.
-     * @param[in] logFunc       A log callback for the instance.
-     * @return  NVDSINFER_SUCCESS if creation was successful, or an error status
-     *  otherwise.
-     */
-    NvDsInferStatus NvDsInferContext_Create(NvDsInferContextHandle *handle,
-                                            NvDsInferContextInitParams *initParams, void *userCtx,
-                                            NvDsInferContextLoggingFunc logFunc);
+/**
+ * Creates a new NvDsInferContext object with specified
+ * initialization parameters.
+ *
+ * @param[out] handle       A pointer to an NvDsInferContext handle.
+ * @param[in]  initParams   A pointer to a parameter structure to be used to
+ *                          initialize the context.
+ * @param[in]  userCtx      A pointer to an opaque user context, with callbacks,
+ *                          generated by the NvDsInferContext instance.
+ * @param[in] logFunc       A log callback for the instance.
+ * @return  NVDSINFER_SUCCESS if creation was successful, or an error status
+ *  otherwise.
+ */
+NvDsInferStatus NvDsInferContext_Create(NvDsInferContextHandle *handle,
+                                        NvDsInferContextInitParams *initParams,
+                                        void *userCtx,
+                                        NvDsInferContextLoggingFunc logFunc);
 
-    /**
-     * Destroys an NvDsInferContext instance and releases its resources.
-     *
-     * @param[in] handle    The handle to the NvDsInferContext instance to be
-     *                      destroyed.
-     */
-    void NvDsInferContext_Destroy(NvDsInferContextHandle handle);
+/**
+ * Destroys an NvDsInferContext instance and releases its resources.
+ *
+ * @param[in] handle    The handle to the NvDsInferContext instance to be
+ *                      destroyed.
+ */
+void NvDsInferContext_Destroy(NvDsInferContextHandle handle);
 
-    /**
-     * \brief  Queues a batch of input frames for preprocessing and inferencing.
-     *
-     * @see NvDsInferContext::queueInputBatch() for details.
-     *
-     * @param[in] handle        A handle to an NvDsInferContext instance.
-     * @param[in] batchInput    A reference to a batch input structure.
-     * @return  NVDSINFER_SUCCESS if preprocessing and queueing were successful, or
-     *  an error status otherwise.
-     */
-    NvDsInferStatus NvDsInferContext_QueueInputBatch(NvDsInferContextHandle handle,
-                                                     NvDsInferContextBatchInput *batchInput);
+/**
+ * \brief  Queues a batch of input frames for preprocessing and inferencing.
+ *
+ * @see NvDsInferContext::queueInputBatch() for details.
+ *
+ * @param[in] handle        A handle to an NvDsInferContext instance.
+ * @param[in] batchInput    A reference to a batch input structure.
+ * @return  NVDSINFER_SUCCESS if preprocessing and queueing were successful, or
+ *  an error status otherwise.
+ */
+NvDsInferStatus NvDsInferContext_QueueInputBatch(NvDsInferContextHandle handle,
+                                                 NvDsInferContextBatchInput *batchInput);
 
-    /**
-     * Dequeues output for a batch of frames.
-     *
-     * @see NvDsInferContext::dequeueOutputBatch() for details.
-     *
-     * @param[in] handle            A handle to an NvDsInferContext instance.
-     * @param[in,out] batchOutput   A reference to the batch output structure
-     *                              to which output is to be appended.
-     * @return  NVDSINFER_SUCCESS if dequeueing was successful, or an error status
-     *  otherwise.
-     */
-    NvDsInferStatus NvDsInferContext_DequeueOutputBatch(NvDsInferContextHandle handle,
-                                                        NvDsInferContextBatchOutput *batchOutput);
+/**
+ * Dequeues output for a batch of frames.
+ *
+ * @see NvDsInferContext::dequeueOutputBatch() for details.
+ *
+ * @param[in] handle            A handle to an NvDsInferContext instance.
+ * @param[in,out] batchOutput   A reference to the batch output structure
+ *                              to which output is to be appended.
+ * @return  NVDSINFER_SUCCESS if dequeueing was successful, or an error status
+ *  otherwise.
+ */
+NvDsInferStatus NvDsInferContext_DequeueOutputBatch(NvDsInferContextHandle handle,
+                                                    NvDsInferContextBatchOutput *batchOutput);
 
-    /**
-     * Frees the memory associated with the batch output and releases the set of
-     * host buffers back to the context for reuse.
-     *
-     * @param[in] handle        A handle to an NvDsInferContext instance.
-     * @param[in] batchOutput   A pointer to an NvDsInferContextBatchOutput
-     *                          structure filled by
-     *                          NvDsInferContext_DequeueOutputBatch().
-     */
-    void NvDsInferContext_ReleaseBatchOutput(NvDsInferContextHandle handle,
-                                             NvDsInferContextBatchOutput *batchOutput);
+/**
+ * Frees the memory associated with the batch output and releases the set of
+ * host buffers back to the context for reuse.
+ *
+ * @param[in] handle        A handle to an NvDsInferContext instance.
+ * @param[in] batchOutput   A pointer to an NvDsInferContextBatchOutput
+ *                          structure filled by
+ *                          NvDsInferContext_DequeueOutputBatch().
+ */
+void NvDsInferContext_ReleaseBatchOutput(NvDsInferContextHandle handle,
+                                         NvDsInferContextBatchOutput *batchOutput);
 
-    /**
-     * Gets network input information.
-     *
-     * @param[in]     handle        A handle to an NvDsInferContext instance.
-     * @param[in,out] networkInfo   A pointer to an NvDsInferNetworkInfo structure.
-     */
-    void NvDsInferContext_GetNetworkInfo(NvDsInferContextHandle handle,
-                                         NvDsInferNetworkInfo *networkInfo);
+/**
+ * Gets network input information.
+ *
+ * @param[in]     handle        A handle to an NvDsInferContext instance.
+ * @param[in,out] networkInfo   A pointer to an NvDsInferNetworkInfo structure.
+ */
+void NvDsInferContext_GetNetworkInfo(NvDsInferContextHandle handle,
+                                     NvDsInferNetworkInfo *networkInfo);
 
-    /**
-     * Gets the number of the bound layers of the inference engine in an
-     * NvDsInferContext instance.
-     *
-     * @param[in] handle    A handle to an NvDsInferContext instance.
-     * @return  The number of bound layers of the inference engine.
-     */
-    unsigned int NvDsInferContext_GetNumLayersInfo(NvDsInferContextHandle handle);
+/**
+ * Gets the number of the bound layers of the inference engine in an
+ * NvDsInferContext instance.
+ *
+ * @param[in] handle    A handle to an NvDsInferContext instance.
+ * @return  The number of bound layers of the inference engine.
+ */
+unsigned int NvDsInferContext_GetNumLayersInfo(NvDsInferContextHandle handle);
 
-    /**
-     * Fills an input vector with information about all of the bound layers of the
-     * inference engine in an NvDsInferContext instance.
-     * The size of the array must be at least the value returned by
-     * NvDsInferContext_GetNumLayersInfo().
-     *
-     * @param[in]     handle        A handle to an NvDsInferContext instance.
-     * @param[in,out] layersInfo    A pointer to an array of NvDsInferLayerInfo
-                                    structures to be filled by the function.
-     */
-    void NvDsInferContext_FillLayersInfo(NvDsInferContextHandle handle,
-                                         NvDsInferLayerInfo *layersInfo);
+/**
+ * Fills an input vector with information about all of the bound layers of the
+ * inference engine in an NvDsInferContext instance.
+ * The size of the array must be at least the value returned by
+ * NvDsInferContext_GetNumLayersInfo().
+ *
+ * @param[in]     handle        A handle to an NvDsInferContext instance.
+ * @param[in,out] layersInfo    A pointer to an array of NvDsInferLayerInfo
+                                structures to be filled by the function.
+ */
+void NvDsInferContext_FillLayersInfo(NvDsInferContextHandle handle, NvDsInferLayerInfo *layersInfo);
 
-    /**
-     * Gets the string label associated with the class ID for detectors and the
-     * attribute ID and attribute value for classifiers. The string is owned
-     * by the context; the caller may not modify or free it.
-     *
-     * @param[in] handle    A handle to an NvDsInferContext instance.
-     * @param[in] id        Class ID for detectors, or attribute ID for classifiers.
-     * @param[in] value     Attribute value for classifiers; set to 0 for detectors.
-     * @return  A pointer to a string label. The memory is owned by the context.
-     */
-    const char *NvDsInferContext_GetLabel(NvDsInferContextHandle handle,
-                                          unsigned int id, unsigned int value);
+/**
+ * Gets the string label associated with the class ID for detectors and the
+ * attribute ID and attribute value for classifiers. The string is owned
+ * by the context; the caller may not modify or free it.
+ *
+ * @param[in] handle    A handle to an NvDsInferContext instance.
+ * @param[in] id        Class ID for detectors, or attribute ID for classifiers.
+ * @param[in] value     Attribute value for classifiers; set to 0 for detectors.
+ * @return  A pointer to a string label. The memory is owned by the context.
+ */
+const char *NvDsInferContext_GetLabel(NvDsInferContextHandle handle,
+                                      unsigned int id,
+                                      unsigned int value);
 
 #ifdef __cplusplus
 }

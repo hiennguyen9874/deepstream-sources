@@ -24,23 +24,21 @@
 #define __NVGSTDS_GIE_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <gst/gst.h>
-#include "gstnvdsmeta.h"
-#include "gstnvdsinfer.h"
-#include "deepstream_config.h"
 
-  typedef enum
-  {
+#include "deepstream_config.h"
+#include "gstnvdsinfer.h"
+#include "gstnvdsmeta.h"
+
+typedef enum {
     NV_DS_GIE_PLUGIN_INFER = 0,
     NV_DS_GIE_PLUGIN_INFER_SERVER,
-  } NvDsGiePluginType;
+} NvDsGiePluginType;
 
-  typedef struct
-  {
+typedef struct {
     gboolean enable;
 
     gchar *config_file_path;
@@ -93,7 +91,7 @@ extern "C"
     gchar *tag;
 
     NvDsGiePluginType plugin_type;
-  } NvDsGieConfig;
+} NvDsGieConfig;
 
 #ifdef __cplusplus
 }

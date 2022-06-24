@@ -35,27 +35,28 @@ constexpr static uint32_t kDefaultSubSample = 0;
 // network model input datatype and format. It enables temporal batching per
 // each ROI into sequence, and gather multiple ROI sequence into spacial batches.
 // It supports `subsample` and `stride` to improve performance for model inference.
-class BufferManager
-{
+class BufferManager {
 public:
     // constructor and destructor
-    BufferManager(
-        NvDsPreProcessAcquirer *allocator, const NvDsPreProcessTensorParams &params, uint32_t depth,
-        uint32_t channel, cudaStream_t stream, uint32_t stride, uint32_t interval)
+    BufferManager(NvDsPreProcessAcquirer *allocator,
+                  const NvDsPreProcessTensorParams &params,
+                  uint32_t depth,
+                  uint32_t channel,
+                  cudaStream_t stream,
+                  uint32_t stride,
+                  uint32_t interval)
         : _allocator(allocator), _tensorParams(params), _seqStride(stride), _subsample(interval)
     {
         const auto &shape = params.network_input_shape;
         DSASSERT(shape.size() == 5 || shape.size() == 4); // NCDHW or NCHW
-        if (shape.size() == 5)
-        {
+        if (shape.size() == 5) {
             DSASSERT(shape[2] == (int)depth); // NCDHW
         }
         _maxBatch = shape[0];
         _seqSize = depth;
         _channels = channel;
         _perBatchSize =
-            std::accumulate(shape.begin() + 1, shape.end(), 1, [](int s, int i)
-                            { return s * i; });
+            std::accumulate(shape.begin() + 1, shape.end(), 1, [](int s, int i) { return s * i; });
         DSASSERT(_perBatchSize > 0);
         _cuStream = stream;
     }
@@ -87,8 +88,7 @@ private:
 
     bool popOldestReady(ReadyResult &res)
     {
-        if (_readyPendings.empty())
-        {
+        if (_readyPendings.empty()) {
             return false;
         }
         res = _readyPendings.front();
@@ -114,8 +114,7 @@ private:
 // Preprocess Context for all streams and ROIs. Custom lib symbols is cast into
 // this context. It connects the buffer manager and input/output cuda processing
 // kernels. Return the final processed buffer into Gst-nvdspreprocess plugin.
-class SequenceImagePreprocess
-{
+class SequenceImagePreprocess {
 public:
     SequenceImagePreprocess(const CustomInitParams &initParams) { _initParams = initParams; }
     ~SequenceImagePreprocess() { deinit(); }
@@ -125,13 +124,15 @@ public:
     // derives symbol of deInitLib
     NvDsPreProcessStatus deinit();
     // derives symbol of CustomSequenceTensorPreparation
-    NvDsPreProcessStatus prepareTensorData(
-        NvDsPreProcessBatch *batch, NvDsPreProcessCustomBuf *&buf, CustomTensorParams &tensorParam,
-        NvDsPreProcessAcquirer *allocator);
+    NvDsPreProcessStatus prepareTensorData(NvDsPreProcessBatch *batch,
+                                           NvDsPreProcessCustomBuf *&buf,
+                                           CustomTensorParams &tensorParam,
+                                           NvDsPreProcessAcquirer *allocator);
 
     // internal cuda data conversion
-    NvDsPreProcessStatus preprocessData(
-        const NvDsPreProcessUnit &unit, NvDsPreProcessFormat inFormat, void *outPtr);
+    NvDsPreProcessStatus preprocessData(const NvDsPreProcessUnit &unit,
+                                        NvDsPreProcessFormat inFormat,
+                                        void *outPtr);
 
 private:
     NvDsPreProcessStatus setDevice();
@@ -154,18 +155,20 @@ private:
 
 // entrypoint symbols for Gst-nvpreprocess plugin to load
 // custom lib: libnvds_custom_sequence_preprocess.so
-extern "C"
-{
-    // entrypoint for each batched ROI buffers processing
-    PROCESS_EXPORT_API NvDsPreProcessStatus CustomSequenceTensorPreparation(
-        CustomCtx *ctx, NvDsPreProcessBatch *batch, NvDsPreProcessCustomBuf *&buf,
-        CustomTensorParams &tensorParam, NvDsPreProcessAcquirer *allocator);
+extern "C" {
+// entrypoint for each batched ROI buffers processing
+PROCESS_EXPORT_API NvDsPreProcessStatus
+CustomSequenceTensorPreparation(CustomCtx *ctx,
+                                NvDsPreProcessBatch *batch,
+                                NvDsPreProcessCustomBuf *&buf,
+                                CustomTensorParams &tensorParam,
+                                NvDsPreProcessAcquirer *allocator);
 
-    // entrypoint to create and init custom lib context
-    PROCESS_EXPORT_API CustomCtx *initLib(CustomInitParams initparams);
+// entrypoint to create and init custom lib context
+PROCESS_EXPORT_API CustomCtx *initLib(CustomInitParams initparams);
 
-    // entrypoint to destroy custom lib context
-    PROCESS_EXPORT_API void deInitLib(CustomCtx *ctx);
+// entrypoint to destroy custom lib context
+PROCESS_EXPORT_API void deInitLib(CustomCtx *ctx);
 }
 
 #endif // __NVDS_SEQUENCE_IMAGE_PREPROCESS_H__

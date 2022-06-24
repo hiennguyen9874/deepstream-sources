@@ -24,14 +24,12 @@
 #define __NVGSTDS_DEWARPER_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <gst/gst.h>
 
-  typedef struct
-  {
+typedef struct {
     GstElement *bin;
     GstElement *queue;
     GstElement *src_queue;
@@ -39,10 +37,9 @@ extern "C"
     GstElement *cap_filter;
     GstElement *dewarper_caps_filter;
     GstElement *nvdewarper;
-  } NvDsDewarperBin;
+} NvDsDewarperBin;
 
-  typedef struct
-  {
+typedef struct {
     gboolean enable;
     guint gpu_id;
     guint num_out_buffers;
@@ -52,9 +49,9 @@ extern "C"
     guint source_id;
     guint num_surfaces_per_frame;
     guint num_batch_buffers;
-  } NvDsDewarperConfig;
+} NvDsDewarperConfig;
 
-  gboolean create_dewarper_bin(NvDsDewarperConfig *config, NvDsDewarperBin *bin);
+gboolean create_dewarper_bin(NvDsDewarperConfig *config, NvDsDewarperBin *bin);
 
 #ifdef __cplusplus
 }

@@ -22,24 +22,23 @@
 #define NVBUFSURFTRANSFORM_H_
 #include <cuda.h>
 #include <cuda_runtime.h>
+
 #include "nvbufsurface.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-  /** @defgroup ds_bbb NvBufSurfTransform Types and Functions
-   * Defines types and functions of the \ref NvBufSurfTransform
-   * application programming interface.
-   * @ingroup ds_nvbuf_api
-   * @{ */
+/** @defgroup ds_bbb NvBufSurfTransform Types and Functions
+ * Defines types and functions of the \ref NvBufSurfTransform
+ * application programming interface.
+ * @ingroup ds_nvbuf_api
+ * @{ */
 
-  /**
-   * Specifies compute devices used by \ref NvBufSurfTransform.
-   */
-  typedef enum
-  {
+/**
+ * Specifies compute devices used by \ref NvBufSurfTransform.
+ */
+typedef enum {
     /** Specifies VIC as a compute device for Jetson or dGPU for an x86_64
      system. */
     NvBufSurfTransformCompute_Default,
@@ -47,13 +46,12 @@ extern "C"
     NvBufSurfTransformCompute_GPU,
     /** Specifies that the VIC as a compute device. Supported only for Jetson. */
     NvBufSurfTransformCompute_VIC
-  } NvBufSurfTransform_Compute;
+} NvBufSurfTransform_Compute;
 
-  /**
-   * Specifies video flip methods.
-   */
-  typedef enum
-  {
+/**
+ * Specifies video flip methods.
+ */
+typedef enum {
     /** Specifies no video flip. */
     NvBufSurfTransform_None,
     /** Specifies rotating 90 degrees clockwise. */
@@ -70,13 +68,12 @@ extern "C"
     NvBufSurfTransform_Transpose,
     /** Specifies video flip inverse transpose. */
     NvBufSurfTransform_InvTranspose,
-  } NvBufSurfTransform_Flip;
+} NvBufSurfTransform_Flip;
 
-  /**
-   * Specifies video interpolation methods.
-   */
-  typedef enum
-  {
+/**
+ * Specifies video interpolation methods.
+ */
+typedef enum {
     /** Specifies Nearest Interpolation Method interpolation. */
     NvBufSurfTransformInter_Nearest = 0,
     /** Specifies Bilinear Interpolation Method interpolation. */
@@ -91,13 +88,12 @@ extern "C"
     NvBufSurfTransformInter_Algo4,
     /** Specifies GPU-Nearest, VIC-Nearest interpolation. */
     NvBufSurfTransformInter_Default
-  } NvBufSurfTransform_Inter;
+} NvBufSurfTransform_Inter;
 
-  /**
-   * Specifies error codes returned by \ref NvBufSurfTransform functions.
-   */
-  typedef enum
-  {
+/**
+ * Specifies error codes returned by \ref NvBufSurfTransform functions.
+ */
+typedef enum {
     /** Specifies an error in source or destination ROI. */
     NvBufSurfTransformError_ROI_Error = -4,
     /** Specifies invalid input parameters. */
@@ -108,13 +104,12 @@ extern "C"
     NvBufSurfTransformError_Unsupported = -1,
     /** Specifies a successful operation. */
     NvBufSurfTransformError_Success = 0
-  } NvBufSurfTransform_Error;
+} NvBufSurfTransform_Error;
 
-  /**
-   * Specifies transform types.
-   */
-  typedef enum
-  {
+/**
+ * Specifies transform types.
+ */
+typedef enum {
     /** Specifies a transform to crop the source rectangle. */
     NVBUFSURF_TRANSFORM_CROP_SRC = 1,
     /** Specifies a transform to crop the destination rectangle. */
@@ -126,24 +121,22 @@ extern "C"
     /** Specifies a transform to normalize output. */
     NVBUFSURF_TRANSFORM_NORMALIZE = 1 << 4
 
-  } NvBufSurfTransform_Transform_Flag;
+} NvBufSurfTransform_Transform_Flag;
 
-  /**
-   * Specifies types of composition operations.
-   */
-  typedef enum
-  {
+/**
+ * Specifies types of composition operations.
+ */
+typedef enum {
     /** Specifies a flag to describe the requested compositing operation. */
     NVBUFSURF_TRANSFORM_COMPOSITE = 1,
     /** Specifies a composite to set the filter type. */
     NVBUFSURF_TRANSFORM_COMPOSITE_FILTER = 1 << 2,
-  } NvBufSurfTransform_Composite_Flag;
+} NvBufSurfTransform_Composite_Flag;
 
-  /**
-   * Holds the coordinates of a rectangle.
-   */
-  typedef struct
-  {
+/**
+ * Holds the coordinates of a rectangle.
+ */
+typedef struct {
     /** Holds the rectangle top. */
     uint32_t top;
     /** Holds the rectangle left side. */
@@ -152,13 +145,12 @@ extern "C"
     uint32_t width;
     /** Holds the rectangle height. */
     uint32_t height;
-  } NvBufSurfTransformRect;
+} NvBufSurfTransformRect;
 
-  /**
-   * Holds configuration parameters for a transform/composite session.
-   */
-  typedef struct _NvBufSurfTransformConfigParams
-  {
+/**
+ * Holds configuration parameters for a transform/composite session.
+ */
+typedef struct _NvBufSurfTransformConfigParams {
     /** Holds the mode of operation: VIC (Jetson) or GPU (iGPU + dGPU)
      If VIC is configured, \a gpu_id is ignored. */
     NvBufSurfTransform_Compute compute_mode;
@@ -170,13 +162,12 @@ extern "C"
      Ignored if VIC is used. */
     cudaStream_t cuda_stream;
 
-  } NvBufSurfTransformConfigParams;
+} NvBufSurfTransformConfigParams;
 
-  /**
-   * Holds transform parameters for a transform call.
-   */
-  typedef struct _NvBufSurfaceTransformParams
-  {
+/**
+ * Holds transform parameters for a transform call.
+ */
+typedef struct _NvBufSurfaceTransformParams {
     /** Holds a flag that indicates which transform parameters are valid. */
     uint32_t transform_flag;
     /** Holds the flip method. */
@@ -189,13 +180,12 @@ extern "C"
     /** Holds a pointer to list of destination rectangle coordinates for
      a crop operation. */
     NvBufSurfTransformRect *dst_rect;
-  } NvBufSurfTransformParams;
+} NvBufSurfTransformParams;
 
-  /**
-   * Holds composite parameters for a composite call.
-   */
-  typedef struct _NvBufSurfTransformCompositeParams
-  {
+/**
+ * Holds composite parameters for a composite call.
+ */
+typedef struct _NvBufSurfTransformCompositeParams {
     /** Holds a flag that indicates which composition parameters are valid. */
     uint32_t composite_flag;
     /** Holds the number of input buffers to be composited. */
@@ -207,10 +197,9 @@ extern "C"
     NvBufSurfTransformRect *dst_comp_rect;
     /** Holds a composite filter. */
     NvBufSurfTransform_Inter composite_filter;
-  } NvBufSurfTransformCompositeParams;
+} NvBufSurfTransformCompositeParams;
 
-  typedef struct _NvBufSurfTransform_ColorParams
-  {
+typedef struct _NvBufSurfTransform_ColorParams {
     double red; /**< Holds the red component of color.
                  Value must be in the range 0.0-1.0. */
 
@@ -222,13 +211,12 @@ extern "C"
 
     double alpha; /**< Holds the alpha component of color.
                    Value must be in the range 0.0-1.0.*/
-  } NvBufSurfTransform_ColorParams;
+} NvBufSurfTransform_ColorParams;
 
-  /**
-   * Holds composite blend parameters for a composite blender call.
-   */
-  typedef struct _NvBufSurfTransformCompositeBlendParams
-  {
+/**
+ * Holds composite blend parameters for a composite blender call.
+ */
+typedef struct _NvBufSurfTransformCompositeBlendParams {
     /** Holds a flag that indicates which composition parameters are valid. */
     uint32_t composite_blend_flag;
     /** Holds the number of input buffers to be composited. */
@@ -246,211 +234,221 @@ extern "C"
      */
     uint32_t *perform_blending;
 
-  } NvBufSurfTransformCompositeBlendParams;
+} NvBufSurfTransformCompositeBlendParams;
 
-  /**
-   ** Holds the information about synchronization objects for asynchronous
-   * transform/composite APIs
-   *
-   */
-  typedef struct NvBufSurfTransformSyncObj *NvBufSurfTransformSyncObj_t;
+/**
+ ** Holds the information about synchronization objects for asynchronous
+ * transform/composite APIs
+ *
+ */
+typedef struct NvBufSurfTransformSyncObj *NvBufSurfTransformSyncObj_t;
 
-  /**
-   * \brief  Sets user-defined session parameters.
-   *
-   * If user-defined session parameters are set, they override the
-   * NvBufSurfTransform() function's default session.
-   *
-   * @param[in] config_params     A pointer to a structure that is populated
-   *                              with the session parameters to be used.
-   *
-   * @return  An \ref NvBufSurfTransform_Error value indicating
-   *  success or failure.
-   */
-  NvBufSurfTransform_Error NvBufSurfTransformSetSessionParams(NvBufSurfTransformConfigParams *config_params);
+/**
+ * \brief  Sets user-defined session parameters.
+ *
+ * If user-defined session parameters are set, they override the
+ * NvBufSurfTransform() function's default session.
+ *
+ * @param[in] config_params     A pointer to a structure that is populated
+ *                              with the session parameters to be used.
+ *
+ * @return  An \ref NvBufSurfTransform_Error value indicating
+ *  success or failure.
+ */
+NvBufSurfTransform_Error NvBufSurfTransformSetSessionParams(
+    NvBufSurfTransformConfigParams *config_params);
 
-  /**
-   * \brief Gets the session parameters used by NvBufSurfTransform().
-   *
-   * @param[out] config_params    A pointer to a caller-allocated structure to be
-   *                              populated with the session parameters used.
-   *
-   * @return  An \ref NvBufSurfTransform_Error value indicating
-   *  success or failure.
-   */
-  NvBufSurfTransform_Error NvBufSurfTransformGetSessionParams(NvBufSurfTransformConfigParams *config_params);
+/**
+ * \brief Gets the session parameters used by NvBufSurfTransform().
+ *
+ * @param[out] config_params    A pointer to a caller-allocated structure to be
+ *                              populated with the session parameters used.
+ *
+ * @return  An \ref NvBufSurfTransform_Error value indicating
+ *  success or failure.
+ */
+NvBufSurfTransform_Error NvBufSurfTransformGetSessionParams(
+    NvBufSurfTransformConfigParams *config_params);
 
-  /**
-   * \brief Performs a transformation on batched input images.
-   *
-   * If user-defined session parameters are to be used, call
-   * NvBufSurfTransformSetSessionParams() before calling this function.
-   *
-   * @param[in]  src  A pointer to input batched buffers to be transformed.
-   * @param[out] dst  A pointer to a caller-allocated location where
-   *                  transformed output is to be stored.
-   *                  @par When destination cropping is performed, memory outside
-   *                  the crop location is not touched, and may contain stale
-   *                  information. The caller must perform a memset before
-   *                  calling this function if stale information must be
-   *                  eliminated.
-   * @param[in]  transform_params
-   *                  A pointer to an \ref NvBufSurfTransformParams structure
-   *                  which specifies the type of transform to be performed. They
-   *                  may include any combination of scaling, format conversion,
-   *                  and cropping for both source and destination.
-   *                  Flipping and rotation are supported on VIC.
-   * @return  An \ref NvBufSurfTransform_Error value indicating
-   *  success or failure.
-   */
-  NvBufSurfTransform_Error NvBufSurfTransform(NvBufSurface *src, NvBufSurface *dst,
-                                              NvBufSurfTransformParams *transform_params);
+/**
+ * \brief Performs a transformation on batched input images.
+ *
+ * If user-defined session parameters are to be used, call
+ * NvBufSurfTransformSetSessionParams() before calling this function.
+ *
+ * @param[in]  src  A pointer to input batched buffers to be transformed.
+ * @param[out] dst  A pointer to a caller-allocated location where
+ *                  transformed output is to be stored.
+ *                  @par When destination cropping is performed, memory outside
+ *                  the crop location is not touched, and may contain stale
+ *                  information. The caller must perform a memset before
+ *                  calling this function if stale information must be
+ *                  eliminated.
+ * @param[in]  transform_params
+ *                  A pointer to an \ref NvBufSurfTransformParams structure
+ *                  which specifies the type of transform to be performed. They
+ *                  may include any combination of scaling, format conversion,
+ *                  and cropping for both source and destination.
+ *                  Flipping and rotation are supported on VIC.
+ * @return  An \ref NvBufSurfTransform_Error value indicating
+ *  success or failure.
+ */
+NvBufSurfTransform_Error NvBufSurfTransform(NvBufSurface *src,
+                                            NvBufSurface *dst,
+                                            NvBufSurfTransformParams *transform_params);
 
-  /**
-   * \brief  Composites batched input images.
-   *
-   * The compositer scales and stitches
-   * batched buffers indicated by \a src into a single destination buffer, \a dst.
-   *
-   * If user-defined session parameters are to be used, call
-   * NvBufSurfTransformSetSessionParams() before calling this function.
-   *
-   * @param[in]  src  A pointer to input batched buffers to be transformed.
-   * @param[out] dst  A pointer a caller-allocated location (a single buffer)
-   *                  where composited output is to be stored.
-   * @param[in]  composite_params
-   *                  A pointer to an \ref NvBufSurfTransformCompositeParams
-   *                  structure which specifies the compositing operation to be
-   *                  performed, e.g., the source and destination rectangles
-   *                  in \a src and \a dst.
-   * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
-   */
-  NvBufSurfTransform_Error NvBufSurfTransformComposite(NvBufSurface *src,
-                                                       NvBufSurface *dst, NvBufSurfTransformCompositeParams *composite_params);
+/**
+ * \brief  Composites batched input images.
+ *
+ * The compositer scales and stitches
+ * batched buffers indicated by \a src into a single destination buffer, \a dst.
+ *
+ * If user-defined session parameters are to be used, call
+ * NvBufSurfTransformSetSessionParams() before calling this function.
+ *
+ * @param[in]  src  A pointer to input batched buffers to be transformed.
+ * @param[out] dst  A pointer a caller-allocated location (a single buffer)
+ *                  where composited output is to be stored.
+ * @param[in]  composite_params
+ *                  A pointer to an \ref NvBufSurfTransformCompositeParams
+ *                  structure which specifies the compositing operation to be
+ *                  performed, e.g., the source and destination rectangles
+ *                  in \a src and \a dst.
+ * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
+ */
+NvBufSurfTransform_Error NvBufSurfTransformComposite(
+    NvBufSurface *src,
+    NvBufSurface *dst,
+    NvBufSurfTransformCompositeParams *composite_params);
 
-  /**
-   * \brief An asynchronous (non-blocking) transformation on batched input images.
-   *
-   * If user-defined session parameters are to be used, call
-   * NvBufSurfTransformSetSessionParams() before calling this function.
-   *
-   * @param[in]  src  A pointer to input batched buffers to be transformed.
-   * @param[out] dst  A pointer to a caller-allocated location where
-   *                  transformed output is to be stored.
-   *                  @par When destination cropping is performed, memory outside
-   *                  the crop location is not touched, and may contain stale
-   *                  information. The caller must perform a memset before
-   *                  calling this function if stale information must be
-   *                  eliminated.
-   * @param[in]  transform_params
-   *                  A pointer to an \ref NvBufSurfTransformParams structure
-   *                  which specifies the type of transform to be performed. They
-   *                  may include any combination of scaling, format conversion,
-   *                  and cropping for both source and destination.
-   *                  Flipping and rotation are supported on VIC/GPU.
-   * @param[out] sync_objs
-   *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
-   *                  which holds synchronization information of the current
-   *                  transform call. \ref NvBufSurfTransfromSyncObjWait() API to be
-   *                  called on this object to wait for transformation to complete.
-   *                  \ref NvBufSurfTransformSyncObjDestroy API should be called after
-   *                  \ref NvBufSurfTransformSyncObjWait API to release the objects
-   *                  If the parameter is NULL, the call would return only after
-   *                  the transform is complete.
-   * @return  An \ref NvBufSurfTransform_Error value indicating
-   *  success or failure.
-   */
-  NvBufSurfTransform_Error NvBufSurfTransformAsync(NvBufSurface *src,
-                                                   NvBufSurface *dst, NvBufSurfTransformParams *transform_params,
-                                                   NvBufSurfTransformSyncObj_t *sync_obj);
+/**
+ * \brief An asynchronous (non-blocking) transformation on batched input images.
+ *
+ * If user-defined session parameters are to be used, call
+ * NvBufSurfTransformSetSessionParams() before calling this function.
+ *
+ * @param[in]  src  A pointer to input batched buffers to be transformed.
+ * @param[out] dst  A pointer to a caller-allocated location where
+ *                  transformed output is to be stored.
+ *                  @par When destination cropping is performed, memory outside
+ *                  the crop location is not touched, and may contain stale
+ *                  information. The caller must perform a memset before
+ *                  calling this function if stale information must be
+ *                  eliminated.
+ * @param[in]  transform_params
+ *                  A pointer to an \ref NvBufSurfTransformParams structure
+ *                  which specifies the type of transform to be performed. They
+ *                  may include any combination of scaling, format conversion,
+ *                  and cropping for both source and destination.
+ *                  Flipping and rotation are supported on VIC/GPU.
+ * @param[out] sync_objs
+ *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
+ *                  which holds synchronization information of the current
+ *                  transform call. \ref NvBufSurfTransfromSyncObjWait() API to be
+ *                  called on this object to wait for transformation to complete.
+ *                  \ref NvBufSurfTransformSyncObjDestroy API should be called after
+ *                  \ref NvBufSurfTransformSyncObjWait API to release the objects
+ *                  If the parameter is NULL, the call would return only after
+ *                  the transform is complete.
+ * @return  An \ref NvBufSurfTransform_Error value indicating
+ *  success or failure.
+ */
+NvBufSurfTransform_Error NvBufSurfTransformAsync(NvBufSurface *src,
+                                                 NvBufSurface *dst,
+                                                 NvBufSurfTransformParams *transform_params,
+                                                 NvBufSurfTransformSyncObj_t *sync_obj);
 
-  /**
-   * \brief  Composites batched input images Asynchronously (non-blocking).
-   *
-   * The compositer scales and stitches
-   * batched buffers indicated by \a src into a single destination buffer, \a dst.
-   *
-   * If user-defined session parameters are to be used, call
-   * NvBufSurfTransformSetSessionParams() before calling this function.
-   *
-   * @param[in]  src  A pointer to input batched buffers to be composited.
-   * @param[out] dst  A pointer a caller-allocated location (a single buffer)
-   *                  where composited output is to be stored.
-   * @param[in]  composite_params
-   *                  A pointer to an \ref NvBufSurfTransformCompositeParams
-   *                  structure which specifies the compositing operation to be
-   *                  performed, e.g., the source and destination rectangles
-   *                  in \a src and \a dst.
-   * @param[out] sync_objs
-   *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
-   *                  which holds synchronization information of the current
-   *                  composite call. ref\ NvBufSurfTransfromSyncObjWait() API to be
-   *                  called on this object to wait for composition to complete.
-   *                  \ref NvBufSurfTransformSyncObjDestroy API should be called after
-   *                  \ref NvBufSurfTransformSyncObjWait API to release the objects
-   *                  If the parameter is NULL, the call would return only after
-   *                  the composite is complete.
-   * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
-   */
-  NvBufSurfTransform_Error NvBufSurfTransformCompositeAsync(NvBufSurface *src,
-                                                            NvBufSurface *dst, NvBufSurfTransformCompositeParams *composite_params,
-                                                            NvBufSurfTransformSyncObj_t *sync_obj);
+/**
+ * \brief  Composites batched input images Asynchronously (non-blocking).
+ *
+ * The compositer scales and stitches
+ * batched buffers indicated by \a src into a single destination buffer, \a dst.
+ *
+ * If user-defined session parameters are to be used, call
+ * NvBufSurfTransformSetSessionParams() before calling this function.
+ *
+ * @param[in]  src  A pointer to input batched buffers to be composited.
+ * @param[out] dst  A pointer a caller-allocated location (a single buffer)
+ *                  where composited output is to be stored.
+ * @param[in]  composite_params
+ *                  A pointer to an \ref NvBufSurfTransformCompositeParams
+ *                  structure which specifies the compositing operation to be
+ *                  performed, e.g., the source and destination rectangles
+ *                  in \a src and \a dst.
+ * @param[out] sync_objs
+ *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
+ *                  which holds synchronization information of the current
+ *                  composite call. ref\ NvBufSurfTransfromSyncObjWait() API to be
+ *                  called on this object to wait for composition to complete.
+ *                  \ref NvBufSurfTransformSyncObjDestroy API should be called after
+ *                  \ref NvBufSurfTransformSyncObjWait API to release the objects
+ *                  If the parameter is NULL, the call would return only after
+ *                  the composite is complete.
+ * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
+ */
+NvBufSurfTransform_Error NvBufSurfTransformCompositeAsync(
+    NvBufSurface *src,
+    NvBufSurface *dst,
+    NvBufSurfTransformCompositeParams *composite_params,
+    NvBufSurfTransformSyncObj_t *sync_obj);
 
-  /**
-   * \brief  Composites/Blends batched input images
-   *
-   * The compositer scales and blends
-   * batched buffers indicated by \a src0 with \a src1 into a batched
-   * destination buffer \a dst  using \a alpha as the blending weights.
-   * A Linear interpolation operation is performed to get the final pix value
-   * each of \a src0, \a src1, \a alpha and \a dst have one to one mapping
-   * For each pixel the following linear interpolation is performed.
-   * \a dst = ( \a src0* \a alpha + \a src1* (255.0 - \a alpha))/255.0
-   * If user-defined session parameters are to be used, call
-   * NvBufSurfTransformSetSessionParams() before calling this function.
-   *
-   * @param[in]  src0  A pointer to input batched buffers to be blend.
-   * @param[in]  src1  A pointer to input batched buffers to be blend with.
-   * @param[in]  alpha  A pointer to input batched buffers which has blending weights.
-   * @param[out] dst  A pointer to output batched buffers where blended composite
-   *                  output is stored
-   * @param[in]  blend_params
-   *                  A pointer to an \ref NvBufSurfTransformCompositeBlendParams
-   *                  structure which specifies the compositing operation to be
-   *                  performed
-   * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
-   */
-  NvBufSurfTransform_Error NvBufSurfTransformCompositeBlend(NvBufSurface *src0,
-                                                            NvBufSurface *src1, NvBufSurface *alpha, NvBufSurface *dst,
-                                                            NvBufSurfTransformCompositeBlendParams *blend_params);
+/**
+ * \brief  Composites/Blends batched input images
+ *
+ * The compositer scales and blends
+ * batched buffers indicated by \a src0 with \a src1 into a batched
+ * destination buffer \a dst  using \a alpha as the blending weights.
+ * A Linear interpolation operation is performed to get the final pix value
+ * each of \a src0, \a src1, \a alpha and \a dst have one to one mapping
+ * For each pixel the following linear interpolation is performed.
+ * \a dst = ( \a src0* \a alpha + \a src1* (255.0 - \a alpha))/255.0
+ * If user-defined session parameters are to be used, call
+ * NvBufSurfTransformSetSessionParams() before calling this function.
+ *
+ * @param[in]  src0  A pointer to input batched buffers to be blend.
+ * @param[in]  src1  A pointer to input batched buffers to be blend with.
+ * @param[in]  alpha  A pointer to input batched buffers which has blending weights.
+ * @param[out] dst  A pointer to output batched buffers where blended composite
+ *                  output is stored
+ * @param[in]  blend_params
+ *                  A pointer to an \ref NvBufSurfTransformCompositeBlendParams
+ *                  structure which specifies the compositing operation to be
+ *                  performed
+ * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
+ */
+NvBufSurfTransform_Error NvBufSurfTransformCompositeBlend(
+    NvBufSurface *src0,
+    NvBufSurface *src1,
+    NvBufSurface *alpha,
+    NvBufSurface *dst,
+    NvBufSurfTransformCompositeBlendParams *blend_params);
 
-  /**
-   * \brief  Wait on the synchroization object.
-   *
-   * The API waits on the synchronization object to finish the corresponding
-   * processing of transform/composite calls or returns on time_out
-   *
-   *
-   * @param[in]  sync_obj  A pointer to sync object on which the API should wait
-   * @param[in]  time_out  Maximum time in ms API should wait before returning, only
-   *                       Only applicable for VIC as of now.
-   * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
-   */
-  NvBufSurfTransform_Error NvBufSurfTransformSyncObjWait(
-      NvBufSurfTransformSyncObj_t sync_obj, uint32_t time_out);
+/**
+ * \brief  Wait on the synchroization object.
+ *
+ * The API waits on the synchronization object to finish the corresponding
+ * processing of transform/composite calls or returns on time_out
+ *
+ *
+ * @param[in]  sync_obj  A pointer to sync object on which the API should wait
+ * @param[in]  time_out  Maximum time in ms API should wait before returning, only
+ *                       Only applicable for VIC as of now.
+ * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
+ */
+NvBufSurfTransform_Error NvBufSurfTransformSyncObjWait(NvBufSurfTransformSyncObj_t sync_obj,
+                                                       uint32_t time_out);
 
-  /**
-   * \brief  Destroy the synchroization object.
-   *
-   * The API deletes the sync_obj which was used for previous transform/composite
-   * Asynchronous calls
-   *
-   * @param[in]  sync_obj  A pointer sync_obj, which the API will delete
-   * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
-   *
-   */
-  NvBufSurfTransform_Error NvBufSurfTransformSyncObjDestroy(
-      NvBufSurfTransformSyncObj_t *sync_obj);
+/**
+ * \brief  Destroy the synchroization object.
+ *
+ * The API deletes the sync_obj which was used for previous transform/composite
+ * Asynchronous calls
+ *
+ * @param[in]  sync_obj  A pointer sync_obj, which the API will delete
+ * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
+ *
+ */
+NvBufSurfTransform_Error NvBufSurfTransformSyncObjDestroy(NvBufSurfTransformSyncObj_t *sync_obj);
 
 /** @} */
 #ifdef __cplusplus

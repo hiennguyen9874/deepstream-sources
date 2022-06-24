@@ -11,183 +11,182 @@
 #ifndef NV_GESTURES_H_
 #define NV_GESTURES_H_
 
-#include <memory>
-
 #include <cuda_runtime.h>
-
 #include <cv/core/Array.h>
 #include <cv/core/BBox.h>
 #include <cv/core/Core.h>
 #include <cv/core/Model.h>
 #include <cv/core/Tensor.h>
 
-namespace cvcore
-{
-    namespace gestures
-    {
+#include <memory>
 
-        /**
-         * Describes the parameters for filtering the gesture detections.
-         */
-        struct GesturesPostProcessorParams
-        {
-            /**< Number of gestures */
-            uint32_t numGestures;
-            /**< Smoothing window size for filtering the detections. Set to 1 for no filtering */
-            size_t gestureHistorySize;
-            /**< Threshold for refining. Refers to the maximum number of detections in the window size. */
-            size_t gestureHistoryThreshold;
-        };
+namespace cvcore {
+namespace gestures {
 
-        /**
-         *  Default parameters for the preprocessing pipeline.
-         */
-        CVCORE_API extern const ImagePreProcessingParams defaultPreProcessorParams;
+/**
+ * Describes the parameters for filtering the gesture detections.
+ */
+struct GesturesPostProcessorParams {
+    /**< Number of gestures */
+    uint32_t numGestures;
+    /**< Smoothing window size for filtering the detections. Set to 1 for no filtering */
+    size_t gestureHistorySize;
+    /**< Threshold for refining. Refers to the maximum number of detections in the window size. */
+    size_t gestureHistoryThreshold;
+};
 
-        /**
-         *  Default parameters to describe the input expected for the model.
-         */
-        CVCORE_API extern const ModelInputParams defaultModelInputParams;
+/**
+ *  Default parameters for the preprocessing pipeline.
+ */
+CVCORE_API extern const ImagePreProcessingParams defaultPreProcessorParams;
 
-        /**
-         *  Default parameters to describe the model inference parameters.
-         */
-        CVCORE_API extern const ModelInferenceParams defaultInferenceParams;
+/**
+ *  Default parameters to describe the input expected for the model.
+ */
+CVCORE_API extern const ModelInputParams defaultModelInputParams;
 
-        /**
-         *  Default parameters for the post processing pipeline.
-         */
-        CVCORE_API extern const GesturesPostProcessorParams defaultPostProcessorParams;
+/**
+ *  Default parameters to describe the model inference parameters.
+ */
+CVCORE_API extern const ModelInferenceParams defaultInferenceParams;
 
-        /*
-         * Interface for running pre-processing on gestures model.
-         */
-        class CVCORE_API GesturesPreProcessor
-        {
-        public:
-            /**
-             * Default constructor is deleted
-             */
-            GesturesPreProcessor() = delete;
+/**
+ *  Default parameters for the post processing pipeline.
+ */
+CVCORE_API extern const GesturesPostProcessorParams defaultPostProcessorParams;
 
-            /**
-             * Constructor of GesturesPreProcessor.
-             * @param preProcessorParams image pre-processing parameters.
-             * @param modelInputParams model paramters for network.
-             */
-            GesturesPreProcessor(const ImagePreProcessingParams &preProcessorParams,
-                                 const ModelInputParams &modelInputParams);
+/*
+ * Interface for running pre-processing on gestures model.
+ */
+class CVCORE_API GesturesPreProcessor {
+public:
+    /**
+     * Default constructor is deleted
+     */
+    GesturesPreProcessor() = delete;
 
-            /**
-             * Destructor of GesturesPreProcessor.
-             */
-            ~GesturesPreProcessor();
+    /**
+     * Constructor of GesturesPreProcessor.
+     * @param preProcessorParams image pre-processing parameters.
+     * @param modelInputParams model paramters for network.
+     */
+    GesturesPreProcessor(const ImagePreProcessingParams &preProcessorParams,
+                         const ModelInputParams &modelInputParams);
 
-            /**
-             * Main interface to run pre-processing.
-             * @param stream cuda stream.
-             */
+    /**
+     * Destructor of GesturesPreProcessor.
+     */
+    ~GesturesPreProcessor();
 
-            void execute(Tensor<NCHW, C3, F32> &output, const Tensor<NHWC, C3, U8> &input,
-                         const Array<BBox> &inputBBoxes, cudaStream_t stream = 0);
+    /**
+     * Main interface to run pre-processing.
+     * @param stream cuda stream.
+     */
 
-        private:
-            /**
-             * Implementation of GesturesPreProcessor.
-             */
-            struct GesturesPreProcessorImpl;
-            std::unique_ptr<GesturesPreProcessorImpl> m_pImpl;
-        };
+    void execute(Tensor<NCHW, C3, F32> &output,
+                 const Tensor<NHWC, C3, U8> &input,
+                 const Array<BBox> &inputBBoxes,
+                 cudaStream_t stream = 0);
 
-        /**
-         * Gestures parameters and implementation
-         */
-        class CVCORE_API Gestures
-        {
-        public:
-            /**
-             * Top gestures detected in order of likelihood.
-             */
-            static constexpr size_t TOP_GESTURES = 10;
+private:
+    /**
+     * Implementation of GesturesPreProcessor.
+     */
+    struct GesturesPreProcessorImpl;
+    std::unique_ptr<GesturesPreProcessorImpl> m_pImpl;
+};
 
-            using GesturesLikelihood = ArrayN<std::pair<uint32_t, float>, TOP_GESTURES>;
+/**
+ * Gestures parameters and implementation
+ */
+class CVCORE_API Gestures {
+public:
+    /**
+     * Top gestures detected in order of likelihood.
+     */
+    static constexpr size_t TOP_GESTURES = 10;
 
-            /**
-             * Constructor for Gestures.
-             * @param params Gestures config parameters.
-             */
-            Gestures(const ImagePreProcessingParams &imgparams, const ModelInputParams &modelParams,
-                     const ModelInferenceParams &modelInferParams,
-                     const GesturesPostProcessorParams &postProcessParams);
+    using GesturesLikelihood = ArrayN<std::pair<uint32_t, float>, TOP_GESTURES>;
 
-            /**
-             * Default constructor not supported.
-             */
-            Gestures() = delete;
+    /**
+     * Constructor for Gestures.
+     * @param params Gestures config parameters.
+     */
+    Gestures(const ImagePreProcessingParams &imgparams,
+             const ModelInputParams &modelParams,
+             const ModelInferenceParams &modelInferParams,
+             const GesturesPostProcessorParams &postProcessParams);
 
-            /**
-             * Destructor for Gestures.
-             */
-            ~Gestures();
+    /**
+     * Default constructor not supported.
+     */
+    Gestures() = delete;
 
-            /**
-             * Inference function for a given BGR image
-             * @param gestures Array of gestures detected represented as idx, score ranked
-             * based on highest score.
-             * @param input RGB/BGR Interleaved image (CPU/GPU Input Tensor supported)
-             * @param inputBBox Bounding box of hand
-             * @param stream Cuda stream
-             */
-            void execute(Array<GesturesLikelihood> &gestures, const Tensor<NHWC, C3, U8> &input,
-                         const Array<BBox> &inputBBox, cudaStream_t stream = 0);
+    /**
+     * Destructor for Gestures.
+     */
+    ~Gestures();
 
-        private:
-            struct GesturesImpl;
-            std::unique_ptr<GesturesImpl> m_pImpl;
-        };
+    /**
+     * Inference function for a given BGR image
+     * @param gestures Array of gestures detected represented as idx, score ranked
+     * based on highest score.
+     * @param input RGB/BGR Interleaved image (CPU/GPU Input Tensor supported)
+     * @param inputBBox Bounding box of hand
+     * @param stream Cuda stream
+     */
+    void execute(Array<GesturesLikelihood> &gestures,
+                 const Tensor<NHWC, C3, U8> &input,
+                 const Array<BBox> &inputBBox,
+                 cudaStream_t stream = 0);
 
-        /**
-         * Interface for running post-processing on gestures network.
-         */
-        class CVCORE_API GesturesPostProcessor
-        {
-        public:
-            GesturesPostProcessor() = delete;
-            /**
-             * Constructor of GesturesPostProcessor.
-             * @param modelInputParams model paramters for network.
-             */
-            GesturesPostProcessor(const ModelInputParams &inputParams,
-                                  const GesturesPostProcessorParams &postProcessParams);
+private:
+    struct GesturesImpl;
+    std::unique_ptr<GesturesImpl> m_pImpl;
+};
 
-            /**
-             * Destructor of GesturesPostProcessor.
-             */
-            ~GesturesPostProcessor();
+/**
+ * Interface for running post-processing on gestures network.
+ */
+class CVCORE_API GesturesPostProcessor {
+public:
+    GesturesPostProcessor() = delete;
+    /**
+     * Constructor of GesturesPostProcessor.
+     * @param modelInputParams model paramters for network.
+     */
+    GesturesPostProcessor(const ModelInputParams &inputParams,
+                          const GesturesPostProcessorParams &postProcessParams);
 
-            /**
-             * Allocate staging CPU buffers (used when inputs are GPU Tensors).
-             */
-            void allocateStagingBuffers();
+    /**
+     * Destructor of GesturesPostProcessor.
+     */
+    ~GesturesPostProcessor();
 
-            /**
-             * Main interface to run post-processing for batch input.
-             * @param gestures Array of gestures detected represented as pair<index, score> ranked by score
-             * based on highest score.
-             * @param input Raw gesture output from the output layer of gestures network.
-             * @param stream Cuda stream
-             */
-            void execute(Array<Gestures::GesturesLikelihood> &gestures, const Tensor<CL, CX, F32> &input,
-                         cudaStream_t stream = 0);
+    /**
+     * Allocate staging CPU buffers (used when inputs are GPU Tensors).
+     */
+    void allocateStagingBuffers();
 
-        private:
-            /**
-             * Implementation of Pose2DPostProcessor.
-             */
-            struct GesturesPostProcessorImpl;
-            std::unique_ptr<GesturesPostProcessorImpl> m_pImpl;
-        };
+    /**
+     * Main interface to run post-processing for batch input.
+     * @param gestures Array of gestures detected represented as pair<index, score> ranked by score
+     * based on highest score.
+     * @param input Raw gesture output from the output layer of gestures network.
+     * @param stream Cuda stream
+     */
+    void execute(Array<Gestures::GesturesLikelihood> &gestures,
+                 const Tensor<CL, CX, F32> &input,
+                 cudaStream_t stream = 0);
 
-    }
-} // namespace cvcore::gestures
+private:
+    /**
+     * Implementation of Pose2DPostProcessor.
+     */
+    struct GesturesPostProcessorImpl;
+    std::unique_ptr<GesturesPostProcessorImpl> m_pImpl;
+};
+
+} // namespace gestures
+} // namespace cvcore
 #endif
