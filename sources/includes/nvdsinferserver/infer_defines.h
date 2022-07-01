@@ -33,7 +33,10 @@
         move_copy(std::move(o)); \
         return *this;            \
     }                            \
-    Cls(Cls &&o) { move_copy(std::move(o)); }
+    Cls(Cls &&o)                 \
+    {                            \
+        move_copy(std::move(o)); \
+    }
 
 #define INFER_UNUSED(a) (void)(a)
 
