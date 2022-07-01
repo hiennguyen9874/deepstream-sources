@@ -24,8 +24,7 @@
 
 typedef std::pair<std::string, std::string> string_pair;
 
-ImageMetaProducer::ImageMetaProducer(ImageMetaConsumer &ic)
-    : ic_(ic)
+ImageMetaProducer::ImageMetaProducer(ImageMetaConsumer &ic) : ic_(ic)
 {
 }
 
@@ -51,7 +50,6 @@ std::string ImageMetaProducer::make_kitti_save_path() const
 
 void ImageMetaProducer::send_and_flush_obj_data()
 {
-
     for (const auto &elm : obj_data_json_)
         ic_.add_meta_json(elm);
     obj_data_json_.clear();
@@ -60,11 +58,9 @@ void ImageMetaProducer::send_and_flush_obj_data()
         ic_.add_meta_csv(elm);
     obj_data_csv_.clear();
 
-    if (!obj_data_kitti_.empty())
-    {
+    if (!obj_data_kitti_.empty()) {
         std::string res;
-        for (const auto &elm : obj_data_kitti_)
-        {
+        for (const auto &elm : obj_data_kitti_) {
             res += elm + "\n";
         }
         string_pair sp(make_kitti_save_path(), res);
@@ -78,9 +74,8 @@ void ImageMetaProducer::send_and_flush_obj_data()
 void ImageMetaProducer::generate_image_full_frame_path(const unsigned stream_source_id,
                                                        const std::string &datetime_iso8601)
 {
-    image_full_frame_path_saved_ = ic_.make_img_path(ImageMetaConsumer::FULL_FRAME,
-                                                     stream_source_id,
-                                                     datetime_iso8601);
+    image_full_frame_path_saved_ =
+        ic_.make_img_path(ImageMetaConsumer::FULL_FRAME, stream_source_id, datetime_iso8601);
 }
 
 std::string ImageMetaProducer::get_image_full_frame_path_saved()
@@ -109,28 +104,33 @@ static std::string format_json_string(const std::string &str)
 
 std::string ImageMetaProducer::make_json_data(const IPData &data)
 {
-    const std::string path_full_frame = ic_.get_save_full_frame_enabled() ? data.image_full_frame_path_saved : "";
-    const std::string path_cropped_obj = ic_.get_save_cropped_images_enabled() ? data.image_cropped_obj_path_saved : "";
+    const std::string path_full_frame =
+        ic_.get_save_full_frame_enabled() ? data.image_full_frame_path_saved : "";
+    const std::string path_cropped_obj =
+        ic_.get_save_cropped_images_enabled() ? data.image_cropped_obj_path_saved : "";
 
     std::stringstream ss;
     ss << format_json_string(get_filename(data.image_cropped_obj_path_saved)) << " : ";
     ss << "{\n";
     ss << "  " << format_json_string("class_id") << " : " << data.class_id << ",\n";
-    ss << "  " << format_json_string("class_name") << " : " << format_json_string(data.class_name) << ",\n";
+    ss << "  " << format_json_string("class_name") << " : " << format_json_string(data.class_name)
+       << ",\n";
     ss << "  " << format_json_string("confidence") << " : " << data.confidence << ",\n";
-    ss << "  " << format_json_string("within_confidence") << " : " << data.within_confidence << ",\n";
+    ss << "  " << format_json_string("within_confidence") << " : " << data.within_confidence
+       << ",\n";
     ss << "  " << format_json_string("current_frame") << " : " << data.current_frame << ",\n";
     ss << "  " << format_json_string("image_cropped_obj_path_saved") << " : "
        << format_json_string(path_cropped_obj) << ",\n";
     ss << "  " << format_json_string("image_full_frame_path_saved") << " : "
        << format_json_string(path_full_frame) << ",\n";
-    ss << "  " << format_json_string("datetime") << " : "
-       << format_json_string(data.datetime) << ",\n";
+    ss << "  " << format_json_string("datetime") << " : " << format_json_string(data.datetime)
+       << ",\n";
     ss << "  " << format_json_string("img_height") << " : " << data.img_height << ",\n";
     ss << "  " << format_json_string("img_width") << " : " << data.img_width << ",\n";
     ss << "  " << format_json_string("img_top") << " : " << data.img_top << ",\n";
     ss << "  " << format_json_string("img_left") << " : " << data.img_left << ",\n";
-    ss << "  " << format_json_string("video_path") << " : " << format_json_string(data.video_path) << ",\n";
+    ss << "  " << format_json_string("video_path") << " : " << format_json_string(data.video_path)
+       << ",\n";
     ss << "  " << format_json_string("video_stream_nb") << " : " << data.video_stream_nb << "\n";
     ss << "}\n";
     return ss.str();
@@ -138,8 +138,10 @@ std::string ImageMetaProducer::make_json_data(const IPData &data)
 
 std::string ImageMetaProducer::make_csv_data(const IPData &data)
 {
-    const std::string path_full_frame = ic_.get_save_full_frame_enabled() ? data.image_full_frame_path_saved : "";
-    const std::string path_cropped_obj = ic_.get_save_cropped_images_enabled() ? data.image_cropped_obj_path_saved : "";
+    const std::string path_full_frame =
+        ic_.get_save_full_frame_enabled() ? data.image_full_frame_path_saved : "";
+    const std::string path_cropped_obj =
+        ic_.get_save_cropped_images_enabled() ? data.image_cropped_obj_path_saved : "";
 
     std::stringstream ss;
     ss << data.class_id << ",";
@@ -161,7 +163,6 @@ std::string ImageMetaProducer::make_csv_data(const IPData &data)
 
 std::string ImageMetaProducer::make_kitti_data(const IPData &data)
 {
-
     std::stringstream ss;
     // Please refer to :
     // https://docs.nvidia.com/tao/tao-toolkit/text/data_annotation_format.html#object-detection-kitti-format
@@ -169,7 +170,8 @@ std::string ImageMetaProducer::make_kitti_data(const IPData &data)
     ss << "0.0"
        << " "; // Truncation (No data default value)
     ss << "3"
-       << " "; // Occlusion [ 0 = fully visible, 1 = partly visible, 2 = largely occluded, 3 = unknown].
+       << " "; // Occlusion [ 0 = fully visible, 1 = partly visible, 2 = largely occluded, 3 =
+               // unknown].
     ss << "0.0"
        << " "; // Alpha (No data default value)
     // Bounding box coordinates:

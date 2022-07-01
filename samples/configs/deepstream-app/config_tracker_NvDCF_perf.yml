@@ -26,6 +26,7 @@ BaseConfig:
 
 TargetManagement:
   enableBboxUnClipping: 1   # In case the bbox is likely to be clipped by image border, unclip bbox
+  preserveStreamUpdateOrder: 0 # When assigning new target ids, preserve input streams' order to keep target ids in a deterministic order over multuple runs
   maxTargetsPerStream: 150  # Max number of targets to track per stream. Recommended to set >10. Note: this value should account for the targets being tracked in shadow mode as well. Max value depends on the GPU memory capacity
 
   # [Creation & Termination Policy]

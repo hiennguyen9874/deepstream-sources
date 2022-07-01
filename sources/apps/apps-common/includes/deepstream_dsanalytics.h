@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,31 +24,28 @@
 #define _NVGSTDS_DSANALYTICS_H_
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <gst/gst.h>
 
-  typedef struct
-  {
+typedef struct {
     // Create a bin for the element only if enabled
     gboolean enable;
+    guint unique_id;
     // Config file path having properties for the element
     gchar *config_file_path;
-  } NvDsDsAnalyticsConfig;
+} NvDsDsAnalyticsConfig;
 
-  // Struct to store references to the bin and elements
-  typedef struct
-  {
+// Struct to store references to the bin and elements
+typedef struct {
     GstElement *bin;
     GstElement *queue;
     GstElement *elem_dsanalytics;
-  } NvDsDsAnalyticsBin;
+} NvDsDsAnalyticsBin;
 
-  // Function to create the bin and set properties
-  gboolean
-  create_dsanalytics_bin(NvDsDsAnalyticsConfig *config, NvDsDsAnalyticsBin *bin);
+// Function to create the bin and set properties
+gboolean create_dsanalytics_bin(NvDsDsAnalyticsConfig *config, NvDsDsAnalyticsBin *bin);
 
 #ifdef __cplusplus
 }

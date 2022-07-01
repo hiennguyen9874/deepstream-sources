@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -12,7 +12,7 @@
 CXX:=g++
 DS_INC:= ../../includes
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
 DS_LIB:=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 

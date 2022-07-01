@@ -58,15 +58,14 @@
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void NvDsPreProcessConvert_C3ToP3Float(
-    float *outBuffer,
-    unsigned char *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+void NvDsPreProcessConvert_C3ToP3Float(float *outBuffer,
+                                       unsigned char *inBuffer,
+                                       unsigned int width,
+                                       unsigned int height,
+                                       unsigned int pitch,
+                                       float scaleFactor,
+                                       float *meanDataBuffer,
+                                       cudaStream_t stream);
 
 /**
  * Converts an input packed 3 channel buffer of width x height resolution into an
@@ -88,15 +87,14 @@ void NvDsPreProcessConvert_C3ToP3Float(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void NvDsPreProcessConvert_C3ToL3Float(
-    float *outBuffer,
-    unsigned char *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+void NvDsPreProcessConvert_C3ToL3Float(float *outBuffer,
+                                       unsigned char *inBuffer,
+                                       unsigned int width,
+                                       unsigned int height,
+                                       unsigned int pitch,
+                                       float scaleFactor,
+                                       float *meanDataBuffer,
+                                       cudaStream_t stream);
 
 /**
  * Converts an input packed 3 channel buffer of width x height resolution into an
@@ -118,15 +116,14 @@ void NvDsPreProcessConvert_C3ToL3Float(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void NvDsPreProcessConvert_C4ToP3Float(
-    float *outBuffer,
-    unsigned char *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+void NvDsPreProcessConvert_C4ToP3Float(float *outBuffer,
+                                       unsigned char *inBuffer,
+                                       unsigned int width,
+                                       unsigned int height,
+                                       unsigned int pitch,
+                                       float scaleFactor,
+                                       float *meanDataBuffer,
+                                       cudaStream_t stream);
 
 /**
  * Converts an input packed 3 channel buffer of width x height resolution into an
@@ -148,15 +145,14 @@ void NvDsPreProcessConvert_C4ToP3Float(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void NvDsPreProcessConvert_C4ToL3Float(
-    float *outBuffer,
-    unsigned char *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+void NvDsPreProcessConvert_C4ToL3Float(float *outBuffer,
+                                       unsigned char *inBuffer,
+                                       unsigned int width,
+                                       unsigned int height,
+                                       unsigned int pitch,
+                                       float scaleFactor,
+                                       float *meanDataBuffer,
+                                       cudaStream_t stream);
 
 /**
  * Converts an input packed 3 channel buffer of width x height resolution into an
@@ -178,15 +174,14 @@ void NvDsPreProcessConvert_C4ToL3Float(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void NvDsPreProcessConvert_C3ToP3RFloat(
-    float *outBuffer,
-    unsigned char *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+void NvDsPreProcessConvert_C3ToP3RFloat(float *outBuffer,
+                                        unsigned char *inBuffer,
+                                        unsigned int width,
+                                        unsigned int height,
+                                        unsigned int pitch,
+                                        float scaleFactor,
+                                        float *meanDataBuffer,
+                                        cudaStream_t stream);
 
 /**
  * Converts an input packed 3 channel buffer of width x height resolution into an
@@ -208,15 +203,14 @@ void NvDsPreProcessConvert_C3ToP3RFloat(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void NvDsPreProcessConvert_C3ToL3RFloat(
-    float *outBuffer,
-    unsigned char *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+void NvDsPreProcessConvert_C3ToL3RFloat(float *outBuffer,
+                                        unsigned char *inBuffer,
+                                        unsigned int width,
+                                        unsigned int height,
+                                        unsigned int pitch,
+                                        float scaleFactor,
+                                        float *meanDataBuffer,
+                                        cudaStream_t stream);
 
 /**
  * Converts an input packed 4 channel buffer of width x height resolution into an
@@ -238,15 +232,14 @@ void NvDsPreProcessConvert_C3ToL3RFloat(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void NvDsPreProcessConvert_C4ToP3RFloat(
-    float *outBuffer,
-    unsigned char *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+void NvDsPreProcessConvert_C4ToP3RFloat(float *outBuffer,
+                                        unsigned char *inBuffer,
+                                        unsigned int width,
+                                        unsigned int height,
+                                        unsigned int pitch,
+                                        float scaleFactor,
+                                        float *meanDataBuffer,
+                                        cudaStream_t stream);
 
 /**
  * Converts an input packed 4 channel buffer of width x height resolution into an
@@ -268,15 +261,14 @@ void NvDsPreProcessConvert_C4ToP3RFloat(
  *                       (width * height * 3 * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void NvDsPreProcessConvert_C4ToL3RFloat(
-    float *outBuffer,
-    unsigned char *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+void NvDsPreProcessConvert_C4ToL3RFloat(float *outBuffer,
+                                        unsigned char *inBuffer,
+                                        unsigned int width,
+                                        unsigned int height,
+                                        unsigned int pitch,
+                                        float scaleFactor,
+                                        float *meanDataBuffer,
+                                        cudaStream_t stream);
 
 /**
  * Converts an 1 channel UINT8 input of width x height resolution into an
@@ -296,38 +288,35 @@ void NvDsPreProcessConvert_C4ToL3RFloat(
  *                       (width * height * sizeof(float)) bytes.
  * @param stream         Cuda stream identifier.
  */
-void NvDsPreProcessConvert_C1ToP1Float(
-    float *outBuffer,
-    unsigned char *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+void NvDsPreProcessConvert_C1ToP1Float(float *outBuffer,
+                                       unsigned char *inBuffer,
+                                       unsigned int width,
+                                       unsigned int height,
+                                       unsigned int pitch,
+                                       float scaleFactor,
+                                       float *meanDataBuffer,
+                                       cudaStream_t stream);
 
-void NvDsPreProcessConvert_FtFTensor(
-    float *outBuffer,
-    float *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+void NvDsPreProcessConvert_FtFTensor(float *outBuffer,
+                                     float *inBuffer,
+                                     unsigned int width,
+                                     unsigned int height,
+                                     unsigned int pitch,
+                                     float scaleFactor,
+                                     float *meanDataBuffer,
+                                     cudaStream_t stream);
 
 /**
  * Function pointer type to which any of the NvDsPreProcessConvert functions can be
  * assigned.
  */
-typedef void (*NvDsPreProcessConvertFcn)(
-    float *outBuffer,
-    unsigned char *inBuffer,
-    unsigned int width,
-    unsigned int height,
-    unsigned int pitch,
-    float scaleFactor,
-    float *meanDataBuffer,
-    cudaStream_t stream);
+typedef void (*NvDsPreProcessConvertFcn)(float *outBuffer,
+                                         unsigned char *inBuffer,
+                                         unsigned int width,
+                                         unsigned int height,
+                                         unsigned int pitch,
+                                         float scaleFactor,
+                                         float *meanDataBuffer,
+                                         cudaStream_t stream);
 
 #endif /* __NVDSPREPROCESS_CONVERSION_H__ */

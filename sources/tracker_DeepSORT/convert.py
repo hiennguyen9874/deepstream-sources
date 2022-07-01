@@ -13,11 +13,10 @@
 # frozen graph into UFF. The node edition is specific to the official model, since
 # it contains nodes not suppported by TensorRT.
 
-import sys
-
 import graphsurgeon as gs
 import tensorflow as tf
 import uff
+import sys
 
 if len(sys.argv) < 2:
     print('Usage: python ' + sys.argv[0] + ' /path/to/model.pb')

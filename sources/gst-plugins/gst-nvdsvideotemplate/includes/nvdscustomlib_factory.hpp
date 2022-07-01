@@ -26,8 +26,8 @@
 #include <dlfcn.h>
 #include <errno.h>
 
-#include <iostream>
 #include <functional>
+#include <iostream>
 
 #include "nvdscustomlib_interface.hpp"
 
@@ -37,17 +37,13 @@ T *dlsym_ptr(void *handle, char const *name)
     return reinterpret_cast<T *>(dlsym(handle, name));
 }
 
-class DSCustomLibrary_Factory
-{
+class DSCustomLibrary_Factory {
 public:
-    DSCustomLibrary_Factory()
-    {
-    }
+    DSCustomLibrary_Factory() {}
 
     ~DSCustomLibrary_Factory()
     {
-        if (m_libHandle)
-        {
+        if (m_libHandle) {
             dlclose(m_libHandle);
             m_libHandle = NULL;
             m_libName.clear();
@@ -59,18 +55,14 @@ public:
         m_libName.assign(libName);
 
         m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW);
-        if (m_libHandle)
-        {
-            std::cout << "Library Opened Successfully" << std::endl;
+        if (m_libHandle) {
+            // std::cout << "Library Opened Successfully" << std::endl;
 
             m_CreateAlgoCtx = dlsym_ptr<IDSCustomLibrary *()>(m_libHandle, "CreateCustomAlgoCtx");
-            if (!m_CreateAlgoCtx)
-            {
+            if (!m_CreateAlgoCtx) {
                 throw std::runtime_error("createCustomAlgoCtx function not found in library");
             }
-        }
-        else
-        {
+        } else {
             throw std::runtime_error(dlerror());
         }
 

@@ -29,8 +29,7 @@
 #include <gst/gst.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /*
@@ -42,11 +41,10 @@ extern "C"
  */
 #define MAX_DEWARPED_VIEWS 4
 
-  /**
-   * Defines metadata surface types.
-   */
-  typedef enum
-  {
+/**
+ * Defines metadata surface types.
+ */
+typedef enum {
     NVDS_META_SURFACE_NONE = 0,
     /** Defines the pushbroom surface type. */
     NVDS_META_SURFACE_FISH_PUSHBROOM = 1,
@@ -54,13 +52,12 @@ extern "C"
     NVDS_META_SURFACE_FISH_VERTCYL = 2,
     /** Defines the perspective projection with Brown distortion model surface. */
     NVDS_META_SURFACE_PERSPECTIVE_PERSPECTIVE = 3,
-  } NvDsSurfaceType;
+} NvDsSurfaceType;
 
-  /**
-   * Holds a set of dewarper metadata.
-   */
-  typedef struct _NvDewarperSurfaceMeta
-  {
+/**
+ * Holds a set of dewarper metadata.
+ */
+typedef struct _NvDewarperSurfaceMeta {
     /** Holds an array of the types of dewarped surfaces. */
     guint type[MAX_DEWARPED_VIEWS];
     /** Holds an array of indices of dewarped surfaces. */
@@ -69,7 +66,7 @@ extern "C"
     guint source_id;
     /** Holds the number of filled surfaces in the frame. */
     guint num_filled_surfaces;
-  } NvDewarperSurfaceMeta;
+} NvDewarperSurfaceMeta;
 
 #ifdef __cplusplus
 }

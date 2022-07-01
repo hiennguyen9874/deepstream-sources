@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -28,6 +28,11 @@ enable=1
 target-unique-ids=1
     # 0=NCHW, 1=NHWC, 2=CUSTOM
 network-input-order=0
+    # if enabled maintain the aspect ratio while scaling
+maintain-aspect-ratio=1
+    # if enabled pad symmetrically with maintain-aspect-ratio enabled
+symmetric-padding=1
+    # processig width/height at which image scaled
 processing-width=640
 processing-height=368
 scaling-buf-pool-size=6
@@ -48,7 +53,7 @@ scaling-pool-compute-hw=0
     # 3=NvBufSurfTransformInter_Algo2 4=NvBufSurfTransformInter_Algo3 5=NvBufSurfTransformInter_Algo4
     # 6=NvBufSurfTransformInter_Default
 scaling-filter=0
-custom-lib-path=/opt/nvidia/deepstream/deepstream-6.0/lib/gst-plugins/libcustom2d_preprocess.so
+custom-lib-path=/opt/nvidia/deepstream/deepstream/lib/gst-plugins/libcustom2d_preprocess.so
 custom-tensor-preparation-function=CustomTensorPreparation
 
 [user-configs]

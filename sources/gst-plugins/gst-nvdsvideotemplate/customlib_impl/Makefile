@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -33,9 +33,9 @@ SRCS:= customlib_impl.cpp
 INCS:= $(wildcard *.h)
 LIB:=libcustom_videoimpl.so
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.0.1\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.1.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../../includes -I../includes
 
@@ -73,7 +73,7 @@ $(DEP): $(DEP_FILES)
 	$(MAKE) -C customlib_impl/
 
 install: $(LIB)
-	cp -rv $(LIB) $(GST_INSTALL_DIR)
+	cp -rv $(LIB) $(LIB_INSTALL_DIR)
 
 clean:
 	rm -rf $(OBJS) $(LIB)

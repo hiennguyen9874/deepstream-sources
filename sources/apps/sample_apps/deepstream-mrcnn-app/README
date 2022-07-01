@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2020-2021 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2020-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,7 +8,14 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-Prerequisites:
+*****************************************************************************
+                     deepstream-mrcnn-app
+                             README
+*****************************************************************************
+
+===============================================================================
+1. Prerequisites:
+===============================================================================
 
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
 to install the prerequisites for Deepstream SDK, the DeepStream SDK itself and
@@ -60,7 +67,7 @@ Azure Iot:
     TRT plugin Build from OSS requirement:
     --------------------------------------
     PeopleSegNet depends on GenerateDetection, MultilevelCropAndResize,
-    MultilevelProposeROI TRT plugins which are not supported by TensorRT 7.x native package.
+    MultilevelProposeROI TRT plugins which are not supported by TensorRT 8.x native package.
     So user shall build and update TensorRT OSS Plugin - libnvinfer_plugin.so
 
     Please Follow instructions at:
@@ -70,7 +77,7 @@ Azure Iot:
     NOTE: For Jetson, while running CMake from the above link, add `-DGPU_ARCHS="53 62 72 75"` flag since by default TRT-OSS selects
     SM architectures `53 62 70 75` which does not include sm72 required for Jetson AGX.
 
-    More details could be found at /opt/nvidia/deepstream/deepstream/samples/configs/tao_pretrained_models/README
+    More details could be found at https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps/blob/master/deepstream_app_tao_configs/README.md
 
 SETUP:
   1.Use --proto-lib or -p command line option to set the path of adaptor library.
@@ -159,22 +166,43 @@ SETUP:
 NOTE: Due to deprecation of OpenCV, the binary of this app is not packaged,
 to use this application, follow the compilation steps mentioned below.
 
-To compile:
+===============================================================================
+2. Purpose:
+===============================================================================
+
+This document shall describe about the sample deepstream-mrcnn-test application.
+
+This sample builds on top of the deepstream-test1 sample to demonstrate how to:
+
+* Use "nvmsgconv" and "nvmsgbroker" plugins in the pipeline.
+* Create NVDS_EVENT_MSG_META type of meta and attach to buffer.
+* Use NVDS_EVENT_MSG_META for different types of objects e.g. vehicle, person etc.
+* Provide copy / free functions if meta data is extended through "extMsg" field.
+
+
+===============================================================================
+3. To compile:
+===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=10.2
-      For x86, CUDA_VER=11.4
+      For Jetson, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
   $ sudo make
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
 
-To run:
+===============================================================================
+4. Usage:
+===============================================================================
+
   $ ./deepstream-mrcnn-app -i <H264 filename> -p <Proto adaptor library> --conn-str=<Connection string> --topic=<topicname> -s <0/1>
 
 NOTE: More details about the message adapters can be found at README inside DS_PACKAGE_DIR/sources/libs/*_protocol_adaptor
 
-Azure Iotedge runtime integration of deepstream-mrcnn-app:
-----------------------------------------------------------
+===============================================================================
+5. Azure Iotedge runtime integration of deepstream-mrcnn-app:
+===============================================================================
+
 # Refer to sections within DS_PACKAGE_DIR/sources/libs/azure_protocol_adaptor/module_client/README to:
     1. Create azure IotHub
     2. Register a new Azure IoT Edge device from the Azure portal
@@ -276,15 +304,6 @@ Azure Iotedge runtime integration of deepstream-mrcnn-app:
 
   #check output from the modules
   sudo iotedge logs ds
-
-This document shall describe about the sample deepstream-mrcnn-test application.
-
-This sample builds on top of the deepstream-test1 sample to demonstrate how to:
-
-* Use "nvmsgconv" and "nvmsgbroker" plugins in the pipeline.
-* Create NVDS_EVENT_MSG_META type of meta and attach to buffer.
-* Use NVDS_EVENT_MSG_META for different types of objects e.g. vehicle, person etc.
-* Provide copy / free functions if meta data is extended through "extMsg" field.
 
 "nvmsgconv" plugin uses NVDS_EVENT_MSG_META type of metadata from the buffer
 and generates the "DeepStream Schema" payload in Json format. Static properties

@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2021 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,27 +8,14 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-deepstream-3d-action-recognition is an example to demonstrate a sequence
-based 3D or 2D model inference pipeline for action recognition. The pipeline
-is basically as
-src_bin -> nvstreammux -> nvdspreprocess -> nvinfer -> nvtiler -> nvosd -> display.
-The nvdspreprocess plugin is doing preprocessing for the 3D/2D model input.
-It would load a custom_sequence_preprocess lib(subfolder) to do temporal sequence
-batching and ROI spacial batching. Then deliver the batched tensor buffer to
-downstream plugin nvinfer to do inference. This test app will parse the output
-tensor data for action classifiction.
-This 3D/2D model is pretrained by NVIDIA TAO toolkit. The 3D model has NCDHW(NCSHW)
-input and the 2D model has NSHW shapes.
-    N: batch-size
-    C: channels
-    D/S: depth(sequence)
-    H: height
-    W: width
-    S: channels x depth, reshaped from [C, D]
+*****************************************************************************
+                     deepstream-3d-action-recognition
+                               README
+*****************************************************************************
 
-For more custom 3D preprocessing details, see source files in custom_sequence_preprocess.
-
-Prerequisites:
+===============================================================================
+1. Prerequisites:
+===============================================================================
 
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
 to install the prerequisites for the Deepstream SDK, the DeepStream SDK itself,
@@ -44,12 +31,43 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
+===============================================================================
+2. Purpose:
+===============================================================================
+
+deepstream-3d-action-recognition is an example to demonstrate a sequence
+based 3D or 2D model inference pipeline for action recognition. The pipeline
+is as:
+
+src_bin -> nvstreammux -> nvdspreprocess -> nvinfer -> nvtiler -> nvosd -> display.
+
+The nvdspreprocess plugin does preprocessing for the 3D/2D model input.
+It would load a custom_sequence_preprocess lib(subfolder) to do temporal sequence
+batching and ROI spacial batching. Then deliver the batched tensor buffer to
+downstream plugin nvinfer to do inference. The test app parses the output
+tensor data for action classifiction.
+
+This 3D/2D model is pretrained by NVIDIA TAO toolkit. The 3D model has NCDHW(NCSHW)
+input and the 2D model has NSHW shapes.
+    N: batch-size
+    C: channels
+    D/S: depth(sequence)
+    H: height
+    W: width
+    S: channels x depth, reshaped from [C, D]
+
+For more custom 3D preprocessing details, see source files in custom_sequence_preprocess.
+
+===============================================================================
+3. To compile:
+===============================================================================
+
 To compile application deepstream-3d-action-recognition and custom lib
 custom_sequence_preprocess/libnvds_custom_sequence_preprocess.so:
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=10.2
-      For x86, CUDA_VER=11.4
+      For Jetson, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
 
   $ cd custom_sequence_preprocess
   $ sudo make install
@@ -59,6 +77,11 @@ custom_sequence_preprocess/libnvds_custom_sequence_preprocess.so:
 
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
+
+
+===============================================================================
+4. Usage:
+===============================================================================
 
 Search and Download 3D and 2D RGB based tao_iva_action_recognition_pretrained
 models from NGC https://ngc.nvidia.com/catalog/models/nvidia:tao:actionrecognitionnet

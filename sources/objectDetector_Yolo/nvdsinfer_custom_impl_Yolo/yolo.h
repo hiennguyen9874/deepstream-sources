@@ -24,20 +24,19 @@
 #define _YOLO_H_
 
 #include <stdint.h>
+
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 #include "NvInfer.h"
-#include "trt_utils.h"
-
 #include "nvdsinfer_custom_impl.h"
+#include "trt_utils.h"
 
 /**
  * Holds all the file paths required to build a network.
  */
-struct NetworkInfo
-{
+struct NetworkInfo {
     std::string networkType;
     std::string configFilePath;
     std::string wtsFilePath;
@@ -48,8 +47,7 @@ struct NetworkInfo
 /**
  * Holds information about an output tensor of the yolo network.
  */
-struct TensorInfo
-{
+struct TensorInfo {
     std::string blobName;
     uint stride{0};
     uint gridSize{0};
@@ -62,21 +60,19 @@ struct TensorInfo
     float *hostBuffer{nullptr};
 };
 
-class Yolo : public IModelParser
-{
+class Yolo : public IModelParser {
 public:
     Yolo(const NetworkInfo &networkInfo);
     ~Yolo() override;
     bool hasFullDimsSupported() const override { return false; }
     const char *getModelName() const override
     {
-        return m_ConfigFilePath.empty() ? m_NetworkType.c_str()
-                                        : m_ConfigFilePath.c_str();
+        return m_ConfigFilePath.empty() ? m_NetworkType.c_str() : m_ConfigFilePath.c_str();
     }
     NvDsInferStatus parseModel(nvinfer1::INetworkDefinition &network) override;
 
-    nvinfer1::ICudaEngine *createEngine(
-        nvinfer1::IBuilder *builder, nvinfer1::IBuilderConfig *config);
+    nvinfer1::ICudaEngine *createEngine(nvinfer1::IBuilder *builder,
+                                        nvinfer1::IBuilderConfig *config);
 
 protected:
     const std::string m_NetworkType;
@@ -95,10 +91,9 @@ protected:
     std::vector<nvinfer1::Weights> m_TrtWeights;
 
 private:
-    NvDsInferStatus buildYoloNetwork(
-        std::vector<float> &weights, nvinfer1::INetworkDefinition &network);
-    std::vector<std::map<std::string, std::string>> parseConfigFile(
-        const std::string cfgFilePath);
+    NvDsInferStatus buildYoloNetwork(std::vector<float> &weights,
+                                     nvinfer1::INetworkDefinition &network);
+    std::vector<std::map<std::string, std::string>> parseConfigFile(const std::string cfgFilePath);
     void parseConfigBlocks();
     void destroyNetworkUtils();
 };

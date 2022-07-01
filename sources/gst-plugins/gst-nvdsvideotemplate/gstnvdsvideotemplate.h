@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,18 +23,18 @@
 #ifndef __GST_NVDSVIDEOTEMPLATE_H__
 #define __GST_NVDSVIDEOTEMPLATE_H__
 
+#include <cuda_runtime.h>
+#include <glib-object.h>
 #include <gst/base/gstbasetransform.h>
 #include <gst/video/video.h>
-#include <glib-object.h>
+
 #include <vector>
 
-#include <cuda_runtime.h>
 #include "gstnvdsmeta.h"
-#include "nvtx3/nvToolsExt.h"
-
+#include "nvbufsurftransform.h"
 #include "nvdscustomlib_factory.hpp"
 #include "nvdscustomlib_interface.hpp"
-#include "nvbufsurftransform.h"
+#include "nvtx3/nvToolsExt.h"
 
 /* Package and library details required for plugin_init */
 #define PACKAGE "nvdsvideotemplate"
@@ -51,53 +51,60 @@ typedef struct _GstNvDsVideoTemplateClass GstNvDsVideoTemplateClass;
 
 /* Standard boilerplate stuff */
 #define GST_TYPE_NVDSVIDEOTEMPLATE (gst_nvdsvideotemplate_get_type())
-#define GST_NVDSVIDEOTEMPLATE(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_NVDSVIDEOTEMPLATE, GstNvDsVideoTemplate))
-#define GST_NVDSVIDEOTEMPLATE_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_NVDSVIDEOTEMPLATE, GstNvDsVideoTemplateClass))
-#define GST_NVDSVIDEOTEMPLATE_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS((obj), GST_TYPE_NVDSVIDEOTEMPLATE, GstNvDsVideoTemplateClass))
-#define GST_IS_NVDSVIDEOTEMPLATE(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_NVDSVIDEOTEMPLATE))
-#define GST_IS_NVDSVIDEOTEMPLATE_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_NVDSVIDEOTEMPLATE))
+#define GST_NVDSVIDEOTEMPLATE(obj) \
+    (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_NVDSVIDEOTEMPLATE, GstNvDsVideoTemplate))
+#define GST_NVDSVIDEOTEMPLATE_CLASS(klass) \
+    (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_NVDSVIDEOTEMPLATE, GstNvDsVideoTemplateClass))
+#define GST_NVDSVIDEOTEMPLATE_GET_CLASS(obj) \
+    (G_TYPE_INSTANCE_GET_CLASS((obj), GST_TYPE_NVDSVIDEOTEMPLATE, GstNvDsVideoTemplateClass))
+#define GST_IS_NVDSVIDEOTEMPLATE(obj) \
+    (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_NVDSVIDEOTEMPLATE))
+#define GST_IS_NVDSVIDEOTEMPLATE_CLASS(klass) \
+    (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_NVDSVIDEOTEMPLATE))
 #define GST_NVDSVIDEOTEMPLATE_CAST(obj) ((GstNvDsVideoTemplate *)(obj))
 
-struct _GstNvDsVideoTemplate
-{
-  GstBaseTransform base_trans;
+struct _GstNvDsVideoTemplate {
+    GstBaseTransform base_trans;
 
-  /** Custom Library Factory and Interface */
-  DSCustomLibrary_Factory *algo_factory;
-  IDSCustomLibrary *algo_ctx;
+    /** Custom Library Factory and Interface */
+    DSCustomLibrary_Factory *algo_factory;
+    IDSCustomLibrary *algo_ctx;
 
-  /** Custom Library Name and output caps string */
-  gchar *custom_lib_name;
+    /** Custom Library Name and output caps string */
+    gchar *custom_lib_name;
 
-  /* Store custom lib property values */
-  std::vector<Property> *vecProp;
-  gchar *custom_prop_string;
+    /* Store custom lib property values */
+    std::vector<Property> *vecProp;
+    gchar *custom_prop_string;
 
-  /** Boolean to signal output thread to stop. */
-  gboolean stop;
+    /** Boolean to signal output thread to stop. */
+    gboolean stop;
 
-  /** Input and Output video info (resolution, color format, framerate, etc) */
-  GstVideoInfo in_video_info;
-  GstVideoInfo out_video_info;
+    /** Input and Output video info (resolution, color format, framerate, etc) */
+    GstVideoInfo in_video_info;
+    GstVideoInfo out_video_info;
 
-  /** GPU ID on which we expect to execute the task */
-  guint gpu_id;
+    /** GPU ID on which we expect to execute the task */
+    guint gpu_id;
 
-  /** NVTX Domain. */
-  nvtxDomainHandle_t nvtx_domain;
+    gboolean dummy_meta_insert;
 
-  GstCaps *sinkcaps;
-  GstCaps *srccaps;
-  guint num_batch_buffers;
-  NvBufSurfTransformConfigParams config_params;
-  gint compute_hw;
-  cudaStream_t cu_nbstream;
+    gboolean fill_dummy_batch_meta;
+
+    /** NVTX Domain. */
+    nvtxDomainHandle_t nvtx_domain;
+
+    GstCaps *sinkcaps;
+    GstCaps *srccaps;
+    guint num_batch_buffers;
+    NvBufSurfTransformConfigParams config_params;
+    gint compute_hw;
+    cudaStream_t cu_nbstream;
 };
 
 /** Boiler plate stuff */
-struct _GstNvDsVideoTemplateClass
-{
-  GstBaseTransformClass parent_class;
+struct _GstNvDsVideoTemplateClass {
+    GstBaseTransformClass parent_class;
 };
 
 GType gst_nvdsvideotemplate_get_type(void);

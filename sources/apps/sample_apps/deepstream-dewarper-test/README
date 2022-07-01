@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2020-2021 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2020-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,7 +8,14 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-Prequisites:
+*****************************************************************************
+                     deepstream-dewarper-app
+                             README
+*****************************************************************************
+
+===============================================================================
+1. Prerequisites:
+===============================================================================
 
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
 to install the prequisites for Deepstream SDK, the DeepStream SDK itself and the
@@ -24,14 +31,31 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
-Compilation Steps:
+===============================================================================
+2. Purpose:
+===============================================================================
+
+This document shall describe the sample deepstream-dewarper-test application.
+The following description focus on the default use-case of parking garage 360
+cameras with spots and ailes surfaces but can also be used to test other
+types of applications like a single surface Perspective, Pushbroom, Vertical Cylender
+Projection use-case
+
+For more information on the general functionality and further examples see the
+DeepStream Plugin Development Guide.
+
+===============================================================================
+3. To compile:
+===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=10.2
-      For x86, CUDA_VER=11.4
+      For Jetson, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
   $ sudo make
 
-To run:
+===============================================================================
+4. Usage:
+===============================================================================
 
   $ ./deepstream-dewarper-app [<uri1> <camera_id1>] [<uri2> <camera_id2>] ... [<uriN> <camera_idN>]
 
@@ -49,15 +73,6 @@ e.g.
 
   // Multi Stream for Perspective Projection type (needs config file change)
   $ ./deepstream-dewarper-app file:///home/nvidia/yoga.mp4 0 file:///home/nvidia/yoga.mp4 0
-
-This document shall describe the sample deepstream-dewarper-test application.
-The following description focus on the default use-case of parking garage 360
-cameras with spots and ailes surfaces but you can also use it to test other
-types of applications like a single surface Perspection Projection use-case
-(see Note below).
-For more information on the general functionality and further examples see the
-DeepStream Plugin Development Guide.
-
 
 Two configuration files are provided:
    . config_dewarper.txt (default): tailors the 360 camera multi-surface use-case
@@ -111,13 +126,12 @@ For further details please refer to https://developer.nvidia.com/vrworks/vrworks
 For description of general dewarper parameters please visit the DeepStream
 Plugin Development Guide.
 
--------------------------------
-Description of CSV File Fields:
--------------------------------
+===============================================================================
+5. Description of CSV File Fields:
+===============================================================================
 
---------------
-Common Fields
---------------
+5.1) Common Fields
+
 serial - Serial number for each Aisle or Spot View Camera Entry
 sensorId - Sensor ID String
 camDesc	- Camera Description String
@@ -131,9 +145,8 @@ dewarpFocalLength	- Focal Lenght of camera lens, in pixels per radian
 dewarpWidth	- dewarped surface width
 dewarpHeight - dewarped surface height
 
------------------------------
-Aisle View Specific Fields
------------------------------
+5.2) Aisle View Specific Fields
+
 aisleId	- Aisle ID
 aisleName	- Aisle Name
 level	- Parking Level
@@ -159,9 +172,8 @@ exit - 0 indicates no exit ROI, 1 indicates valid exit ROI
 Exit ROI Co-ordinates-
 exit_ROI_x0	exit_ROI_y0, exit_ROI_x1	exit_ROI_y1, exit_ROI_x2	exit_ROI_y2, exit_ROI_x3	exit_ROI_y3
 
------------------------------
-Spot View Specific Fields
------------------------------
+5.3) Spot View Specific Fields
+
 cameraId - Camera ID String
 spotId - Unique Spot ID
 type	- Level Type

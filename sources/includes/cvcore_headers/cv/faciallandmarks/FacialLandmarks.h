@@ -13,10 +13,7 @@
 #ifndef CVCORE_FACIALLANDMARKS_H_
 #define CVCORE_FACIALLANDMARKS_H_
 
-#include <memory>
-
 #include <cuda_runtime.h>
-
 #include <cv/core/Array.h>
 #include <cv/core/BBox.h>
 #include <cv/core/Core.h>
@@ -24,159 +21,167 @@
 #include <cv/core/Model.h>
 #include <cv/core/Tensor.h>
 
-namespace cvcore
-{
-    namespace faciallandmarks
-    {
+#include <memory>
 
-        /**
-         * Default Image Processing Params for Facial Landmarks.
-         */
-        CVCORE_API extern const ImagePreProcessingParams defaultPreProcessorParams;
+namespace cvcore {
+namespace faciallandmarks {
 
-        /**
-         * Default Model Input Params for FacialLandmarks.
-         */
-        CVCORE_API extern const ModelInputParams defaultModelInputParams;
+/**
+ * Default Image Processing Params for Facial Landmarks.
+ */
+CVCORE_API extern const ImagePreProcessingParams defaultPreProcessorParams;
 
-        /**
-         * Default inference Params for FacialLandmarks.
-         */
-        CVCORE_API extern const ModelInferenceParams defaultInferenceParams;
+/**
+ * Default Model Input Params for FacialLandmarks.
+ */
+CVCORE_API extern const ModelInputParams defaultModelInputParams;
 
-        /**
-         * Interface for running pre-processing for FacialLandmarks.
-         */
-        class CVCORE_API FacialLandmarksPreProcessor
-        {
-        public:
-            /**
-             * Removing the default constructor for FacialLandmarksPreProcessor.
-             */
-            FacialLandmarksPreProcessor() = delete;
+/**
+ * Default inference Params for FacialLandmarks.
+ */
+CVCORE_API extern const ModelInferenceParams defaultInferenceParams;
 
-            /*
-             * Constructor for FacialLandmarksPreProcessor.
-             * @param preProcessorParams Image preprocessing parameters.
-             * @param modelInputParams Model input parameters.
-             */
-            FacialLandmarksPreProcessor(const ImagePreProcessingParams &preProcessorParams,
-                                        const ModelInputParams &modelInputParams);
+/**
+ * Interface for running pre-processing for FacialLandmarks.
+ */
+class CVCORE_API FacialLandmarksPreProcessor {
+public:
+    /**
+     * Removing the default constructor for FacialLandmarksPreProcessor.
+     */
+    FacialLandmarksPreProcessor() = delete;
 
-            /**
-             * Destructor for FacialLandmarksPreProcessor.
-             */
-            ~FacialLandmarksPreProcessor();
+    /*
+     * Constructor for FacialLandmarksPreProcessor.
+     * @param preProcessorParams Image preprocessing parameters.
+     * @param modelInputParams Model input parameters.
+     */
+    FacialLandmarksPreProcessor(const ImagePreProcessingParams &preProcessorParams,
+                                const ModelInputParams &modelInputParams);
 
-            /*
-             * Running preprocessing for a batch of images.
-             * @param preProcessedImagesBatch output images after preprocessing.
-             * @param facesBBoxes faces bboxes to crop the faces region.
-             * @param facesBBoxesScales the scale factors by which to scale facesBBoxes.
-             * @param inputImagesBatch the input images to be preprocessed.
-             * @param stream Cuda stream.
-             */
-            void execute(Tensor<NHWC, C1, F32> &preProcessedImagesBatch, Array<BBox> &facesBBoxes,
-                         const Array<float> &facesBBoxesScales, const Tensor<NHWC, C3, U8> &inputImagesBatch,
-                         cudaStream_t stream = 0);
+    /**
+     * Destructor for FacialLandmarksPreProcessor.
+     */
+    ~FacialLandmarksPreProcessor();
 
-        private:
-            struct FacialLandmarksPreProcessorImpl;
-            std::unique_ptr<FacialLandmarksPreProcessorImpl> m_pImpl;
-        };
+    /*
+     * Running preprocessing for a batch of images.
+     * @param preProcessedImagesBatch output images after preprocessing.
+     * @param facesBBoxes faces bboxes to crop the faces region.
+     * @param facesBBoxesScales the scale factors by which to scale facesBBoxes.
+     * @param inputImagesBatch the input images to be preprocessed.
+     * @param stream Cuda stream.
+     */
+    void execute(Tensor<NHWC, C1, F32> &preProcessedImagesBatch,
+                 Array<BBox> &facesBBoxes,
+                 const Array<float> &facesBBoxesScales,
+                 const Tensor<NHWC, C3, U8> &inputImagesBatch,
+                 cudaStream_t stream = 0);
 
-        /**
-         * Interface for loading and running FacialLandmarks.
-         */
-        class CVCORE_API FacialLandmarks
-        {
-        public:
-            /**
-             * The total number of Facial Landmarks.
-             */
-            static constexpr uint32_t MAX_NUM_FACIAL_LANDMARKS = 200;
+private:
+    struct FacialLandmarksPreProcessorImpl;
+    std::unique_ptr<FacialLandmarksPreProcessorImpl> m_pImpl;
+};
 
-            /**
-             * Removing the default constructor for FacialLandmarks.
-             */
-            FacialLandmarks() = delete;
+/**
+ * Interface for loading and running FacialLandmarks.
+ */
+class CVCORE_API FacialLandmarks {
+public:
+    /**
+     * The total number of Facial Landmarks.
+     */
+    static constexpr uint32_t MAX_NUM_FACIAL_LANDMARKS = 200;
 
-            /*
-             * Constructor for FacialLandmarks.
-             * @param preProcessorParams Image preprocessing parameters.
-             * @param modelInputParams Model input parameters.
-             * @param inferenceParams Inference parameters for the model.
-             * @param numLandmarks Number of output landmarks
-             */
-            FacialLandmarks(const ImagePreProcessingParams &preProcessorParams, const ModelInputParams &modelInputParams,
-                            const ModelInferenceParams &inferenceParams, size_t numLandmarks = 80);
+    /**
+     * Removing the default constructor for FacialLandmarks.
+     */
+    FacialLandmarks() = delete;
 
-            /**
-             * Destructor for FacialLandmarks.
-             */
-            ~FacialLandmarks();
+    /*
+     * Constructor for FacialLandmarks.
+     * @param preProcessorParams Image preprocessing parameters.
+     * @param modelInputParams Model input parameters.
+     * @param inferenceParams Inference parameters for the model.
+     * @param numLandmarks Number of output landmarks
+     */
+    FacialLandmarks(const ImagePreProcessingParams &preProcessorParams,
+                    const ModelInputParams &modelInputParams,
+                    const ModelInferenceParams &inferenceParams,
+                    size_t numLandmarks = 80);
 
-            /*
-             * Running FacialLandmarks for a given image.
-             * @param facialKeypointsCoordinates output facial keypoints for a given face.
-             * @param facesBBoxes faces bboxes to crop the faces.
-             * @param facesBBoxesScales the scale factor by wich to scale facesBBoxes.
-             * @param inputImagesBatch the input images to be preprocessed
-             * @param stream Cuda stream
-             */
-            void execute(Array<ArrayN<Vector2f, FacialLandmarks::MAX_NUM_FACIAL_LANDMARKS>> &facialKeypointsCoordinates,
-                         Array<BBox> &facesBBoxes, const Array<float> &facesBBoxesScales,
-                         const Tensor<NHWC, C3, U8> &inputImagesBatch, cudaStream_t stream = 0);
+    /**
+     * Destructor for FacialLandmarks.
+     */
+    ~FacialLandmarks();
 
-        private:
-            struct FacialLandmarksImpl;
-            std::unique_ptr<FacialLandmarksImpl> m_pImpl;
-        };
+    /*
+     * Running FacialLandmarks for a given image.
+     * @param facialKeypointsCoordinates output facial keypoints for a given face.
+     * @param facesBBoxes faces bboxes to crop the faces.
+     * @param facesBBoxesScales the scale factor by wich to scale facesBBoxes.
+     * @param inputImagesBatch the input images to be preprocessed
+     * @param stream Cuda stream
+     */
+    void execute(Array<ArrayN<Vector2f, FacialLandmarks::MAX_NUM_FACIAL_LANDMARKS>>
+                     &facialKeypointsCoordinates,
+                 Array<BBox> &facesBBoxes,
+                 const Array<float> &facesBBoxesScales,
+                 const Tensor<NHWC, C3, U8> &inputImagesBatch,
+                 cudaStream_t stream = 0);
 
-        /**
-         * Interface for running post-processing for FacialLandmarks.
-         */
-        class CVCORE_API FacialLandmarksPostProcessor
-        {
-        public:
-            /**
-             * Removing the default constructor for FacialLandmarksPostProcessor.
-             */
-            FacialLandmarksPostProcessor() = delete;
+private:
+    struct FacialLandmarksImpl;
+    std::unique_ptr<FacialLandmarksImpl> m_pImpl;
+};
 
-            /*
-             * Constructor for FacialLandmarksPostProcessor.
-             * @param modelInputParams Model input parameters.
-             * @param numLandmarks Number of output landmarks
-             */
-            FacialLandmarksPostProcessor(const ModelInputParams &modelInputParams, size_t numLandmarks = 80);
+/**
+ * Interface for running post-processing for FacialLandmarks.
+ */
+class CVCORE_API FacialLandmarksPostProcessor {
+public:
+    /**
+     * Removing the default constructor for FacialLandmarksPostProcessor.
+     */
+    FacialLandmarksPostProcessor() = delete;
 
-            /**
-             * Destructor for FacialLandmarksPostProcessor.
-             */
-            ~FacialLandmarksPostProcessor();
+    /*
+     * Constructor for FacialLandmarksPostProcessor.
+     * @param modelInputParams Model input parameters.
+     * @param numLandmarks Number of output landmarks
+     */
+    FacialLandmarksPostProcessor(const ModelInputParams &modelInputParams,
+                                 size_t numLandmarks = 80);
 
-            /**
-             * Allocate staging CPU buffers (used when inputs are GPU Tensors).
-             */
-            void allocateStagingBuffers();
+    /**
+     * Destructor for FacialLandmarksPostProcessor.
+     */
+    ~FacialLandmarksPostProcessor();
 
-            /*
-             * Running postprocessing for a given image.
-             * @param facialKeypointsCoordinates output facial keypoints for each image in the batch.
-             * @param coordRaw the candidate facial keypoints for a given face.
-             * @param facesBBoxes squarified faces bboxes.
-             * @param stream Cuda stream
-             */
-            void execute(Array<ArrayN<Vector2f, FacialLandmarks::MAX_NUM_FACIAL_LANDMARKS>> &facialKeypointsCoordinates,
-                         const Tensor<CL, CX, F32> &coordRaw, const Array<BBox> &facesBBoxes, cudaStream_t stream = 0);
+    /**
+     * Allocate staging CPU buffers (used when inputs are GPU Tensors).
+     */
+    void allocateStagingBuffers();
 
-        private:
-            struct FacialLandmarksPostProcessorImpl;
-            std::unique_ptr<FacialLandmarksPostProcessorImpl> m_pImpl;
-        };
+    /*
+     * Running postprocessing for a given image.
+     * @param facialKeypointsCoordinates output facial keypoints for each image in the batch.
+     * @param coordRaw the candidate facial keypoints for a given face.
+     * @param facesBBoxes squarified faces bboxes.
+     * @param stream Cuda stream
+     */
+    void execute(Array<ArrayN<Vector2f, FacialLandmarks::MAX_NUM_FACIAL_LANDMARKS>>
+                     &facialKeypointsCoordinates,
+                 const Tensor<CL, CX, F32> &coordRaw,
+                 const Array<BBox> &facesBBoxes,
+                 cudaStream_t stream = 0);
 
-    }
-} // namespace cvcore::faciallandmarks
+private:
+    struct FacialLandmarksPostProcessorImpl;
+    std::unique_ptr<FacialLandmarksPostProcessorImpl> m_pImpl;
+};
+
+} // namespace faciallandmarks
+} // namespace cvcore
 
 #endif

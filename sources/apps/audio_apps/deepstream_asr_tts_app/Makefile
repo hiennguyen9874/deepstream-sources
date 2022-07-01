@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -24,33 +24,38 @@ APP:= deepstream-asr-tts-app
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
 
-SRCS:= $(wildcard *.c)
+C_SRCS:= $(wildcard *.c)
+CPP_SRCS:= $(wildcard *.cpp)
 
 INCS:= $(wildcard *.h)
 
 PKGS:= gstreamer-1.0
 
-OBJS:= $(SRCS:.c=.o)
+OBJS:= $(C_SRCS:.c=.o) $(CPP_SRCS:.cpp=.o)
 
 CFLAGS+= `pkg-config --cflags $(PKGS)`
 
 LIBS:= `pkg-config --libs $(PKGS)`
 
 LIBS+= -L$(LIB_INSTALL_DIR) \
-       -Wl,-rpath,$(LIB_INSTALL_DIR)
+       -Wl,-rpath,$(LIB_INSTALL_DIR) \
+	   -lyaml-cpp
 
 all: $(APP)
 
 %.o: %.c $(INCS) Makefile
 	$(CC) -c -o $@ $(CFLAGS) $<
 
+%.o: %.cpp $(INCS) Makefile
+	$(CXX) -c -o $@ $(CFLAGS) $<
+
 $(APP): $(OBJS) Makefile
-	$(CC) -o $(APP) $(OBJS) $(LIBS)
+	$(CXX) -o $(APP) $(OBJS) $(LIBS)
 
 install: $(APP)
 	cp -rv $(APP) $(APP_INSTALL_DIR)

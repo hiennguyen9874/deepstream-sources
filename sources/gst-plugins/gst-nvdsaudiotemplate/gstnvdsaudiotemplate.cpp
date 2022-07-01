@@ -20,153 +20,181 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "gstnvdsaudiotemplate.h"
+
 #include <string.h>
 #include <sys/time.h>
 
-#include <string>
-#include <sstream>
-#include <iostream>
-#include <ostream>
 #include <fstream>
+#include <iostream>
 #include <memory>
+#include <ostream>
+#include <sstream>
+#include <string>
 #include <thread>
 
-#include "gstnvdsaudiotemplate.h"
-#include "nvbufaudio.h"
 #include "gst-nvquery.h"
+#include "nvbufaudio.h"
 
 GST_DEBUG_CATEGORY_STATIC(gst_nvdsaudiotemplate_debug);
 #define GST_CAT_DEFAULT gst_nvdsaudiotemplate_debug
 
 /* Enum to identify properties */
-enum
-{
-  PROP_0,
-  PROP_CUSTOMLIB_NAME,
-  PROP_GPU_DEVICE_ID,
-  PROP_CUSTOMLIB_PROPS,
+enum {
+    PROP_0,
+    PROP_CUSTOMLIB_NAME,
+    PROP_GPU_DEVICE_ID,
+    PROP_CUSTOMLIB_PROPS,
+    PROP_CUSTOMLIB_PROPS_VALUES,
 };
 
 /* Default values for properties */
 #define DEFAULT_GPU_ID 0
 
-#define CHECK_CUDA_STATUS(cuda_status, error_str)                            \
-  do                                                                         \
-  {                                                                          \
-    if ((cuda_status) != cudaSuccess)                                        \
-    {                                                                        \
-      g_print("Error: %s in %s at line %d (%s)\n",                           \
-              error_str, __FILE__, __LINE__, cudaGetErrorName(cuda_status)); \
-      goto error;                                                            \
-    }                                                                        \
-  } while (0)
+#define GST_ERROR_ON_BUS(msg, ...)                                                                 \
+    do {                                                                                           \
+        if (nvdsaudiotemplate) {                                                                   \
+            GST_ERROR_OBJECT(nvdsaudiotemplate, __VA_ARGS__);                                      \
+            gst_element_post_message(                                                              \
+                GST_ELEMENT(nvdsaudiotemplate),                                                    \
+                gst_message_new_error(                                                             \
+                    GST_OBJECT(nvdsaudiotemplate),                                                 \
+                    g_error_new(g_quark_from_static_string("nvdsaudiotemplate"), -1, __VA_ARGS__), \
+                    msg));                                                                         \
+        }                                                                                          \
+    } while (0)
+
+#define CHECK_CUDA_STATUS(cuda_status, error_str)                                          \
+    do {                                                                                   \
+        if ((cuda_status) != cudaSuccess) {                                                \
+            GST_ERROR_ON_BUS("Cuda Error", "Error: %s in %s at line %d (%s)\n", error_str, \
+                             __FILE__, __LINE__, cudaGetErrorName(cuda_status));           \
+            goto error;                                                                    \
+        }                                                                                  \
+    } while (0)
 
 #define GST_AUDIO_CAPS_MAKE_WITH_FEATURES(format, channels) \
-  "audio/x-raw(memory:NVMM), "                              \
-  "format = (string) " format ", "                          \
-  "rate = [ 1, 2147483647 ], "                              \
-  "layout = (string) interleaved, "                         \
-  "channels = " channels
+    "audio/x-raw(memory:NVMM), "                            \
+    "format = (string) " format                             \
+    ", "                                                    \
+    "rate = " GST_AUDIO_RATE_RANGE                          \
+    ", "                                                    \
+    "layout = (string) interleaved, "                       \
+    "channels = " channels
 
 #define GST_AUDIO_SW_CAPS_MAKE_WITH_FEATURES(format, channels) \
-  "audio/x-raw, "                                              \
-  "format = (string) " format ", "                             \
-  "rate = [ 1, 2147483647 ], "                                 \
-  "layout = (string) interleaved, "                            \
-  "channels = " channels
+    "audio/x-raw, "                                            \
+    "format = (string) " format                                \
+    ", "                                                       \
+    "rate = " GST_AUDIO_RATE_RANGE                             \
+    ", "                                                       \
+    "layout = (string) interleaved, "                          \
+    "channels = " channels
 
 /* By default NVIDIA Hardware allocated memory flows through the pipeline. We
  * will be processing on this type of memory only. */
 #define GST_CAPS_FEATURE_MEMORY_NVMM "memory:NVMM"
-static GstStaticPadTemplate gst_nvdsaudiotemplate_sink_template =
-    GST_STATIC_PAD_TEMPLATE("sink",
-                            GST_PAD_SINK,
-                            GST_PAD_ALWAYS,
-                            GST_STATIC_CAPS(GST_AUDIO_CAPS_MAKE_WITH_FEATURES("{S16LE, F32LE}", "1") ";" GST_AUDIO_SW_CAPS_MAKE_WITH_FEATURES("{S16LE, F32LE}", "1")));
+static GstStaticPadTemplate gst_nvdsaudiotemplate_sink_template = GST_STATIC_PAD_TEMPLATE(
+    "sink",
+    GST_PAD_SINK,
+    GST_PAD_ALWAYS,
+    GST_STATIC_CAPS(GST_AUDIO_CAPS_MAKE_WITH_FEATURES(
+        "{S16LE, F32LE}",
+        GST_AUDIO_CHANNELS_RANGE) ";" GST_AUDIO_SW_CAPS_MAKE_WITH_FEATURES("{S16LE, F32LE}",
+                                                                           GST_AUDIO_CHANNELS_RANGE)));
 
-static GstStaticPadTemplate gst_nvdsaudiotemplate_src_template =
-    GST_STATIC_PAD_TEMPLATE("src",
-                            GST_PAD_SRC,
-                            GST_PAD_ALWAYS,
-                            GST_STATIC_CAPS(GST_AUDIO_CAPS_MAKE_WITH_FEATURES("{S16LE, F32LE}", "1") ";" GST_AUDIO_SW_CAPS_MAKE_WITH_FEATURES("{S16LE, F32LE}", "1")));
+static GstStaticPadTemplate gst_nvdsaudiotemplate_src_template = GST_STATIC_PAD_TEMPLATE(
+    "src",
+    GST_PAD_SRC,
+    GST_PAD_ALWAYS,
+    GST_STATIC_CAPS(GST_AUDIO_CAPS_MAKE_WITH_FEATURES(
+        "{S16LE, F32LE}",
+        GST_AUDIO_CHANNELS_RANGE) ";" GST_AUDIO_SW_CAPS_MAKE_WITH_FEATURES("{S16LE, F32LE}",
+                                                                           GST_AUDIO_CHANNELS_RANGE)));
 
 /* Define our element type. Standard GObject/GStreamer boilerplate stuff */
 #define gst_nvdsaudiotemplate_parent_class parent_class
 G_DEFINE_TYPE(GstNvDsAudioTemplate, gst_nvdsaudiotemplate, GST_TYPE_BASE_TRANSFORM);
 
-static void gst_nvdsaudiotemplate_set_property(GObject *object, guint prop_id,
-                                               const GValue *value, GParamSpec *pspec);
-static void gst_nvdsaudiotemplate_get_property(GObject *object, guint prop_id,
-                                               GValue *value, GParamSpec *pspec);
-static gboolean
-gst_nvdsaudiotemplate_sink_event(GstBaseTransform *btrans, GstEvent *event);
+static void gst_nvdsaudiotemplate_set_property(GObject *object,
+                                               guint prop_id,
+                                               const GValue *value,
+                                               GParamSpec *pspec);
+static void gst_nvdsaudiotemplate_get_property(GObject *object,
+                                               guint prop_id,
+                                               GValue *value,
+                                               GParamSpec *pspec);
+static gboolean gst_nvdsaudiotemplate_sink_event(GstBaseTransform *btrans, GstEvent *event);
 
 static gboolean gst_nvdsaudiotemplate_set_caps(GstBaseTransform *btrans,
-                                               GstCaps *incaps, GstCaps *outcaps);
+                                               GstCaps *incaps,
+                                               GstCaps *outcaps);
 static gboolean gst_nvdsaudiotemplate_start(GstBaseTransform *btrans);
 static gboolean gst_nvdsaudiotemplate_stop(GstBaseTransform *btrans);
 
-static GstFlowReturn
-gst_nvdsaudiotemplate_submit_input_buffer(GstBaseTransform *btrans,
-                                          gboolean discont, GstBuffer *inbuf);
-static GstFlowReturn
-gst_nvdsaudiotemplate_generate_output(GstBaseTransform *btrans, GstBuffer **outbuf);
+static GstFlowReturn gst_nvdsaudiotemplate_submit_input_buffer(GstBaseTransform *btrans,
+                                                               gboolean discont,
+                                                               GstBuffer *inbuf);
+static GstFlowReturn gst_nvdsaudiotemplate_generate_output(GstBaseTransform *btrans,
+                                                           GstBuffer **outbuf);
 
 /* fixate the caps on the other side */
 static GstCaps *gst_nvdsaudiotemplate_fixate_caps(GstBaseTransform *btrans,
-                                                  GstPadDirection direction, GstCaps *caps, GstCaps *othercaps)
+                                                  GstPadDirection direction,
+                                                  GstCaps *caps,
+                                                  GstCaps *othercaps)
 {
-  GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
+    GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
 
-  return nvdsaudiotemplate->algo_ctx->GetCompatibleCaps(direction, caps, othercaps);
+    return nvdsaudiotemplate->algo_ctx->GetCompatibleCaps(direction, caps, othercaps);
 }
 
-static GstCaps *
-gst_nvdsaudiotemplate_transform_caps(GstBaseTransform *trans,
-                                     GstPadDirection direction, GstCaps *caps, GstCaps *filter)
+static GstCaps *gst_nvdsaudiotemplate_transform_caps(GstBaseTransform *trans,
+                                                     GstPadDirection direction,
+                                                     GstCaps *caps,
+                                                     GstCaps *filter)
 {
-  // GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE (trans);
-  GstCaps *ret = gst_caps_copy(caps);
+    // GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE (trans);
+    GstCaps *ret = gst_caps_copy(caps);
 
-  // g_print ("Inside Transform_Caps \ncaps = %s\n", gst_caps_to_string(caps));
-  // g_print ("filter_caps = %s\n\n", gst_caps_to_string(filter));
+    // g_print ("Inside Transform_Caps \ncaps = %s\n", gst_caps_to_string(caps));
+    // g_print ("filter_caps = %s\n\n", gst_caps_to_string(filter));
 
-  if (!ret)
-    return nullptr;
+    if (!ret)
+        return nullptr;
 
-  if (filter)
-  {
-    GstCaps *tmp = gst_caps_intersect(ret, filter);
-    gst_caps_unref(ret);
-    return tmp;
-  }
+    if (filter) {
+        GstCaps *tmp = gst_caps_intersect(ret, filter);
+        gst_caps_unref(ret);
+        return tmp;
+    }
 
-  return ret;
+    return ret;
 }
 
-static gboolean gst_nvdsaudiotemplate_accept_caps(GstBaseTransform *btrans, GstPadDirection direction,
+static gboolean gst_nvdsaudiotemplate_accept_caps(GstBaseTransform *btrans,
+                                                  GstPadDirection direction,
                                                   GstCaps *caps)
 {
-  gboolean ret = TRUE;
-  GstNvDsAudioTemplate *space = NULL;
-  GstCaps *allowed = NULL;
-  // GstCapsFeatures *features;
+    gboolean ret = TRUE;
+    GstNvDsAudioTemplate *nvdsaudiotemplate = NULL;
+    GstCaps *allowed = NULL;
+    // GstCapsFeatures *features;
 
-  space = GST_NVDSAUDIOTEMPLATE(btrans);
+    nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
 
-  GST_DEBUG_OBJECT(btrans, "accept caps %" GST_PTR_FORMAT, caps);
+    GST_DEBUG_OBJECT(btrans, "accept caps %" GST_PTR_FORMAT, caps);
 
-  /* get all the formats we can handle on this pad */
-  if (direction == GST_PAD_SINK)
-    allowed = space->sinkcaps;
-  else
-    allowed = space->srccaps;
+    /* get all the formats we can handle on this pad */
+    if (direction == GST_PAD_SINK)
+        allowed = nvdsaudiotemplate->sinkcaps;
+    else
+        allowed = nvdsaudiotemplate->srccaps;
 
-  if (!allowed)
-  {
-    GST_DEBUG_OBJECT(btrans, "failed to get allowed caps");
-    goto no_transform_possible;
-  }
+    if (!allowed) {
+        GST_DEBUG_OBJECT(btrans, "failed to get allowed caps");
+        goto no_transform_possible;
+    }
 
 #if 0
   features = gst_caps_get_features (caps, 0);
@@ -177,25 +205,23 @@ static gboolean gst_nvdsaudiotemplate_accept_caps(GstBaseTransform *btrans, GstP
   }
 #endif
 
-  GST_DEBUG_OBJECT(btrans, "allowed caps %" GST_PTR_FORMAT, allowed);
+    GST_DEBUG_OBJECT(btrans, "allowed caps %" GST_PTR_FORMAT, allowed);
 
-  /* intersect with the requested format */
-  ret = gst_caps_is_subset(caps, allowed);
-  if (!ret)
-  {
-    goto no_transform_possible;
-  }
+    /* intersect with the requested format */
+    ret = gst_caps_is_subset(caps, allowed);
+    if (!ret) {
+        goto no_transform_possible;
+    }
 
 done:
-  return ret;
+    return ret;
 
-  /* ERRORS */
-no_transform_possible:
-{
-  GST_DEBUG_OBJECT(btrans,
-                   "could not transform %" GST_PTR_FORMAT " in anything we support", caps);
-  ret = FALSE;
-  goto done;
+    /* ERRORS */
+no_transform_possible : {
+    GST_ERROR_ON_BUS("No transform possible",
+                     "could not transform %" GST_PTR_FORMAT " in anything we support", caps);
+    ret = FALSE;
+    goto done;
 }
 }
 
@@ -203,83 +229,87 @@ no_transform_possible:
  * functions of the base class, These are common to all instances of the
  * element.
  */
-static void
-gst_nvdsaudiotemplate_class_init(GstNvDsAudioTemplateClass *klass)
+static void gst_nvdsaudiotemplate_class_init(GstNvDsAudioTemplateClass *klass)
 {
-  GObjectClass *gobject_class;
-  GstElementClass *gstelement_class;
-  GstBaseTransformClass *gstbasetransform_class;
+    GObjectClass *gobject_class;
+    GstElementClass *gstelement_class;
+    GstBaseTransformClass *gstbasetransform_class;
 
-  // Indicates we want to use DS buf api
-  g_setenv("DS_NEW_BUFAPI", "1", TRUE);
+    // Indicates we want to use DS buf api
+    g_setenv("DS_NEW_BUFAPI", "1", TRUE);
 
-  gobject_class = (GObjectClass *)klass;
-  gstelement_class = (GstElementClass *)klass;
-  gstbasetransform_class = (GstBaseTransformClass *)klass;
+    gobject_class = (GObjectClass *)klass;
+    gstelement_class = (GstElementClass *)klass;
+    gstbasetransform_class = (GstBaseTransformClass *)klass;
 
-  // gstbasetransform_class->passthrough_on_same_caps = TRUE;
+    // gstbasetransform_class->passthrough_on_same_caps = TRUE;
 
-  /* Overide base class functions */
-  gobject_class->set_property = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_set_property);
-  gobject_class->get_property = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_get_property);
+    /* Overide base class functions */
+    gobject_class->set_property = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_set_property);
+    gobject_class->get_property = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_get_property);
 
-  gstbasetransform_class->transform_caps =
-      GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_transform_caps);
+    gstbasetransform_class->transform_caps =
+        GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_transform_caps);
 
-  gstbasetransform_class->fixate_caps =
-      GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_fixate_caps);
-  gstbasetransform_class->accept_caps =
-      GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_accept_caps);
+    gstbasetransform_class->fixate_caps = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_fixate_caps);
+    gstbasetransform_class->accept_caps = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_accept_caps);
 
-  gstbasetransform_class->set_caps = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_set_caps);
-  gstbasetransform_class->sink_event = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_sink_event);
-  gstbasetransform_class->start = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_start);
-  gstbasetransform_class->stop = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_stop);
+    gstbasetransform_class->set_caps = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_set_caps);
+    gstbasetransform_class->sink_event = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_sink_event);
+    gstbasetransform_class->start = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_start);
+    gstbasetransform_class->stop = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_stop);
 
-  gstbasetransform_class->submit_input_buffer =
-      GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_submit_input_buffer);
-  gstbasetransform_class->generate_output =
-      GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_generate_output);
+    gstbasetransform_class->submit_input_buffer =
+        GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_submit_input_buffer);
+    gstbasetransform_class->generate_output =
+        GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_generate_output);
 
-  /* Install properties */
-  g_object_class_install_property(gobject_class, PROP_GPU_DEVICE_ID,
-                                  g_param_spec_uint("gpu-id",
-                                                    "Set GPU Device ID",
-                                                    "Set GPU Device ID", 0,
-                                                    G_MAXUINT, 0,
-                                                    GParamFlags(G_PARAM_READWRITE |
-                                                                G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
+    /* Install properties */
+    g_object_class_install_property(
+        gobject_class, PROP_GPU_DEVICE_ID,
+        g_param_spec_uint(
+            "gpu-id", "Set GPU Device ID", "Set GPU Device ID", 0, G_MAXUINT, 0,
+            GParamFlags(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
 
-  g_object_class_install_property(gobject_class, PROP_CUSTOMLIB_NAME,
-                                  g_param_spec_string("customlib-name", "Custom library name",
-                                                      "Set custom library Name to be used",
-                                                      NULL,
-                                                      (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(
+        gobject_class, PROP_CUSTOMLIB_NAME,
+        g_param_spec_string("customlib-name", "Custom library name",
+                            "Set custom library Name to be used", NULL,
+                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-  g_object_class_install_property(gobject_class, PROP_CUSTOMLIB_PROPS,
-                                  g_param_spec_string("customlib-props", "Custom Library Properties",
-                                                      "Set Custom Library Properties (key:value) string, can be set multiple times,"
-                                                      "vector is maintained internally",
-                                                      NULL,
-                                                      (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    if (g_getenv("NVDS_CUSTOMLIB")) {
+        g_object_class_install_property(
+            gobject_class, PROP_CUSTOMLIB_PROPS_VALUES,
+            g_param_spec_string("props-values", "Custom library propperty values",
+                                "Customlib property values", NULL,
+                                (GParamFlags)(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
+    }
 
-  /* Set sink and src pad capabilities */
-  gst_element_class_add_pad_template(gstelement_class,
-                                     gst_static_pad_template_get(&gst_nvdsaudiotemplate_src_template));
-  gst_element_class_add_pad_template(gstelement_class,
-                                     gst_static_pad_template_get(&gst_nvdsaudiotemplate_sink_template));
+    g_object_class_install_property(
+        gobject_class, PROP_CUSTOMLIB_PROPS,
+        g_param_spec_string(
+            "customlib-props", "Custom Library Properties",
+            "Set Custom Library Properties (key:value) string, can be set multiple times,"
+            "vector is maintained internally,\n\t\t\texport NVDS_CUSTOMLIB=/path/to/customlib.so "
+            "to get customlib properties",
+            NULL, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-  /* Set metadata describing the element */
-  gst_element_class_set_details_simple(gstelement_class,
-                                       "DS AUDIO template Plugin for Transform IP use-cases",
-                                       "nvdsaudiotemplate Plugin for Transform IP use-cases",
-                                       "A custom algorithm can be hooked for Transform In-Place use-cases",
-                                       "NVIDIA Corporation. Post on Deepstream for Tesla forum for any queries "
-                                       "@ https://devtalk.nvidia.com/default/board/209/");
+    /* Set sink and src pad capabilities */
+    gst_element_class_add_pad_template(
+        gstelement_class, gst_static_pad_template_get(&gst_nvdsaudiotemplate_src_template));
+    gst_element_class_add_pad_template(
+        gstelement_class, gst_static_pad_template_get(&gst_nvdsaudiotemplate_sink_template));
+
+    /* Set metadata describing the element */
+    gst_element_class_set_details_simple(
+        gstelement_class, "DS AUDIO template Plugin for Transform IP use-cases",
+        "nvdsaudiotemplate Plugin for Transform IP use-cases",
+        "A custom algorithm can be hooked for Transform In-Place use-cases",
+        "NVIDIA Corporation. Post on Deepstream for Tesla forum for any queries "
+        "@ https://devtalk.nvidia.com/default/board/209/");
 }
 
-static void
-gst_nvdsaudiotemplate_init(GstNvDsAudioTemplate *nvdsaudiotemplate)
+static void gst_nvdsaudiotemplate_init(GstNvDsAudioTemplate *nvdsaudiotemplate)
 {
 #if 0
   GstBaseTransform *btrans = GST_BASE_TRANSFORM (nvdsaudiotemplate);
@@ -290,297 +320,307 @@ gst_nvdsaudiotemplate_init(GstNvDsAudioTemplate *nvdsaudiotemplate)
    * is still called. */
   gst_base_transform_set_passthrough (GST_BASE_TRANSFORM (btrans), TRUE);
 #endif
-  /* Initialize all property variables to default values */
-  nvdsaudiotemplate->gpu_id = DEFAULT_GPU_ID;
-  nvdsaudiotemplate->num_batch_buffers = 1;
+    /* Initialize all property variables to default values */
+    nvdsaudiotemplate->gpu_id = DEFAULT_GPU_ID;
+    nvdsaudiotemplate->num_batch_buffers = 1;
 
-  nvdsaudiotemplate->sinkcaps =
-      gst_static_pad_template_get_caps(&gst_nvdsaudiotemplate_sink_template);
-  nvdsaudiotemplate->srccaps =
-      gst_static_pad_template_get_caps(&gst_nvdsaudiotemplate_src_template);
+    nvdsaudiotemplate->sinkcaps =
+        gst_static_pad_template_get_caps(&gst_nvdsaudiotemplate_sink_template);
+    nvdsaudiotemplate->srccaps =
+        gst_static_pad_template_get_caps(&gst_nvdsaudiotemplate_src_template);
 }
 
 /* Function called when a property of the element is set. Standard boilerplate.
  */
-static void
-gst_nvdsaudiotemplate_set_property(GObject *object, guint prop_id,
-                                   const GValue *value, GParamSpec *pspec)
+static void gst_nvdsaudiotemplate_set_property(GObject *object,
+                                               guint prop_id,
+                                               const GValue *value,
+                                               GParamSpec *pspec)
 {
-  GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(object);
-  switch (prop_id)
-  {
-  case PROP_GPU_DEVICE_ID:
-    nvdsaudiotemplate->gpu_id = g_value_get_uint(value);
-    break;
-  case PROP_CUSTOMLIB_NAME:
-    if (nvdsaudiotemplate->custom_lib_name)
-    {
-      g_free(nvdsaudiotemplate->custom_lib_name);
-    }
-    nvdsaudiotemplate->custom_lib_name = (gchar *)g_value_dup_string(value);
-    break;
-  case PROP_CUSTOMLIB_PROPS:
-  {
-    if (!nvdsaudiotemplate->vecProp)
-    {
-      nvdsaudiotemplate->vecProp = new std::vector<Property>;
-    }
-    {
-      if (nvdsaudiotemplate->custom_prop_string)
-      {
-        g_free(nvdsaudiotemplate->custom_prop_string);
-        nvdsaudiotemplate->custom_prop_string = NULL;
-      }
-      nvdsaudiotemplate->custom_prop_string = (gchar *)g_value_dup_string(value);
-      std::string propStr(nvdsaudiotemplate->custom_prop_string);
-      std::size_t found = 0;
-      std::size_t start = 0;
+    GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(object);
+    switch (prop_id) {
+    case PROP_GPU_DEVICE_ID:
+        nvdsaudiotemplate->gpu_id = g_value_get_uint(value);
+        break;
+    case PROP_CUSTOMLIB_NAME:
+        if (nvdsaudiotemplate->custom_lib_name) {
+            g_free(nvdsaudiotemplate->custom_lib_name);
+        }
+        nvdsaudiotemplate->custom_lib_name = (gchar *)g_value_dup_string(value);
+        break;
+    case PROP_CUSTOMLIB_PROPS: {
+        if (!nvdsaudiotemplate->vecProp) {
+            nvdsaudiotemplate->vecProp = new std::vector<Property>;
+        }
+        {
+            if (nvdsaudiotemplate->custom_prop_string) {
+                g_free(nvdsaudiotemplate->custom_prop_string);
+                nvdsaudiotemplate->custom_prop_string = NULL;
+            }
+            nvdsaudiotemplate->custom_prop_string = (gchar *)g_value_dup_string(value);
+            std::string propStr(nvdsaudiotemplate->custom_prop_string);
+            std::size_t found = 0;
+            std::size_t start = 0;
 
-      found = propStr.find_first_of(":");
-      if (found == 0)
-      {
-        g_print("Custom Library property format is invalid, e.g. expected format "
-                "requires key and value string seperated "
-                " by : i.e. customlib-props=\"[key:value]\"");
-        exit(-1);
-      }
-      Property prop(propStr.substr(start, found), propStr.substr(found + 1));
-      nvdsaudiotemplate->vecProp->push_back(prop);
-      if (nullptr != nvdsaudiotemplate->algo_ctx)
-      {
-        nvdsaudiotemplate->algo_ctx->SetProperty(prop);
-      }
+            found = propStr.find_first_of(":");
+            if (found == 0) {
+                GST_ERROR_ON_BUS("Custom Library property Error",
+                                 "Custom Library property Error: required format is: "
+                                 "customlib-props=\"[key:value]\"");
+                return;
+            }
+            Property prop(propStr.substr(start, found), propStr.substr(found + 1));
+            nvdsaudiotemplate->vecProp->push_back(prop);
+            if (nullptr != nvdsaudiotemplate->algo_ctx) {
+                bool ret = nvdsaudiotemplate->algo_ctx->SetProperty(prop);
+                if (!ret) {
+                    GST_ERROR_ON_BUS("SetProperty Error", "SetProperty Error (%s:%s)",
+                                     prop.key.c_str(), prop.value.c_str());
+                }
+            }
+        }
+    } break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        break;
     }
-  }
-  break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
 }
 
 /* Function called when a property of the element is requested. Standard
  * boilerplate.
  */
-static void
-gst_nvdsaudiotemplate_get_property(GObject *object, guint prop_id,
-                                   GValue *value, GParamSpec *pspec)
+static void gst_nvdsaudiotemplate_get_property(GObject *object,
+                                               guint prop_id,
+                                               GValue *value,
+                                               GParamSpec *pspec)
 {
-  GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(object);
+    GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(object);
 
-  switch (prop_id)
-  {
-  case PROP_GPU_DEVICE_ID:
-    g_value_set_uint(value, nvdsaudiotemplate->gpu_id);
-    break;
-  case PROP_CUSTOMLIB_NAME:
-    g_value_set_string(value, nvdsaudiotemplate->custom_lib_name);
-    break;
-  case PROP_CUSTOMLIB_PROPS:
-    g_value_set_string(value, nvdsaudiotemplate->custom_prop_string);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
+    switch (prop_id) {
+    case PROP_GPU_DEVICE_ID:
+        g_value_set_uint(value, nvdsaudiotemplate->gpu_id);
+        break;
+    case PROP_CUSTOMLIB_NAME:
+        g_value_set_string(value, nvdsaudiotemplate->custom_lib_name);
+        break;
+    case PROP_CUSTOMLIB_PROPS:
+        g_value_set_string(value, nvdsaudiotemplate->custom_prop_string);
+        break;
+    case PROP_CUSTOMLIB_PROPS_VALUES:
+        if (g_getenv("NVDS_CUSTOMLIB")) {
+            DSCustomLibrary_Factory *algo_factory = new DSCustomLibrary_Factory();
+            char *str = NULL;
+            IDSCustomLibrary *algo_ctx =
+                algo_factory->CreateCustomAlgoCtx(g_getenv("NVDS_CUSTOMLIB"), object);
+            if (algo_ctx) {
+                str = algo_ctx->QueryProperties();
+                delete algo_ctx;
+            }
+            if (algo_factory)
+                delete algo_factory;
+
+            g_value_set_string(value, str);
+
+            if (str)
+                delete str;
+        }
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        break;
+    }
 }
 
 /**
  * Initialize all resources and start the process thread
  */
-static gboolean
-gst_nvdsaudiotemplate_start(GstBaseTransform *btrans)
+static gboolean gst_nvdsaudiotemplate_start(GstBaseTransform *btrans)
 {
-  GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
-  nvdsaudiotemplate->frame_number = 0;
-  std::string nvtx_str("GstNvDsAudioTemplate");
-  bool ret;
+    GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
+    nvdsaudiotemplate->frame_number = 0;
+    std::string nvtx_str("GstNvDsAudioTemplate");
+    bool ret;
 
-  auto nvtx_deleter = [](nvtxDomainHandle_t d)
-  { nvtxDomainDestroy(d); };
-  std::unique_ptr<nvtxDomainRegistration, decltype(nvtx_deleter)> nvtx_domain_ptr(
-      nvtxDomainCreate(nvtx_str.c_str()), nvtx_deleter);
+    auto nvtx_deleter = [](nvtxDomainHandle_t d) { nvtxDomainDestroy(d); };
+    std::unique_ptr<nvtxDomainRegistration, decltype(nvtx_deleter)> nvtx_domain_ptr(
+        nvtxDomainCreate(nvtx_str.c_str()), nvtx_deleter);
 
-  CHECK_CUDA_STATUS(cudaSetDevice(nvdsaudiotemplate->gpu_id),
-                    "Unable to set cuda device");
+    CHECK_CUDA_STATUS(cudaSetDevice(nvdsaudiotemplate->gpu_id), "Unable to set cuda device");
 
-  nvdsaudiotemplate->nvtx_domain = nvtx_domain_ptr.release();
+    nvdsaudiotemplate->nvtx_domain = nvtx_domain_ptr.release();
 
-  try
-  {
-    nvdsaudiotemplate->algo_factory = new DSCustomLibrary_Factory();
-    nvdsaudiotemplate->algo_ctx = nvdsaudiotemplate->algo_factory->CreateCustomAlgoCtx(nvdsaudiotemplate->custom_lib_name);
-
-    if (nvdsaudiotemplate->vecProp && nvdsaudiotemplate->vecProp->size())
-    {
-      std::cout << "Setting custom lib properties # " << nvdsaudiotemplate->vecProp->size() << std::endl;
-      for (std::vector<Property>::iterator it = nvdsaudiotemplate->vecProp->begin(); it != nvdsaudiotemplate->vecProp->end(); ++it)
-      {
-        std::cout << "Adding Prop: " << it->key << " : " << it->value << std::endl;
-        ret = nvdsaudiotemplate->algo_ctx->SetProperty(*it);
-        if (!ret)
-        {
-          goto error;
+    try {
+        nvdsaudiotemplate->algo_factory = new DSCustomLibrary_Factory();
+        nvdsaudiotemplate->algo_ctx = nvdsaudiotemplate->algo_factory->CreateCustomAlgoCtx(
+            nvdsaudiotemplate->custom_lib_name, G_OBJECT(btrans));
+        if (nvdsaudiotemplate->algo_ctx && nvdsaudiotemplate->vecProp &&
+            nvdsaudiotemplate->vecProp->size()) {
+            GST_INFO_OBJECT(nvdsaudiotemplate, "Setting custom lib properties # %lu",
+                            nvdsaudiotemplate->vecProp->size());
+            for (std::vector<Property>::iterator it = nvdsaudiotemplate->vecProp->begin();
+                 it != nvdsaudiotemplate->vecProp->end(); ++it) {
+                GST_INFO_OBJECT(nvdsaudiotemplate, "Adding Prop: %s : %s", it->key.c_str(),
+                                it->value.c_str());
+                ret = nvdsaudiotemplate->algo_ctx->SetProperty(*it);
+                if (!ret) {
+                    GST_ERROR_ON_BUS("SetProperty Error", "SetProperty Error (%s:%s)",
+                                     it->key.c_str(), it->value.c_str());
+                    goto error;
+                }
+            }
         }
-      }
+    } catch (const std::runtime_error &e) {
+        GST_ERROR_ON_BUS("Exception occurred", "Runtime error: %s", e.what());
+        return FALSE;
+    } catch (...) {
+        GST_ERROR_ON_BUS("Exception occurred", "Exception occurred");
+        return FALSE;
     }
-  }
-  catch (const std::runtime_error &e)
-  {
-    std::cout << e.what() << "\n";
-    return FALSE;
-  }
-  catch (...)
-  {
-    std::cout << "caught exception" << std::endl;
-    return FALSE;
-  }
 
-  return TRUE;
+    return TRUE;
 
 error:
-  return FALSE;
+    return FALSE;
 }
 
 /**
  * Stop the process thread and free up all the resources
  */
-static gboolean
-gst_nvdsaudiotemplate_stop(GstBaseTransform *btrans)
+static gboolean gst_nvdsaudiotemplate_stop(GstBaseTransform *btrans)
 {
-  GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
+    GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
 
-  nvdsaudiotemplate->stop = TRUE;
+    nvdsaudiotemplate->stop = TRUE;
 
-  if (nvdsaudiotemplate->algo_ctx)
-    delete nvdsaudiotemplate->algo_ctx;
+    if (nvdsaudiotemplate->algo_ctx)
+        delete nvdsaudiotemplate->algo_ctx;
 
-  if (nvdsaudiotemplate->algo_factory)
-    delete nvdsaudiotemplate->algo_factory;
+    if (nvdsaudiotemplate->algo_factory)
+        delete nvdsaudiotemplate->algo_factory;
 
-  if (nvdsaudiotemplate->vecProp)
-    delete nvdsaudiotemplate->vecProp;
+    if (nvdsaudiotemplate->vecProp)
+        delete nvdsaudiotemplate->vecProp;
 
-  if (nvdsaudiotemplate->custom_lib_name)
-  {
-    g_free(nvdsaudiotemplate->custom_lib_name);
-    nvdsaudiotemplate->custom_lib_name = NULL;
-  }
-  if (nvdsaudiotemplate->custom_prop_string)
-  {
-    g_free(nvdsaudiotemplate->custom_prop_string);
-    nvdsaudiotemplate->custom_prop_string = NULL;
-  }
+    if (nvdsaudiotemplate->custom_lib_name) {
+        g_free(nvdsaudiotemplate->custom_lib_name);
+        nvdsaudiotemplate->custom_lib_name = NULL;
+    }
+    if (nvdsaudiotemplate->custom_prop_string) {
+        g_free(nvdsaudiotemplate->custom_prop_string);
+        nvdsaudiotemplate->custom_prop_string = NULL;
+    }
 
-  GST_DEBUG_OBJECT(nvdsaudiotemplate, "ctx lib released \n");
-  return TRUE;
+    GST_DEBUG_OBJECT(nvdsaudiotemplate, "ctx lib released \n");
+    return TRUE;
 }
 
 /**
  * Called when source / sink pad capabilities have been negotiated.
  */
-static gboolean
-gst_nvdsaudiotemplate_set_caps(GstBaseTransform *btrans, GstCaps *incaps,
-                               GstCaps *outcaps)
+static gboolean gst_nvdsaudiotemplate_set_caps(GstBaseTransform *btrans,
+                                               GstCaps *incaps,
+                                               GstCaps *outcaps)
 {
-  GstQuery *bsquery = NULL;
-  guint batch_size = 0;
-  GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
-  DSCustom_CreateParams params = {0};
+    GstQuery *bsquery = NULL;
+    guint batch_size = 0;
+    GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
+    DSCustom_CreateParams params = {0};
 
-  bsquery = gst_nvquery_batch_size_new();
-  if (nvdsaudiotemplate->num_batch_buffers == 1)
-  {
-    if (gst_pad_peer_query(GST_BASE_TRANSFORM_SINK_PAD(btrans), bsquery))
-    {
-      gst_nvquery_batch_size_parse(bsquery, &batch_size);
-      nvdsaudiotemplate->num_batch_buffers = batch_size;
+    bsquery = gst_nvquery_batch_size_new();
+    if (nvdsaudiotemplate->num_batch_buffers == 1) {
+        if (gst_pad_peer_query(GST_BASE_TRANSFORM_SINK_PAD(btrans), bsquery)) {
+            gst_nvquery_batch_size_parse(bsquery, &batch_size);
+            nvdsaudiotemplate->num_batch_buffers = batch_size;
+        }
     }
-  }
-  gst_query_unref(bsquery);
+    gst_query_unref(bsquery);
 
-  /* Save the input & output audo information, since this will be required later. */
-  gst_audio_info_from_caps(&nvdsaudiotemplate->in_audio_info, incaps);
-  gst_audio_info_from_caps(&nvdsaudiotemplate->out_audio_info, outcaps);
+    /* Save the input & output audo information, since this will be required later. */
+    gst_audio_info_from_caps(&nvdsaudiotemplate->in_audio_info, incaps);
+    gst_audio_info_from_caps(&nvdsaudiotemplate->out_audio_info, outcaps);
 
-  CHECK_CUDA_STATUS(cudaSetDevice(nvdsaudiotemplate->gpu_id),
-                    "Unable to set cuda device");
+    CHECK_CUDA_STATUS(cudaSetDevice(nvdsaudiotemplate->gpu_id), "Unable to set cuda device");
 
-  // TODO: Manage the ctx in case of DRC like cases here
-  params.m_element = btrans;
-  params.m_inCaps = incaps;
-  params.m_outCaps = outcaps;
-  g_print("outcaps received = %s\n", gst_caps_to_string(outcaps));
-  params.m_gpuId = nvdsaudiotemplate->gpu_id;
-
-  return nvdsaudiotemplate->algo_ctx->SetInitParams(&params);
+    // TODO: Manage the ctx in case of DRC like cases here
+    params.m_element = btrans;
+    params.m_inCaps = incaps;
+    params.m_outCaps = outcaps;
+    GST_DEBUG_OBJECT(nvdsaudiotemplate, "outcaps received = %s\n", gst_caps_to_string(outcaps));
+    params.m_gpuId = nvdsaudiotemplate->gpu_id;
+    params.m_batchSize = nvdsaudiotemplate->num_batch_buffers;
+    if (!nvdsaudiotemplate->algo_ctx->SetInitParams(&params)) {
+        GST_ERROR_ON_BUS("SetInitParams Error", "SetInitParams Error");
+        return false;
+    }
+    return true;
 
 error:
-  return FALSE;
+    return FALSE;
 }
 
-static gboolean
-gst_nvdsaudiotemplate_sink_event(GstBaseTransform *btrans, GstEvent *event)
+static gboolean gst_nvdsaudiotemplate_sink_event(GstBaseTransform *btrans, GstEvent *event)
 {
-  gboolean ret = TRUE;
-  GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
+    gboolean ret = TRUE;
+    GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
 
-  ret = nvdsaudiotemplate->algo_ctx->HandleEvent(event);
-  if (!ret)
+    ret = nvdsaudiotemplate->algo_ctx->HandleEvent(event);
+    if (!ret)
+        return ret;
+    ret = GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(btrans, event);
+    if (ret == FALSE) {
+        GstState cur_state;
+        gst_element_get_state(GST_ELEMENT(btrans), &cur_state, NULL, 0);
+        if (!(event != NULL || cur_state == GST_STATE_NULL || cur_state == GST_STATE_PAUSED))
+            GST_ERROR_ON_BUS("sink_event error", "sink_event error");
+    }
     return ret;
-
-  // g_print ("event  = %s\n", gst_event_type_get_name(GST_EVENT_TYPE(event)));
-  return GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(btrans, event);
 }
 
 /**
  * Called when element recieves an input buffer from upstream element.
  */
-static GstFlowReturn
-gst_nvdsaudiotemplate_submit_input_buffer(GstBaseTransform *btrans,
-                                          gboolean discont, GstBuffer *inbuf)
+static GstFlowReturn gst_nvdsaudiotemplate_submit_input_buffer(GstBaseTransform *btrans,
+                                                               gboolean discont,
+                                                               GstBuffer *inbuf)
 {
-  GstFlowReturn flow_ret;
-  GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
+    GstFlowReturn flow_ret;
+    GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
 
-  BufferResult result = BufferResult::Buffer_Async;
+    BufferResult result = BufferResult::Buffer_Async;
 
-  // Call the callback of user provided library
-  // check the return type
-  // based on return type push the buffer or just return as use is going to handle pushing of data
-  if (nvdsaudiotemplate->algo_ctx)
-  {
-    cudaError_t cuErr = cudaSetDevice(nvdsaudiotemplate->gpu_id);
-    if (cuErr != cudaSuccess)
-    {
-      GST_ERROR_OBJECT(nvdsaudiotemplate, "Unable to set cuda device");
-      return GST_FLOW_ERROR;
-    }
-    result = nvdsaudiotemplate->algo_ctx->ProcessBuffer(inbuf);
+    // Call the callback of user provided library
+    // check the return type
+    // based on return type push the buffer or just return as use is going to handle pushing of data
+    if (nvdsaudiotemplate->algo_ctx) {
+        cudaError_t cuErr = cudaSetDevice(nvdsaudiotemplate->gpu_id);
+        if (cuErr != cudaSuccess) {
+            GST_ERROR_ON_BUS("Error cudaSetDevice", "Unable to set cuda device");
+            return GST_FLOW_ERROR;
+        }
+        result = nvdsaudiotemplate->algo_ctx->ProcessBuffer(inbuf);
 
-    if (result == BufferResult::Buffer_Ok)
-    {
-      flow_ret = gst_pad_push(GST_BASE_TRANSFORM_SRC_PAD(nvdsaudiotemplate), inbuf);
-      return flow_ret;
+        if (result == BufferResult::Buffer_Ok) {
+            flow_ret = gst_pad_push(GST_BASE_TRANSFORM_SRC_PAD(nvdsaudiotemplate), inbuf);
+            if (flow_ret != GST_FLOW_OK) {
+                GST_ERROR_ON_BUS("gst_pad_push error", "gst_pad_push error: %d", flow_ret);
+            }
+            return flow_ret;
+        } else if (result == BufferResult::Buffer_Drop) {
+            // TODO unref the buffer so that it will be dropped
+            return GST_FLOW_OK;
+        } else if (result == BufferResult::Buffer_Error) {
+            GST_ERROR_ON_BUS("Buffer_Error", "Error in processing from customlib: %u",
+                             static_cast<uint32_t>(BufferResult::Buffer_Error));
+            return GST_FLOW_ERROR;
+        } else if (result == BufferResult::Buffer_Async) {
+            return GST_FLOW_OK;
+        }
     }
-    else if (result == BufferResult::Buffer_Drop)
-    {
-      // TODO unref the buffer so that it will be dropped
-      return GST_FLOW_OK;
-    }
-    else if (result == BufferResult::Buffer_Error)
-    {
-      return GST_FLOW_ERROR;
-    }
-    else if (result == BufferResult::Buffer_Async)
-    {
-      return GST_FLOW_OK;
-    }
-  }
 
-  // flow_ret = gst_pad_push (GST_BASE_TRANSFORM_SRC_PAD (nvdsaudiotemplate), inbuf);
-  // g_print ("nvdsaudiotemplate Plugin: -- Sending Buffer to downstream, flow_ret = %d\n", flow_ret);
-  return GST_FLOW_OK;
+    // flow_ret = gst_pad_push (GST_BASE_TRANSFORM_SRC_PAD (nvdsaudiotemplate), inbuf);
+    // g_print ("nvdsaudiotemplate Plugin: -- Sending Buffer to downstream, flow_ret = %d\n",
+    // flow_ret);
+    return GST_FLOW_OK;
 }
 
 /**
@@ -589,28 +629,31 @@ gst_nvdsaudiotemplate_submit_input_buffer(GstBaseTransform *btrans,
  * Return the GstFlowReturn value of the latest pad push so that any error might
  * be caught by the application.
  */
-static GstFlowReturn
-gst_nvdsaudiotemplate_generate_output(GstBaseTransform *btrans, GstBuffer **outbuf)
+static GstFlowReturn gst_nvdsaudiotemplate_generate_output(GstBaseTransform *btrans,
+                                                           GstBuffer **outbuf)
 {
-  // GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE (btrans);
-  return GST_FLOW_OK;
+    // GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE (btrans);
+    return GST_FLOW_OK;
 }
 
 /**
  * Boiler plate for registering a plugin and an element.
  */
-static gboolean
-dsaudiotemplate_plugin_init(GstPlugin *plugin)
+static gboolean dsaudiotemplate_plugin_init(GstPlugin *plugin)
 {
-  GST_DEBUG_CATEGORY_INIT(gst_nvdsaudiotemplate_debug, "nvdsaudiotemplate", 0,
-                          "nvdsaudiotemplate plugin");
+    GST_DEBUG_CATEGORY_INIT(gst_nvdsaudiotemplate_debug, "nvdsaudiotemplate", 0,
+                            "nvdsaudiotemplate plugin");
 
-  return gst_element_register(plugin, "nvdsaudiotemplate", GST_RANK_PRIMARY,
-                              GST_TYPE_NVDSAUDIOTEMPLATE);
+    return gst_element_register(plugin, "nvdsaudiotemplate", GST_RANK_PRIMARY,
+                                GST_TYPE_NVDSAUDIOTEMPLATE);
 }
 
 GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   GST_VERSION_MINOR,
                   nvdsgst_audiotemplate,
-                  DESCRIPTION, dsaudiotemplate_plugin_init, "6.0", LICENSE, BINARY_PACKAGE,
+                  DESCRIPTION,
+                  dsaudiotemplate_plugin_init,
+                  "6.1",
+                  LICENSE,
+                  BINARY_PACKAGE,
                   URL)

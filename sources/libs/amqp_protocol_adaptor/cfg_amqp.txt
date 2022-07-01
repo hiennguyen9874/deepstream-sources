@@ -15,4 +15,5 @@ username = guest
 password = guest
 exchange = amq.topic
 topic = topicname
+amqp-framesize = 131072
 #share-connection = 1

@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2021 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,9 +8,37 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-Automatic Speech Recognition and Text To Speech using DeepStream SDK v6.0
+*****************************************************************************
+                     deepstream-asr-tts-app
+                             README
+*****************************************************************************
 
-A. Introduction:
+===============================================================================
+1. Prerequisites:
+===============================================================================
+
+A. DeepStream SDK v6.0 release or later.
+B. Riva Speech Skills 1.4.0-beta release or later.
+C. Riva ASR and TTS service:
+   The Riva ASR, TTS services should be started externally.
+   Please check this link for the steps to deploy the models using
+   Riva Quick start scripts:
+   https://docs.nvidia.com/deeplearning/riva/user-guide/docs/quick-start-guide.html#local-deployment-using-quick-start-scripts
+D. gRPC C++ shared libraries installation is needed for the gRPC client:
+   Please follow steps given at below link, and add -DBUILD_SHARED_LIBS=ON
+   to the cmake build options. (Recommend to use 'make -j4' instead of 'make -j')
+   https://grpc.io/docs/languages/cpp/quickstart/
+   Note:
+   The gRPC C++ libraries are installed on the DeepStream docker images.
+   Please run below command to add the installation path to the LD_LIBRARY_PATH
+   environment variable:
+   $ source ~/.profile
+E. libyaml-cpp YAML parser C++ library:
+   $sudo apt install libyaml-cpp-dev
+
+===============================================================================
+2. Purpose:
+===============================================================================
 
 This sample application demonstrates Automatic Speech Recognition (ASR)
 and Text To Speech (TTS) conversion using the NVIDIA DeepStream SDK and the
@@ -29,7 +57,7 @@ Features:
 1. Parallel speech recognition for multiple input streams.
 2. Text to speech conversion of the ASR output using specified TTS service.
 3. Punctuation and capitalization of ASR output.
-4. Models generated using NVIDIA Train, Adapt, and Optimize (TAO) platform 
+4. Models generated using NVIDIA Train, Adapt, and Optimize (TAO) platform
    can be plugged in for ASR, Punctuation & Capitalization.
 5. Audio mixing in case of multiple input streams.
 6. Writing of ASR output to text file.
@@ -49,9 +77,40 @@ Sequence of Operations:
 4. In case of multiple inputs, if playback is enabled, the audio from different
    inputs is mixed together and rendered.
 
+Note: This application supports configuration file in the YAML format (.yaml)
+and also the GLib key file format (.cfg). The support for .cfg files will be
+deprecated in future versions.
+
+===============================================================================
+3. To compile:
+===============================================================================
+
+  $ Set CUDA_VER in the MakeFile as per platform.
+      For x86, CUDA_VER=11.6
+  $ sudo make
+
+===============================================================================
+4. Usage:
+===============================================================================
+
+Before launching the application, Make sure to launch ASR service, TTS service and set
+LD_LIBRARY_PATH as mentioned in "Prerequisites" section 1.C and 1.D.
+
+   Run using YAML configuration file:
+   $ ./deepstream-asr-tts-app -c deepstream_asr_tts.yaml
+
+   OR
+
+   Run using GLib key file format configuration file:
+   $ ./deepstream-asr-tts-app -c deepstream_asr_tts.cfg
+
+NOTE: To compile the sources, run make with "sudo" or root permission.
+
 Configuration options:
    Command-line option:
-       -c <config_file.cfg> # specify configuration file
+       -c <config_file.yaml> # specify YAML configuration file
+       OR
+       -c <config_file.cfg> # specify GLib key file format configuration file
    Configuration file options:
      Per stream configurations [source0], [asr0], [source1], [asr1], ...:
        uri=<file://path/to/input/file>
@@ -70,34 +129,19 @@ Configuration options:
    NvDs_Text_To_Speech Plugin configuration file:
        riva_tts_conf.yml
 
-B. Prerequisites:
+Limitations:
+  1. This application can run on dGPU based systems only.
+  2. Currently only English language (en-US) is supported.
 
-1. DeepStream SDK v6.0 release or later.
-2. Riva Speech Skills 1.4.0-beta release or later.
-3. Riva ASR and TTS service:
-   The Riva ASR, TTS services should be started externally.
-   Please check this link for the steps to deploy the models using
-   Riva Quick start scripts:
-   https://docs.nvidia.com/deeplearning/riva/user-guide/docs/quick-start-guide.html#local-deployment-using-quick-start-scripts
-4. gRPC C++ shared libraries installation is needed for the gRPC client:
-   Please follow steps given at below link, and add -DBUILD_SHARED_LIBS=ON
-   to the cmake build options. (Recommend to use 'make -j4' instead of 'make -j')
-   https://grpc.io/docs/languages/cpp/quickstart/
-   Note:
-   The gRPC C++ libraries are installed on the DeepStream docker images.
-   Please run below command to add the installation path to the LD_LIBRARY_PATH
-   environment variable:
-   $ source ~/.profile
+References:
+  1. https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_Overview.html
+  2. https://docs.nvidia.com/deeplearning/riva/user-guide/docs/quick-start-guide.html
+  3. https://docs.nvidia.com/tao/tao-toolkit/text/overview.html
 
-C. Compilation and execution :
-  $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=11.4
-  $ sudo make
-  $ ./deepstream-asr-tts-app -c deepstream_asr_tts.cfg
+===============================================================================
+5. Using pre-built models from TAO
+===============================================================================
 
-NOTE: To compile the sources, run make with "sudo" or root permission.
-
-D. Using pre-built models from TAO
    The NVIDIA Train, Adapt, and Optimize (TAO) platform provides purpose-built
    Conversational AI models that can be used with the Riva toolkit and DeepStream.
    TAO can be also used to generate custom AI models derived from the pre-built
@@ -110,13 +154,4 @@ D. Using pre-built models from TAO
    Please follow the Riva build and Riva deploy steps given in the
    Jupyter Notebooks available here:
    https://docs.nvidia.com/tao/tao-toolkit/text/riva_tao_integration.html
-
-E. Limitations:
-  1. This application can run on dGPU based systems only.
-  2. Currently only English language (en-US) is supported.
-
-F. References:
-  1. https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_Overview.html
-  2. https://docs.nvidia.com/deeplearning/riva/user-guide/docs/quick-start-guide.html
-  3. https://docs.nvidia.com/tao/tao-toolkit/text/overview.html
 

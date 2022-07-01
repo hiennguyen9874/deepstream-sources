@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -41,13 +41,13 @@ endif
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_dsexample.so
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
 DEP:=dsexample_lib/libdsexample.a
 DEP_FILES:=$(wildcard dsexample_lib/dsexample_lib.* )
 DEP_FILES-=$(DEP)
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.0.1\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.1.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes
 
@@ -67,11 +67,7 @@ PKGS:= gstreamer-1.0 gstreamer-base-1.0 gstreamer-video-1.0
 
 ifeq ($(WITH_OPENCV),1)
 CFLAGS+= -DWITH_OPENCV
-ifeq ($(TARGET_DEVICE),aarch64)
-	PKGS+= opencv4
-else
-	PKGS+= opencv
-endif
+PKGS+= opencv4
 endif
 
 CFLAGS+=$(shell pkg-config --cflags $(PKGS))

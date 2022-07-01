@@ -31,45 +31,41 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define NVDSINFER_MAX_DIMS 8
 
 #define _DS_DEPRECATED_(STR) __attribute__((deprecated(STR)))
 
-  /**
-   * Holds the dimensions of a layer.
-   */
-  typedef struct
-  {
+/**
+ * Holds the dimensions of a layer.
+ */
+typedef struct {
     /** Holds the number of dimesions in the layer.*/
     unsigned int numDims;
     /** Holds the size of the layer in each dimension. */
     unsigned int d[NVDSINFER_MAX_DIMS];
     /** Holds the number of elements in the layer, including all dimensions.*/
     unsigned int numElements;
-  } NvDsInferDims;
+} NvDsInferDims;
 
-  /**
-   * Holds the dimensions of a three-dimensional layer.
-   */
-  typedef struct
-  {
+/**
+ * Holds the dimensions of a three-dimensional layer.
+ */
+typedef struct {
     /** Holds the channel count of the layer.*/
     unsigned int c;
     /** Holds the height of the layer.*/
     unsigned int h;
     /** Holds the width of the layer.*/
     unsigned int w;
-  } NvDsInferDimsCHW;
+} NvDsInferDimsCHW;
 
-  /**
-   * Specifies the data type of a layer.
-   */
-  typedef enum
-  {
+/**
+ * Specifies the data type of a layer.
+ */
+typedef enum {
     /** Specifies FP32 format. */
     FLOAT = 0,
     /** Specifies FP16 format. */
@@ -78,20 +74,18 @@ extern "C"
     INT8 = 2,
     /** Specifies INT32 format. */
     INT32 = 3
-  } NvDsInferDataType;
+} NvDsInferDataType;
 
-  /**
-   * Holds information about one layer in the model.
-   */
-  typedef struct
-  {
+/**
+ * Holds information about one layer in the model.
+ */
+typedef struct {
     /** Holds the data type of the layer. */
     NvDsInferDataType dataType;
     /** Holds the dimensions of the layer. */
-    union
-    {
-      NvDsInferDims inferDims;
-      NvDsInferDims dims _DS_DEPRECATED_("dims is deprecated. Use inferDims instead");
+    union {
+        NvDsInferDims inferDims;
+        NvDsInferDims dims _DS_DEPRECATED_("dims is deprecated. Use inferDims instead");
     };
     /** Holds the TensorRT binding index of the layer. */
     int bindingIndex;
@@ -102,46 +96,42 @@ extern "C"
     /** Holds a Boolean; true if the layer is an input layer,
      or false if an output layer. */
     int isInput;
-  } NvDsInferLayerInfo;
+} NvDsInferLayerInfo;
 
-  /**
-   * Holds information about the model network.
-   */
-  typedef struct
-  {
+/**
+ * Holds information about the model network.
+ */
+typedef struct {
     /** Holds the input width for the model. */
     unsigned int width;
     /** Holds the input height for the model. */
     unsigned int height;
     /** Holds the number of input channels for the model. */
     unsigned int channels;
-  } NvDsInferNetworkInfo;
+} NvDsInferNetworkInfo;
 
 /**
  * Sets values on a @ref NvDsInferDimsCHW structure from a @ref NvDsInferDims
  * structure.
  */
 #define getDimsCHWFromDims(dimsCHW, dims) \
-  do                                      \
-  {                                       \
-    (dimsCHW).c = (dims).d[0];            \
-    (dimsCHW).h = (dims).d[1];            \
-    (dimsCHW).w = (dims).d[2];            \
-  } while (0)
+    do {                                  \
+        (dimsCHW).c = (dims).d[0];        \
+        (dimsCHW).h = (dims).d[1];        \
+        (dimsCHW).w = (dims).d[2];        \
+    } while (0)
 
 #define getDimsHWCFromDims(dimsCHW, dims) \
-  do                                      \
-  {                                       \
-    (dimsCHW).h = (dims).d[0];            \
-    (dimsCHW).w = (dims).d[1];            \
-    (dimsCHW).c = (dims).d[2];            \
-  } while (0)
+    do {                                  \
+        (dimsCHW).h = (dims).d[0];        \
+        (dimsCHW).w = (dims).d[1];        \
+        (dimsCHW).c = (dims).d[2];        \
+    } while (0)
 
-  /**
-   * Holds information about one parsed object from a detector's output.
-   */
-  typedef struct
-  {
+/**
+ * Holds information about one parsed object from a detector's output.
+ */
+typedef struct {
     /** Holds the ID of the class to which the object belongs. */
     unsigned int classId;
 
@@ -157,18 +147,17 @@ extern "C"
     /** Holds the object detection confidence level; must in the range
      [0.0,1.0]. */
     float detectionConfidence;
-  } NvDsInferObjectDetectionInfo;
+} NvDsInferObjectDetectionInfo;
 
-  /**
-   * A typedef defined to maintain backward compatibility.
-   */
-  typedef NvDsInferObjectDetectionInfo NvDsInferParseObjectInfo;
+/**
+ * A typedef defined to maintain backward compatibility.
+ */
+typedef NvDsInferObjectDetectionInfo NvDsInferParseObjectInfo;
 
-  /**
-   * Holds information about one parsed object and instance mask from a detector's output.
-   */
-  typedef struct
-  {
+/**
+ * Holds information about one parsed object and instance mask from a detector's output.
+ */
+typedef struct {
     /** Holds the ID of the class to which the object belongs. */
     unsigned int classId;
 
@@ -193,13 +182,12 @@ extern "C"
     unsigned int mask_height;
     /** Holds size of mask in bytes*/
     unsigned int mask_size;
-  } NvDsInferInstanceMaskInfo;
+} NvDsInferInstanceMaskInfo;
 
-  /**
-   * Holds information about one classified attribute.
-   */
-  typedef struct
-  {
+/**
+ * Holds information about one classified attribute.
+ */
+typedef struct {
     /** Holds the index of the attribute's label. This index corresponds to
      the order of output layers specified in the @a outputCoverageLayerNames
      vector during initialization. */
@@ -212,13 +200,12 @@ extern "C"
      Memory for the string must not be freed. Custom parsing functions must
      allocate strings on heap using strdup or equivalent. */
     char *attributeLabel;
-  } NvDsInferAttribute;
+} NvDsInferAttribute;
 
-  /**
-   * Enum for the status codes returned by NvDsInferContext.
-   */
-  typedef enum
-  {
+/**
+ * Enum for the status codes returned by NvDsInferContext.
+ */
+typedef enum {
     /** NvDsInferContext operation succeeded. */
     NVDSINFER_SUCCESS = 0,
     /** Failed to configure the NvDsInferContext instance possibly due to an
@@ -242,27 +229,26 @@ extern "C"
     NVDSINFER_TRTIS_ERROR = NVDSINFER_TRITON_ERROR,
     /** Unknown error was encountered. */
     NVDSINFER_UNKNOWN_ERROR
-  } NvDsInferStatus;
+} NvDsInferStatus;
 
-  /**
-   * Enum for the log levels of NvDsInferContext.
-   */
-  typedef enum
-  {
+/**
+ * Enum for the log levels of NvDsInferContext.
+ */
+typedef enum {
     NVDSINFER_LOG_ERROR = 0,
     NVDSINFER_LOG_WARNING,
     NVDSINFER_LOG_INFO,
     NVDSINFER_LOG_DEBUG,
-  } NvDsInferLogLevel;
+} NvDsInferLogLevel;
 
-  /**
-   * Get the string name for the status.
-   *
-   * @param[in] status An NvDsInferStatus value.
-   * @return String name for the status. Memory is owned by the function. Callers
-   *         should not free the pointer.
-   */
-  const char *NvDsInferStatus2Str(NvDsInferStatus status);
+/**
+ * Get the string name for the status.
+ *
+ * @param[in] status An NvDsInferStatus value.
+ * @return String name for the status. Memory is owned by the function. Callers
+ *         should not free the pointer.
+ */
+const char *NvDsInferStatus2Str(NvDsInferStatus status);
 
 #ifdef __cplusplus
 }
@@ -275,30 +261,27 @@ extern "C"
  * Enum for selecting between minimum/optimal/maximum dimensions of a layer
  * in case of dynamic shape network.
  */
-typedef enum
-{
-  kSELECTOR_MIN = 0,
-  kSELECTOR_OPT,
-  kSELECTOR_MAX,
-  kSELECTOR_SIZE
+typedef enum {
+    kSELECTOR_MIN = 0,
+    kSELECTOR_OPT,
+    kSELECTOR_MAX,
+    kSELECTOR_SIZE
 } NvDsInferProfileSelector;
 
 /**
  * Holds full dimensions (including batch size) for a layer.
  */
-typedef struct
-{
-  int batchSize = 0;
-  NvDsInferDims dims = {0};
+typedef struct {
+    int batchSize = 0;
+    NvDsInferDims dims = {0};
 } NvDsInferBatchDims;
 
 /**
  * Extended structure for bound layer information which additionally includes
  * min/optimal/max full dimensions of a layer in case of dynamic shape.
  */
-struct NvDsInferBatchDimsLayerInfo : NvDsInferLayerInfo
-{
-  NvDsInferBatchDims profileDims[kSELECTOR_SIZE];
+struct NvDsInferBatchDimsLayerInfo : NvDsInferLayerInfo {
+    NvDsInferBatchDims profileDims[kSELECTOR_SIZE];
 };
 
 #endif

@@ -24,16 +24,15 @@
 #define __NVGSTDS_SOURCES_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <gst/gst.h>
-#include "deepstream_dewarper.h"
 #include <sys/time.h>
 
-  typedef enum
-  {
+#include "deepstream_dewarper.h"
+
+typedef enum {
     NV_DS_SOURCE_CAMERA_V4L2 = 1,
     NV_DS_SOURCE_URI,
     NV_DS_SOURCE_URI_MULTIPLE,
@@ -42,10 +41,9 @@ extern "C"
     NV_DS_SOURCE_AUDIO_WAV,
     NV_DS_SOURCE_AUDIO_URI,
     NV_DS_SOURCE_ALSA_SRC,
-  } NvDsSourceType;
+} NvDsSourceType;
 
-  typedef struct
-  {
+typedef struct {
     NvDsSourceType type;
     gboolean enable;
     gboolean loop;
@@ -81,18 +79,18 @@ extern "C"
     guint drop_frame_interval;
     gint rtsp_reconnect_interval_sec;
     guint rtsp_reconnect_attempts;
+    guint udp_buffer_size;
     /** Desired input audio rate to nvinferaudio from PGIE config;
      * This config shall be copied over from NvDsGieConfig
      * at create_multi_source_bin()*/
     guint input_audio_rate;
     /** ALSA device, as defined in an asound configuration file */
     gchar *alsa_device;
-  } NvDsSourceConfig;
+} NvDsSourceConfig;
 
-  typedef struct NvDsSrcParentBin NvDsSrcParentBin;
+typedef struct NvDsSrcParentBin NvDsSrcParentBin;
 
-  typedef struct
-  {
+typedef struct {
     GstElement *bin;
     GstElement *src_elem;
     GstElement *cap_filter;
@@ -131,6 +129,7 @@ extern "C"
     gchar *file;
     gchar *direction;
     gint latency;
+    guint udp_buffer_size;
     gboolean got_key_frame;
     gboolean eos_done;
     gboolean reset_done;
@@ -145,10 +144,9 @@ extern "C"
     NvDsSourceConfig *config;
     NvDsSrcParentBin *parent_bin;
     gpointer recordCtx;
-  } NvDsSrcBin;
+} NvDsSrcBin;
 
-  struct NvDsSrcParentBin
-  {
+struct NvDsSrcParentBin {
     GstElement *bin;
     GstElement *streammux;
     GThread *reset_thread;
@@ -157,32 +155,32 @@ extern "C"
     guint num_fr_on;
     gboolean live_source;
     gulong nvstreammux_eosmonitor_probe;
-  };
+};
 
-  gboolean create_source_bin(NvDsSourceConfig *config, NvDsSrcBin *bin);
-  gboolean create_audio_source_bin(NvDsSourceConfig *config, NvDsSrcBin *bin);
+gboolean create_source_bin(NvDsSourceConfig *config, NvDsSrcBin *bin);
+gboolean create_audio_source_bin(NvDsSourceConfig *config, NvDsSrcBin *bin);
 
-  /**
-   * Initialize @ref NvDsSrcParentBin. It creates and adds source and
-   * other elements needed for processing to the bin.
-   * It also sets properties mentioned in the configuration file under
-   * group @ref CONFIG_GROUP_SOURCE
-   *
-   * @param[in] num_sub_bins number of source elements.
-   * @param[in] configs array of pointers of type @ref NvDsSourceConfig
-   *            parsed from configuration file.
-   * @param[in] bin pointer to @ref NvDsSrcParentBin to be filled.
-   *
-   * @return true if bin created successfully.
-   */
-  gboolean
-  create_multi_source_bin(guint num_sub_bins, NvDsSourceConfig *configs,
-                          NvDsSrcParentBin *bin);
+/**
+ * Initialize @ref NvDsSrcParentBin. It creates and adds source and
+ * other elements needed for processing to the bin.
+ * It also sets properties mentioned in the configuration file under
+ * group @ref CONFIG_GROUP_SOURCE
+ *
+ * @param[in] num_sub_bins number of source elements.
+ * @param[in] configs array of pointers of type @ref NvDsSourceConfig
+ *            parsed from configuration file.
+ * @param[in] bin pointer to @ref NvDsSrcParentBin to be filled.
+ *
+ * @return true if bin created successfully.
+ */
+gboolean create_multi_source_bin(guint num_sub_bins,
+                                 NvDsSourceConfig *configs,
+                                 NvDsSrcParentBin *bin);
 
-  gboolean reset_source_pipeline(gpointer data);
-  gboolean set_source_to_playing(gpointer data);
-  gpointer reset_encodebin(gpointer data);
-  void destroy_smart_record_bin(gpointer data);
+gboolean reset_source_pipeline(gpointer data);
+gboolean set_source_to_playing(gpointer data);
+gpointer reset_encodebin(gpointer data);
+void destroy_smart_record_bin(gpointer data);
 #ifdef __cplusplus
 }
 #endif

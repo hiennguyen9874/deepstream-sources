@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -36,9 +36,9 @@ SRCS:= nvdspreprocess_lib.cpp nvdspreprocess_impl.cpp \
 INCS:= $(wildcard *.h)
 LIB:=libcustom2d_preprocess.so
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
-CFLAGS+= -fPIC -DHAVE_CONFIG_H -std=c++17 -Wall -Werror -DDS_VERSION=\"6.0.1\" \
+CFLAGS+= -fPIC -DHAVE_CONFIG_H -std=c++17 -Wall -Werror -DDS_VERSION=\"6.1.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../include \
 	 -I ../../../includes

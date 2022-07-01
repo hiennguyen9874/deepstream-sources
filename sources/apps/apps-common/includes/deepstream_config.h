@@ -74,8 +74,8 @@
 #define NVDS_ELEM_SINK_FAKESINK "fakesink"
 #define NVDS_ELEM_SINK_FILE "filesink"
 #define NVDS_ELEM_SINK_EGL "nveglglessink"
-
-#define NVDS_ELEM_SINK_OVERLAY "nvoverlaysink"
+#define NVDS_ELEM_SINK_3D "nv3dsink"
+#define NVDS_ELEM_SINK_DRM "nvdrmvideosink"
 #define NVDS_ELEM_EGLTRANSFORM "nvegltransform"
 
 #define NVDS_ELEM_MUX_MP4 "qtmux"

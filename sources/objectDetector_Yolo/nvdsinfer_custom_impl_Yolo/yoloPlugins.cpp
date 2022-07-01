@@ -21,33 +21,38 @@
  */
 
 #include "yoloPlugins.h"
-#include "NvInferPlugin.h"
+
 #include <cassert>
 #include <iostream>
 #include <memory>
 
-namespace
-{
-    template <typename T>
-    void write(char *&buffer, const T &val)
-    {
-        *reinterpret_cast<T *>(buffer) = val;
-        buffer += sizeof(T);
-    }
+#include "NvInferPlugin.h"
 
-    template <typename T>
-    void read(const char *&buffer, T &val)
-    {
-        val = *reinterpret_cast<const T *>(buffer);
-        buffer += sizeof(T);
-    }
+namespace {
+template <typename T>
+void write(char *&buffer, const T &val)
+{
+    *reinterpret_cast<T *>(buffer) = val;
+    buffer += sizeof(T);
+}
+
+template <typename T>
+void read(const char *&buffer, T &val)
+{
+    val = *reinterpret_cast<const T *>(buffer);
+    buffer += sizeof(T);
+}
 } // namespace
 
 // Forward declaration of cuda kernels
-cudaError_t cudaYoloLayerV3(
-    const void *input, void *output, const uint &batchSize,
-    const uint &gridSize, const uint &numOutputClasses,
-    const uint &numBBoxes, uint64_t outputSize, cudaStream_t stream);
+cudaError_t cudaYoloLayerV3(const void *input,
+                            void *output,
+                            const uint &batchSize,
+                            const uint &gridSize,
+                            const uint &numOutputClasses,
+                            const uint &numBBoxes,
+                            uint64_t outputSize,
+                            cudaStream_t stream);
 
 YoloLayerV3::YoloLayerV3(const void *data, size_t length)
 {
@@ -58,10 +63,8 @@ YoloLayerV3::YoloLayerV3(const void *data, size_t length)
     read(d, m_OutputSize);
 };
 
-YoloLayerV3::YoloLayerV3(
-    const uint &numBoxes, const uint &numClasses, const uint &gridSize) : m_NumBoxes(numBoxes),
-                                                                          m_NumClasses(numClasses),
-                                                                          m_GridSize(gridSize)
+YoloLayerV3::YoloLayerV3(const uint &numBoxes, const uint &numClasses, const uint &gridSize)
+    : m_NumBoxes(numBoxes), m_NumClasses(numClasses), m_GridSize(gridSize)
 {
     assert(m_NumBoxes > 0);
     assert(m_NumClasses > 0);
@@ -69,39 +72,42 @@ YoloLayerV3::YoloLayerV3(
     m_OutputSize = m_GridSize * m_GridSize * (m_NumBoxes * (4 + 1 + m_NumClasses));
 };
 
-nvinfer1::Dims
-YoloLayerV3::getOutputDimensions(
-    int index, const nvinfer1::Dims *inputs, int nbInputDims) noexcept
+nvinfer1::Dims YoloLayerV3::getOutputDimensions(int index,
+                                                const nvinfer1::Dims *inputs,
+                                                int nbInputDims) noexcept
 {
     assert(index == 0);
     assert(nbInputDims == 1);
     return inputs[0];
 }
 
-bool YoloLayerV3::supportsFormat(
-    nvinfer1::DataType type, nvinfer1::PluginFormat format) const noexcept
+bool YoloLayerV3::supportsFormat(nvinfer1::DataType type,
+                                 nvinfer1::PluginFormat format) const noexcept
 {
-    return (type == nvinfer1::DataType::kFLOAT &&
-            format == nvinfer1::PluginFormat::kLINEAR);
+    return (type == nvinfer1::DataType::kFLOAT && format == nvinfer1::PluginFormat::kLINEAR);
 }
 
-void YoloLayerV3::configureWithFormat(
-    const nvinfer1::Dims *inputDims, int nbInputs,
-    const nvinfer1::Dims *outputDims, int nbOutputs,
-    nvinfer1::DataType type, nvinfer1::PluginFormat format, int maxBatchSize) noexcept
+void YoloLayerV3::configureWithFormat(const nvinfer1::Dims *inputDims,
+                                      int nbInputs,
+                                      const nvinfer1::Dims *outputDims,
+                                      int nbOutputs,
+                                      nvinfer1::DataType type,
+                                      nvinfer1::PluginFormat format,
+                                      int maxBatchSize) noexcept
 {
     assert(nbInputs == 1);
     assert(format == nvinfer1::PluginFormat::kLINEAR);
     assert(inputDims != nullptr);
 }
 
-int YoloLayerV3::enqueue(
-    int batchSize, void const *const *inputs, void *const *outputs, void *workspace,
-    cudaStream_t stream) noexcept
+int YoloLayerV3::enqueue(int batchSize,
+                         void const *const *inputs,
+                         void *const *outputs,
+                         void *workspace,
+                         cudaStream_t stream) noexcept
 {
-    CHECK(cudaYoloLayerV3(
-        inputs[0], outputs[0], batchSize, m_GridSize, m_NumClasses, m_NumBoxes,
-        m_OutputSize, stream));
+    CHECK(cudaYoloLayerV3(inputs[0], outputs[0], batchSize, m_GridSize, m_NumClasses, m_NumBoxes,
+                          m_OutputSize, stream));
     return 0;
 }
 

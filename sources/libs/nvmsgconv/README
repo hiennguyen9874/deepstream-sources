@@ -16,9 +16,10 @@ Pre-requisites:
 - glib-2.0
 - json-glib-1.0
 - uuid
+- yaml-cpp
 
 Install using:
-   sudo apt-get install libglib2.0-dev libjson-glib-dev uuid-dev
+  sudo apt-get install libglib2.0-dev libjson-glib-dev uuid-dev libyaml-cpp-dev
 
 --------------------------------------------------------------------------------
 Compiling and installing the plugin:

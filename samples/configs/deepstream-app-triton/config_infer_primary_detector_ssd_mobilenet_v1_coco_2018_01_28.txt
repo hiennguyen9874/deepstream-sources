@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2020 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2020-2022 NVIDIA Corporation.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -77,7 +77,7 @@ infer_config {
   }
 
   custom_lib {
-    path: "/opt/nvidia/deepstream/deepstream-6.0/lib/libnvds_infercustomparser.so"
+    path: "/opt/nvidia/deepstream/deepstream/lib/libnvds_infercustomparser.so"
   }
 
   extra {

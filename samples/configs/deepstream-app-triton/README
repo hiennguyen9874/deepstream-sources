@@ -23,17 +23,35 @@
 This document describes the procedure to generate plan engine files and run
 Triton Inference Server samples on TensorRT, Tensorflow, ONNX, Pytorch models.
 
+--------------------------------------------------------------------------------
+Prepare Deepstream Triton Docker Container (Only for X86)
+--------------------------------------------------------------------------------
 On dGPU platforms, these samples are meant to be executed inside DeepStream's
-Triton Inference Server container.
+Triton Inference Server container. Pull deepstream-triton container from
+https://ngc.nvidia.com.
+
+1. Pull docker container
+   $ docker pull nvcr.io/nvidia/deepstream:[version]-triton
+   [version] means deepstream version numbers e.g. 6.1
+
+2. Allow external applications to connect to the host's X display:
+   $ xhost +
+3. Set correct $DISPLAY variables on host, then run deepstream-triton docker container.
+   $ docker run --gpus '"'device=0'"' -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix \
+     -e DISPLAY=$DISPLAY --net=host nvcr.io/nvidia/deepstream:[version]-triton
+   Note: Set correct GPU id for `device=$id`.
+
+All deepstream-triton samples shall be running inside the container on X86.
+
+--------------------------------------------------------------------------------
+Setting up Triton Inference Server backends (Only for Jetson)
+--------------------------------------------------------------------------------
 On Jetson platforms, these samples are meant to be executed on target device
 directly or inside DeepStream L4T container.
 For DeepStream containers, please refer to the DeepStream Quick Start Guide
 for instructions on pulling the container image and starting the container.
 Once the DeepStream Triton environment is ready, run the following commands:
 
---------------------------------------------------------------------------------
-Setting up Triton Inference Server backends (Only for Jetson)
---------------------------------------------------------------------------------
 Deepstream Triton container image has Triton Inference Server and supported
 backend libraries pre-installed. But in case of Jetson to run the Triton
 Inference Server direclty on device, Triton Server setup will be required.
@@ -42,7 +60,7 @@ Inference Server direclty on device, Triton Server setup will be required.
    $ sudo ./triton_backend_setup.sh
 
 Notes:
-   By default script will download the Triton Server version 2.13. For setting
+   By default script will download the Triton Server version 2.20.0. For setting
    up any other version change the package path accordingly.
 
 --------------------------------------------------------------------------------

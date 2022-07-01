@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2019-2021 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2019-2022 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,7 +8,14 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-Prequisites:
+*****************************************************************************
+                     deepstream-segmentation-app
+                             README
+*****************************************************************************
+
+===============================================================================
+1. Prerequisites:
+===============================================================================
 
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
 to install the prequisites for Deepstream SDK, the DeepStream SDK itself and the
@@ -24,18 +31,28 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
+===============================================================================
+2. Purpose:
+===============================================================================
+
+The application demonstrates the usage of sematic models for segmentation.
+
 Pipeline:
 filesrc -> jpegparse -> nvv4l2decoder -> nvstreammux -> nvinfer/nvinferserver (segmentation)
 nvsegvidsual -> nvmultistreamtiler -> (nvegltransform) -> nveglglessink
 
-Compilation Steps:
+===============================================================================
+3. To compile:
+===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=10.2
-      For x86, CUDA_VER=11.4
+      For Jetson, CUDA_VER=11.4
+      For x86, CUDA_VER=11.6
   $ sudo make
 
-To run:
+===============================================================================
+4. Usage:
+===============================================================================
 
   $ ./deepstream-segmentation-app [-t infer-type] config_file <file1> [file2] ... [fileN]
     # -t infer-type: select from [infer, inferserver], infer by default

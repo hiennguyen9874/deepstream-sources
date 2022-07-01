@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -22,7 +22,7 @@ Build dependencies with installation instructions:
 
   git clone https://github.com/edenhill/librdkafka.git
   cd librdkafka
-  git reset --hard 7101c2310341ab3f4675fc565f64f0967e135a6a
+  git reset --hard 063a9ae7a65cebdf1cc128da9815c05f91a2a996
   ./configure --enable-ssl
   make
   sudo make install

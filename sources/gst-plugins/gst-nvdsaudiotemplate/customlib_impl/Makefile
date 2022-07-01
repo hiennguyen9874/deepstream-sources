@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -36,9 +36,9 @@ SRCS:= \
 INCS:= $(wildcard *.h)
 LIB:=libcustom_audioimpl.so
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.0.1\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.1.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../../includes -I../common
 
@@ -47,7 +47,7 @@ LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 
 LIBS := -shared -Wl,-no-undefined \
 	-L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart -ldl -lpthread \
-	-L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_meta -lnvds_meta \
+	-L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_meta -lnvds_meta -lnvdsgst_audio \
 	-Wl,-rpath,$(LIB_INSTALL_DIR)
 
 OBJS:= $(SRCS:.cpp=.o)
@@ -70,7 +70,7 @@ $(DEP): $(DEP_FILES)
 	$(MAKE) -C customlib_impl/
 
 install: $(LIB)
-	cp -rv $(LIB) $(GST_INSTALL_DIR)
+	cp -rv $(LIB) $(LIB_INSTALL_DIR)
 
 clean:
 	rm -rf $(OBJS) $(LIB)

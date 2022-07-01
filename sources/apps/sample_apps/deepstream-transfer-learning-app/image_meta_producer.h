@@ -22,22 +22,21 @@
 
 #pragma once
 
-#include <sstream>
-#include <iomanip>
-#include <fstream>
 #include <chrono>
 #include <ctime>
-#include "image_meta_consumer.h"
-#include "concurrent_queue.h"
+#include <fstream>
+#include <iomanip>
+#include <sstream>
 
-class ImageMetaProducer
-{
+#include "concurrent_queue.h"
+#include "image_meta_consumer.h"
+
+class ImageMetaProducer {
 public:
     // left: filepath for multiple file, right: file content
     typedef std::pair<std::string, std::string> string_pair;
     /// Content that will converted to string and sent to consumer
-    struct IPData
-    {
+    struct IPData {
         float confidence = 0.f;
         bool within_confidence;
         unsigned class_id = 0;

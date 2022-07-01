@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -25,7 +25,7 @@ SRCS:= nvdsinfer_context_impl.cpp  nvdsinfer_context_impl_capi.cpp \
 INCS:= $(wildcard *.h)
 LIB:=libnvds_infer.so
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 

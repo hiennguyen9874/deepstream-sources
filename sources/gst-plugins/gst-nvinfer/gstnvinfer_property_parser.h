@@ -14,8 +14,8 @@
 
 #include <glib.h>
 
-#include "nvdsinfer_context.h"
 #include "gstnvinfer.h"
+#include "nvdsinfer_context.h"
 
 #define DEFAULT_PRE_CLUSTER_THRESHOLD 0.2
 #define DEFAULT_POST_CLUSTER_THRESHOLD 0.0
@@ -148,7 +148,8 @@
 #define CONFIG_GROUP_INFER_CLASS_ATTRS_TOP_K "topk"
 
 gboolean gst_nvinfer_parse_config_file(GstNvInfer *nvinfer,
-                                       NvDsInferContextInitParams *init_params, const gchar *cfg_file_path);
+                                       NvDsInferContextInitParams *init_params,
+                                       const gchar *cfg_file_path);
 
 gboolean gst_nvinfer_parse_context_params(NvDsInferContextInitParams *params,
                                           const gchar *cfg_file_path);

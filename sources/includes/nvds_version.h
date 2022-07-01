@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -30,33 +30,32 @@
 #define _NVDS_VERSION_H_
 
 #define NVDS_VERSION_MAJOR 6
-#define NVDS_VERSION_MINOR 0
-#define NVDS_VERSION_MICRO 1
+#define NVDS_VERSION_MINOR 1
+#define NVDS_VERSION_MICRO 0
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-    /**
-     * Get the DEEPSTREAM_SDK major and minor version
-     * numbers and return them in major and minor variable pointers.
-     *
-     * @param[in] major holds the major part of DEEPSTREAM_SDK version.
-     * @param[in] minor holds the minor part of DEEPSTREAM_SDK version.
-     */
-    void nvds_version(unsigned int *major, unsigned int *minor);
+/**
+ * Get the DEEPSTREAM_SDK major and minor version
+ * numbers and return them in major and minor variable pointers.
+ *
+ * @param[in] major holds the major part of DEEPSTREAM_SDK version.
+ * @param[in] minor holds the minor part of DEEPSTREAM_SDK version.
+ */
+void nvds_version(unsigned int *major, unsigned int *minor);
 
-    /**
-     * Print the version as major.minor.
-     * To obtain major and minor, this function calls @ref nvds_version.
-     */
-    void nvds_version_print(void);
+/**
+ * Print the version as major.minor.
+ * To obtain major and minor, this function calls @ref nvds_version.
+ */
+void nvds_version_print(void);
 
-    /**
-     * Print the versions of dependencies such as Cuda, cuDNN and TensorRT.
-     */
-    void nvds_dependencies_version_print(void);
+/**
+ * Print the versions of dependencies such as Cuda, cuDNN and TensorRT.
+ */
+void nvds_dependencies_version_print(void);
 
 #ifdef __cplusplus
 }

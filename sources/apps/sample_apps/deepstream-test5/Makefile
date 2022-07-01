@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -29,7 +29,7 @@ APP:= deepstream-test5-app
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.1
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
@@ -40,13 +40,16 @@ endif
 
 SRCS:= deepstream_test5_app_main.c deepstream_utc.c
 SRCS+= ../deepstream-app/deepstream_app.c ../deepstream-app/deepstream_app_config_parser.c
+SRCS+= ../deepstream-app/deepstream_app_config_parser_yaml.cpp
 SRCS+= $(wildcard ../../apps-common/src/*.c)
+SRCS+= $(wildcard ../../apps-common/src/deepstream-yaml/*.cpp)
 
 INCS:= $(wildcard *.h)
 
 PKGS:= gstreamer-1.0 gstreamer-video-1.0 x11 json-glib-1.0
 
 OBJS:= $(SRCS:.c=.o)
+OBJS:= $(OBJS:.cpp=.o)
 
 CFLAGS+= -I../../apps-common/includes \
 		 -I../../../includes \
@@ -56,7 +59,7 @@ CFLAGS+= -I../../apps-common/includes \
 LIBS:= -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart
 
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvdsgst_helper -lnvdsgst_smartrecord -lnvds_utils -lnvds_msgbroker -lm \
-       -lcuda -lgstrtspserver-1.0 -ldl -Wl,-rpath,$(LIB_INSTALL_DIR)
+       -lyaml-cpp -lcuda -lgstrtspserver-1.0 -ldl -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 CFLAGS+= $(shell pkg-config --cflags $(PKGS))
 
@@ -67,8 +70,11 @@ all: $(APP)
 %.o: %.c $(INCS) Makefile
 	$(CC) -c -o $@ $(CFLAGS) $<
 
+%.o: %.cpp $(INCS) Makefile
+	$(CXX) -c -o $@ $(CFLAGS) $<
+
 $(APP): $(OBJS) Makefile
-	$(CC) -o $(APP) $(OBJS) $(LIBS)
+	$(CXX) -o $(APP) $(OBJS) $(LIBS)
 
 install: $(APP)
 	cp -rv $(APP) $(APP_INSTALL_DIR)

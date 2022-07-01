@@ -13,206 +13,200 @@
 #ifndef CVCORE_HEARTRATE_H_
 #define CVCORE_HEARTRATE_H_
 
+#include <cuda_runtime.h>
+#include <cv/core/Array.h>
+#include <cv/core/BBox.h>
+#include <cv/core/Model.h>
+#include <cv/core/Tensor.h>
+
 #include <memory>
 
-#include <cuda_runtime.h>
+namespace cvcore {
+namespace heartrate {
 
-#include <cv/core/Model.h>
-#include <cv/core/Array.h>
-#include <cv/core/Tensor.h>
-#include <cv/core/BBox.h>
+/**
+ * Interface for loading and running HeartRate.
+ */
+class HeartRate {
+public:
+    /**
+     * Default Image Processing Params for HeartRate.
+     */
+    static const ImagePreProcessingParams defaultPreProcessorParams;
 
-namespace cvcore
-{
-    namespace heartrate
-    {
+    /**
+     * Default Model Input Params for HeartRate.
+     */
+    static const ModelInputParams defaultModelInputParams;
 
-        /**
-         * Interface for loading and running HeartRate.
-         */
-        class HeartRate
-        {
-        public:
-            /**
-             * Default Image Processing Params for HeartRate.
-             */
-            static const ImagePreProcessingParams defaultPreProcessorParams;
+    /**
+     * Default inference Params for HeartRate.
+     */
+    static const ModelInferenceParams defaultInferenceParams;
 
-            /**
-             * Default Model Input Params for HeartRate.
-             */
-            static const ModelInputParams defaultModelInputParams;
+    /**
+     * HeartRate extra params
+     */
+    struct HeartRateParams {
+        std::size_t cameraFps;          // FPS of the camera to map heart rate to time
+        std::size_t heartRateMax;       // Maximum valid heart rate
+        std::size_t heartRateMin;       // Minimum valid heart rate
+        std::size_t estimationInterval; // The minimum number of seconds of inference
+                                        //     points to caluclate FFT heart rate
+        std::size_t warmUpInterval;     // The minimum number of seconds of inferemence
+                                        //     samples to begin calculation
+        std::size_t fftWindow;          // The size of the FFT lookback
+        std::int32_t roiSnrThresh;      // The minimum SNR on the FFT window
+        std::size_t maxConfidence;      // Maximum clamp confidence of the the inference
+        std::size_t minConfidence;      // Minimum FFT confidence to provide a heart rate
+        std::size_t validFpsGap;        // Maximum time variation in heart rate estimates
+        float iouThresh;                // IoU threshold for determining if a persistent
+                                        //     object is present in frame
+    };
+    static const HeartRateParams defaultExtraParams;
 
-            /**
-             * Default inference Params for HeartRate.
-             */
-            static const ModelInferenceParams defaultInferenceParams;
+    /**
+     * Removing the default constructor for HeartRate.
+     */
+    HeartRate() = delete;
 
-            /**
-             * HeartRate extra params
-             */
-            struct HeartRateParams
-            {
-                std::size_t cameraFps;          // FPS of the camera to map heart rate to time
-                std::size_t heartRateMax;       // Maximum valid heart rate
-                std::size_t heartRateMin;       // Minimum valid heart rate
-                std::size_t estimationInterval; // The minimum number of seconds of inference
-                                                //     points to caluclate FFT heart rate
-                std::size_t warmUpInterval;     // The minimum number of seconds of inferemence
-                                                //     samples to begin calculation
-                std::size_t fftWindow;          // The size of the FFT lookback
-                std::int32_t roiSnrThresh;      // The minimum SNR on the FFT window
-                std::size_t maxConfidence;      // Maximum clamp confidence of the the inference
-                std::size_t minConfidence;      // Minimum FFT confidence to provide a heart rate
-                std::size_t validFpsGap;        // Maximum time variation in heart rate estimates
-                float iouThresh;                // IoU threshold for determining if a persistent
-                                                //     object is present in frame
-            };
-            static const HeartRateParams defaultExtraParams;
+    /**
+     * Constructor for HeartRate.
+     * @param preProcessorParams Image preprocessing parameters.
+     * @param modelInputParams Model input parameters.
+     * @param inferenceParams Inference parameters for the model.
+     * @param extraParams Model parameters unique to this model.
+     */
+    HeartRate(const ImagePreProcessingParams &preProcessorParams,
+              const ModelInputParams &modelInputParams,
+              const ModelInferenceParams &inferenceParams,
+              const HeartRateParams &extraParams);
 
-            /**
-             * Removing the default constructor for HeartRate.
-             */
-            HeartRate() = delete;
+    /**
+     * Destructor for HeartRate.
+     */
+    ~HeartRate();
 
-            /**
-             * Constructor for HeartRate.
-             * @param preProcessorParams Image preprocessing parameters.
-             * @param modelInputParams Model input parameters.
-             * @param inferenceParams Inference parameters for the model.
-             * @param extraParams Model parameters unique to this model.
-             */
-            HeartRate(const ImagePreProcessingParams &preProcessorParams,
-                      const ModelInputParams &modelInputParams,
-                      const ModelInferenceParams &inferenceParams,
-                      const HeartRateParams &extraParams);
+    /**
+     * Running HeartRate for a given image.
+     * @param heartRate output heartrate estimation for each image in the batch.
+     * @param faceImage input batch of frame images containing faces
+     * @param faceBBox input batch of bounding boxes, one per frame per face.
+     * @param stream Cuda stream
+     */
+    void execute(Array<float> &heartRate,
+                 const Tensor<NCHW, C3, U8> &faceImage,
+                 const Array<BBox> &faceBBox,
+                 cudaStream_t stream = 0);
 
-            /**
-             * Destructor for HeartRate.
-             */
-            ~HeartRate();
+    void execute(Array<float> &heartRate,
+                 const Tensor<NHWC, C3, U8> &faceImage,
+                 const Array<BBox> &faceBBox,
+                 cudaStream_t stream = 0);
 
-            /**
-             * Running HeartRate for a given image.
-             * @param heartRate output heartrate estimation for each image in the batch.
-             * @param faceImage input batch of frame images containing faces
-             * @param faceBBox input batch of bounding boxes, one per frame per face.
-             * @param stream Cuda stream
-             */
-            void execute(Array<float> &heartRate,
-                         const Tensor<NCHW, C3, U8> &faceImage,
-                         const Array<BBox> &faceBBox,
-                         cudaStream_t stream = 0);
+private:
+    struct HeartRateImpl;
 
-            void execute(Array<float> &heartRate,
-                         const Tensor<NHWC, C3, U8> &faceImage,
-                         const Array<BBox> &faceBBox,
-                         cudaStream_t stream = 0);
+    std::unique_ptr<HeartRateImpl> m_pImpl;
+};
 
-        private:
-            struct HeartRateImpl;
+/**
+ * Interface for running pre-processing for HeartRate.
+ */
+class HeartRatePreProcessor {
+public:
+    /**
+     * Removing the default constructor for HeartRatePreProcessor.
+     */
+    HeartRatePreProcessor() = delete;
 
-            std::unique_ptr<HeartRateImpl> m_pImpl;
-        };
+    /**
+     * Constructor for HeartRatePreProcessor.
+     * @param preProcessorParams Image preprocessing parameters.
+     * @param modelInputParams Model input parameters.
+     * @param extraParams Model parameters unique to this model.
+     */
+    HeartRatePreProcessor(const ImagePreProcessingParams &preProcessorParams,
+                          const ModelInputParams &modelInputParams,
+                          const HeartRate::HeartRateParams &extraParams);
 
-        /**
-         * Interface for running pre-processing for HeartRate.
-         */
-        class HeartRatePreProcessor
-        {
-        public:
-            /**
-             * Removing the default constructor for HeartRatePreProcessor.
-             */
-            HeartRatePreProcessor() = delete;
+    /**
+     * Destructor for HeartRatePreProcessor.
+     */
+    ~HeartRatePreProcessor();
 
-            /**
-             * Constructor for HeartRatePreProcessor.
-             * @param preProcessorParams Image preprocessing parameters.
-             * @param modelInputParams Model input parameters.
-             * @param extraParams Model parameters unique to this model.
-             */
-            HeartRatePreProcessor(const ImagePreProcessingParams &preProcessorParams,
-                                  const ModelInputParams &modelInputParams,
-                                  const HeartRate::HeartRateParams &extraParams);
+    /**
+     * Running preprocessing for a given face image and bounding box.
+     * @param preProcessedFaceImage output preprocessed batch face image.
+     * @param preProcessedFaceMotion output motion image of the last two frame.
+     * @param entityInFrame vector of booleans determine if persistent object in frame.
+     * @param faceImage input batch of raw face images.
+     * @param faceBBox input batch of face bounding boxes.
+     * @param stream Cuda stream
+     */
+    void execute(Tensor<NCHW, C3, F32> &preProcessedFaceImage,
+                 Tensor<NCHW, C3, F32> &preProcessedFaceMotion,
+                 Array<bool> &entityInFrame,
+                 const Tensor<NCHW, C3, U8> &faceImage,
+                 const Array<BBox> &faceBBox,
+                 cudaStream_t stream = 0);
 
-            /**
-             * Destructor for HeartRatePreProcessor.
-             */
-            ~HeartRatePreProcessor();
+    void execute(Tensor<NCHW, C3, F32> &preProcessedFaceImage,
+                 Tensor<NCHW, C3, F32> &preProcessedFaceMotion,
+                 Array<bool> &entityInFrame,
+                 const Tensor<NHWC, C3, U8> &faceImage,
+                 const Array<BBox> &faceBBox,
+                 cudaStream_t stream = 0);
 
-            /**
-             * Running preprocessing for a given face image and bounding box.
-             * @param preProcessedFaceImage output preprocessed batch face image.
-             * @param preProcessedFaceMotion output motion image of the last two frame.
-             * @param entityInFrame vector of booleans determine if persistent object in frame.
-             * @param faceImage input batch of raw face images.
-             * @param faceBBox input batch of face bounding boxes.
-             * @param stream Cuda stream
-             */
-            void execute(Tensor<NCHW, C3, F32> &preProcessedFaceImage,
-                         Tensor<NCHW, C3, F32> &preProcessedFaceMotion,
-                         Array<bool> &entityInFrame,
-                         const Tensor<NCHW, C3, U8> &faceImage,
-                         const Array<BBox> &faceBBox,
-                         cudaStream_t stream = 0);
+private:
+    struct HeartRatePreProcessorImpl;
 
-            void execute(Tensor<NCHW, C3, F32> &preProcessedFaceImage,
-                         Tensor<NCHW, C3, F32> &preProcessedFaceMotion,
-                         Array<bool> &entityInFrame,
-                         const Tensor<NHWC, C3, U8> &faceImage,
-                         const Array<BBox> &faceBBox,
-                         cudaStream_t stream = 0);
+    std::unique_ptr<HeartRatePreProcessorImpl> m_pImpl;
+};
 
-        private:
-            struct HeartRatePreProcessorImpl;
+/**
+ * Interface for running post-processing for HeartRate.
+ */
+class HeartRatePostProcessor {
+public:
+    /**
+     * Removing the default constructor for HeartRatePostProcessor.
+     */
+    HeartRatePostProcessor() = delete;
 
-            std::unique_ptr<HeartRatePreProcessorImpl> m_pImpl;
-        };
+    /**
+     * Constructor for HeartRatePostProcessor.
+     * @param modelInputParams Model input parameters.
+     * @param extraParams Model parameters unique to this model.
+     */
+    HeartRatePostProcessor(const ModelInputParams &modelInputParams,
+                           const HeartRate::HeartRateParams &extraParams);
 
-        /**
-         * Interface for running post-processing for HeartRate.
-         */
-        class HeartRatePostProcessor
-        {
-        public:
-            /**
-             * Removing the default constructor for HeartRatePostProcessor.
-             */
-            HeartRatePostProcessor() = delete;
+    /**
+     * Destructor for HeartRatePostProcessor.
+     */
+    ~HeartRatePostProcessor();
 
-            /**
-             * Constructor for HeartRatePostProcessor.
-             * @param modelInputParams Model input parameters.
-             * @param extraParams Model parameters unique to this model.
-             */
-            HeartRatePostProcessor(const ModelInputParams &modelInputParams,
-                                   const HeartRate::HeartRateParams &extraParams);
+    /**
+     * Running postprocessing for a given heart rate inference history.
+     * @param heartRate output heartrate calculated using signal processing on the inference
+     * history.
+     * @param rawHeartRate the current heart rate inference based on last two frames.
+     * @param entityInFrame vector of booleans determine if persistent object in frame.
+     * @param stream Cuda stream
+     */
+    void execute(Array<float> &heartRate,
+                 const Tensor<CL, CX, F32> &rawHeartRate,
+                 const Array<bool> &entityInFrame,
+                 cudaStream_t stream = 0);
 
-            /**
-             * Destructor for HeartRatePostProcessor.
-             */
-            ~HeartRatePostProcessor();
+private:
+    struct HeartRatePostProcessorImpl;
 
-            /**
-             * Running postprocessing for a given heart rate inference history.
-             * @param heartRate output heartrate calculated using signal processing on the inference history.
-             * @param rawHeartRate the current heart rate inference based on last two frames.
-             * @param entityInFrame vector of booleans determine if persistent object in frame.
-             * @param stream Cuda stream
-             */
-            void execute(Array<float> &heartRate,
-                         const Tensor<CL, CX, F32> &rawHeartRate,
-                         const Array<bool> &entityInFrame,
-                         cudaStream_t stream = 0);
+    std::unique_ptr<HeartRatePostProcessorImpl> m_pImpl;
+};
 
-        private:
-            struct HeartRatePostProcessorImpl;
-
-            std::unique_ptr<HeartRatePostProcessorImpl> m_pImpl;
-        };
-
-    }
-} // namespace cvcore::heartrate
+} // namespace heartrate
+} // namespace cvcore
 
 #endif // CVCORE_HEARTRATE_H_
