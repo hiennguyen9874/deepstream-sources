@@ -23,7 +23,7 @@
 #include "deepstream_action.h"
 
 /** Defines the maximum size of a string. */
-#define MAX_STR_LEN 1024
+#define MAX_STR_LEN 2048
 
 /** Defines the maximum size of an array for storing a text result. */
 #define MAX_LABEL_SIZE 128
@@ -39,6 +39,9 @@
 
 /* By default, OSD will not display text. To display text, change this to 1 */
 #define OSD_DISPLAY_TEXT 1
+
+/* Print FPS per every several frames*/
+#define FPS_INTERVAL 30
 
 /* Action recognition config */
 static NvDsARConfig gActionConfig;
@@ -60,11 +63,12 @@ static volatile GstElement *gPipeline = nullptr;
 static const gchar kActioClasseLabels[MAX_CLASS_LEN][MAX_LABEL_SIZE] = {"push", "fall_floor",
                                                                         "walk", "run", "ride_bike"};
 
+static FpsCalculation gFpsCal(50);
+
 /* add fps display metadata into frame */
 static void add_fps_display_meta(NvDsFrameMeta *frame, NvDsBatchMeta *batch_meta)
 {
-    static FpsCalculation fpsCal(50);
-    float fps = fpsCal.updateFps(frame->source_id);
+    float fps = gFpsCal.updateFps(frame->source_id);
     if (fps < 0) {
         return;
     }
@@ -203,6 +207,22 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad,
         // print FPS on each stream
         if (gActionConfig.enableFps) {
             add_fps_display_meta(frame_meta, batch_meta);
+        }
+    }
+
+    static uint64_t sFrameCount = 0;
+    sFrameCount++;
+    if (gActionConfig.enableFps && sFrameCount >= FPS_INTERVAL) {
+        sFrameCount = 0;
+        std::vector<std::pair<float, float>> fps;
+        gFpsCal.getAllFps(fps);
+        char fpsText[MAX_STR_LEN] = {'\0'};
+        for (auto &p : fps) {
+            snprintf(fpsText + strlen(fpsText), MAX_STR_LEN - 1, "%.2f (%.2f) \t", p.first,
+                     p.second);
+        }
+        if (!fps.empty()) {
+            g_print("FPS(cur/avg): %s\n", fpsText);
         }
     }
 
@@ -374,8 +394,8 @@ int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *preprocess = NULL,
-               *queue1, *queue2, *queue3, *queue4, *queue5, *queue6, *nvvidconv = NULL,
-               *nvosd = NULL, *tiler = NULL;
+               *queue1 = NULL, *queue2 = NULL, *queue3 = NULL, *queue4 = NULL, *queue5 = NULL,
+               *queue6 = NULL, *nvvidconv = NULL, *nvosd = NULL, *tiler = NULL;
     GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
@@ -465,41 +485,68 @@ int main(int argc, char *argv[])
     /* to preprocess the rois and form a raw tensor for inferencing */
     preprocess = gst_element_factory_make("nvdspreprocess", "preprocess-plugin");
 
-    /* Use nvinfer to infer on batched frame. */
-    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    /* Create inference plugin to inference batched frames. */
+    if (!gActionConfig.triton_infer_config.empty()) {
+        pgie = gst_element_factory_make("nvinferserver", "primary-triton-nvinference");
+    } else {
+        pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    }
 
     /* Add queue elements between every two elements */
     queue1 = gst_element_factory_make("queue", "queue1");
     queue2 = gst_element_factory_make("queue", "queue2");
     queue3 = gst_element_factory_make("queue", "queue3");
-    queue4 = gst_element_factory_make("queue", "queue4");
-    queue5 = gst_element_factory_make("queue", "queue5");
-    queue6 = gst_element_factory_make("queue", "queue6");
 
-    /* Use nvtiler to composite the batched frames into a 2D tiled array based
-     * on the source of the frames. */
-    tiler = gst_element_factory_make("nvmultistreamtiler", "nvtiler");
-
-    /* Use convertor to convert from NV12 to RGBA as required by nvosd */
-    nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
-
-    /* Create OSD to draw on the converted RGBA buffer */
-    nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
-
-    /* Finally render the osd output */
-    if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
-    }
-    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-
-    if (!preprocess || !pgie || !tiler || !nvvidconv || !nvosd || !sink) {
+    if (!preprocess || !pgie || !queue1 || !queue2 || !queue3) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    if (!transform && prop.integrated) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
-        return -1;
+    if (gActionConfig.useFakeSink) {
+        sink = gst_element_factory_make("fakesink", "nvvideo-sink");
+        if (!sink) {
+            g_printerr("element fakesink could not be created. Exiting.\n");
+            return -1;
+        }
+    } else {
+        queue4 = gst_element_factory_make("queue", "queue4");
+        queue5 = gst_element_factory_make("queue", "queue5");
+        queue6 = gst_element_factory_make("queue", "queue6");
+
+        /* Use nvtiler to composite the batched frames into a 2D tiled array based
+         * on the source of the frames. */
+        tiler = gst_element_factory_make("nvmultistreamtiler", "nvtiler");
+
+        /* Use convertor to convert from NV12 to RGBA as required by nvosd */
+        nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
+
+        /* Create OSD to draw on the converted RGBA buffer */
+        nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
+
+        /* Finally render the osd output */
+        if (prop.integrated) {
+            transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+        }
+        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+
+        if (!tiler || !nvvidconv || !nvosd || !sink) {
+            g_printerr("One element could not be created. Exiting.\n");
+            return -1;
+        }
+
+        if (!transform && prop.integrated) {
+            g_printerr("One tegra element could not be created. Exiting.\n");
+            return -1;
+        }
+
+        tiler_rows = (guint)sqrt(num_sources);
+        tiler_columns = (guint)ceil(1.0 * num_sources / tiler_rows);
+        /* we set the tiler properties here */
+        g_object_set(G_OBJECT(tiler), "rows", tiler_rows, "columns", tiler_columns, "width",
+                     gActionConfig.tiler_width, "height", gActionConfig.tiler_height, NULL);
+
+        g_object_set(G_OBJECT(nvosd), "process-mode", OSD_PROCESS_MODE, "display-text",
+                     OSD_DISPLAY_TEXT, NULL);
     }
 
     g_object_set(G_OBJECT(streammux), "batch-size", num_sources, NULL);
@@ -512,19 +559,13 @@ int main(int argc, char *argv[])
                  NULL);
 
     /* Configure the nvinfer element using the nvinfer config file. */
-    g_object_set(G_OBJECT(pgie), "input-tensor-meta", TRUE, "config-file-path",
-                 gActionConfig.infer_config.c_str(), NULL);
+    g_object_set(
+        G_OBJECT(pgie), "input-tensor-meta", TRUE, "config-file-path",
+        (!gActionConfig.triton_infer_config.empty() ? gActionConfig.triton_infer_config.c_str()
+                                                    : gActionConfig.infer_config.c_str()),
+        NULL);
 
     g_print("num-sources = %d\n", num_sources);
-
-    tiler_rows = (guint)sqrt(num_sources);
-    tiler_columns = (guint)ceil(1.0 * num_sources / tiler_rows);
-    /* we set the tiler properties here */
-    g_object_set(G_OBJECT(tiler), "rows", tiler_rows, "columns", tiler_columns, "width",
-                 gActionConfig.tiler_width, "height", gActionConfig.tiler_height, NULL);
-
-    g_object_set(G_OBJECT(nvosd), "process-mode", OSD_PROCESS_MODE, "display-text",
-                 OSD_DISPLAY_TEXT, NULL);
 
     g_object_set(G_OBJECT(sink), "qos", 0, "sync", gActionConfig.display_sync, NULL);
 
@@ -535,7 +576,16 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    if (prop.integrated) {
+    if (gActionConfig.useFakeSink) {
+        gst_bin_add_many(GST_BIN(pipeline), queue1, preprocess, queue2, pgie, queue3, sink, NULL);
+        /* we link the elements together
+         * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+        if (!gst_element_link_many(streammux, queue1, preprocess, queue2, pgie, queue3, sink,
+                                   NULL)) {
+            g_printerr("Elements could not be linked. Exiting.\n");
+            return -1;
+        }
+    } else if (prop.integrated) {
         gst_bin_add_many(GST_BIN(pipeline), queue1, preprocess, queue2, pgie, queue3, tiler, queue4,
                          nvvidconv, queue5, nvosd, queue6, transform, sink, NULL);
         /* we link the elements together

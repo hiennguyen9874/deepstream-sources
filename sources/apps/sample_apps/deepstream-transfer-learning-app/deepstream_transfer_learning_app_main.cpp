@@ -821,6 +821,7 @@ int main(int argc, char *argv[])
                 return_value = -1;
                 break;
             }
+
         } else {
             std::cerr << "Consumer not started => consider setting enable=1 "
                       << "or adding [img-save] part in config file. (example below)\n"

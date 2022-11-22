@@ -1,0 +1,191 @@
+application:
+  name: MyGraph
+---
+dependencies:
+  - extension: NvDs3dProcessingExt
+    uuid: ecded987-983c-4fcd-af14-7f961b059c8e
+    version: 0.0.1
+  - extension: NvDsBaseExt
+    uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
+    version: 1.0.0
+---
+components:
+  - name: nv_ds3d_src0
+    parameters:
+      config-file: ds_3d_loader_realsense.yaml
+      out: nv_ds_static_output1
+    type: nvidia::deepstream::NvDs3dSrc
+  - name: nv_ds_static_output1
+    type: nvidia::deepstream::NvDsStaticOutput
+name: NvDs3dSrc
+ui_property:
+  position:
+    x: -1589.93896484375
+    y: 13.454925537109375
+---
+components:
+  - name: nv_ds3d_sink2
+    parameters:
+      config-file: ds_3d_render_pointcloud3d.yaml
+      in: nv_ds_static_input3
+    type: nvidia::deepstream::NvDs3dSink
+  - name: nv_ds_static_input3
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDs3dSink
+ui_property:
+  position:
+    x: -579.9151611328125
+    y: -0.9064302444458008
+---
+components:
+  - name: nv_ds3d_filter4
+    parameters:
+      config-file: ds_3d_filter_depth2cloud.yaml
+      in: nv_ds_static_input5
+      out: nv_ds_static_output6
+    type: nvidia::deepstream::NvDs3dFilter
+  - name: nv_ds_static_input5
+    type: nvidia::deepstream::NvDsStaticInput
+  - name: nv_ds_static_output6
+    type: nvidia::deepstream::NvDsStaticOutput
+name: NvDs3dFilter
+ui_property:
+  position:
+    x: -1073.3553466796875
+    y: -4.3622260093688965
+---
+components:
+  - name: nv_ds_queue7
+    parameters:
+      in: nv_ds_static_input9
+      out: nv_ds_static_output8
+    type: nvidia::deepstream::NvDsQueue
+  - name: nv_ds_static_output8
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: nv_ds_static_input9
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsQueue
+ui_property:
+  position:
+    x: -1300.0
+    y: 0.0
+---
+components:
+  - name: nv_ds_connection10
+    parameters:
+      source: NvDs3dSrc/nv_ds_static_output1
+      target: NvDsQueue/nv_ds_static_input9
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_connection11
+    parameters:
+      source: NvDsQueue/nv_ds_static_output8
+      target: NvDs3dFilter/nv_ds_static_input5
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_queue12
+    parameters:
+      in: nv_ds_static_input14
+      out: nv_ds_static_output13
+    type: nvidia::deepstream::NvDsQueue
+  - name: nv_ds_static_output13
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: nv_ds_static_input14
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsQueue1
+ui_property:
+  position:
+    x: -832.8036499023438
+    y: -6.996550559997559
+---
+components:
+  - name: nv_ds_connection15
+    parameters:
+      source: NvDs3dFilter/nv_ds_static_output6
+      target: NvDsQueue1/nv_ds_static_input14
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_connection16
+    parameters:
+      source: NvDsQueue1/nv_ds_static_output13
+      target: NvDs3dSink/nv_ds_static_input3
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_scheduler17
+    type: nvidia::deepstream::NvDsScheduler
+name: scheduler
+ui_property:
+  position:
+    x: -1002.5711669921875
+    y: -238.2923583984375
+---
+components:
+  - name: nv_ds3d_data_depth_info_logger0
+    parameters:
+      probe-connector: nv_ds_probe_connector1
+    type: nvidia::deepstream::NvDs3dDataDepthInfoLogger
+  - name: nv_ds_probe_connector1
+    type: nvidia::deepstream::NvDsProbeConnector
+name: NvDs3dDataDepthInfoLogger
+ui_property:
+  position:
+    x: -1288.82470703125
+    y: -125.80648040771484
+---
+components:
+  - name: nv_ds_probe2
+    parameters:
+      io: NvDs3dSrc/nv_ds_static_output1
+      probe-connector: NvDs3dDataDepthInfoLogger/nv_ds_probe_connector1
+    type: nvidia::deepstream::NvDsProbe
+name: node
+---
+components:
+  - name: nv_ds3d_data_color_info_logger3
+    parameters:
+      probe-connector: nv_ds_probe_connector4
+    type: nvidia::deepstream::NvDs3dDataColorInfoLogger
+  - name: nv_ds_probe_connector4
+    type: nvidia::deepstream::NvDsProbeConnector
+name: NvDs3dDataColorInfoLogger
+ui_property:
+  position:
+    x: -1325.1102294921875
+    y: -246.75933837890625
+---
+components:
+  - name: nv_ds_probe5
+    parameters:
+      io: NvDs3dSrc/nv_ds_static_output1
+      probe-connector: NvDs3dDataColorInfoLogger/nv_ds_probe_connector4
+    type: nvidia::deepstream::NvDsProbe
+name: node
+---
+components:
+  - name: nv_ds3d_data_point_cloud_info_logger6
+    parameters:
+      probe-connector: nv_ds_probe_connector7
+    type: nvidia::deepstream::NvDs3dDataPointCloudInfoLogger
+  - name: nv_ds_probe_connector7
+    type: nvidia::deepstream::NvDsProbeConnector
+name: NvDs3dDataPointCloudInfoLogger
+ui_property:
+  position:
+    x: -610.623046875
+    y: -145.67723083496094
+---
+components:
+  - name: nv_ds_probe8
+    parameters:
+      io: NvDsQueue1/nv_ds_static_output13
+      probe-connector: NvDs3dDataPointCloudInfoLogger/nv_ds_probe_connector7
+    type: nvidia::deepstream::NvDsProbe
+name: node

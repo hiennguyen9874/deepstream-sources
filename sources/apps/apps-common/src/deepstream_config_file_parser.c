@@ -74,6 +74,7 @@ GST_DEBUG_CATEGORY(APP_CFG_PARSER_CAT);
 #define CONFIG_GROUP_STREAMMUX_BATCHED_PUSH_TIMEOUT "batched-push-timeout"
 #define CONFIG_GROUP_STREAMMUX_LIVE_SOURCE "live-source"
 #define CONFIG_GROUP_STREAMMUX_ATTACH_SYS_TS_AS_NTP "attach-sys-ts-as-ntp"
+#define CONFIG_GROUP_STREAMMUX_FRAME_NUM_RESET_ON_STREAM_RESET "frame-num-reset-on-stream-reset"
 #define CONFIG_GROUP_STREAMMUX_FRAME_NUM_RESET_ON_EOS "frame-num-reset-on-eos"
 
 #define CONFIG_GROUP_STREAMMUX_CONFIG_FILE_PATH "config-file"
@@ -184,6 +185,7 @@ GST_DEBUG_CATEGORY(APP_CFG_PARSER_CAT);
 #define CONFIG_GROUP_TILED_DISPLAY_COLUMNS "columns"
 #define CONFIG_GROUP_TILED_DISPLAY_WIDTH "width"
 #define CONFIG_GROUP_TILED_DISPLAY_HEIGHT "height"
+#define CONFIG_GROUP_TILED_COMPUTE_HW "compute-hw"
 
 #define CONFIG_GROUP_DSANALYTICS_CONFIG_FILE "config-file"
 #define CONFIG_GROUP_IMG_SAVE_OUTPUT_FOLDER_PATH "output-folder-path"
@@ -639,6 +641,11 @@ gboolean parse_streammux(NvDsStreammuxConfig *config, GKeyFile *key_file, gchar 
             config->attach_sys_ts_as_ntp =
                 g_key_file_get_integer(key_file, CONFIG_GROUP_STREAMMUX,
                                        CONFIG_GROUP_STREAMMUX_ATTACH_SYS_TS_AS_NTP, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_STREAMMUX_FRAME_NUM_RESET_ON_STREAM_RESET)) {
+            config->frame_num_reset_on_stream_reset = g_key_file_get_boolean(
+                key_file, CONFIG_GROUP_STREAMMUX,
+                CONFIG_GROUP_STREAMMUX_FRAME_NUM_RESET_ON_STREAM_RESET, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_STREAMMUX_BATCHED_PUSH_TIMEOUT)) {
             config->batched_push_timeout =
@@ -1149,6 +1156,7 @@ gboolean parse_gie(NvDsGieConfig *config, GKeyFile *key_file, gchar *group, gcha
             clr_params->green = list[1];
             clr_params->blue = list[2];
             clr_params->alpha = list[3];
+
         } else if (!strncmp(*key, CONFIG_GROUP_GIE_BBOX_BG_COLOR,
                             sizeof(CONFIG_GROUP_GIE_BBOX_BG_COLOR) - 1)) {
             NvOSD_ColorParams *clr_params;
@@ -1540,6 +1548,10 @@ gboolean parse_tiled_display(NvDsTiledDisplayConfig *config, GKeyFile *key_file)
         } else if (!g_strcmp0(*key, CONFIG_NVBUF_MEMORY_TYPE)) {
             config->nvbuf_memory_type = g_key_file_get_integer(key_file, CONFIG_GROUP_TILED_DISPLAY,
                                                                CONFIG_NVBUF_MEMORY_TYPE, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_TILED_COMPUTE_HW)) {
+            config->compute_hw = g_key_file_get_integer(key_file, CONFIG_GROUP_TILED_DISPLAY,
+                                                        CONFIG_GROUP_TILED_COMPUTE_HW, &error);
             CHECK_ERROR(error);
         } else {
             NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_TILED_DISPLAY);

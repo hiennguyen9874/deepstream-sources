@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,6 +36,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <queue>
 #include <string>
@@ -79,6 +80,13 @@ enum DebugLevel {
 
 // FPS calculation for each source stream
 class FpsCalculation {
+    struct FpsStats {
+        double startTime = 0;
+        uint64_t sumFrames = 0;
+        float curFps = 0;
+        float avgFps = 0;
+    };
+
 public:
     FpsCalculation(uint32_t interval) : _max_frame_nums(interval) {}
     float updateFps(uint32_t source_id)
@@ -94,17 +102,31 @@ public:
             while (tms.size() >= _max_frame_nums) {
                 tms.pop();
             }
+            auto &stats = _fpsStats[source_id];
+            stats.curFps = fps;
+            stats.avgFps = stats.sumFrames / (now - stats.startTime);
+            stats.sumFrames++;
         } else {
             iSrc = _timestamps.emplace(source_id, std::queue<double>()).first;
+            _fpsStats.emplace(source_id, FpsStats{now, 1, 0, 0});
         }
         iSrc->second.push(now);
 
         return fps;
     }
 
+    // get dataset of current fps and average fps
+    void getAllFps(std::vector<std::pair<float, float>> &fps)
+    {
+        for (auto &s : _fpsStats) {
+            fps.emplace_back(std::make_pair(s.second.curFps, s.second.avgFps));
+        }
+    }
+
 private:
     std::unordered_map<uint32_t, std::queue<double>> _timestamps;
     uint32_t _max_frame_nums = 50;
+    std::map<uint32_t, FpsStats> _fpsStats;
 };
 
 struct NvDsARConfig {
@@ -118,6 +140,8 @@ struct NvDsARConfig {
     std::string preprocess_config;
     // nvinfer plugin config file path
     std::string infer_config;
+    // nvinferserver(ds-triton) plugin config file path
+    std::string triton_infer_config;
 
     // nvstreammux settings
     uint32_t muxer_height = 720;
@@ -134,6 +158,9 @@ struct NvDsARConfig {
 
     // enable fps print on screen. enabled by default
     gboolean enableFps = TRUE;
+
+    // enable to use fakesink
+    gboolean useFakeSink = FALSE;
 };
 
 // parse action recognition config into NvDsARConfig

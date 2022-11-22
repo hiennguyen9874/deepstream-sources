@@ -403,6 +403,13 @@ typedef struct _NvDsInferContextInitParams {
      *  and will not interpret network input layer dimensions.
      */
     int inputFromPreprocessedTensor;
+
+    /** Boolean flag indicating that wheather we will post processing on GPU
+     *  if this flag enabled, nvinfer will return gpu buffer to prossprocessing
+     *  user must write cuda post processing code
+     */
+    int disableOutputHostCopy;
+
 } NvDsInferContextInitParams;
 
 /**
@@ -700,7 +707,7 @@ public:
      *
      * @return  Reference to a vector of vector of string labels.
      */
-    virtual const std::vector<std::vector<std::string>> &getLabels() = 0;
+    virtual const std::vector<std::vector<std::string> > &getLabels() = 0;
 
     /**
      * Deinitialize the inference engine and frees resources it used.

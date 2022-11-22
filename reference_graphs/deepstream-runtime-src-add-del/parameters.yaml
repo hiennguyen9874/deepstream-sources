@@ -1,0 +1,77 @@
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+
+components:
+  - name: nv_ds_stream_mux30..6828
+    parameters:
+      batch-size: 4
+      batched-push-timeout: 32000
+      height: 1080
+      live-source: true
+      width: 1920
+name: NvDsStreamMux..67f0
+---
+components:
+  - name: nv_ds_infer34..67b8
+    parameters:
+      batch-size: 4
+  - name: resnet10_4_class_detector38..bef0
+    parameters:
+      model-engine-file: primary.resnet10.caffemodel_b4_gpu0_int8.engine
+name: PRIMARY DETECTOR..bac8
+---
+components:
+  - name: nv_ds_tracker39..3cf8
+    parameters:
+      enable-batch-process: true
+      ll-lib-file: /opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
+      ll-config-file: /opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_tracker_IOU.yml
+      tracker-height: 384
+      tracker-width: 640
+name: NvDsTracker..2400
+---
+components:
+  - name: nv_ds_infer43..0860
+    parameters:
+      batch-size: 16
+      unique-id: 2
+  - name: secondary_car_color_classifier54..6748
+    parameters:
+      model-engine-file: sec.carcolor.resnet18.caffemodel_b16_gpu0_int8.engine
+name: SEC. CLASS. - CAR COLOR..bcc0
+---
+components:
+  - name: nv_ds_infer47..54e0
+    parameters:
+      batch-size: 16
+      unique-id: 3
+  - name: secondary_car_make_classifier55..dc88
+    parameters:
+      model-engine-file: sec.carmake.resnet18.caffemodel_b16_gpu0_int8.engine
+name: SEC. CLASS. - CAR MAKE..cb00
+---
+components:
+  - name: nv_ds_infer51..4898
+    parameters:
+      batch-size: 16
+      unique-id: 4
+  - name: secondary_vehicle_type_classifier74..2da0
+    parameters:
+      model-engine-file: sec.vehicletypes.resnet18.caffemodel_b16_gpu0_int8.engine
+name: SEC. CLASS. - VEHICLE TYPE. ..2b70
+---
+components:
+  - name: sample_runtime_source_manipulator72..2400
+    parameters:
+      interval-sec: 10
+      max-num-sources: 4
+      uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
+name: NvDsSampleSourceManipulator..d7b8

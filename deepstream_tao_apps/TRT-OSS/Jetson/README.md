@@ -1,5 +1,7 @@
 # Build Jetson TensorRT OSS Plugin
 
+For DeepStream 6.1.1 GA, the TensorRT OSS plugin is not needed.
+
 Below are the steps to build [TensorRT OSS](https://github.com/NVIDIA/TensorRT) on Jetson device for Jetson libnvinfer_plugin.so. For cross-compiling, refer to TensorRT OSS README.
 
 ## libnvinfer_plugin.so.8.4.0.11 Provided Here
@@ -38,8 +40,9 @@ sudo make install
 | 5.1                | 4.5.1           | TRT 7.1.3    | release/7.1          |
 | 6.0 EA             | 4.5.1           | TRT 7.1.3    | release/7.1          |
 | 6.0 GA             | 4.6             | TRT 8.0.1    | release/8.0          |
-| 6.0.1              | 4.6.1           | TRT 8.2.1    | release/8.2          |
+| 6.0.1              | 4.6.1 / 4.6.2   | TRT 8.2.1    | release/8.2          |
 | 6.1                | 5.0.1           | TRT 8.4.0.11 | release/8.4          |
+| 6.1.1              | 5.0.2           | TRT 8.4.1    | OSS not needed       |
 
 ```
 git clone -b $TRT_OSS_CHECKOUT_TAG https://github.com/nvidia/TensorRT        // replace with release/8.x for  TensorRT 8.X

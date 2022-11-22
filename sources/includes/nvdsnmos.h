@@ -10,17 +10,42 @@
  */
 
 /**
- * @file
- * <b>NVIDIA DeepStream Networked Media Open Specifications (NMOS) Library</b>
+ * @file nvdsnmos.h
+ * <b>NVIDIA DeepStream Networked Media Open Specifications (NMOS) API</b>
  *
- * @b Description: This file defines common elements used in the API
- * exposed by the NvDsNmos library.
+ * @b Description: This file defines the DeepStream NMOS utility library
+ * (NvDsNmos) API.
  */
 
 /**
- * @defgroup  ee_nvdsnmos  NvDsNmos API Common Elements
+ * @defgroup  nvdsnmos  Networked Media Open Specifications (NMOS) API
  *
- * Defines common elements used in the API exposed by the NvDsNmos library.
+ * Defines the DeepStream NMOS utility library (NvDsNmos) API.
+ *
+ * The NvDsNmos utility library provides the APIs to create, destroy and
+ * internally manage an <a href="https://specs.amwa.tv/nmos/">NMOS</a> Node for a DeepStream
+ * application.
+ *
+ * The library can automatically discover and register with an NMOS Registry
+ * on the network using the <a href="https://specs.amwa.tv/is-04/">AMWA IS-04</a> Registration API.
+ *
+ * The library provides callbacks for NMOS events such as <a
+ * href="https://specs.amwa.tv/is-05/">AMWA IS-05</a> Connection API requests from an NMOS
+ * Controller. These callbacks can be used to update running DeepStream pipelines with new transport
+ * parameters, for example.
+ *
+ * NvDsNmos currently supports Senders and Receivers for uncompressed Video
+ * and Audio, i.e., SMPTE ST 2110-20 and SMPTE ST 2110-30 streams.
+ *
+ * The NvDsNmos library supports the following specifications, using the <a
+ * href="https://github.com/sony/nmos-cpp">Sony nmos-cpp</a> implementation:
+ * - <a href="https://specs.amwa.tv/is-04/">AMWA IS-04 NMOS Discovery and Registration
+ * Specification</a> v1.3
+ * - <a href="https://specs.amwa.tv/is-05/">AMWA IS-05 NMOS Device Connection Management
+ * Specification</a> v1.1
+ * - <a href="https://specs.amwa.tv/is-09/">AMWA IS-09 NMOS System Parameters Specification</a> v1.0
+ * - <a href="https://specs.amwa.tv/bcp-004-01/">AMWA BCP-004-01 NMOS Receiver Capabilities</a> v1.0
+ * - Session Description Protocol conforming to SMPTE ST 2110-20 and -30
  *
  * @ingroup NvDsNmosApi
  * @{
@@ -144,7 +169,7 @@ typedef struct _NvDsNmosNodeConfig {
     /** Holds topics for which to make logging callbacks. The array's size
         must be equal to #num_log_categories. May be null. */
     const char **log_categories;
-    /** Holds the number #log_categories. May be zero. */
+    /** Holds the number of #log_categories. May be zero. */
     unsigned int num_log_categories;
 } NvDsNmosNodeConfig;
 
@@ -183,7 +208,7 @@ typedef struct _NvDsNmosSenderConfig {
 /**
  * Holds the implementation details of a running NvDsNmos server.
  * The structure should be zero initialized, with the possible
- * exception of the #user_data member.
+ * exception of the @p user_data member.
  */
 typedef struct _NvDsNmosNodeServer {
     /**

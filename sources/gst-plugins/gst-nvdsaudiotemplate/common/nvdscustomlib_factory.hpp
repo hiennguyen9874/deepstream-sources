@@ -50,27 +50,29 @@ public:
         }
     }
 
-    IDSCustomLibrary *CreateCustomAlgoCtx(std::string libName, GObject *object)
+    IDSCustomLibrary *CreateCustomAlgoCtx(std::string libName)
     {
         m_libName.assign(libName);
+
         m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW);
-        std::function<IDSCustomLibrary *(GObject *)> createAlgoCtx = nullptr;
         if (m_libHandle) {
-            createAlgoCtx =
-                dlsym_ptr<IDSCustomLibrary *(GObject *)>(m_libHandle, "CreateCustomAlgoCtx");
-            if (!createAlgoCtx) {
+            // std::cout << "Library Opened Successfully" << std::endl;
+
+            m_CreateAlgoCtx = dlsym_ptr<IDSCustomLibrary *()>(m_libHandle, "CreateCustomAlgoCtx");
+            if (!m_CreateAlgoCtx) {
                 throw std::runtime_error("createCustomAlgoCtx function not found in library");
             }
         } else {
             throw std::runtime_error(dlerror());
         }
 
-        return createAlgoCtx ? createAlgoCtx(object) : nullptr;
+        return m_CreateAlgoCtx();
     }
 
 public:
     void *m_libHandle;
     std::string m_libName;
+    std::function<IDSCustomLibrary *()> m_CreateAlgoCtx;
 };
 
 #endif

@@ -353,7 +353,7 @@ int main(int argc, char *argv[])
                 "  %s [1:file sink|2:fakesink|3:display sink] "
                 "<input file> ... <inputfile> <out H264 filename> // use config file\n",
                 argv[0]);
-            g_printerr("  %s yml  // use yaml file as config file\n", argv[0]);
+            g_printerr("OR\n  %s yml  // use yaml file as config file\n", argv[0]);
             return -1;
         }
     }

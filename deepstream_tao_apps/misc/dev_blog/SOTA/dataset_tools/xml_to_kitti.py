@@ -26,7 +26,6 @@ import argparse
 import os
 import xml.etree.ElementTree as ET
 
-
 def parse_args(args=None):
     parser = argparse.ArgumentParser('Converting xml labels to KITTI format.')
     parser.add_argument('-i', '--input_label_dir', type=str, required=True, help='directory of the input xml labels')

@@ -1,0 +1,101 @@
+#############################################################################
+# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+
+This sample is meant for demonstrating the implementation of the DeepStream
+reference application as a graph.
+
+Two sample graphs are provided which correspond to the two config files provided
+as part of the SDK:
+* source30_1080p_dec_infer-resnet_tiled_display_int8.yaml
+  - Corresponds to source30_1080p_dec_infer-resnet_tiled_display_int8.txt
+  - 30 sources + Primary Detector + Tiled Display
+
+* source4_1080p_dec_infer-resnet_tracker_sgie_tiled_display_int8.yaml
+  - Corresponds to source4_1080p_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt
+  - 4 sources + Primary Detector + Object Tracker + 3x Secondary Classifiers + Tiled Display
+
+These graphs also demonstrate the usage of the following components
+- FpsMeasurement (prints per source FPS)
+- TilerEventHandler (Handle tiler events like expand a single source, go back to tiled view)
+- KittiDump (Write detector/tracker output as KITTI data)
+- NvDsRtspOut (Stream output video over RTSP)
+- NvDsFileOut (Write the output video to a file)
+
+================================================================================
+Pre-requisites
+================================================================================
+- DeepStreamSDK 6.1.1
+- Graph-Composer 2.0.1
+
+================================================================================
+Running the graph
+================================================================================
+On x86:
+$ /opt/nvidia/graph-composer/execute_graph.sh \
+      source30_1080p_dec_infer-resnet_tiled_display_int8.yaml \
+      source30_1080p_dec_infer-resnet_tiled_display_int8.parameters.yaml \
+      -d ../common/target_x86_64.yaml
+
+$ /opt/nvidia/graph-composer/execute_graph.sh \
+      source4_1080p_dec_infer-resnet_tracker_sgie_tiled_display_int8.yaml \
+      source4_1080p_dec_infer-resnet_tracker_sgie_tiled_display_int8.parameters.yaml \
+      -d ../common/target_x86_64.yaml
+
+On Jetson:
+$ /opt/nvidia/graph-composer/execute_graph.sh \
+      source30_1080p_dec_infer-resnet_tiled_display_int8.yaml \
+      source30_1080p_dec_infer-resnet_tiled_display_int8.parameters.yaml \
+      -d ../common/target_aarch64.yaml
+
+$ /opt/nvidia/graph-composer/execute_graph.sh \
+      source4_1080p_dec_infer-resnet_tracker_sgie_tiled_display_int8.yaml \
+      source4_1080p_dec_infer-resnet_tracker_sgie_tiled_display_int8.parameters.yaml \
+      -d ../common/target_aarch64.yaml
+
+NOTE: source30_1080p_dec_infer-resnet_tiled_display_int8.yaml and
+source4_1080p_dec_infer-resnet_tracker_sgie_tiled_display_int8.yaml are the main
+graph files describing the DeepStream graph(pipeline) along with the configuration
+parameters for the components in the graph. Both the graphs have a corresponding
+parameters.yaml can be used to override these parameter values.
+
+================================================================================
+Building application(graph) specific container image
+================================================================================
+The Graph-Composer Container Builder tool can be used to build application(graph)
+specific containers. The container builder configuration files have already been
+provided for this sample.
+
+The configuration files have been created for
+source30_1080p_dec_infer-resnet_tiled_display_int8.yaml graph.
+
+* Building a DGPU container and running on the same host
+  $ container_builder -c ds_app_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml
+  $ xhost +
+  $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
+        --net=host -e DISPLAY=:0 deepstream_app_dgpu
+
+
+* Building a Jetson container on x86 host
+- In ds_app_container_builder_jetson.yaml, change <docker-container-registry>
+  to a valid docker registry where containers can be pushed, and then build:
+  $ container_builder -c ds_app_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml
+
+- Push the built image to the docker registry:
+  $ docker push <docker-container-registry>:deepstream-app-jetson
+
+* Running the image on Jetson
+  $ sudo docker pull <docker-container-registry>:deepstream-app-jetson
+  $ xhost +
+  $ sudo docker run -it --rm --net=host --runtime nvidia -e DISPLAY=:0 \
+        -v /tmp/.X11-unix/:/tmp/.X11-unix \
+        -v /tmp/argus_socket:/tmp/argus_socket \
+        <docker-container-registry>:deepstream-app-jetson

@@ -126,7 +126,7 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     }
 
     /* We set the input uri to the source element */
-    g_object_set(G_OBJECT(uri_decode_bin), "uri", uri, "async-handling", 1, NULL);
+    g_object_set(G_OBJECT(uri_decode_bin), "uri", uri, NULL);
 
     /* Connect to the "pad-added" signal of the decodebin which generates a
      * callback once a new pad for raw data has beed created by the decodebin */
@@ -152,8 +152,8 @@ static GstElement *create_source_bin(guint index, gchar *uri)
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
-    GstElement *pipeline = NULL, *ucxserversink = NULL, *nvvidconv = NULL, *caps_filter = NULL,
-               *queue = NULL;
+    GstElement *pipeline = NULL, *streammux = NULL, *ucxserversink = NULL, *nvvidconv = NULL,
+               *caps_filter = NULL;
     GstCaps *caps = NULL;
     GstCapsFeatures *feature = NULL;
     GstBus *bus = NULL;
@@ -210,12 +210,18 @@ int main(int argc, char *argv[])
     /* Create Pipeline element that will form a connection of other elements */
     pipeline = gst_pipeline_new("ds-ucx-test1-server-pipeline");
 
-    if (!pipeline) {
+    /* Create nvstreammux instance to form batches from one or more sources. */
+    streammux = gst_element_factory_make("nvstreammux", "stream-muxer");
+
+    if (!pipeline || !streammux) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    GstPad *srcpad, *qsink;
+    gst_bin_add(GST_BIN(pipeline), streammux);
+
+    GstPad *sinkpad, *srcpad, *vidsink, *capsrcpad;
+    gchar pad_name[16] = {};
 
     GstElement *source_bin = create_source_bin(0, uri);
     if (!source_bin) {
@@ -227,21 +233,23 @@ int main(int argc, char *argv[])
 
     /* Create the remaining elements. */
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
-    queue = gst_element_factory_make("queue", "queue");
     caps_filter = gst_element_factory_make("capsfilter", "caps_filter");
     ucxserversink = gst_element_factory_make("nvdsucxserversink", "serversink");
 
-    if (!nvvidconv || !queue || !caps_filter || !ucxserversink) {
+    if (!nvvidconv || !caps_filter || !ucxserversink) {
         g_printerr("Failed to create video converter or caps element or ucx\n");
         return -1;
     }
 
     caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, vidformat, "width",
-                               G_TYPE_INT, width, "height", G_TYPE_INT, height, "framerate",
-                               GST_TYPE_FRACTION, 30, 1, NULL);
+                               G_TYPE_INT, width, "height", G_TYPE_INT, height, NULL);
     feature = gst_caps_features_new("memory:NVMM", NULL);
     gst_caps_set_features(caps, 0, feature);
     g_object_set(G_OBJECT(caps_filter), "caps", caps, NULL);
+
+    /* Set streammux properties */
+    g_object_set(G_OBJECT(streammux), "width", width, "height", height, "batch-size", 1,
+                 "live-source", TRUE, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
     /* Set ucxserversink properties */
     g_object_set(G_OBJECT(ucxserversink), "addr", addr, "port", port, "buf-type", 0, NULL);
@@ -251,7 +259,13 @@ int main(int argc, char *argv[])
     bus_watch_id = gst_bus_add_watch(bus, bus_call, loop);
     gst_object_unref(bus);
 
-    gst_bin_add_many(GST_BIN(pipeline), queue, nvvidconv, caps_filter, ucxserversink, NULL);
+    gst_bin_add_many(GST_BIN(pipeline), nvvidconv, caps_filter, ucxserversink, NULL);
+
+    /* Link elements together */
+    if (!gst_element_link(nvvidconv, caps_filter) || !gst_element_link(streammux, ucxserversink)) {
+        g_printerr("Failed to link elements. Exiting.\n");
+        return -1;
+    }
 
     srcpad = gst_element_get_static_pad(source_bin, "src");
     if (!srcpad) {
@@ -259,25 +273,40 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    qsink = gst_element_get_static_pad(queue, "sink");
-    if (!qsink) {
-        g_printerr("Queue static sink pad failed. Exiting.\n");
+    vidsink = gst_element_get_static_pad(nvvidconv, "sink");
+    if (!vidsink) {
+        g_printerr("Nvvideoconvert static sink pad failed. Exiting.\n");
         return -1;
     }
 
-    if (gst_pad_link(srcpad, qsink) != GST_PAD_LINK_OK) {
-        g_printerr("Failed to link source bin to queue. Exiting.\n");
+    if (gst_pad_link(srcpad, vidsink) != GST_PAD_LINK_OK) {
+        g_printerr("Failed to link source bin to nvvideoconvert. Exiting.\n");
         return -1;
     }
 
     gst_object_unref(srcpad);
-    gst_object_unref(qsink);
+    gst_object_unref(vidsink);
 
-    /* Link elements together */
-    if (!gst_element_link_many(queue, nvvidconv, caps_filter, ucxserversink, NULL)) {
-        g_printerr("Failed to link several elements. Exiting\n");
+    capsrcpad = gst_element_get_static_pad(caps_filter, "src");
+    if (!capsrcpad) {
+        g_printerr("Failed to get static src pad for caps filter. Exiting.\n");
         return -1;
     }
+
+    g_snprintf(pad_name, 15, "sink_%u", 0);
+    sinkpad = gst_element_get_request_pad(streammux, pad_name);
+    if (!sinkpad) {
+        g_printerr("Failed to request sink pad for stream mux. Exiting.\n");
+        return -1;
+    }
+
+    if (gst_pad_link(capsrcpad, sinkpad) != GST_PAD_LINK_OK) {
+        g_printerr("Failed to link caps filter to streammux. Exiting.\n");
+        return -1;
+    }
+
+    gst_object_unref(capsrcpad);
+    gst_object_unref(sinkpad);
 
     g_print("Using URI: %s\n", uri);
     gst_element_set_state(pipeline, GST_STATE_PLAYING);

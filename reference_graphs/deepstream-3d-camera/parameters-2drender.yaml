@@ -1,0 +1,5 @@
+components:
+  - name: nv_ds3d_sink2
+    parameters:
+      config-file: ds_3d_render_depth2d.yaml
+name: NvDs3dSink

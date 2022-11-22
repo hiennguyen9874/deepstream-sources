@@ -51,26 +51,13 @@ enum {
 /* Default values for properties */
 #define DEFAULT_GPU_ID 0
 
-#define GST_ERROR_ON_BUS(msg, ...)                                                                 \
-    do {                                                                                           \
-        if (nvdsaudiotemplate) {                                                                   \
-            GST_ERROR_OBJECT(nvdsaudiotemplate, __VA_ARGS__);                                      \
-            gst_element_post_message(                                                              \
-                GST_ELEMENT(nvdsaudiotemplate),                                                    \
-                gst_message_new_error(                                                             \
-                    GST_OBJECT(nvdsaudiotemplate),                                                 \
-                    g_error_new(g_quark_from_static_string("nvdsaudiotemplate"), -1, __VA_ARGS__), \
-                    msg));                                                                         \
-        }                                                                                          \
-    } while (0)
-
-#define CHECK_CUDA_STATUS(cuda_status, error_str)                                          \
-    do {                                                                                   \
-        if ((cuda_status) != cudaSuccess) {                                                \
-            GST_ERROR_ON_BUS("Cuda Error", "Error: %s in %s at line %d (%s)\n", error_str, \
-                             __FILE__, __LINE__, cudaGetErrorName(cuda_status));           \
-            goto error;                                                                    \
-        }                                                                                  \
+#define CHECK_CUDA_STATUS(cuda_status, error_str)                                       \
+    do {                                                                                \
+        if ((cuda_status) != cudaSuccess) {                                             \
+            g_print("Error: %s in %s at line %d (%s)\n", error_str, __FILE__, __LINE__, \
+                    cudaGetErrorName(cuda_status));                                     \
+            goto error;                                                                 \
+        }                                                                               \
     } while (0)
 
 #define GST_AUDIO_CAPS_MAKE_WITH_FEATURES(format, channels) \
@@ -177,19 +164,19 @@ static gboolean gst_nvdsaudiotemplate_accept_caps(GstBaseTransform *btrans,
                                                   GstCaps *caps)
 {
     gboolean ret = TRUE;
-    GstNvDsAudioTemplate *nvdsaudiotemplate = NULL;
+    GstNvDsAudioTemplate *space = NULL;
     GstCaps *allowed = NULL;
     // GstCapsFeatures *features;
 
-    nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
+    space = GST_NVDSAUDIOTEMPLATE(btrans);
 
     GST_DEBUG_OBJECT(btrans, "accept caps %" GST_PTR_FORMAT, caps);
 
     /* get all the formats we can handle on this pad */
     if (direction == GST_PAD_SINK)
-        allowed = nvdsaudiotemplate->sinkcaps;
+        allowed = space->sinkcaps;
     else
-        allowed = nvdsaudiotemplate->srccaps;
+        allowed = space->srccaps;
 
     if (!allowed) {
         GST_DEBUG_OBJECT(btrans, "failed to get allowed caps");
@@ -218,8 +205,8 @@ done:
 
     /* ERRORS */
 no_transform_possible : {
-    GST_ERROR_ON_BUS("No transform possible",
-                     "could not transform %" GST_PTR_FORMAT " in anything we support", caps);
+    GST_DEBUG_OBJECT(btrans, "could not transform %" GST_PTR_FORMAT " in anything we support",
+                     caps);
     ret = FALSE;
     goto done;
 }
@@ -364,19 +351,16 @@ static void gst_nvdsaudiotemplate_set_property(GObject *object,
 
             found = propStr.find_first_of(":");
             if (found == 0) {
-                GST_ERROR_ON_BUS("Custom Library property Error",
-                                 "Custom Library property Error: required format is: "
-                                 "customlib-props=\"[key:value]\"");
-                return;
+                g_print(
+                    "Custom Library property format is invalid, e.g. expected format "
+                    "requires key and value string seperated "
+                    " by : i.e. customlib-props=\"[key:value]\"");
+                exit(-1);
             }
             Property prop(propStr.substr(start, found), propStr.substr(found + 1));
             nvdsaudiotemplate->vecProp->push_back(prop);
             if (nullptr != nvdsaudiotemplate->algo_ctx) {
-                bool ret = nvdsaudiotemplate->algo_ctx->SetProperty(prop);
-                if (!ret) {
-                    GST_ERROR_ON_BUS("SetProperty Error", "SetProperty Error (%s:%s)",
-                                     prop.key.c_str(), prop.value.c_str());
-                }
+                nvdsaudiotemplate->algo_ctx->SetProperty(prop);
             }
         }
     } break;
@@ -411,11 +395,12 @@ static void gst_nvdsaudiotemplate_get_property(GObject *object,
             DSCustomLibrary_Factory *algo_factory = new DSCustomLibrary_Factory();
             char *str = NULL;
             IDSCustomLibrary *algo_ctx =
-                algo_factory->CreateCustomAlgoCtx(g_getenv("NVDS_CUSTOMLIB"), object);
-            if (algo_ctx) {
+                algo_factory->CreateCustomAlgoCtx(g_getenv("NVDS_CUSTOMLIB"));
+            if (algo_ctx)
                 str = algo_ctx->QueryProperties();
+
+            if (algo_ctx)
                 delete algo_ctx;
-            }
             if (algo_factory)
                 delete algo_factory;
 
@@ -452,28 +437,25 @@ static gboolean gst_nvdsaudiotemplate_start(GstBaseTransform *btrans)
     try {
         nvdsaudiotemplate->algo_factory = new DSCustomLibrary_Factory();
         nvdsaudiotemplate->algo_ctx = nvdsaudiotemplate->algo_factory->CreateCustomAlgoCtx(
-            nvdsaudiotemplate->custom_lib_name, G_OBJECT(btrans));
-        if (nvdsaudiotemplate->algo_ctx && nvdsaudiotemplate->vecProp &&
-            nvdsaudiotemplate->vecProp->size()) {
-            GST_INFO_OBJECT(nvdsaudiotemplate, "Setting custom lib properties # %lu",
-                            nvdsaudiotemplate->vecProp->size());
+            nvdsaudiotemplate->custom_lib_name);
+
+        if (nvdsaudiotemplate->vecProp && nvdsaudiotemplate->vecProp->size()) {
+            std::cout << "Setting custom lib properties # " << nvdsaudiotemplate->vecProp->size()
+                      << std::endl;
             for (std::vector<Property>::iterator it = nvdsaudiotemplate->vecProp->begin();
                  it != nvdsaudiotemplate->vecProp->end(); ++it) {
-                GST_INFO_OBJECT(nvdsaudiotemplate, "Adding Prop: %s : %s", it->key.c_str(),
-                                it->value.c_str());
+                std::cout << "Adding Prop: " << it->key << " : " << it->value << std::endl;
                 ret = nvdsaudiotemplate->algo_ctx->SetProperty(*it);
                 if (!ret) {
-                    GST_ERROR_ON_BUS("SetProperty Error", "SetProperty Error (%s:%s)",
-                                     it->key.c_str(), it->value.c_str());
                     goto error;
                 }
             }
         }
     } catch (const std::runtime_error &e) {
-        GST_ERROR_ON_BUS("Exception occurred", "Runtime error: %s", e.what());
+        std::cout << e.what() << "\n";
         return FALSE;
     } catch (...) {
-        GST_ERROR_ON_BUS("Exception occurred", "Exception occurred");
+        std::cout << "caught exception" << std::endl;
         return FALSE;
     }
 
@@ -548,11 +530,8 @@ static gboolean gst_nvdsaudiotemplate_set_caps(GstBaseTransform *btrans,
     GST_DEBUG_OBJECT(nvdsaudiotemplate, "outcaps received = %s\n", gst_caps_to_string(outcaps));
     params.m_gpuId = nvdsaudiotemplate->gpu_id;
     params.m_batchSize = nvdsaudiotemplate->num_batch_buffers;
-    if (!nvdsaudiotemplate->algo_ctx->SetInitParams(&params)) {
-        GST_ERROR_ON_BUS("SetInitParams Error", "SetInitParams Error");
-        return false;
-    }
-    return true;
+
+    return nvdsaudiotemplate->algo_ctx->SetInitParams(&params);
 
 error:
     return FALSE;
@@ -566,14 +545,9 @@ static gboolean gst_nvdsaudiotemplate_sink_event(GstBaseTransform *btrans, GstEv
     ret = nvdsaudiotemplate->algo_ctx->HandleEvent(event);
     if (!ret)
         return ret;
-    ret = GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(btrans, event);
-    if (ret == FALSE) {
-        GstState cur_state;
-        gst_element_get_state(GST_ELEMENT(btrans), &cur_state, NULL, 0);
-        if (!(event != NULL || cur_state == GST_STATE_NULL || cur_state == GST_STATE_PAUSED))
-            GST_ERROR_ON_BUS("sink_event error", "sink_event error");
-    }
-    return ret;
+
+    // g_print ("event  = %s\n", gst_event_type_get_name(GST_EVENT_TYPE(event)));
+    return GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(btrans, event);
 }
 
 /**
@@ -594,23 +568,18 @@ static GstFlowReturn gst_nvdsaudiotemplate_submit_input_buffer(GstBaseTransform 
     if (nvdsaudiotemplate->algo_ctx) {
         cudaError_t cuErr = cudaSetDevice(nvdsaudiotemplate->gpu_id);
         if (cuErr != cudaSuccess) {
-            GST_ERROR_ON_BUS("Error cudaSetDevice", "Unable to set cuda device");
+            GST_ERROR_OBJECT(nvdsaudiotemplate, "Unable to set cuda device");
             return GST_FLOW_ERROR;
         }
         result = nvdsaudiotemplate->algo_ctx->ProcessBuffer(inbuf);
 
         if (result == BufferResult::Buffer_Ok) {
             flow_ret = gst_pad_push(GST_BASE_TRANSFORM_SRC_PAD(nvdsaudiotemplate), inbuf);
-            if (flow_ret != GST_FLOW_OK) {
-                GST_ERROR_ON_BUS("gst_pad_push error", "gst_pad_push error: %d", flow_ret);
-            }
             return flow_ret;
         } else if (result == BufferResult::Buffer_Drop) {
             // TODO unref the buffer so that it will be dropped
             return GST_FLOW_OK;
         } else if (result == BufferResult::Buffer_Error) {
-            GST_ERROR_ON_BUS("Buffer_Error", "Error in processing from customlib: %u",
-                             static_cast<uint32_t>(BufferResult::Buffer_Error));
             return GST_FLOW_ERROR;
         } else if (result == BufferResult::Buffer_Async) {
             return GST_FLOW_OK;

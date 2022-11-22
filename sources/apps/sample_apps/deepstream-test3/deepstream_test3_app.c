@@ -220,6 +220,9 @@ static void decodebin_child_added(GstChildProxy *child_proxy,
         g_signal_connect(G_OBJECT(object), "child-added", G_CALLBACK(decodebin_child_added),
                          user_data);
     }
+    if (g_strrstr(name, "source") == name) {
+        g_object_set(G_OBJECT(object), "drop-on-latency", true, NULL);
+    }
 }
 
 static GstElement *create_source_bin(guint index, gchar *uri)
@@ -442,6 +445,7 @@ int main(int argc, char *argv[])
 
         nvds_parse_tiler(tiler, argv[1], "tiler");
         nvds_parse_egl_sink(sink, argv[1], "sink");
+
     } else {
         g_object_set(G_OBJECT(streammux), "batch-size", num_sources, NULL);
 

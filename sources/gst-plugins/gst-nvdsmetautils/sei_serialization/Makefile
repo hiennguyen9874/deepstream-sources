@@ -36,7 +36,7 @@ LIB:=libnvds_sei_serialization.so
 
 NVDS_VERSION:=6.1
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.1.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.1.1\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../../includes -I../includes
 
@@ -70,7 +70,7 @@ $(LIB): $(OBJS) $(DEP) Makefile
 	$(CXX) -o $@ $(OBJS) $(LIBS)
 
 install: $(LIB)
-	cp -rv $(LIB) $(LIB_INSTALL_DIR)
+	cp -rv $(LIB) $(GST_INSTALL_DIR)
 
 clean:
 	rm -rf $(OBJS) $(LIB)

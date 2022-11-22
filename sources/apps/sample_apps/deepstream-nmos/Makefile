@@ -47,7 +47,8 @@ PKGS:= gstreamer-1.0 gstreamer-sdp-1.0
 OBJS:= $(SRCS:.c=.o)
 
 CFLAGS+= -I../../../includes \
-         -I../../apps-common/includes
+         -I../../apps-common/includes \
+         -I/usr/local/cuda-$(CUDA_VER)/include
 
 CFLAGS+= $(shell pkg-config --cflags $(PKGS))
 
@@ -55,6 +56,8 @@ LIBS:= $(shell pkg-config --libs $(PKGS))
 
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvds_nmos -lrt \
        -Wl,-rpath,$(LIB_INSTALL_DIR)
+
+LIBS+= -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart
 
 all: $(APP)
 

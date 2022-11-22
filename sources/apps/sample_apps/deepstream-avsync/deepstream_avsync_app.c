@@ -1385,7 +1385,7 @@ int main(int argc, char *argv[])
     /* we link the elements together
      * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
     // if (!gst_element_link_many (streammux, queue1, pgie, queue2, tiler, queue3,
-    //     nvvidconv, queue4, nvosd, queue5, sink, NULL)) {
+    //    nvvidconv, queue4, nvosd, queue5, sink, NULL)) {
     if (!gst_element_link_many(streammux, queue1, pgie, queue2, tiler, queue3, nvvidconv, queue4,
                                nvosd, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");

@@ -7,21 +7,20 @@
     - [1. Download Source Code with SSH or HTTPS](#1-download-source-code-with-ssh-or-https)
     - [2. Download Models](#2-download-models)
   - [Build](#build)
-    - [1. Build TRT OSS Plugin](#1-build-trt-oss-plugin)
-    - [2. Build Sample Application](#2-build-sample-application)
+    - [Build Sample Application](#build-sample-application)
   - [Run](#run)
   - [Information for Customization](#information-for-customization)
     - [TAO Models](#tao-models)
     - [Label Files](#label-files)
     - [DeepStream configuration file](#deepstream-configuration-file)
     - [Model Outputs](#model-outputs)
-      - [1~3. Yolov3 / YoloV4 / yolov4-tiny](#13-yolov3--yolov4-yolov4-tiny)
-      - [4~7. RetinaNet / DSSD / SSD/ FasterRCNN](#47-retinanet--dssd--ssd-fasterrcnn)
+      - [1~3. Yolov3 / YoloV4 / Yolov4-tiny / Yolov5](#13-yolov3-yolov4-yolov4-tiny-yolov5)
+      - [4~7. RetinaNet / DSSD / SSD/ FasterRCNN](#47-retinanet-dssd-ssd-fasterrcnn)
       - [8. PeopleSegNet](#8-peoplesegnet)
       - [9~10. UNET/PeopleSemSegNet](#910-unetpeoplesemsegnet)
-      - [11. multi_task](#11-multi_task)
+      - [11. multi_task](#11-multitask)
       - [12. EfficientDet](#12-efficientdet)
-    - [TRT Plugins Requirements](#trt-plugins-requirements)
+      - [13. FaceDetect / Facial Landmarks Estimation / EmotionNet / Gaze Estimation / GestureNet / HeartRateNet / BodyPoseNet](#13-facedetect-facial-landmarks-estimation-emotionnet-gaze-estimation-gesturenet-heartratenet-bodyposenet)
     - [Calibration file with TensorRT version](#calibration-file-with-tensorrt-version)
   - [FAQ](#faq)
     - [Measure The Inference Perf](#measure-the-inference-perf)
@@ -32,36 +31,30 @@
 
 ## Description
 
-This repository provides a DeepStream sample application based on [NVIDIA DeepStream SDK](https://developer.nvidia.com/deepstream-sdk) to run eight TAO models (**Faster-RCNN** / **YoloV3** / **YoloV4** /**SSD** / **DSSD** / **RetinaNet**/ **PeopleSegNet**/ **UNET**/ **multi_task**/ **peopleSemSegNet**) with below files:
+This repository provides a DeepStream sample application based on [NVIDIA DeepStream SDK](https://developer.nvidia.com/deepstream-sdk) to run eleven TAO models (**Faster-RCNN** / **YoloV3** / **YoloV4** / **YoloV5** /**SSD** / **DSSD** / **RetinaNet**/ **PeopleSegNet**/ **UNET**/ **multi_task**/ **peopleSemSegNet**) with below files:
 
 - **apps**: sample application for detection models and segmentation models
 - **configs**: DeepStream nvinfer configure file and label files
 - **post_processor**: include inference postprocessor for the models
 - **graphs**: DeepStream sample graphs based on the Graph Composer tools.
-- **models**: To download sample models that are trained by trained by [NVIDIA Train, Adapt, and Optimize(TAO) Toolkit SDK](https://developer.nvidia.com/tao-toolkit) run `wget https://nvidia.box.com/shared/static/511552h6b1ecw4gd20ptuihoiidz13cs -O models.zip`
-- **TRT-OSS**: TRT(TensorRT) OSS libs for some platforms/systems (refer to the README to build lib for other platforms/systems)
+- **models**: The models which will be used as samples.
+- **TRT-OSS**: The OSS nvinfer plugin build and download instructions. The OSS plugins are not needed for DeepStream 6.1.1 GA.
 
 The pipeline of the sample:
 
 ```
-                                                                                                |---> encode --->filesink (save the output in local dir)
-H264/JPEG-->decoder-->tee -->| -- (batch size) -->|-->streammux--> nvinfer(detection)-->nvosd -->
-                                                                                                |---> display
+                                                                           |-->filesink(save the output in local dir)
+                                                            |--> encode -->
+                                                                           |-->fakesink(use -f option)
+uridecoderbin -->streammux-->nvinfer(detection)-->nvosd-->
+                                                            |--> display
 ```
 
 ## Prerequisites
 
-- [Deepstream SDK 6.x GA](https://developer.nvidia.com/deepstream-sdk)
+- [DeepStream SDK 6.1.1 GA](https://developer.nvidia.com/deepstream-sdk)
 
   Make sure deepstream-test1 sample can run successful to verify your installation
-
-  Note, For all TAO models, you must use DS 6.1 or later release.
-
-- [TensorRT OSS (release/8.x branch)](https://github.com/NVIDIA/TensorRT/tree/release/8.0)
-
-  This is **ONLY** needed when running _SSD_, _DSSD_, _RetinaNet_, _YOLOV3_ , *YOLOV4*and _PeopleSegNet_ models because some TRT plugins such as BatchTilePlugin required by these models is not supported by TensorRT8.x native package.
-
-  Note:This is also needed for _YOLOV3_ , _YOLOV4_ if you are using TRT 8.x version(such as TRT8.0.6).
 
 ## Download
 
@@ -76,26 +69,19 @@ git clone https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps.git
 
 ### 2. Download Models
 
-Run below script to download models except multi_task model.
+Run below script to download models except multi_task and YoloV5 models.
 
 ```
 ./download_models.sh
 ```
 
-For multi_task, refer to https://docs.nvidia.com/tao/tao-toolkit/text/multitask_image_classification.html to train it by yourself
+For multi_task, refer to https://docs.nvidia.com/tao/tao-toolkit/text/multitask_image_classification.html to train and generate the model.
+
+For yolov5, refer to [yolov5_gpu_optimization](https://github.com/NVIDIA-AI-IOT/yolov5_gpu_optimization) to generate the onnx model
 
 ## Build
 
-### 1. Build TRT OSS Plugin
-
-Refer to below README to update libnvinfer_plugin.so* if want to run *SSD*, *DSSD*, *RetinaNet*, *PeopleSegNet*, *MRCNN*, *YOLOV3* , *YOLOV4\*.
-
-```
-TRT-OSS/Jetson/README.md              // for Jetson platform
-TRT-OSS/x86/README.md                 // for x86 platform
-```
-
-### 2. Build Sample Application
+### Build Sample Application
 
 ```
 export CUDA_VER=xy.z                                      // xy.z is CUDA version, e.g. 10.2
@@ -105,28 +91,36 @@ make
 ## Run
 
 ```
-Usage: ds-tao-detection -c pgie_config_file -i <H264 or JPEG filename> [-b BATCH] [-d]
+
+1.Usage: ds-tao-detection -c pgie_config_file -i <H264 or JPEG file uri> [-b BATCH] [-d] [-f] [-l]
     -h: print help info
     -c: pgie config file, e.g. pgie_frcnn_tao_config.txt
-    -i: H264 or JPEG input file
+    -i: uri of the input file, start with the file:///, e.g. file:///.../video.mp4
     -b: batch size, this will override the value of "batch-size" in pgie config file
-    -d: enable display, otherwise dump to output H264 or JPEG file
+    -d: enable display, otherwise it will dump to output MP4 or JPEG file without -f option
+    -f: use fakesink mode
+    -l: use loop mode
 
- e.g.
- ./apps/tao_segmentation/ds-tao-segmentation -c configs/unet_tao/pgie_unet_tao_config.txt -i $DS_SRC_PATH/samples/streams/sample_720p.h264
- ./apps/tao_classifier/ds-tao-classifier -c configs/multi_task_tao/pgie_multi_task_tao_config.txt -i $DS_SRC_PATH/samples/streams/sample_720p.h264
- [SHOW_MASK=1] ./apps/tao_detection/ds-tao-detection  -c configs/frcnn_tao/pgie_frcnn_tao_config.txt -i $DS_SRC_PATH/samples/streams/sample_720p.h264
+2.Usage: ds-tao-detection <yaml file uri>
+  e.g.
+  ./apps/tao_detection/ds-tao-detection configs/app/det_app_frcnn.yml
 
- note:for PeopleSegNet, you need to set SHOW_MASK=1 if you need to display the instance mask
+
+note: If you want use multi-source, you can input multi -i input(e.g., -i uri -i uri...)
 ```
 
-The TAO apps can also accept yaml config file as the parameters.
-e.g.
-Run the detector app with Frcnn model on x86 platform
+For detailed model information, pleasing refer to the following table:
 
-```
-  ./apps/tao_detection/ds-tao-detection det_app_frcnn.yml
-```
+note:  
+ The default $DS_SRC_PATH is /opt/nvidia/deepstream/deepstream
+
+| Model Type            | Tao Model                                                                                                   | Demo                                                                                                                                                                                                                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| detector              | dssd, efficientdet, frcnn, retinanet, ssd, yolov3, yolov4-tiny, yolov4, yolov5                              | ./apps/tao_detection/ds-tao-detection -c configs/dssd_tao/pgie_dssd_tao_config.txt -i file:///$DS_SRC_PATH/samples/streams/sample_720p.mp4<br>or<br>./apps/tao_detection/ds-tao-detection configs/app/det_app_frcnn.yml                                                                    |
+| classifier            | multi-task                                                                                                  | ./apps/tao_classifier/ds-tao-classifier -c configs/multi_task_tao/pgie_multi_task_tao_config.txt -i file:///$DS_SRC_PATH/samples/streams/sample_720p.mp4<br>or<br>./apps/tao_classifier/ds-tao-classifier configs/app/multi_task_app_config.yml                                            |
+| segmentation          | peopleSemSegNet, unet                                                                                       | ./apps/tao_segmentation/ds-tao-segmentation -c configs/peopleSemSegNet_tao/pgie_peopleSemSegNet_tao_config.txt -i file:///$DS_SRC_PATH/samples/streams/sample_720p.mp4<br>or<br>./apps/tao_segmentation/ds-tao-segmentation configs/app/seg_app_unet.yml                                   |
+| instance segmentation | peopleSegNet                                                                                                | export SHOW_MASK=1; ./apps/tao_detection/ds-tao-detection -c configs/peopleSegNet_tao/pgie_peopleSegNet_tao_config.txt -i file:///$DS_SRC_PATH/samples/streams/sample_720p.mp4<br>or<br>export SHOW_MASK=1; ./apps/tao_detection/ds-tao-detection configs/app/ins_seg_app_peopleSegNet.yml |
+| others                | FaceDetect, Facial Landmarks Estimation, EmotionNet, Gaze Estimation, GestureNet, HeartRateNet, BodyPoseNet | refer detailed [README](https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps/blob/master/apps/tao_others/README.md) for how to configure and run the model                                                                                                                                 |
 
 ## Information for Customization
 
@@ -134,13 +128,13 @@ If you want to do some customization, such as training your own TAO model, runni
 
 ### TAO Models
 
-To download the sample models that we have trained with [NVIDIA TAO Toolkit SDK](https://developer.nvidia.com/tao-toolkit) , run `wget https://nvidia.box.com/shared/static/3a00fdf8e1s2k3nezoxmfyykydxiyxy7 -O models.zip`
+To download the sample models that we have trained with [NVIDIA TAO Toolkit SDK](https://developer.nvidia.com/tao-toolkit) , run `wget https://nvidia.box.com/shared/static/vynsy1tzhdeiwt7a5j44ssitqlm2a9rg -O models.zip`
 
 Refer [TAO Doc](https://docs.nvidia.com/tao/tao-toolkit/text/overview.html) for how to train the models, after training finishes, run `tao-export` to generate an `.etlt` model. This .etlt model can be deployed into DeepStream for fast inference as this sample shows.
 This DeepStream sample app also supports the TensorRT engine(plan) file generated by running the `tao-converter` tool on the `.etlt` model.
 The TensorRT engine file is hardware dependent, while the `.etlt` model is not. You may specify either a TensorRT engine file or a `.etlt` model in the DeepStream configuration file.
 
-Note, for Unet/peopleSemSegNet/yolov3/yolov4 model, you must convert the etlt model to TensorRT engine file using `tao-convert` like following if you are using DS5.x:
+Note, for Unet/peopleSemSegNet/yolov3/yolov4/yolov5 model, you can also convert the etlt model to TensorRT engine file using `tao-converter` like following:
 
 ```
 tao-converter -e models/unet/unet_resnet18.etlt_b1_gpu0_fp16.engine -p input_1,1x3x608x960,1x3x608x960,1x3x608x960 -t fp16 -k tlt_encode -m 1 tlt_encode models/unet/unet_resnet18.etlt
@@ -161,7 +155,7 @@ Please refer to [DeepStream Development Guide](https://docs.nvidia.com/metropoli
 
 ### Model Outputs
 
-#### 1~3. Yolov3 / YoloV4 /yolov4-tiny
+#### 1~3. Yolov3 / YoloV4 / Yolov4-tiny / Yolov5
 
 The model has the following four outputs:
 
@@ -201,16 +195,9 @@ The model has the following four outputs:
 - **detection_scores**: This is a [batch_size, max_output_boxes] tensor of data type float32 or float16, containing the scores for the boxes.
 - **detection_classes**: This is a [batch_size, max_output_boxes] tensor of data type int32, containing the classes for the boxes.
 
-### TRT Plugins Requirements
+#### 13. FaceDetect / Facial Landmarks Estimation / EmotionNet / Gaze Estimation / GestureNet / HeartRateNet / BodyPoseNet
 
-> - **FasterRCNN**: cropAndResizePlugin, proposalPlugin
-> - **SSD/DSSD/RetinaNet**: batchTilePlugin, nmsPlugin
-> - **YOLOV3/YOLOV4**: batchTilePlugin, resizeNearestPlugin, batchedNMSPlugin
-> - **PeopleSegNet**: generateDetectionPlugin, MultilevelCropAndResize, MultilevelProposeROI
-
-### Calibration file with TensorRT version
-
-For INT8 for Frcnn, yoloV3, yoloV4 and yolov4-tiny models, the calibration files are different on different TensorRT versions to guarantee the accuracy.
+- refer detailed [README](https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps/blob/master/apps/tao_others/README.md) for how to configure and run the model
 
 ## FAQ
 
@@ -243,3 +230,5 @@ There are some special models which are not exactly detector, classifier or segm
 Some special models needs special deepstream pipeline for running. The deepstream sample graphs for them are put in graphs/tao_others. Please refer to graphs/README.md file for more details.
 
 ## Known issues
+
+For some yolo models, some layers of the models should use FP32 precision. This is a network characteristics that the accuracy drops rapidly when maximum layers are run in INT8 precision. Please refer the [layer-device-precision](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvinfer.html) for more details.

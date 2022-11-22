@@ -51,6 +51,8 @@ gboolean parse_tiled_display_yaml(NvDsTiledDisplayConfig *config, gchar *cfg_fil
             config->gpu_id = itr->second.as<guint>();
         } else if (paramKey == "nvbuf-memory-type") {
             config->nvbuf_memory_type = itr->second.as<guint>();
+        } else if (paramKey == "compute-hw") {
+            config->compute_hw = itr->second.as<guint>();
         } else {
             cout << "[WARNING] Unknown param found in tiled-display: " << paramKey << endl;
         }

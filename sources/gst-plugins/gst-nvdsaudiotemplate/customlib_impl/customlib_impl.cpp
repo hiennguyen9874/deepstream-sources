@@ -31,6 +31,7 @@
 #include <thread>
 
 #include "gst-nvevent.h"
+#include "gst-nvmessage.h"
 #include "gst-nvquery.h"
 #include "gst_nvdsaudio.h"
 #include "gstnvdsaudiotemplate_meta.h"
@@ -112,8 +113,8 @@ public:
 };
 
 // Create Custom Algorithm / Library Context
-extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(GObject *params);
-extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(GObject *params)
+extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(DSCustom_CreateParams *params);
+extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(DSCustom_CreateParams *params)
 {
     return new SampleAlgorithm();
 }
@@ -221,8 +222,12 @@ bool SampleAlgorithm::HandleEvent(GstEvent *event)
     default:
         break;
     }
-    if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_STREAM_EOS) {
-        gst_nvevent_parse_stream_eos(event, &source_id);
+
+    if (GST_EVENT_TYPE(event) == GST_EVENT_SINK_MESSAGE) {
+        GstMessage *msg = NULL;
+        // g_print("Sink message event on nvdsaudiotemplate - custom lib.\n");
+        gst_event_parse_sink_message(event, &msg);
+        gst_nvmessage_parse_stream_eos(msg, &source_id);
         m_processLock.lock();
         m_stop = true;
         m_processCV.notify_all();
@@ -231,6 +236,7 @@ bool SampleAlgorithm::HandleEvent(GstEvent *event)
             g_usleep(1000);
         }
     }
+
     if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_PAD_ADDED) {
         gst_nvevent_parse_pad_added(event, &source_id);
     }

@@ -30,6 +30,7 @@ NVCC:=/usr/local/cuda-$(CUDA_VER)/bin/nvcc
 CFLAGS:= -Wall -std=c++11 -shared -fPIC -Wno-error=deprecated-declarations
 CFLAGS+= -I../../includes -I/usr/local/cuda-$(CUDA_VER)/include
 
+CUFLAGS:= -I../../includes -I/usr/local/cuda-$(CUDA_VER)/include
 LIBS:= -lnvinfer_plugin -lnvinfer -lnvparsers -L/usr/local/cuda-$(CUDA_VER)/lib64 -lcudart -lcublas -lstdc++fs
 LFLAGS:= -shared -Wl,--start-group $(LIBS) -Wl,--end-group
 
@@ -38,8 +39,9 @@ SRCFILES:= nvdsinfer_yolo_engine.cpp \
            nvdsparsebbox_Yolo.cpp   \
            yoloPlugins.cpp    \
            trt_utils.cpp              \
-           yolo.cpp              \
-           kernels.cu
+           yolo.cpp           \
+           kernels.cu           \
+           NvDsInferParseCustomYolov3_cuda.cu
 TARGET_LIB:= libnvdsinfer_custom_impl_Yolo.so
 
 TARGET_OBJS:= $(SRCFILES:.cpp=.o)
@@ -51,7 +53,7 @@ all: $(TARGET_LIB)
 	$(CC) -c -o $@ $(CFLAGS) $<
 
 %.o: %.cu $(INCS) Makefile
-	$(NVCC) -c -o $@ --compiler-options '-fPIC' $<
+	$(NVCC) -c -o $@ --compiler-options '-fPIC' $(CUFLAGS) $<
 
 $(TARGET_LIB) : $(TARGET_OBJS)
 	$(CC) -o $@  $(TARGET_OBJS) $(LFLAGS)

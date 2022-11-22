@@ -46,7 +46,15 @@ typedef enum NvDsNmosSrcType {
 typedef enum NvDsNmosSinkType {
     NMOS_UDP_SINK_OSS = 1,
     NMOS_UDP_SINK_NV,
+    NMOS_SRT_SINK,
+    NMOS_XVIMAGE_SINK
 } NvDsNmosSinkType;
+
+typedef enum NvDsNmosSrtMode {
+    NMOS_SRT_MODE_CALLER,
+    NMOS_SRT_MODE_LISTENER,
+    NMOS_SRT_MODE_RENDEZVOUS
+} NvDsNmosSrtMode;
 
 typedef struct NvDsNmosSrcConfig {
     gboolean enable;
@@ -62,6 +70,14 @@ typedef struct NvDsNmosSrcConfig {
     gchar *sinkId;
     gchar *srcSdpTxt;
     gchar *sinkSdpTxt;
+    gchar *srtUri;
+    guint srtMode;
+    guint srtLatency;
+    gchar *srtPassphrase;
+    guint bitrate;
+    guint iframeinterval;
+    gchar *encodeCapsFilter;
+    guint flipMethod;
 } NvDsNmosSrcConfig;
 
 typedef struct NvDsNmosSinkConfig {
@@ -73,6 +89,7 @@ typedef struct NvDsNmosSinkConfig {
     gchar *sdpFile;
     gchar *localIfaceIp;
     gchar *id;
+    gchar *sdpTxt;
 } NvDsNmosSinkConfig;
 
 typedef struct NvDsNmosAppConfig {

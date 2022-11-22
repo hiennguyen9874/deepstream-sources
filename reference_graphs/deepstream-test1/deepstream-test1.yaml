@@ -1,0 +1,194 @@
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+
+dependencies:
+  - extension: NvDsBaseExt
+    uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
+    version: 1.0.0
+  - extension: NvDsInferenceExt
+    uuid: 0b02963e-c24e-4c13-ace0-c4cdf36c7c71
+    version: 1.0.0
+  - extension: NvDsInferenceUtilsExt
+    uuid: 27856a43-5ad4-4d8e-be36-0ec2cf9bbb58
+    version: 1.0.0
+  - extension: NvDsSourceExt
+    uuid: a632d022-3425-4848-9074-e6483ef74366
+    version: 1.0.0
+  - extension: NvDsMuxDemuxExt
+    uuid: 89b8398c-5820-4051-835c-a91f2d49766b
+    version: 1.0.0
+  - extension: NvDsOutputSinkExt
+    uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
+    version: 1.0.0
+  - extension: NvDsSampleModelsExt
+    uuid: 909dc1ea-c654-44c1-97a3-0b8fec12141a
+    version: 1.0.0
+  - extension: NvDsVisualizationExt
+    version: 1.0.0
+    uuid: 25903cd4-fc5c-4139-987b-47bb27e8b424
+---
+components:
+  - name: nv_ds_single_src_input3..c518
+    parameters:
+      audio-out-%u: nv_ds_dynamic_output4..c7b8
+      uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4
+      video-out-%u: nv_ds_dynamic_output5..cb70
+    type: nvidia::deepstream::NvDsSingleSrcInput
+  - name: nv_ds_dynamic_output4..c7b8
+    type: nvidia::deepstream::NvDsDynamicOutput
+  - name: nv_ds_dynamic_output5..cb70
+    type: nvidia::deepstream::NvDsDynamicOutput
+name: NvDsSingleSrcInput..5320
+ui_property:
+  position:
+    x: -192.76365661621094
+    y: -21.535430908203125
+  state: 0
+---
+components:
+  - name: nv_ds_stream_mux6..db00
+    parameters:
+      batch-size: 1
+      height: 1080
+      video-in-%u: nv_ds_on_request_input7..d9e8
+      video-out: nv_ds_static_output8..da90
+      width: 1920
+    type: nvidia::deepstream::NvDsStreamMux
+  - name: nv_ds_on_request_input7..d9e8
+    type: nvidia::deepstream::NvDsOnRequestInput
+  - name: nv_ds_static_output8..da90
+    type: nvidia::deepstream::NvDsStaticOutput
+name: NvDsStreamMux..5d68
+ui_property:
+  position:
+    x: 98.1181869506836
+    y: 2.1889781951904297
+  state: 0
+---
+components:
+  - name: nv_ds_connection9..7978
+    parameters:
+      source: NvDsSingleSrcInput..5320/nv_ds_dynamic_output5..cb70
+      target: NvDsStreamMux..5d68/nv_ds_on_request_input7..d9e8
+    type: nvidia::deepstream::NvDsConnection
+name: node..3ba8
+ui_property: {}
+---
+components:
+  - name: nv_ds_infer10..2748
+    parameters:
+      infer-model-config: resnet10_4_class_detector3..b278
+      video-in: nv_ds_static_input11..5a90
+      video-out: nv_ds_static_output12..5b38
+    type: nvidia::deepstream::NvDsInferVideo
+  - name: nv_ds_static_input11..5a90
+    type: nvidia::deepstream::NvDsStaticInput
+  - name: nv_ds_static_output12..5b38
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: resnet10_4_class_detector3..b278
+    type: nvidia::deepstream::NvDsResnet10_4ClassDetectorModel
+name: NvDsInferVideo..5080
+ui_property:
+  position:
+    x: 346.7088317871094
+    y: -12.25196647644043
+  state: 0
+---
+components:
+  - name: nv_ds_connection13..5e10
+    parameters:
+      source: NvDsStreamMux..5d68/nv_ds_static_output8..da90
+      target: NvDsInferVideo..5080/nv_ds_static_input11..5a90
+    type: nvidia::deepstream::NvDsConnection
+name: node..7c18
+ui_property: {}
+---
+components:
+  - name: nv_ds_osd14..5978
+    parameters:
+      video-in: nv_ds_static_input15..7b00
+      video-out: nv_ds_static_output16..7b70
+    type: nvidia::deepstream::NvDsOSD
+  - name: nv_ds_static_input15..7b00
+    type: nvidia::deepstream::NvDsStaticInput
+  - name: nv_ds_static_output16..7b70
+    type: nvidia::deepstream::NvDsStaticOutput
+name: NvDsOSD..c668
+ui_property:
+  position:
+    x: 624.1812744140625
+    y: 12.503938674926758
+  state: 0
+---
+components:
+  - name: nv_ds_connection17..ac88
+    parameters:
+      source: NvDsInferVideo..5080/nv_ds_static_output12..5b38
+      target: NvDsOSD..c668/nv_ds_static_input15..7b00
+    type: nvidia::deepstream::NvDsConnection
+name: node..aeb8
+ui_property: {}
+---
+components:
+  - name: nv_ds_video_renderer18..d2b0
+    parameters:
+      video-in: nv_ds_static_input19..fda0
+    type: nvidia::deepstream::NvDsVideoRenderer
+  - name: nv_ds_static_input19..fda0
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsVideoRenderer..2ba8
+ui_property:
+  position:
+    x: 897.5277099609375
+    y: 29.007875442504883
+  state: 0
+---
+components:
+  - name: nv_ds_connection20..5160
+    parameters:
+      source: NvDsOSD..c668/nv_ds_static_output16..7b70
+      target: NvDsVideoRenderer..2ba8/nv_ds_static_input19..fda0
+    type: nvidia::deepstream::NvDsConnection
+name: node..9b00
+ui_property: {}
+---
+components:
+  - name: per_class_object_counting21..ff28
+    parameters:
+      probe-connector: nv_ds_probe_connector0..2b00
+    type: nvidia::deepstream::NvDsPerClassObjectCounting
+  - name: nv_ds_probe_connector0..2b00
+    type: nvidia::deepstream::NvDsProbeConnector
+name: NvDsPerClassObjectCounting..b710
+ui_property:
+  position:
+    x: 625.21240234375
+    y: 272.44097900390625
+  state: 0
+---
+components:
+  - name: nv_ds_probe1..5be0
+    parameters:
+      io: NvDsInferVideo..5080/nv_ds_static_output12..5b38
+      probe-connector: NvDsPerClassObjectCounting..b710/nv_ds_probe_connector0..2b00
+    type: nvidia::deepstream::NvDsProbe
+name: node..3400
+ui_property: {}
+---
+components:
+  - name: nv_ds_scheduler2..4a58
+    type: nvidia::deepstream::NvDsScheduler
+name: NvDsScheduler..48d0
+ui_property:
+  position:
+    x: 52.7322883605957
+    y: 297.19696044921875
+  state: 0

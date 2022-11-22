@@ -38,7 +38,7 @@ LIB:=libpostprocess_impl.so
 
 NVDS_VERSION:=6.1
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.1.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.1.1\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../../includes -I../includes -I /opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/sources/includes -I./
 
@@ -76,7 +76,7 @@ $(DEP): $(DEP_FILES)
 	$(MAKE) -C postprocesslib_impl/
 
 install: $(LIB)
-	cp -rv $(LIB) $(LIB_INSTALL_DIR)
+	cp -rv $(LIB) $(GST_INSTALL_DIR)
 
 clean:
 	rm -rf $(OBJS) $(LIB)

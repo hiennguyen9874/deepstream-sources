@@ -315,13 +315,13 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
 
     for (key = keys; *key; key++) {
         if (!g_strcmp0(*key, CONFIG_GROUP_ENABLE)) {
-            srcConfig->enable = g_key_file_get_boolean(keyFile, group, CONFIG_GROUP_ENABLE, &error);
+            srcConfig->enable = g_key_file_get_boolean(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
                 goto done;
             }
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SDPFILE)) {
-            gchar *sdpFile = g_key_file_get_string(keyFile, group, CONFIG_GROUP_SDPFILE, &error);
+            gchar *sdpFile = g_key_file_get_string(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
                 goto done;
@@ -335,14 +335,13 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
             srcConfig->sdpFile = absPath;
             g_free(sdpFile);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_TYPE)) {
-            srcConfig->type = g_key_file_get_integer(keyFile, group, CONFIG_GROUP_TYPE, &error);
+            srcConfig->type = g_key_file_get_integer(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
                 goto done;
             }
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_SDPFILE)) {
-            gchar *sdpFile =
-                g_key_file_get_string(keyFile, group, CONFIG_GROUP_SINK_SDPFILE, &error);
+            gchar *sdpFile = g_key_file_get_string(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
                 goto done;
@@ -356,22 +355,67 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
             srcConfig->sinkSdpFile = absPath;
             g_free(sdpFile);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_TYPE)) {
-            srcConfig->sinkType =
-                g_key_file_get_integer(keyFile, group, CONFIG_GROUP_SINK_TYPE, &error);
+            srcConfig->sinkType = g_key_file_get_integer(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
                 goto done;
             }
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_PAYLOAD_SIZE)) {
-            srcConfig->payloadSize =
-                g_key_file_get_integer(keyFile, group, CONFIG_GROUP_SINK_PAYLOAD_SIZE, &error);
+            srcConfig->payloadSize = g_key_file_get_integer(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
                 goto done;
             }
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_PACKET_PER_LINE)) {
-            srcConfig->packetsPerLine =
-                g_key_file_get_integer(keyFile, group, CONFIG_GROUP_SINK_PACKET_PER_LINE, &error);
+            srcConfig->packetsPerLine = g_key_file_get_integer(keyFile, group, *key, &error);
+            if (error) {
+                NVGSTDS_ERR_MSG_V("%s", error->message);
+                goto done;
+            }
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_SRT_MODE)) {
+            srcConfig->srtMode = g_key_file_get_integer(keyFile, group, *key, &error);
+            if (error) {
+                NVGSTDS_ERR_MSG_V("%s", error->message);
+                goto done;
+            }
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_SRT_LATENCY)) {
+            srcConfig->srtLatency = g_key_file_get_integer(keyFile, group, *key, &error);
+            if (error) {
+                NVGSTDS_ERR_MSG_V("%s", error->message);
+                goto done;
+            }
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_SRT_PASSPHRASE)) {
+            srcConfig->srtPassphrase = g_key_file_get_string(keyFile, group, *key, &error);
+            if (error) {
+                NVGSTDS_ERR_MSG_V("%s", error->message);
+                goto done;
+            }
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_SRT_URI)) {
+            srcConfig->srtUri = g_key_file_get_string(keyFile, group, *key, &error);
+            if (error) {
+                NVGSTDS_ERR_MSG_V("%s", error->message);
+                goto done;
+            }
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_ENCODE_BITRATE)) {
+            srcConfig->bitrate = g_key_file_get_integer(keyFile, group, *key, &error);
+            if (error) {
+                NVGSTDS_ERR_MSG_V("%s", error->message);
+                goto done;
+            }
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_ENCODE_IFRAMEINTERVAL)) {
+            srcConfig->iframeinterval = g_key_file_get_integer(keyFile, group, *key, &error);
+            if (error) {
+                NVGSTDS_ERR_MSG_V("%s", error->message);
+                goto done;
+            }
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_ENCODE_CAPSFILTER)) {
+            srcConfig->encodeCapsFilter = g_key_file_get_string(keyFile, group, *key, &error);
+            if (error) {
+                NVGSTDS_ERR_MSG_V("%s", error->message);
+                goto done;
+            }
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_FLIP_METHOD)) {
+            srcConfig->flipMethod = g_key_file_get_integer(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
                 goto done;
@@ -381,7 +425,8 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
         }
     }
 
-    if (srcConfig->sinkType && !srcConfig->sinkSdpFile) {
+    if ((srcConfig->sinkType == NMOS_UDP_SINK_NV || srcConfig->sinkType == NMOS_UDP_SINK_OSS) &&
+        !srcConfig->sinkSdpFile) {
         NVGSTDS_ERR_MSG_V("sink-sdp-file not provided for group %s", group);
         goto done;
     }

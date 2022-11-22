@@ -73,6 +73,8 @@ gboolean parse_streammux_yaml(NvDsStreammuxConfig *config, gchar *cfg_file_path)
             config->compute_hw = itr->second.as<gint>();
         } else if (paramKey == "attach-sys-ts") {
             config->attach_sys_ts_as_ntp = itr->second.as<gboolean>();
+        } else if (paramKey == "frame-num-reset-on-stream-reset") {
+            config->frame_num_reset_on_stream_reset = itr->second.as<gboolean>();
         } else if (paramKey == "frame-num-reset-on-eos") {
             config->frame_num_reset_on_eos = itr->second.as<gboolean>();
         } else if (paramKey == "num-surfaces-per-frame") {

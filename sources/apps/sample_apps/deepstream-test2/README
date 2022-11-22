@@ -48,7 +48,7 @@ referred to as sgie1, sgie2, sgie3 respectively has been created.
 
 $ Set CUDA_VER in the MakeFile as per platform.
     For Jetson, CUDA_VER=11.4
-    For x86, CUDA_VER=11.6
+    For x86, CUDA_VER=11.7
 $ sudo make
 
 ===============================================================================

@@ -66,6 +66,9 @@ gboolean set_streammux_properties(NvDsStreammuxConfig *config, GstElement *eleme
                      NULL);
     }
 
+    g_object_set(G_OBJECT(element), "frame-num-reset-on-stream-reset",
+                 config->frame_num_reset_on_stream_reset, NULL);
+
     g_object_set(G_OBJECT(element), "sync-inputs", config->sync_inputs, NULL);
 
     g_object_set(G_OBJECT(element), "max-latency", config->max_latency, NULL);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,7 @@ constexpr const char *kActionRecognition = "action-recognition";
 constexpr const char *kUriList = "uri-list";
 constexpr const char *kPreprocessConfig = "preprocess-config";
 constexpr const char *kInferenceConfig = "infer-config";
+constexpr const char *kTritonInferenceConfig = "triton-infer-config";
 constexpr const char *kMuxerHeight = "muxer-height";
 constexpr const char *kMuxerWidth = "muxer-width";
 constexpr const char *kMuxerBatchTimeout = "muxer-batch-timeout"; // usec
@@ -36,6 +37,7 @@ constexpr const char *kDisplaySync = "display-sync";
 
 constexpr const char *kDebug = "debug";
 constexpr const char *kEnableFps = "enable-fps";
+constexpr const char *kUseFakeSink = "fakesink";
 
 #define PARSE_FAILED(statement, fmt, ...) \
     if (!(statement)) {                   \
@@ -89,10 +91,21 @@ bool parse_action_config(const char *path, NvDsARConfig &config)
                      "parse key: %s failed in config: %s", kPreprocessConfig, path);
     config.preprocess_config = config_str.get();
 
-    PARSE_WITH_ERROR(config_str.reset(g_key_file_get_string(keyfile.get(), kActionRecognition,
-                                                            kInferenceConfig, &error)),
-                     "parse key: %s failed in config: %s", kInferenceConfig, path);
-    config.infer_config = config_str.get();
+    if (g_key_file_has_key(keyfile.get(), kActionRecognition, kInferenceConfig, nullptr)) {
+        PARSE_WITH_ERROR(config_str.reset(g_key_file_get_string(keyfile.get(), kActionRecognition,
+                                                                kInferenceConfig, &error)),
+                         "parse key: %s failed in config: %s", kInferenceConfig, path);
+        config.infer_config = config_str.get();
+    }
+    if (g_key_file_has_key(keyfile.get(), kActionRecognition, kTritonInferenceConfig, nullptr)) {
+        PARSE_WITH_ERROR(config_str.reset(g_key_file_get_string(keyfile.get(), kActionRecognition,
+                                                                kTritonInferenceConfig, &error)),
+                         "parse key: %s failed in config: %s", kTritonInferenceConfig, path);
+        config.triton_infer_config = config_str.get();
+    }
+
+    PARSE_FAILED(!config.triton_infer_config.empty() || !config.infer_config.empty(),
+                 "No key %s or %s found in config file", kTritonInferenceConfig, kInferenceConfig);
 
     PARSE_WITH_ERROR(config.muxer_batch_timeout = g_key_file_get_integer(
                          keyfile.get(), kActionRecognition, kMuxerBatchTimeout, &error),
@@ -118,7 +131,11 @@ bool parse_action_config(const char *path, NvDsARConfig &config)
 
     PARSE_WITH_ERROR(config.enableFps = (uint32_t)g_key_file_get_boolean(
                          keyfile.get(), kActionRecognition, kEnableFps, &error),
-                     "parse key: %s failed in config: %s", kDisplaySync, path);
+                     "parse key: %s failed in config: %s", kEnableFps, path);
+
+    PARSE_WITH_ERROR(config.useFakeSink = (uint32_t)g_key_file_get_boolean(
+                         keyfile.get(), kActionRecognition, kUseFakeSink, &error),
+                     "parse key: %s failed in config: %s", kUseFakeSink, path);
 
     return true;
 }

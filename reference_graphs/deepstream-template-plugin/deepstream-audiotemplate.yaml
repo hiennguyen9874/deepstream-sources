@@ -1,0 +1,109 @@
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+
+dependencies:
+  - extension: NvDsBaseExt
+    uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
+    version: 1.0.0
+  - extension: NvDsSourceExt
+    uuid: a632d022-3425-4848-9074-e6483ef74366
+    version: 1.0.0
+  - extension: NvDsOutputSinkExt
+    uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
+    version: 1.0.0
+  - extension: NvDsSampleExt
+    uuid: 44a711e4-8519-4a68-81e8-be7ee4af3ff0
+    version: 1.0.0
+  - extension: NvDsTemplateExt
+    uuid: 845a7fd3-51e8-4076-b3d9-e2974880925e
+    version: 1.0.0
+---
+components:
+  - name: nv_ds_scheduler15..2860
+    type: nvidia::deepstream::NvDsScheduler
+name: NvDsScheduler..2828
+ui_property:
+  position:
+    x: 525.157470703125
+    y: 387.9684753417969
+  state: 0
+---
+components:
+  - name: nv_ds_single_src_input16..61d0
+    parameters:
+      audio-out-%u: nv_ds_dynamic_output17..6390
+      uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sonyc_mixed_audio.wav
+      video-out-%u: nv_ds_dynamic_output18..6438
+    type: nvidia::deepstream::NvDsSingleSrcInput
+  - name: nv_ds_dynamic_output17..6390
+    type: nvidia::deepstream::NvDsDynamicOutput
+  - name: nv_ds_dynamic_output18..6438
+    type: nvidia::deepstream::NvDsDynamicOutput
+name: NvDsSingleSrcInput..a320
+ui_property:
+  position:
+    x: -21.535430908203125
+    y: 31.07088851928711
+  state: 0
+---
+components:
+  - name: nv_ds_audio_template19..6780
+    parameters:
+      audio-in: nv_ds_static_input20..0860
+      audio-out: nv_ds_static_output21..0908
+      audio-template-config: sample_audio_template_lib23..b470
+    type: nvidia::deepstream::NvDsAudioTemplate
+  - name: nv_ds_static_input20..0860
+    type: nvidia::deepstream::NvDsStaticInput
+  - name: nv_ds_static_output21..0908
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: sample_audio_template_lib23..b470
+    parameters:
+      noise-factor: 2.0
+    type: nvidia::deepstream::NvDsSampleAudioTemplateLib
+name: NvDsAudioTemplate..b5f8
+ui_property:
+  position:
+    x: 320.9215393066406
+    y: 38.29133987426758
+  state: 0
+---
+components:
+  - name: nv_ds_connection22..6a58
+    parameters:
+      source: NvDsSingleSrcInput..a320/nv_ds_dynamic_output17..6390
+      target: NvDsAudioTemplate..b5f8/nv_ds_static_input20..0860
+    type: nvidia::deepstream::NvDsConnection
+name: node..fe80
+ui_property: {}
+---
+components:
+  - name: nv_ds_fake_sink24..bba8
+    parameters:
+      in: nv_ds_static_input25..bc50
+    type: nvidia::deepstream::NvDsFakeSink
+  - name: nv_ds_static_input25..bc50
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsFakeSink..b710
+ui_property:
+  position:
+    x: 666.472412109375
+    y: 50.669281005859375
+  state: 0
+---
+components:
+  - name: nv_ds_connection26..f198
+    parameters:
+      source: NvDsAudioTemplate..b5f8/nv_ds_static_output21..0908
+      target: NvDsFakeSink..b710/nv_ds_static_input25..bc50
+    type: nvidia::deepstream::NvDsConnection
+name: node..ed68
+ui_property: {}

@@ -635,7 +635,7 @@ int main(int argc, char *argv[])
             g_printerr(
                 "Usage: %s [1:file sink|2:fakesink|3:display sink|4:rtsp output] "
                 "<model configure file> <udp port> <rtsp port> "
-                "<input file> ... <inputfile> <out H264 filename>\n"
+                "<input uri> ... <input uri> <out H264 filename>\n"
                 "OR\n%s <yaml config file>\n",
                 argv[0], argv[0]);
             return -1;
@@ -897,14 +897,6 @@ int main(int argc, char *argv[])
         }
         GstRTSPServer *server = NULL;
         GstRTSPMediaFactory *factory;
-        gst_bin_add_many(GST_BIN(pipeline), nvvidconv1, outenc, capfilt, queue5, queue6, codecparse,
-                         rtppay, NULL);
-
-        if (!gst_element_link_many(nvosd, queue5, nvvidconv1, capfilt, queue6, outenc, codecparse,
-                                   rtppay, sink, NULL)) {
-            g_printerr("OSD and sink elements link failure.\n");
-            return -1;
-        }
 
         server = gst_rtsp_server_new();
         factory = gst_rtsp_media_factory_new();
@@ -923,6 +915,15 @@ int main(int argc, char *argv[])
             rtppay = gst_element_factory_make("rtph265pay", "rtppay");
         }
 
+        gst_bin_add_many(GST_BIN(pipeline), nvvidconv1, outenc, capfilt, queue5, queue6, codecparse,
+                         rtppay, NULL);
+
+        if (!gst_element_link_many(nvosd, queue5, nvvidconv1, capfilt, queue6, outenc, codecparse,
+                                   rtppay, sink, NULL)) {
+            g_printerr("OSD and sink elements link failure.\n");
+            return -1;
+        }
+
         if (isYAML) {
             ds_parse_enc_config(outenc, argv[1], "output");
             ds_parse_rtsp_output(sink, server, factory, argv[1], "output");
@@ -939,6 +940,7 @@ int main(int argc, char *argv[])
                     argv[3]);
             g_object_set(server, "service", argv[4], NULL);
             gst_rtsp_media_factory_set_launch(factory, udpsrc_pipeline);
+            g_print("Please reach RTSP with rtsp://ip:%s/ds-out-avc\n", argv[4]);
         }
         GstRTSPMountPoints *mounts;
         mounts = gst_rtsp_server_get_mount_points(server);
@@ -946,7 +948,6 @@ int main(int argc, char *argv[])
         g_object_unref(mounts);
 
         gst_rtsp_server_attach(server, NULL);
-        g_print("Please reach RTSP with rtsp://ip:%s/ds-out-avc", argv[4]);
     }
 
     /* Read cvcore parameters from config file.*/

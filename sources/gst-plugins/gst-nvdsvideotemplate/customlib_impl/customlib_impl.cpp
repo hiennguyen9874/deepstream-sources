@@ -827,6 +827,7 @@ void SampleAlgorithm::OutputThread(void)
                 // Unref the input buffer
                 gst_buffer_unref(packetInfo.inbuf);
             }
+
         } else {
             // Transform IP case
             outSurf = in_surf;

@@ -54,5 +54,5 @@ elements namely nvdsmetainsert & nvdsmetaextract in the pipeline.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=11.6
+      For x86, CUDA_VER=11.7
   $ sudo make

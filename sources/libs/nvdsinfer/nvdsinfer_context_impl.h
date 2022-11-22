@@ -134,6 +134,8 @@ public:
     const std::vector<std::vector<std::string>> &getLabels() const { return m_Labels; }
     bool needInputCopy() const { return m_CopyInputToHostBuffers; }
 
+    bool needOutputCopyB4Processing() const { return !m_disableOutputHostCopy; }
+
     virtual NvDsInferStatus initResource(const NvDsInferContextInitParams &initParams);
 
     /* Copy inference output from device to host memory. */
@@ -168,6 +170,7 @@ protected:
     /* Custom library implementation. */
     std::shared_ptr<DlLibHandle> m_CustomLibHandle;
     bool m_CopyInputToHostBuffers = false;
+    bool m_disableOutputHostCopy = false;
     /* Network input information. */
     NvDsInferNetworkInfo m_NetworkInfo = {0};
     std::vector<NvDsInferLayerInfo> m_AllLayerInfo;

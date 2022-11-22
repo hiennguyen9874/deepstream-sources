@@ -24,7 +24,6 @@
 
 import os
 import sys
-
 from pycocotools.coco import COCO
 
 

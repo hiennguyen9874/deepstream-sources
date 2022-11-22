@@ -33,7 +33,7 @@ TargetManagement:
   minIouDiff4NewTarget: 0.5   # If the IOU between the newly detected object and any of the existing targets is higher than this threshold, this newly detected object will be discarded.
   minTrackerConfidence: 0.2   # If the confidence of an object tracker is lower than this on the fly, then it will be tracked in shadow mode. Valid Range: [0.0, 1.0]
   probationAge: 3 # If the target's age exceeds this, the target will be considered to be valid.
-  maxShadowTrackingAge: 120   # Max length of shadow tracking. If the shadowTrackingAge exceeds this limit, the tracker will be terminated.
+  maxShadowTrackingAge: 90   # Max length of shadow tracking. If the shadowTrackingAge exceeds this limit, the tracker will be terminated.
   earlyTerminationAge: 1      # If the shadowTrackingAge reaches this threshold while in TENTATIVE period, the target will be terminated prematurely.
 
 TrajectoryManagement:
@@ -47,8 +47,8 @@ TrajectoryManagement:
 
   # [Re-Assoc: Trajectory Similarity]
   minTrackletMatchingScore: 0.5   # min tracklet similarity score for matching
-  maxAngle4TrackletMatching: 20   # max angle difference for tracklet matching [degree]
-  minSpeedSimilarity4TrackletMatching: 0.1 # min speed similarity for tracklet matching
+  maxAngle4TrackletMatching: 30   # max angle difference for tracklet matching [degree]
+  minSpeedSimilarity4TrackletMatching: 0.2 # min speed similarity for tracklet matching
   minBboxSizeSimilarity4TrackletMatching: 0.6 # min bbox size similarity for tracklet matching
   maxTrackletMatchingTimeSearchRange: 20      # the search space in time for max tracklet similarity
 
@@ -72,7 +72,7 @@ StateEstimator:
   stateEstimatorType: 1  # the type of state estimator among { DUMMY=0, SIMPLE=1, REGULAR=2 }
 
   # [Dynamics Modeling]
-  processNoiseVar4Loc: 2.0    # Process noise variance for bbox center
+  processNoiseVar4Loc: 3.0    # Process noise variance for bbox center
   processNoiseVar4Size: 1.0   # Process noise variance for bbox size
   processNoiseVar4Vel: 0.1    # Process noise variance for velocity
   measurementNoiseVar4Detector: 2.0    # Measurement noise variance for detector's detection

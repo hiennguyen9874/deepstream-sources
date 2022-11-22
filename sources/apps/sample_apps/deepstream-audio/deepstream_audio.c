@@ -181,7 +181,7 @@ static void process_buffer(GstBuffer *buf, AppCtx *appCtx, guint index)
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
     if (!batch_meta) {
         // TODO add audio support in streammux to attach batch metadata
-        //     NVGSTDS_WARN_MSG_V ("Batch meta not found for buffer %p", buf);
+        //    NVGSTDS_WARN_MSG_V ("Batch meta not found for buffer %p", buf);
         return;
     }
     process_meta(appCtx, batch_meta);

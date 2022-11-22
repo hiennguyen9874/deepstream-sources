@@ -1,0 +1,195 @@
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+
+dependencies:
+  - extension: NvDsBaseExt
+    uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
+    version: 1.0.0
+  - extension: NvDsInferenceExt
+    uuid: 0b02963e-c24e-4c13-ace0-c4cdf36c7c71
+    version: 1.0.0
+  - extension: NvDsInferenceUtilsExt
+    uuid: 27856a43-5ad4-4d8e-be36-0ec2cf9bbb58
+    version: 1.0.0
+  - extension: NvDsSourceExt
+    uuid: a632d022-3425-4848-9074-e6483ef74366
+    version: 1.0.0
+  - extension: NvDsMuxDemuxExt
+    uuid: 89b8398c-5820-4051-835c-a91f2d49766b
+    version: 1.0.0
+  - extension: NvDsOutputSinkExt
+    uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
+    version: 1.0.0
+  - extension: NvDsSampleModelsExt
+    uuid: 909dc1ea-c654-44c1-97a3-0b8fec12141a
+    version: 1.0.0
+---
+components:
+  - name: nv_ds_multi_src_input75..d470
+    parameters:
+      audio-%u-out: nv_ds_multi_output76..80b8
+      uri-list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sonyc_mixed_audio.wav;file:///opt/nvidia/deepstream/deepstream/samples/streams/sonyc_mixed_audio.wav
+      video-%u-out: nv_ds_multi_output77..8dd8
+    type: nvidia::deepstream::NvDsMultiSrcInput
+  - name: nv_ds_multi_output76..80b8
+    type: nvidia::deepstream::NvDsMultiOutput
+  - name: nv_ds_multi_output77..8dd8
+    type: nvidia::deepstream::NvDsMultiOutput
+name: NvDsMultiSrcInput..6550
+ui_property:
+  position:
+    x: -77.23623657226562
+    y: -47.322837829589844
+  state: 0
+---
+components:
+  - name: nv_ds_stream_mux_new78..c828
+    parameters:
+      batch-size: 2
+      in-%u: nv_ds_on_request_input79..c898
+      out: nv_ds_static_output80..c940
+    type: nvidia::deepstream::NvDsStreamMuxNew
+  - name: nv_ds_on_request_input79..c898
+    type: nvidia::deepstream::NvDsOnRequestInput
+  - name: nv_ds_static_output80..c940
+    type: nvidia::deepstream::NvDsStaticOutput
+name: NvDsStreamMuxNew..fe48
+ui_property:
+  position:
+    x: 212.6142120361328
+    y: -30.81889533996582
+  state: 0
+---
+components:
+  - name: nv_ds_multi_src_connection81..1dd8
+    parameters:
+      source: NvDsMultiSrcInput..6550/nv_ds_multi_output76..80b8
+      target: NvDsStreamMuxNew..fe48/nv_ds_on_request_input79..c898
+    type: nvidia::deepstream::NvDsMultiSrcConnection
+name: node..8438
+ui_property: {}
+---
+components:
+  - name: nv_ds_queue82..cc18
+    parameters:
+      in: nv_ds_static_input83..eda0
+      out: nv_ds_static_output84..ee48
+    type: nvidia::deepstream::NvDsQueue
+  - name: nv_ds_static_input83..eda0
+    type: nvidia::deepstream::NvDsStaticInput
+  - name: nv_ds_static_output84..ee48
+    type: nvidia::deepstream::NvDsStaticOutput
+name: NvDsQueue..d7b8
+ui_property:
+  position:
+    x: 489.05517578125
+    y: -26.692913055419922
+  state: 0
+---
+components:
+  - name: nv_ds_connection85..8908
+    parameters:
+      source: NvDsStreamMuxNew..fe48/nv_ds_static_output80..c940
+      target: NvDsQueue..d7b8/nv_ds_static_input83..eda0
+    type: nvidia::deepstream::NvDsConnection
+name: node..06a0
+ui_property: {}
+---
+components:
+  - name: nv_ds_infer_audio86..6b38
+    parameters:
+      audio-framesize: 441000
+      audio-hopsize: 110250
+      audio-in: nv_ds_static_input87..ec18
+      audio-out: nv_ds_static_output88..ecc0
+      audio-transform: melsdb,fft_length=2560,hop_size=692,dsp_window=hann,num_mels=128,sample_rate=44100,p2db_ref=(float)1.0,p2db_min_power=(float)0.0,p2db_top_db=(float)80.0
+      batch-size: 2
+      infer-model-config: sony_c_audio_classifier93..6160
+    type: nvidia::deepstream::NvDsInferAudio
+  - name: nv_ds_static_input87..ec18
+    type: nvidia::deepstream::NvDsStaticInput
+  - name: nv_ds_static_output88..ecc0
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: sony_c_audio_classifier93..6160
+    parameters:
+      model-engine-file: sonyc_audio_classify.onnx_b2_gpu0_fp32.engine
+    type: nvidia::deepstream::NvDsSonyCAudioClassifierModel
+name: NvDsInferAudio..d0b8
+ui_property:
+  position:
+    x: 720.1104125976562
+    y: -19.47243881225586
+  state: 0
+---
+components:
+  - name: nv_ds_connection89..efd0
+    parameters:
+      source: NvDsQueue..d7b8/nv_ds_static_output84..ee48
+      target: NvDsInferAudio..d0b8/nv_ds_static_input87..ec18
+    type: nvidia::deepstream::NvDsConnection
+name: node..66d8
+ui_property: {}
+---
+components:
+  - name: nv_ds_fake_sink90..c9b0
+    parameters:
+      in: nv_ds_static_input91..9e10
+    type: nvidia::deepstream::NvDsFakeSink
+  - name: nv_ds_static_input91..9e10
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsFakeSink..e160
+ui_property:
+  position:
+    x: 967.6695556640625
+    y: -10.188983917236328
+  state: 0
+---
+components:
+  - name: nv_ds_connection92..2780
+    parameters:
+      source: NvDsInferAudio..d0b8/nv_ds_static_output88..ecc0
+      target: NvDsFakeSink..e160/nv_ds_static_input91..9e10
+    type: nvidia::deepstream::NvDsConnection
+name: node..29e8
+ui_property: {}
+---
+components:
+  - name: nv_ds_scheduler94..c5f8
+    type: nvidia::deepstream::NvDsScheduler
+name: NvDsScheduler..0780
+ui_property:
+  position:
+    x: 150.72442626953125
+    y: 306.4803771972656
+  state: 0
+---
+components:
+  - name: audio_classification_print95..99b0
+    parameters:
+      probe-connector: nv_ds_probe_connector96..f0f0
+    type: nvidia::deepstream::NvDsAudioClassificationPrint
+  - name: nv_ds_probe_connector96..f0f0
+    type: nvidia::deepstream::NvDsProbeConnector
+name: NvDsAudioClassificationPrint..ce48
+ui_property:
+  position:
+    x: 987.2679443359375
+    y: 258.0000305175781
+  state: 0
+---
+components:
+  - name: nv_ds_probe97..2dd8
+    parameters:
+      io: NvDsInferAudio..d0b8/nv_ds_static_output88..ecc0
+      probe-connector: NvDsAudioClassificationPrint..ce48/nv_ds_probe_connector96..f0f0
+    type: nvidia::deepstream::NvDsProbe
+name: node..9908
+ui_property: {}

@@ -510,6 +510,7 @@ NvDsInferStatus InferPostprocessor::initResource(const NvDsInferContextInitParam
 {
     m_CopyInputToHostBuffers = initParams.copyInputToHostBuffers;
 
+    m_disableOutputHostCopy = initParams.disableOutputHostCopy;
     if (!string_empty(initParams.labelsFilePath)) {
         RETURN_NVINFER_ERROR(parseLabelsFile(initParams.labelsFilePath),
                              "parse label file:%s failed", initParams.labelsFilePath);
@@ -529,14 +530,14 @@ NvDsInferStatus InferPostprocessor::copyBuffersToHostMemory(NvDsInferBatch &batc
         NvDsInferLayerInfo &info = m_AllLayerInfo[i];
         assert(info.inferDims.numElements > 0);
 
-        if (!info.isInput) {
+        if (!info.isInput && needOutputCopyB4Processing()) {
             RETURN_CUDA_ERR(cudaMemcpyAsync(batch.m_HostBuffers[info.bindingIndex]->ptr(),
                                             batch.m_DeviceBuffers[info.bindingIndex],
                                             getElementSize(info.dataType) *
                                                 info.inferDims.numElements * batch.m_BatchSize,
                                             cudaMemcpyDeviceToHost, mainStream),
                             "postprocessing cudaMemcpyAsync for output buffers failed");
-        } else if (needInputCopy()) {
+        } else if (needInputCopy() && info.isInput) {
             RETURN_CUDA_ERR(cudaMemcpyAsync(batch.m_HostBuffers[info.bindingIndex]->ptr(),
                                             batch.m_DeviceBuffers[info.bindingIndex],
                                             getElementSize(info.dataType) *
@@ -576,9 +577,15 @@ NvDsInferStatus InferPostprocessor::postProcessHost(NvDsInferBatch &batch,
          * layers is passed to the output parsing function. */
         for (unsigned int i = 0; i < m_OutputLayerInfo.size(); i++) {
             NvDsInferLayerInfo &info = m_OutputLayerInfo[i];
-            info.buffer =
-                (void *)(batch.m_HostBuffers[info.bindingIndex]->ptr<uint8_t>() +
-                         info.inferDims.numElements * getElementSize(info.dataType) * index);
+            if (needOutputCopyB4Processing()) {
+                info.buffer =
+                    (void *)(batch.m_HostBuffers[info.bindingIndex]->ptr<uint8_t>() +
+                             info.inferDims.numElements * getElementSize(info.dataType) * index);
+            } else {
+                info.buffer =
+                    (void *)((uint8_t *)(batch.m_DeviceBuffers[info.bindingIndex]) +
+                             info.inferDims.numElements * getElementSize(info.dataType) * index);
+            }
         }
 
         RETURN_NVINFER_ERROR(parseEachBatch(m_OutputLayerInfo, frameOutput),
