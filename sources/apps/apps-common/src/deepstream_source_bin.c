@@ -161,6 +161,7 @@ static gboolean create_camera_source_bin(NvDsSourceConfig *config, NvDsSrcBin *b
         NVGSTDS_LINK_ELEMENT(nvvidconv2, bin->cap_filter);
 
         NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->cap_filter, "src");
+
     } else {
         g_object_set(G_OBJECT(bin->cap_filter), "caps", caps, NULL);
 
@@ -1479,6 +1480,13 @@ gboolean reset_source_pipeline(gpointer data)
     gettimeofday(&src_bin->last_reconnect_time, NULL);
     g_mutex_unlock(&src_bin->bin_lock);
 
+    GstElement *send_event_element = NULL;
+    if (src_bin->dewarper_bin.bin != NULL) {
+        send_event_element = src_bin->dewarper_bin.bin;
+    } else {
+        send_event_element = src_bin->cap_filter1;
+    }
+    gst_element_send_event(GST_ELEMENT(send_event_element), gst_event_new_flush_stop(TRUE));
     if (gst_element_set_state(src_bin->bin, GST_STATE_NULL) == GST_STATE_CHANGE_FAILURE) {
         GST_ERROR_OBJECT(src_bin->bin, "Can't set source bin to NULL");
         return FALSE;

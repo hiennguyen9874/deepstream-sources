@@ -36,7 +36,7 @@ extern "C" bool NvDsInferClassiferParseCustomSoftmax(
     std::vector<NvDsInferAttribute> &attrList,
     std::string &descString);
 
-static std::vector<std::vector<std::string>> labels{
+static std::vector<std::vector<std::string> > labels{
     {"coupe1", "largevehicle1", "sedan1", "suv1", "truck1", "van1"}};
 
 extern "C" bool NvDsInferClassiferParseCustomSoftmax(

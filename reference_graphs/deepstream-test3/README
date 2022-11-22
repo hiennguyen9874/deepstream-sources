@@ -1,0 +1,87 @@
+#############################################################################
+# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+
+This sample builds on top of the "deepstream-test1" graph to demonstrate how to
+easily add multiple sources in the pipeline.
+
+The graph contains a "NvDsMultiSrcInput" component to which a list of URIs can
+be supplied. The "NvDsStreamMux" component is responsible for batching frames
+from the various sources and producing a single batched buffer containing one
+or more frames. "NvDsInferVideo" component processed on this batched buffer and
+adds generated results as metadata. "NvDsTiler" component composites the frames
+from various sources into a 2D-array of tiles.
+
+The "width" and "height" properties must be set on the NvDsStreamMux to set the
+output resolution. If the input frame resolution is different from
+NvDsStreamMux's "width" and "height", the input frame will be scaled to muxer's
+output resolution.
+
+The NvDsStreamMux component waits for a user-defined timeout before forming the
+batch. The timeout is set using the "batched-push-timeout" property. If the
+complete batch is formed before the timeout is reached, the batch is pushed to
+the downstream element. If the timeout is reached before the complete batch can
+be formed (which can happen in case of rtsp sources), the batch is formed from the
+available input buffers and pushed. Ideally, the timeout of the component
+should be set based on the framerate of the fastest source. It can also be set
+to -1 to make the stream-muxer wait infinitely.
+
+
+================================================================================
+Pre-requisites
+================================================================================
+- DeepStreamSDK 6.1.1
+- Graph-Composer 2.0.1
+
+================================================================================
+Running the graph
+================================================================================
+On x86:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-test3.yaml \
+      parameters.yaml -d ../common/target_x86_64.yaml
+
+On Jetson:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-test3.yaml \
+      parameters.yaml -d ../common/target_aarch64.yaml
+
+NOTE: deepstream-test3.yaml is the main graph file describing the DeepStream
+graph(pipeline) along with the configuration parameters for the components in the
+graph. parameters.yaml can be used to override these parameter values.
+
+================================================================================
+Building application(graph) specific container image
+================================================================================
+The Graph-Composer Container Builder tool can be used to build application(graph)
+specific containers. The container builder configuration files have already been
+provided for this sample.
+
+* Building a DGPU container and running on the same host
+  $ container_builder -c ds_test3_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml
+  $ xhost +
+  $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
+        -e DISPLAY=:0 deepstream_test3_dgpu
+
+
+* Building a Jetson container on x86 host
+- In ds_test3_container_builder_jetson.yaml, change <docker-container-registry>
+  to a valid docker registry where containers can be pushed, and then build:
+  $ container_builder -c ds_test3_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml
+
+- Push the built image to the docker registry:
+  $ docker push <docker-container-registry>:deepstream-test3-jetson
+
+* Running the image on Jetson
+  $ sudo docker pull <docker-container-registry>:deepstream-test3-jetson
+  $ xhost +
+  $ sudo docker run -it --rm --net=host --runtime nvidia -e DISPLAY=:0 \
+        -v /tmp/.X11-unix/:/tmp/.X11-unix \
+        -v /tmp/argus_socket:/tmp/argus_socket \
+        <docker-container-registry>:deepstream-test3-jetson

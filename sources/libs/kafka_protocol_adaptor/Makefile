@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -13,6 +13,8 @@
 CXX:=g++
 
 PKGS:= glib-2.0 
+
+DS_LIB:=/opt/nvidia/deepstream/deepstream/lib/
 
 SRCS:=  nvds_kafka_proto.cpp kafka_client.cpp json_helper.cpp nvds_utils.cpp
 TARGET_LIB:= libnvds_kafka_proto.so 
@@ -30,13 +32,13 @@ RDKAFKA_INC:=/usr/local/include/librdkafka
 INC_PATHS:= -I $(DS_INC) -I $(RDKAFKA_INC)
 CFLAGS+= $(INC_PATHS)
 
-LIBS+= -L../../lib -lrdkafka -ljansson -lnvds_logger -lpthread -lcrypto
-LDFLAGS+= -shared
+LIBS+= -L/$(DS_LIB) -lrdkafka -ljansson -lnvds_logger -lpthread -lcrypto
+LDFLAGS+= -Wl,-rpath=$(DS_LIB)
 
 all: $(TARGET_LIB)
 
 $(TARGET_LIB) : $(SRCS)
-	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
+	$(CXX) -o $@ $^ $(CFLAGS) $(LIBS) $(LDFLAGS)
 
 clean:
 	rm -rf $(TARGET_LIB)

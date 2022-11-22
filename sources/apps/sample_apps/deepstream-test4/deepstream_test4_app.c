@@ -559,6 +559,7 @@ int main(int argc, char *argv[])
             nvds_parse_fake_sink(sink, argv[1], "sink");
         else
             nvds_parse_egl_sink(sink, argv[1], "sink");
+
     } else {
         /* we set the input filename to the source element */
         g_object_set(G_OBJECT(source), "location", input_file, NULL);

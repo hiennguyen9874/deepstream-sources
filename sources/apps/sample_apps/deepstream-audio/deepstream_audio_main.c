@@ -235,7 +235,7 @@ static GstClockTime generate_ts_rfc3339_from_ts(char *buf, int buf_size, GstCloc
     gmtime_r(&tloc, &tm_log);
     strftime(buf, buf_size, "%Y-%m-%dT%H:%M:%S", &tm_log);
     g_snprintf(strmsec, sizeof(strmsec), ".%.3dZ", ms);
-    strncat(buf, strmsec, buf_size);
+    strncat(buf, strmsec, buf_size - strlen(buf) - 1);
     return ts_generated;
 }
 

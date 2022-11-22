@@ -61,6 +61,11 @@ gboolean create_tiled_display_bin(NvDsTiledDisplayConfig *config, NvDsTiledDispl
     if (config->columns)
         g_object_set(G_OBJECT(bin->tiler), "columns", config->columns, NULL);
 
+#ifdef IS_TEGRA
+    if (config->compute_hw)
+        g_object_set(G_OBJECT(bin->tiler), "compute-hw", config->compute_hw, NULL);
+#endif
+
     g_object_set(G_OBJECT(bin->tiler), "gpu-id", config->gpu_id, "nvbuf-memory-type",
                  config->nvbuf_memory_type, NULL);
 

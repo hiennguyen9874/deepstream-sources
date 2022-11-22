@@ -213,6 +213,7 @@ static gboolean gst_nvinfer_parse_class_attrs(
             color_params.border_color.green = std::stod(vec[1]);
             color_params.border_color.blue = std::stod(vec[2]);
             color_params.border_color.alpha = std::stod(vec[3]);
+
         } else if (paramKey == "bg-color") {
             std::string values = itr->second.as<std::string>();
             std::vector<std::string> vec = split_string(values);
@@ -229,6 +230,7 @@ static gboolean gst_nvinfer_parse_class_attrs(
             color_params.bg_color.blue = std::stod(vec[2]);
             color_params.bg_color.alpha = std::stod(vec[3]);
             color_params.have_bg_color = TRUE;
+
         } else if (paramKey == "nms-iou-threshold") {
             detection_params.nmsIOUThreshold = itr->second.as<double>();
             if (detection_params.nmsIOUThreshold < 0 || detection_params.nmsIOUThreshold > 1) {

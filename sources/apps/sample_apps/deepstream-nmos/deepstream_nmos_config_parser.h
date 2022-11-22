@@ -44,6 +44,14 @@ extern "C" {
 #define CONFIG_GROUP_SINK_TYPE "sink-type"
 #define CONFIG_GROUP_SINK_PAYLOAD_SIZE "payload-size"
 #define CONFIG_GROUP_SINK_PACKET_PER_LINE "packets-per-line"
+#define CONFIG_GROUP_SINK_SRT_MODE "srt-mode"
+#define CONFIG_GROUP_SINK_SRT_LATENCY "srt-latency"
+#define CONFIG_GROUP_SINK_SRT_PASSPHRASE "srt-passphrase"
+#define CONFIG_GROUP_SINK_SRT_URI "srt-uri"
+#define CONFIG_GROUP_SINK_ENCODE_BITRATE "bitrate"
+#define CONFIG_GROUP_SINK_ENCODE_IFRAMEINTERVAL "iframeinterval"
+#define CONFIG_GROUP_SINK_ENCODE_CAPSFILTER "encode-caps"
+#define CONFIG_GROUP_SINK_FLIP_METHOD "flip-method"
 
 gboolean parse_config_file(NvDsNmosAppCtx *appCtx, gchar *cfgFilePath);
 

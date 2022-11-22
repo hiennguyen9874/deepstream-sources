@@ -497,6 +497,7 @@ int main(int argc, char *argv[])
         if (enc_type == 0) {
             /* Hardware encoder used*/
             encoder_post_osd = gst_element_factory_make("nvv4l2h264enc", "encoder-post-osd");
+
         } else if (enc_type == 1) {
             /* Software encoder used*/
 

@@ -31,6 +31,15 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
+To prepare Triton inference environment, Please follow instructions in
+`samples/configs/deepstream-app-triton/README`.
+ - For x86, follow instructions in paragraph of 'Prepare Deepstream Triton
+   Docker Container (Only for X86)'. Users must run this application inside
+   Deepstream Triton docker container.
+ - For Jetson, follow instructions in paragraph of 'Setting up Triton Inference
+   Server backends (Only for Jetson)' to install Triton packages and dependencies
+   on host or inside docker container.
+
 ===============================================================================
 2. Purpose:
 ===============================================================================
@@ -67,7 +76,7 @@ custom_sequence_preprocess/libnvds_custom_sequence_preprocess.so:
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.6
+      For x86, CUDA_VER=11.7
 
   $ cd custom_sequence_preprocess
   $ sudo make install
@@ -97,11 +106,53 @@ Download user's sample videos into folder samples/streams.
 Update source streams 'uri-list' in action recognition config file,
   deepstream_action_recognition_config.txt
 
-To run action recognition for 3D tests:
-  Update preprocess config file path 'preprocess-config=config_preprocess_3d_custom.txt'.
-  Update inference config file path 'infer-config=config_infer_primary_3d_action.txt'.
-  Run test
-  $ ./deepstream-3d-action-recognition -c deepstream_action_recognition_config.txt
+To run 3D action recognition with DS-TensorRT plugin inference:
+  Update application config file 'deepstream_action_recognition_config.txt'
+  with:
+    preprocess config file path 'preprocess-config=config_preprocess_3d_custom.txt'.
+    inference config file path 'infer-config=config_infer_primary_3d_action.txt'.
+
+  Run test:
+    $ ./deepstream-3d-action-recognition -c deepstream_action_recognition_config.txt
+
+To run 3D action recognition with DS-Triton plugin inference.
+  After running with DS-TensorRT inference, new TensorRT engine
+  'resnet18_3d_rgb_hmdb5_32.etlt_b4_gpu0_fp16.engine' is generated, Triton model
+  link file 'triton_model_repo/resnet18_3d_rgb/1/resnet18_3d_rgb.engine' is valid
+  and links to this engine file.
+
+  Update application config file 'deepstream_triton_action_recognition_config.txt'
+  with:
+    preprocess config file path 'preprocess-config=config_preprocess_3d_custom.txt'
+    inference config file path 'triton-infer-config=config_triton_infer_primary_3d_action.txt'.
+  Run test:
+    $ ./deepstream-3d-action-recognition -c deepstream_triton_action_recognition_config.txt
+
+To run 2D action recognition tests, follow similiar ways for 3D tests.
+  Update application config file'deepstream_action_recognition_config.txt' with
+    preprocess config file path 'preprocess-config=config_preprocess_2d_custom.txt'
+    inference config file path 'infer-config=config_infer_primary_2d_action.txt'
+  Run 2D test with DS-TensorRT:
+    $ ./deepstream-3d-action-recognition -c deepstream_action_recognition_config.txt
+
+  Update application config file 'deepstream_triton_action_recognition_config.txt'
+  with:
+    preprocess config file path 'preprocess-config=config_preprocess_2d_custom.txt'
+    inference config file path 'triton-infer-config=config_triton_infer_primary_2d_action.txt'.
+  Run 2D test with DS-Triton:
+    $ ./deepstream-3d-action-recognition -c deepstream_triton_action_recognition_config.txt
+
+
+Run Action recognition with Triton gRPC tests.
+  Follow instructions in `samples/configs/deepstream-app-triton-grpc/README` to
+  start tritonserver by
+  $ tritonserver \
+    --model-repository=/opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-3d-action-recognition/triton_model_repo
+
+  Update 2D and 3D triton inference config file 'config_triton_infer_primary_xx_action.txt'
+  disable 'model_repo{}' block and enable 'grpc{}' with correct url.
+  Run Triton tests again for gRPC remote inference.
+  $ ./deepstream-3d-action-recognition -c deepstream_triton_action_recognition_config.txt
 
 NOTE : Set display-sync=0 in eglglessink if the following warning is seen.
   Warning: A lot of buffers are being dropped.

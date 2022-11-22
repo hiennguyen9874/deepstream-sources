@@ -137,7 +137,7 @@ recognition(ASR) using "nvdsasr" gstreamer plugin.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=11.6
+      For x86, CUDA_VER=11.7
   $ sudo make
 
 NOTE: To compile the sources, run make with "sudo" or root permission.

@@ -84,12 +84,12 @@ typedef struct {
     std::string labelsFilePath;
 
     /** Holds the pathname of the mean image file (PPM format). File resolution
-       must be equal to the network input resolution. */
+           must be equal to the network input resolution. */
     std::string meanImageFilePath;
 
     /** Holds the per-channel offsets for mean subtraction. This is
-       an alternative to the mean image file. The number of offsets in the array
-              must be equal to the number of input channels. */
+           an alternative to the mean image file. The number of offsets in the array
+                          must be equal to the number of input channels. */
     std::vector<float> offsets;
 
     /** Holds the normalization factor with which to scale the input pixels. */

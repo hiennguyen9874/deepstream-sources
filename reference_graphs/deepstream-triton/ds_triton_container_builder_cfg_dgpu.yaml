@@ -1,0 +1,75 @@
+%YAML 1.2
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+
+---
+# final stage
+unique_stage: final_image
+base_image: auto
+stage_model: clean_stage
+
+apt_deps:
+- curl
+- ca-certificates
+- unzip
+- ffmpeg
+
+local_copy_files:
+- src: "/opt/nvidia/graph-composer/gxe"
+  dst: "/opt/nvidia/graph-composer/"
+
+- src: "/opt/nvidia/graph-composer/libgxf_core.so"
+  dst: "/opt/nvidia/graph-composer/"
+
+- src: "deepstream-triton.parameters.container.yaml"
+  dst: "/workspace/deepstream-triton/"
+
+- src: "config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.container.txt"
+  dst: "/workspace/deepstream-triton/"
+
+- src: "ssd_inception_v2_coco_2018_01_28/"
+  dst: "/workspace/deepstream-triton/model-repo/ssd_inception_v2_coco_2018_01_28/"
+
+http_archives:
+- url: http://download.tensorflow.org/models/object_detection/ssd_inception_v2_coco_2018_01_28.tar.gz
+  post_cmd: "tar xzf ssd_inception_v2_coco_2018_01_28.tar.gz
+  ssd_inception_v2_coco_2018_01_28/frozen_inference_graph.pb --strip-components=1 &&
+  mkdir -p /workspace/deepstream-triton/model-repo/ssd_inception_v2_coco_2018_01_28/1/ &&
+  mv frozen_inference_graph.pb \
+    /workspace/deepstream-triton/model-repo/ssd_inception_v2_coco_2018_01_28/1/model.graphdef"
+
+work_folder: /workspace/deepstream-triton/
+
+env_list:
+  PATH: "/opt/nvidia/graph-composer:$PATH"
+  LD_LIBRARY_PATH: "/opt/nvidia/graph-composer/:$LD_LIBRARY_PATH"
+  DISPLAY: ":0"
+
+entrypoint:
+- "gxe"
+- "--manifest"
+- "deepstream-triton_manifest.yaml"
+- "--app"
+- "deepstream-triton.yaml,deepstream-triton.parameters.container.yaml"
+
+---
+# Container Builder Config
+container_builder: main # required
+graph: # optional
+  graph_files: [ deepstream-triton.yaml ]
+  graph_dst: /workspace/deepstream-triton/
+  manifest_dst: /workspace/deepstream-triton/ # ends with '/' is folder
+  ext_install_root: /workspace/deepstream-triton/
+
+docker_build:
+  image_name: deepstream_triton_dgpu
+  no_cache: true
+  squash: false

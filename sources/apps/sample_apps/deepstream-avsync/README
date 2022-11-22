@@ -132,6 +132,8 @@ B. The application runs with nvdsasr plugin for Automatic speech recognition.
 
            To run deepstream-avsync-app, follow steps mentioned in section 4 i.e. "Usage".
 
+C. sudo apt install gstreamer1.0-libav gstreamer1.0-plugins-good
+
 ===============================================================================
 2. Purpose:
 ===============================================================================
@@ -154,7 +156,7 @@ This sample builds on top of the deepstream-test3 sample to demonstrate how to:
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=11.6
+      For x86, CUDA_VER=11.7
   $ sudo make
 
 NOTE: To compile the sources, run make with "sudo" or root permission.

@@ -69,7 +69,7 @@ Compile the custom library:
 
   # Export correct CUDA version as per the platform
   For Jetson:  $ export CUDA_VER=11.4
-  For x86:     $ export CUDA_VER=11.6
+  For x86:     $ export CUDA_VER=11.7
 
   $ sudo -E make -C nvdsinfer_custom_impl_Yolo
 

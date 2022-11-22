@@ -128,6 +128,12 @@ typedef enum {
 typedef enum {
     /** Specifies a flag to describe the requested compositing operation. */
     NVBUFSURF_TRANSFORM_COMPOSITE = 1,
+    /** Specifies a flag to describe the requested blending operation.
+     * This flag is applicable for NvBufSurfTransformMultiInputBufCompositeBlend
+     * and NvBufSurfTransformMultiInputBufCompositeBlendAsync API to support
+     * blending operation in upcoming releases.
+     */
+    NVBUFSURF_TRANSFORM_BLEND = 1 << 1,
     /** Specifies a composite to set the filter type. */
     NVBUFSURF_TRANSFORM_COMPOSITE_FILTER = 1 << 2,
 } NvBufSurfTransform_Composite_Flag;
@@ -236,6 +242,25 @@ typedef struct _NvBufSurfTransformCompositeBlendParams {
 } NvBufSurfTransformCompositeBlendParams;
 
 /**
+ * Holds extended composite blend parameters for NvBufSurfTransformMultiInputBufCompositeBlend
+ * and NvBufSurfTransformMultiInputBufCompositeBlendAsync API
+ */
+typedef struct _NvBufSurfTransformCompositeBlendParamsEx {
+    /** Holds legacy composite blend parameters */
+    NvBufSurfTransformCompositeBlendParams params;
+    /** Holds source rectangle coordinates of input buffers for compositing. */
+    NvBufSurfTransformRect *src_comp_rect;
+    /** Holds destination rectangle coordinates of input buffers for compositing. */
+    NvBufSurfTransformRect *dst_comp_rect;
+    /** Holds composite filters to use for composition/blending. */
+    NvBufSurfTransform_Inter *composite_blend_filter;
+    /** Holds alpha values of input buffers for the blending. */
+    float *alpha;
+    /** reserved fields. */
+    void *reserved[STRUCTURE_PADDING];
+} NvBufSurfTransformCompositeBlendParamsEx;
+
+/**
  ** Holds the information about synchronization objects for asynchronous
  * transform/composite APIs
  *
@@ -340,7 +365,7 @@ NvBufSurfTransform_Error NvBufSurfTransformComposite(
  *                  may include any combination of scaling, format conversion,
  *                  and cropping for both source and destination.
  *                  Flipping and rotation are supported on VIC/GPU.
- * @param[out] sync_objs
+ * @param[out] sync_obj
  *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
  *                  which holds synchronization information of the current
  *                  transform call. \ref NvBufSurfTransfromSyncObjWait() API to be
@@ -374,7 +399,7 @@ NvBufSurfTransform_Error NvBufSurfTransformAsync(NvBufSurface *src,
  *                  structure which specifies the compositing operation to be
  *                  performed, e.g., the source and destination rectangles
  *                  in \a src and \a dst.
- * @param[out] sync_objs
+ * @param[out] sync_obj
  *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
  *                  which holds synchronization information of the current
  *                  composite call. ref\ NvBufSurfTransfromSyncObjWait() API to be
@@ -423,42 +448,48 @@ NvBufSurfTransform_Error NvBufSurfTransformCompositeBlend(
     NvBufSurfTransformCompositeBlendParams *blend_params);
 
 /**
- * Performs Composition on multiple input images with single batch size
+ * Performs Composition and Blending on multiple input images(batch size=1) and provide
+ * single output image(batch size=1)
  *
- * Composites batched(batch size=1) input buffers pointed by src pointer. Compositer scales and
- * stitches batched buffers pointed by src into single dst buffer (batch size=1), the parameters for
- * location to be composited is provided by composite_params
+ * Composites and blends batched(batch size=1) input buffers pointed by src pointer.
+ * Compositer scales, stitches and blends batched buffers pointed by src into single
+ * dst buffer (batch size=1), the parameters for composition and blending is provided
+ * by composite_blend_params.
  * Use NvBufSurfTransformSetSessionParams before each call, if user defined
  * session parameters are to be used.
+ * It is different than the NvBufSurfTransformCompositeBlend API and It is currently
+ * supported on Jetson only.
  *
  * @param[in] src pointer (multiple buffer) to input batched(batch size=1) buffers to be
  * transformed.
  * @param[out] dst pointer (single buffer) where composited output would be stored.
- * @param[in] composite_params pointer to NvBufSurfTransformCompositeParams structure.
+ * @param[in] composite_blend_params pointer to NvBufSurfTransformCompositeBlendParamsEx structure.
  *
  * @return NvBufSurfTransform_Error indicating success or failure.
  */
-NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufComposite(
+NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufCompositeBlend(
     NvBufSurface **src,
     NvBufSurface *dst,
-    NvBufSurfTransformCompositeParams *composite_params);
+    NvBufSurfTransformCompositeBlendParamsEx *composite_blend_params);
 
 /**
- * Performs Composition on multiple input images with single batch size Asynchronously
- (non-blocking).
+ * Performs Composition and Blending on multiple input images(batch size=1) and provide
+ * single output image(batch size=1) Asynchronously (non-blocking).
  *
- * Composites batched(batch size=1) input buffers pointed by src pointer. Compositer scales and
- stitches
- * batched buffers pointed by src into single dst buffer (batch size=1), the parameters for
- * location to be composited is provided by composite_params
+ * Composites and blends batched(batch size=1) input buffers pointed by src pointer.
+ * Compositer scales, stitches and blends batched buffers pointed by src into single
+ * dst buffer (batch size=1), the parameters for composition and blending is provided
+ * by composite_blend_params.
  * Use NvBufSurfTransformSetSessionParams before each call, if user defined
  * session parameters are to be used.
+ * It is different than the NvBufSurfTransformCompositeBlend API and It is currently
+ * supported on Jetson only.
  *
  * @param[in] src pointer (multiple buffer) to input batched(batch size=1) buffers to be
  transformed.
  * @param[out] dst pointer (single buffer) where composited output would be stored.
- * @param[in] composite_params pointer to NvBufSurfTransformCompositeParams structure.
- * @param[out] sync_objs
+ * @param[in] composite_blend_params pointer to NvBufSurfTransformCompositeParams structure.
+ * @param[out] sync_obj
  *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
  *                  which holds synchronization information of the current
  *                  composite call. ref\ NvBufSurfTransfromSyncObjWait() API to be
@@ -471,14 +502,14 @@ NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufComposite(
  *
  * @return NvBufSurfTransform_Error indicating success or failure.
  */
-NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufCompositeAsync(
+NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufCompositeBlendAsync(
     NvBufSurface **src,
     NvBufSurface *dst,
-    NvBufSurfTransformCompositeParams *composite_params,
+    NvBufSurfTransformCompositeBlendParamsEx *composite_blend_params,
     NvBufSurfTransformSyncObj_t *sync_obj);
 
 /**
- * \brief  Wait on the synchroization object.
+ * \brief  Wait on the synchronization object.
  *
  * The API waits on the synchronization object to finish the corresponding
  * processing of transform/composite calls or returns on time_out
@@ -493,7 +524,7 @@ NvBufSurfTransform_Error NvBufSurfTransformSyncObjWait(NvBufSurfTransformSyncObj
                                                        uint32_t time_out);
 
 /**
- * \brief  Destroy the synchroization object.
+ * \brief  Destroy the synchronization object.
  *
  * The API deletes the sync_obj which was used for previous transform/composite
  * Asynchronous calls

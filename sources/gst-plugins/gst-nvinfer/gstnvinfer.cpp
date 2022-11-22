@@ -1280,11 +1280,6 @@ static gpointer gst_nvinfer_input_queue_loop(gpointer data)
             input_batch.inputFormat = NvDsInferFormat_Unknown;
             break;
         }
-
-        if (batch->sync_obj) {
-            NvBufSurfTransformSyncObjWait(batch->sync_obj, -1);
-            NvBufSurfTransformSyncObjDestroy(&(batch->sync_obj));
-        }
         input_batch.inputPitch = mem->surf->surfaceList[0].planeParams.pitch[0];
 
         input_batch.returnInputFunc = (NvDsInferContextReturnInputAsyncFunc)gst_buffer_unref;
@@ -1295,6 +1290,12 @@ static gpointer gst_nvinfer_input_queue_loop(gpointer data)
         nvtx_str = "queueInput batch_num=" + std::to_string(nvinfer->current_batch_num);
         eventAttrib.message.ascii = nvtx_str.c_str();
         nvtxDomainRangePushEx(nvinfer->nvtx_domain, &eventAttrib);
+
+        // Moved outside the lock, blocking preprocess thread
+        if (batch->sync_obj) {
+            NvBufSurfTransformSyncObjWait(batch->sync_obj, -1);
+            NvBufSurfTransformSyncObjDestroy(&(batch->sync_obj));
+        }
 
         status = nvdsinfer_ctx->queueInputBatch(input_batch);
 

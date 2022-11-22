@@ -57,6 +57,13 @@ typedef struct {
     guint height;
     guint gpu_id;
     guint nvbuf_memory_type;
+    /**Compute Scaling HW to use
+     * Applicable only for Jetson; x86 uses GPU by default
+     * (0): Default          - Default, GPU for Tesla, VIC for Jetson
+     * (1): GPU              - GPU
+     * (2): VIC              - VIC
+     *  */
+    guint compute_hw;
 } NvDsTiledDisplayConfig;
 
 /**

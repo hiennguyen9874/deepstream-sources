@@ -1,0 +1,70 @@
+#############################################################################
+# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+
+This sample demonstrates how sources can be added / remove from the underlying
+pipeline at runtime. This graph also demonstrates how to use actions/signals
+supported by INvDsElement based components.
+
+The "NvDsSourceManipulationAction" of "NvDsMultiSrcInput" component is used to
+add/remove the sources. This action is triggered by another sample component
+"NvDsSampleSourceManipulator" every fixed interval which can be configured.
+
+================================================================================
+Pre-requisites
+================================================================================
+- DeepStreamSDK 6.1.1
+- Graph-Composer 2.0.1
+
+================================================================================
+Running the graph
+================================================================================
+On x86:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-runtime-src-add-del.yaml \
+      parameters.yaml -d ../common/target_x86_64.yaml
+
+On Jetson:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-runtime-src-add-del.yaml \
+      parameters.yaml -d ../common/target_aarch64.yaml
+
+NOTE: deepstream-runtime-src-add-del.yaml is the main graph file describing the DeepStream
+graph(pipeline) along with the configuration parameters for the components in the
+graph. parameters.yaml can be used to override these parameter values.
+
+================================================================================
+Building application(graph) specific container image
+================================================================================
+The Graph-Composer Container Builder tool can be used to build application(graph)
+specific containers. The container builder configuration files have already been
+provided for this sample.
+
+* Building a DGPU container and running on the same host
+  $ container_builder -c ds_runtime_src_add_del_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml
+  $ xhost +
+  $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
+        -e DISPLAY=:0 deepstream_runtime_src_add_del_dgpu
+
+
+* Building a Jetson container on x86 host
+- In ds_runtime_src_add_del_container_builder_jetson.yaml, change <docker-container-registry>
+  to a valid docker registry where containers can be pushed, and then build:
+  $ container_builder -c ds_runtime_src_add_del_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml
+
+- Push the built image to the docker registry:
+  $ docker push <docker-container-registry>:deepstream-runtime-src-add-del-jetson
+
+* Running the image on Jetson
+  $ sudo docker pull <docker-container-registry>:deepstream-runtime-src-add-del-jetson
+  $ xhost +
+  $ sudo docker run -it --rm --net=host --runtime nvidia -e DISPLAY=:0 \
+        -v /tmp/.X11-unix/:/tmp/.X11-unix \
+        -v /tmp/argus_socket:/tmp/argus_socket \
+        <docker-container-registry>:deepstream-runtime-src-add-del-jetson

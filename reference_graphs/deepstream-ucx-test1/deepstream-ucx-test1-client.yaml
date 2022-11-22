@@ -1,0 +1,95 @@
+#############################################################################
+# Copyright (c) 2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+application:
+  name: deepstream-ucx-client
+---
+dependencies:
+  - extension: NvDsUcxExt
+    uuid: 4ee6215d-cb14-41e8-a266-5c45f4f9ffd4
+    version: 0.0.1
+  - extension: NvDsBaseExt
+    uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
+    version: 1.0.0
+  - extension: NvDsOutputSinkExt
+    uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
+    version: 1.0.0
+---
+components:
+  - name: nv_ds_ucx_client_src7
+    parameters:
+      addr: 192.168.1.100
+      nvbuf-memory-type: 2
+      out: nv_ds_static_output8
+      port: 7174
+    type: nvidia::deepstream::NvDsUcxClientSrc
+  - name: nv_ds_static_output8
+    type: nvidia::deepstream::NvDsStaticOutput
+name: NvDsUcxClientSrc
+ui_property:
+  position:
+    x: 497.3570861816406
+    y: 141.3573455810547
+---
+components:
+  - name: gst_caps_filter9
+    parameters:
+      caps: "video/x-raw(memory:NVMM), format=NV12, width=1280, height=720, framerate=30/1"
+      in: nv_ds_static_input11
+      out: nv_ds_static_output10
+    type: nvidia::deepstream::GstCapsFilter
+  - name: nv_ds_static_output10
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: nv_ds_static_input11
+    type: nvidia::deepstream::NvDsStaticInput
+name: GstCapsFilter
+ui_property:
+  position:
+    x: 735.5586547851562
+    y: 129.05862426757812
+---
+components:
+  - name: nv_ds_connection12
+    parameters:
+      source: NvDsUcxClientSrc/nv_ds_static_output8
+      target: GstCapsFilter/nv_ds_static_input11
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_video_renderer13
+    parameters:
+      video-in: nv_ds_static_input14
+      async: false
+      sync: false
+    type: nvidia::deepstream::NvDsVideoRenderer
+  - name: nv_ds_static_input14
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsVideoRenderer
+ui_property:
+  position:
+    x: 953.861083984375
+    y: 121.51264190673828
+---
+components:
+  - name: nv_ds_connection15
+    parameters:
+      source: GstCapsFilter/nv_ds_static_output10
+      target: NvDsVideoRenderer/nv_ds_static_input14
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_scheduler16
+    type: nvidia::deepstream::NvDsScheduler
+name: NvDsScheduler
+ui_property:
+  position:
+    x: 741.03173828125
+    y: 266.4505310058594

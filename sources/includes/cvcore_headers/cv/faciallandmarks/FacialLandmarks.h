@@ -41,6 +41,8 @@ CVCORE_API extern const ModelInputParams defaultModelInputParams;
  */
 CVCORE_API extern const ModelInferenceParams defaultInferenceParams;
 
+enum class OutputLayout { LC, CL };
+
 /**
  * Interface for running pre-processing for FacialLandmarks.
  */
@@ -104,11 +106,13 @@ public:
      * @param modelInputParams Model input parameters.
      * @param inferenceParams Inference parameters for the model.
      * @param numLandmarks Number of output landmarks
+     * @param outputLayout whether the output landmarks are in order of LC...
      */
     FacialLandmarks(const ImagePreProcessingParams &preProcessorParams,
                     const ModelInputParams &modelInputParams,
                     const ModelInferenceParams &inferenceParams,
-                    size_t numLandmarks = 80);
+                    size_t numLandmarks = 80,
+                    OutputLayout outputLayout = OutputLayout::LC);
 
     /**
      * Destructor for FacialLandmarks.
@@ -148,10 +152,12 @@ public:
     /*
      * Constructor for FacialLandmarksPostProcessor.
      * @param modelInputParams Model input parameters.
-     * @param numLandmarks Number of output landmarks
+     * @param numLandmarks Number of output landmarks.
+     * @param outputLayout whether the output landmarks are in order of LC...
      */
     FacialLandmarksPostProcessor(const ModelInputParams &modelInputParams,
-                                 size_t numLandmarks = 80);
+                                 size_t numLandmarks = 80,
+                                 OutputLayout outputLayout = OutputLayout::LC);
 
     /**
      * Destructor for FacialLandmarksPostProcessor.
@@ -175,6 +181,49 @@ public:
                  const Tensor<CL, CX, F32> &coordRaw,
                  const Array<BBox> &facesBBoxes,
                  cudaStream_t stream = 0);
+
+    /*
+     * Map 126 landmarks Array to 68 landmarks model Array
+     * @param outputLandmarks output array of 68 landmarks.
+     * @param inputLandmarks input array of 126 landmarks.
+     */
+    static void map126LandmarksTo68(Array<Vector2f> &outputLandmarks,
+                                    const Array<Vector2f> &inputLandmarks);
+
+    /*
+     * Map 126 landmarks ArrayN to 68 landmarks model Array
+     * @param outputLandmarks output array of 68 landmarks.
+     * @param inputLandmarks input array of 126 landmarks.
+     */
+    static void map126LandmarksTo68(
+        Array<Vector2f> &outputLandmarks,
+        const ArrayN<Vector2f, FacialLandmarks::MAX_NUM_FACIAL_LANDMARKS> &inputLandmarks);
+
+    /*
+     * Map 126 landmarks Array to 68 landmarks model ArrayN
+     * @param outputLandmarks output array of 68 landmarks.
+     * @param inputLandmarks input array of 126 landmarks.
+     */
+    static void map126LandmarksTo68(ArrayN<Vector2f, 68> &outputLandmarks,
+                                    const Array<Vector2f> &inputLandmarks);
+
+    /*
+     * Map 126 landmarks ArrayN to 68 landmarks model ArrayN
+     * @param outputLandmarks output array of 68 landmarks.
+     * @param inputLandmarks input array of 126 landmarks.
+     */
+    static void map126LandmarksTo68(
+        ArrayN<Vector2f, 68> &outputLandmarks,
+        const ArrayN<Vector2f, FacialLandmarks::MAX_NUM_FACIAL_LANDMARKS> &inputLandmarks);
+
+    /*
+     * Map 126 batch landmarks Array to 68 batch landmarks model Array
+     * @param outputLandmarks output array of 68 landmarks.
+     * @param inputLandmarks input array of 126 landmarks.
+     */
+    static void map126LandmarksTo68(
+        Array<ArrayN<Vector2f, 68>> &outputLandmarks,
+        const Array<ArrayN<Vector2f, FacialLandmarks::MAX_NUM_FACIAL_LANDMARKS>> &inputLandmarks);
 
 private:
     struct FacialLandmarksPostProcessorImpl;

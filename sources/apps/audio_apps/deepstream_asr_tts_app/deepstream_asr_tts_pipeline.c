@@ -408,6 +408,7 @@ static int create_asr_pipeline(AppCtx *appctx,
             g_printerr("Elements could not be linked. \n");
             return -1;
         }
+
     } else {
         if (!gst_element_link_many(tts, audio_sink, NULL)) {
             g_printerr("Elements could not be linked. \n");
@@ -628,6 +629,7 @@ int create_renderer_pipeline(AppCtx *appctx)
             return -1;
         }
         gst_bin_add_many(GST_BIN(pipeline), audio_sink, NULL);
+
     } else if (enable_playback == 4) {
         /* Render using pulsesink */
         audio_sink = gst_element_factory_make("pulsesink", "audio_renderer");
@@ -637,6 +639,7 @@ int create_renderer_pipeline(AppCtx *appctx)
             return -1;
         }
         gst_bin_add_many(GST_BIN(pipeline), audio_sink, NULL);
+
     } else if (enable_playback == 3) {
         /* Create RTSP output bin */
         rtsp_out_bin = gst_element_factory_make("nvrtspoutsinkbin", "nvrtsp-renderer");
@@ -652,6 +655,7 @@ int create_renderer_pipeline(AppCtx *appctx)
         g_object_set(G_OBJECT(rtsp_out_bin), "enc-type", enc_type, NULL);
 
         gst_bin_add_many(GST_BIN(pipeline), rtsp_out_bin, NULL);
+
     } else if (enable_playback == 2) {
         /* Create file write components for encoded file output */
         audio_convert = gst_element_factory_make("audioconvert", "audio_convert");
@@ -753,6 +757,7 @@ int create_renderer_pipeline(AppCtx *appctx)
             g_printerr("Elements could not be linked. \n");
             return -1;
         }
+
     } else if ((enable_playback == 1) || (enable_playback == 4)) {
         /* queue -> audio out*/
         if (!gst_element_link_many(out_aqueue, audio_sink, NULL)) {

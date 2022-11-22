@@ -1,0 +1,85 @@
+#############################################################################
+# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+
+This sample demonstrates the usage of the NvDsPreprocess component to pre-process
+video frames to create tensors and feed these tensors as input to the
+NvDsInferVideo component instead of pre-processing inside the NvDsInferVideo
+component.
+
+The sample demonstrates this for the 3D and 2D Pre-trained Action Recognition
+Model provided by NVIDIA TAO Toolkit.
+
+The NvDsPreprocess component has been created on top of the DeepStream GStreamer
+nvdspreprocess plugin. For more information on the plugin refer to DeepStream
+Plugin Manual at https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_Intro.html
+
+================================================================================
+Pre-requisites
+================================================================================
+- DeepStreamSDK 6.1.1
+- Graph-Composer 2.0.1
+- NVIDIA TAO Toolkit Pretrained 2D/3D Action Recognition Model v2 (https://ngc.nvidia.com/catalog/models/nvidia:tao:actionrecognitionnet)
+ (The model files must be downloaded to `/opt/nvidia/deepstream/deepstream/samples/models/tao_pretrained_models/actionRecognition` directory)
+
+================================================================================
+Running the graph
+================================================================================
+On x86:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-action-recognition.yaml \
+      parameters.yaml -d ../common/target_x86_64.yaml
+
+On Jetson:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-action-recognition.yaml \
+      parameters.yaml -d ../common/target_aarch64.yaml
+
+NOTE: When executing on a remote target, additional argument "--resources resources.yaml"
+      must be provided to execute_graph.sh script.
+
+By default the graphs are configured to use the 3D version of the model. To use
+the 2D version of the model, "nvidia::deepstream::NvDsActionRecognition3D"
+component must be replaced with "nvidia::deepstream::NvDsActionRecognition2D"
+and set value of "config-file" parameter of NvDsPreProcess component to
+"config_preprocess_2d_custom.txt"
+
+NOTE: deepstream-action-recognition.yaml is the main graph file describing the DeepStream
+graph(pipeline) along with the configuration parameters for the components in the
+graph. parameters.yaml can be used to override these parameter values.
+
+================================================================================
+Building application(graph) specific container image
+================================================================================
+The Graph-Composer Container Builder tool can be used to build application(graph)
+specific containers. The container builder configuration files have already been
+provided for this sample.
+
+* Building a DGPU container and running on the same host
+  $ container_builder -c ds_action_recognition_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml
+  $ xhost +
+  $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
+        -e DISPLAY=:0 deepstream_action_recognition_dgpu
+
+
+* Building a Jetson container on x86 host
+- In ds_runtime_src_add_del_container_builder_jetson.yaml, change <docker-container-registry>
+  to a valid docker registry where containers can be pushed, and then build:
+  $ container_builder -c ds_action_recognition_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml
+
+- Push the built image to the docker registry:
+  $ docker push <docker-container-registry>:deepstream-action-recognition-jetson
+
+* Running the image on Jetson
+  $ sudo docker pull <docker-container-registry>:deepstream-action-recognition-jetson
+  $ xhost +
+  $ sudo docker run -it --rm --net=host --runtime nvidia -e DISPLAY=:0 \
+        -v /tmp/.X11-unix/:/tmp/.X11-unix \
+        -v /tmp/argus_socket:/tmp/argus_socket \
+        <docker-container-registry>:deepstream-action-recognition-jetson

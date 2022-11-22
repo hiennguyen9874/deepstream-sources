@@ -31,7 +31,8 @@ uri-list=file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_walk.mo
 
 # eglglessink settings
 display-sync=1
-
+# 0=eglgles display; 1=fakesink
+fakesink=0
 
 # <preprocess-config> is the config file path for nvdspreprocess plugin
 # <infer-config> is the config file path for nvinfer plugin

@@ -33,10 +33,7 @@
         move_copy(std::move(o)); \
         return *this;            \
     }                            \
-    Cls(Cls &&o)                 \
-    {                            \
-        move_copy(std::move(o)); \
-    }
+    Cls(Cls &&o) { move_copy(std::move(o)); }
 
 #define INFER_UNUSED(a) (void)(a)
 
@@ -118,5 +115,6 @@
 #define INFER_ROUND_UP(value, align) (((value) + (align)-1) & (~((align)-1)))
 #define INFER_ROUND_DOWN(value, align) ((value) & (~((align)-1)))
 #define INFER_WILDCARD_DIM_VALUE -1
+#define INFER_MEM_ALIGNMENT 1024
 
 #endif

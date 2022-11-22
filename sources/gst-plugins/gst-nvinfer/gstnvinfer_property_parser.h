@@ -38,6 +38,8 @@
 #define CONFIG_GROUP_INFER_GPU_ID "gpu-id"
 #define CONFIG_GROUP_INFER_SECONDARY_REINFER_INTERVAL "secondary-reinfer-interval"
 #define CONFIG_GROUP_INFER_OUTPUT_TENSOR_META "output-tensor-meta"
+// gpu_post_processing 0 is not 1 is yes
+#define CONFIG_GROUP_INFER_DISABLE_OUTPUT_HOST_COPY "disable-output-host-copy"
 
 #define CONFIG_GROUP_INFER_ENABLE_DLA "enable-dla"
 #define CONFIG_GROUP_INFER_USE_DLA_CORE "use-dla-core"

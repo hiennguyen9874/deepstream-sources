@@ -1,0 +1,165 @@
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+
+components:
+  - name: nv_ds_multi_src_input144..1a58
+    parameters:
+      smart-rec-cache: 20
+      smart-rec-container: 0
+      smart-rec-dir-path: .
+      smart-rec-mode: 0
+      smart-record: 1
+      smart-record-action: nv_ds_multi_source_smart_record_action7..5470
+      smart-record-done-signal: nv_ds_sr_done_signal8..05f8
+      source-id-list: 0;1;2;3
+      uri-list: rtsp://127.0.0.1:8654/file-stream;rtsp://127.0.0.1:8654/file-stream;rtsp://127.0.0.1:8654/file-stream;rtsp://127.0.0.1:8654/file-stream
+name: NvDsMultiSrcInput..3198
+---
+components:
+  - name: nv_ds_stream_mux147..b588
+    parameters:
+      batch-size: 4
+      batched-push-timeout: 40000
+      height: 1080
+      live-source: true
+      width: 1920
+name: NvDsStreamMux..96d8
+---
+components:
+  - name: nv_ds_tracker151..b470
+    parameters:
+      enable-batch-process: true
+      enable-past-frame: false
+      ll-lib-file: /opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
+      ll-config-file: /opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml
+      tracker-height: 384
+      tracker-width: 640
+name: NvDsTracker..54e0
+---
+components:
+  - name: nv_ds_infer159..3710
+    parameters:
+      batch-size: 4
+      unique-id: 1
+  - name: resnet10_4_class_detector163..fef0
+    parameters:
+      model-engine-file: primary.resnet10.caffemodel_b4_gpu0_int8.engine
+name: NvDsInferVideo..cb00
+---
+components:
+  - name: nv_ds_infer165..9278
+    parameters:
+      batch-size: 16
+      infer-on-class-ids: "0"
+      infer-on-gie-id: 1
+      unique-id: 5
+  - name: secondary_car_color_classifier200..cc50
+    parameters:
+      model-engine-file: sec.carcolor.resnet18.caffemodel_b16_gpu0_int8.engine
+name: NvDsInferVideo..c1d0
+---
+components:
+  - name: nv_ds_infer169..90f0
+    parameters:
+      batch-size: 16
+      infer-on-class-ids: "0"
+      infer-on-gie-id: 1
+      unique-id: 6
+  - name: secondary_car_make_classifier201..97f0
+    parameters:
+      model-engine-file: sec.carmake.resnet18.caffemodel_b16_gpu0_int8.engine
+name: NvDsInferVideo..f8d0
+---
+components:
+  - name: nv_ds_infer173..0080
+    parameters:
+      batch-size: 16
+      infer-on-class-ids: "0"
+      infer-on-gie-id: 1
+      unique-id: 4
+  - name: secondary_vehicle_type_classifier202..bf60
+    parameters:
+      model-engine-file: sec.vehicletypes.resnet18.caffemodel_b16_gpu0_int8.engine
+name: NvDsInferVideo..3438
+---
+components:
+  - name: nv_ds_tiler184..1940
+    parameters:
+      columns: 2
+      height: 720
+      rows: 2
+      width: 1280
+name: NvDsTiler..36a0
+---
+components:
+  - name: nv_ds_osd187..3320
+    parameters:
+      bbox-border-colors: Car=0xff0000ff;Bicycle=0x00ffffff;Person=0x0000ffff;RoadSign=0x00ff00ff
+      border-width: 1
+      clock-color: 4278190335
+      display-clock: false
+      font: Serif
+      reformat-object-labels: true
+      text-bg-color: 1296911871
+      text-color: 4294967295
+      text-size: 15
+      x-clock-offset: 800
+      y-clock-offset: 820
+name: NvDsOSD..7828
+---
+components:
+  - name: kitti_dump203..0a90
+    parameters:
+      output-dir: /tmp/detector-kitti-out
+name: NvDsKittiDump - Detector..7be0
+---
+components:
+  - name: kitti_dump206..4d68
+    parameters:
+      output-dir: /tmp/tracker-kitti-out
+name: NvDsKittiDump - Tracker..4a58
+---
+components:
+  - name: nv_ds_msg_conv_broker6..b080
+    parameters:
+      msg-broker-conn-str: 127.0.0.1;9092;test-topic
+      msg-broker-proto-lib: /opt/nvidia/deepstream/deepstream/lib/libnvds_kafka_proto.so
+      msg-conv-config: dstest5_msgconv_sample_config.txt
+      topic: test-topic
+name: NvDsMsgConvBroker..b048
+---
+components:
+  - name: nv_ds_sample_probe_message_meta_creation9..2b70
+    parameters:
+      car-color-unique-id: 5
+      car-make-unique-id: 6
+      vehicle-type-unique-id: 4
+name: NvDsSampleProbeMessageMetaCreation..ff60
+---
+components:
+  - name: nv_ds_model_engine_watch_otf_trigger0..ca20
+    parameters:
+      watch-file: /tmp/model-otf-test/model.engine
+name: NvDsModelEngineWatchOTFTrigger..ccf8
+---
+components:
+  - name: nv_ds_sample_c2_d_smart_record_trigger5..e2e8
+    parameters:
+      msgconv-config: dstest5_msgconv_sample_config.txt
+name: NvDsSampleC2DSmartRecordTrigger..b358
+---
+components:
+  - name: nv_ds_msg_broker_c2_d_receiver9..5ac8
+    parameters:
+      conn-str: 127.0.0.1;9092
+      proto-lib: /opt/nvidia/deepstream/deepstream/lib/libnvds_kafka_proto.so
+      topics: test-topic-sr
+name: NvDsMsgBrokerC2DReceiver..aef0

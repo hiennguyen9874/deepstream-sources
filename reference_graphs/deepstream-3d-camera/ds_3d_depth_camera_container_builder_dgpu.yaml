@@ -1,0 +1,51 @@
+%YAML 1.2
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+---
+unique_stage: final_image
+base_image: auto
+stage_model: clean_stage
+local_copy_files:
+  - src: "/opt/nvidia/graph-composer/gxe"
+    dst: "/opt/nvidia/graph-composer/"
+  - src: "/opt/nvidia/graph-composer/libgxf_core.so"
+    dst: "/opt/nvidia/graph-composer/"
+
+work_folder: /workspace/deepstream-3d-camera/
+env_list:
+  PATH: "/opt/nvidia/graph-composer:$PATH"
+  LD_LIBRARY_PATH: "/opt/nvidia/graph-composer/:$LD_LIBRARY_PATH"
+  DISPLAY: ":0"
+
+resources_files:
+  - resources.yaml
+
+custom_runs:
+  - apt-key adv --keyserver keyserver.ubuntu.com --recv-key F6E65AC044F831AC80A06380C8B3A55A6F3EFCDE
+  - echo "deb https://librealsense.intel.com/Debian/apt-repo focal main" > /etc/apt/sources.list.d/realsense.list
+  - apt-get update && apt-get install -y librealsense2-dev
+
+entrypoint:
+  - "gxe"
+  - "--manifest"
+  - "deepstream-3d-camera_manifest.yaml"
+  - "--app"
+  - "deepstream-3d-camera.yaml"
+---
+# Container Builder Config
+container_builder: main # required
+graph: # optional
+  graph_files: [deepstream-3d-camera.yaml]
+  graph_dst: /workspace/deepstream-3d-camera/
+docker_build:
+  image_name: deepstream_3d_depth_camera_dgpu
+  no_cache: true
+  squash: false

@@ -287,7 +287,7 @@ static GList *generate_mask_polygon(float *mask,
                                     float threshold)
 {
     GList *mask_list = NULL;
-    vector<vector<cv::Point>> contours;
+    vector<vector<cv::Point> > contours;
     cv::Mat dst = cv::Mat(rect_height, rect_width, CV_8UC1);
 
     resizeMask(mask, mask_width, mask_height, dst, threshold);

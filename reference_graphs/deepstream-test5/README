@@ -1,0 +1,127 @@
+#############################################################################
+# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+
+This sample is meant for demonstrating the implementation of the DeepStream IoT
+reference application as a graph.
+
+Following features are demonstrated:
+- Retrieving Source NTP timestamps
+  (https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_NTP_Timestamp.html)
+- Creating NvDsEventMsgMeta which is used by NvDsMsgConvBroker component to
+  create messages and send to the message broker.
+- On-the-fly Model update - NvDsModelEngineWatchOTFTrigger watches for updates
+  to a model engine file and triggers on-the-fly model update on a NvDsInferVideo
+  component.
+- Smart Record - NvDsMultiSrcInput component supports DeepStream's Smart Record
+  feature. Sample graph shows the parameters that need to be set on
+  NvDsMultiSrcInput to enable it. Smart record supports both audio and video. The
+  content of the recorded stream depends on the presence of audio/video in the
+  input RTSP stream and the 'smart-rec-mode' parameter.
+- Cloud-to-Device (C2D) messaging - NvDsMsgBrokerC2DReceiver implements the
+  functionality to receive cloud messages. Sample component
+  NvDsSampleC2DSmartRecordTrigger demonstrates how to use cloud messaging
+  components to receive and handle messages by triggering start/stop smart Record
+  on NvDsMultiSrcInput.
+- Device-to-Cloud (D2C) messaging - NvDsMsgBrokerD2CTransmitter implements the
+  functionality to send messages to the cloud from outside the underlying pipeline.
+  Sample component NvDsSampleD2C_SRMsgGenerator demonstrates how to use cloud
+  messaging components to generate and send messages to the cloud via the message
+  broker. It generates and sends SmartRecord start/stop messages which are
+  consumed by NvDsSampleC2DSmartRecordTrigger.
+
+================================================================================
+Pre-requisites
+================================================================================
+- DeepStreamSDK 6.1.1
+- Graph-Composer 2.0.1
+- Kafka Message Broker
+- RTSP Sources
+
+RTSP Sources can be created from files using a tool like cvlc. Sample command:
+$  cvlc --loop <file> ":sout=#gather:rtp{sdp=rtsp://:<port>/file-stream}" \
+       :network-caching=1500 :sout-all :sout-keep
+
+This will create an RTSP source with uri rtsp://<ip>:<port>/file-stream
+
+================================================================================
+Running the graph
+================================================================================
+# Create the directory where copying the updated model engine file will trigger
+# the otf update
+$ mkdir /tmp/model-otf-test
+
+# Run the graph
+On x86:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-test5.yaml \
+      parameters.yaml -d ../common/target_x86_64.yaml
+
+On Jetson:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-test5.yaml \
+      parameters.yaml -d ../common/target_aarch64.yaml
+
+NOTE: When executing on a remote target, additional argument "--resources resources.yaml"
+      must be provided to execute_graph.sh script.
+
+# Trigger OTF update.
+$ cp <updated-model-engine> /tmp/model-otf-test/model.engine
+
+# Generate and send SR messages to the main graph. This can be replaced by
+# another application or the messages can be actually sent from a service
+# running in the cloud.
+$ /opt/nvidia/graph-composer/execute_graph.sh test_sr_message_generator.yaml
+
+NOTE: deepstream-test5.yaml is the main graph file describing the DeepStream
+graph(pipeline) along with the configuration parameters for the components in the
+graph. parameters.yaml can be used to override these parameter values.
+
+** By default the sample is configured to use RTSP sources with uri
+rtsp://127.0.0.1:8654/file-stream. This can be changed in the parameters file.
+
+** By default the sample is configured to send messages over kafka and thus
+needs a kafka broker running. The graph files assume that the server
+is running on "localhost:9092". The server to send messages to along with the
+topic can be changed by modifying `msg-broker-conn-str`, `conn-str` and `topic`
+parameters in the parameters.yaml and test_sr_message_generator.yaml file.
+
+================================================================================
+Building application(graph) specific container image
+================================================================================
+The Graph-Composer Container Builder tool can be used to build application(graph)
+specific containers. The container builder configuration files have already been
+provided for this sample.
+
+* Building a DGPU container and running on the same host
+  $ container_builder -c ds_test5_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml
+  $ xhost +
+  $ mkdir /tmp/model-otf-test
+  $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
+        -e DISPLAY=:0 --net=host -v /tmp/model-otf-test:/tmp/model-otf-test \
+        deepstream_test5_dgpu
+
+
+* Building a Jetson container on x86 host
+- In ds_test5_container_builder_jetson.yaml, change <docker-container-registry>
+  to a valid docker registry where containers can be pushed, and then build:
+  $ container_builder -c ds_test5_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml
+
+- Push the built image to the docker registry:
+  $ docker push <docker-container-registry>:deepstream-test5-jetson
+
+* Running the image on Jetson
+  $ sudo docker pull <docker-container-registry>:deepstream-test5-jetson
+  $ xhost +
+  $ mkdir /tmp/model-otf-test
+  $ sudo docker run -it --rm --net=host --runtime nvidia -e DISPLAY=:0 \
+        -v /tmp/.X11-unix/:/tmp/.X11-unix \
+        -v /tmp/argus_socket:/tmp/argus_socket \
+        -v /tmp/model-otf-test:/tmp/model-otf-test \
+        <docker-container-registry>:deepstream-test5-jetson

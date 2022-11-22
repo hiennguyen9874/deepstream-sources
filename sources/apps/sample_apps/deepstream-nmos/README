@@ -25,10 +25,12 @@ Additionally you must have the following development packages installed
 
     GStreamer-1.0
     GStreamer-1.0 Base Plugins
+    Gstreamer-1.0 libav Plugins
     avahi-compat-libdnssd
 
 To install these packages, execute the following command:
-    $ sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev libavahi-compat-libdnssd-dev
+    $ sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
+     gstreamer1.0-libav libavahi-compat-libdnssd-dev
 
 ===============================================================================
 2. Purpose:
@@ -62,7 +64,7 @@ This application has three modes of operations -
 
 $ Set CUDA_VER in the MakeFile as per platform.
     For Jetson, CUDA_VER=11.4
-    For x86, CUDA_VER=11.6
+    For x86, CUDA_VER=11.7
 $ sudo make
 
 ===============================================================================

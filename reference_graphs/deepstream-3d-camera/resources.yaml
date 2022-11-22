@@ -1,0 +1,20 @@
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+
+files:
+  - src: ds_3d_loader_realsense.yaml
+    target: ds_3d_loader_realsense.yaml
+  - src: ds_3d_render_pointcloud3d.yaml
+    target: ds_3d_render_pointcloud3d.yaml
+  - src: ds_3d_filter_depth2cloud.yaml
+    target: ds_3d_filter_depth2cloud.yaml
+  - src: ds_3d_render_depth2d.yaml
+    target: ds_3d_render_depth2d.yaml

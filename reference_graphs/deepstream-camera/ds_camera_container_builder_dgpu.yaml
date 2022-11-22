@@ -1,0 +1,45 @@
+%YAML 1.2
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+---
+unique_stage: final_image
+base_image: auto
+stage_model: clean_stage
+local_copy_files:
+  - src: "/opt/nvidia/graph-composer/gxe"
+    dst: "/opt/nvidia/graph-composer/"
+  - src: "/opt/nvidia/graph-composer/libgxf_core.so"
+    dst: "/opt/nvidia/graph-composer/"
+  - src: "v4l2-usb-camera.parameters.yaml"
+    dst: "/workspace/deepstream-camera/" # ends with '/' is folder
+
+work_folder: /workspace/deepstream-camera/
+env_list:
+  PATH: "/opt/nvidia/graph-composer:$PATH"
+  LD_LIBRARY_PATH: "/opt/nvidia/graph-composer/:$LD_LIBRARY_PATH"
+  DISPLAY: ":0"
+
+entrypoint:
+  - "gxe"
+  - "--manifest"
+  - "deepstream-camera_manifest.yaml"
+  - "--app"
+  - "deepstream-camera.yaml,v4l2-usb-camera.parameters.yaml"
+---
+# Container Builder Config
+container_builder: main # required
+graph: # optional
+  graph_files: [deepstream-camera.yaml]
+  graph_dst: /workspace/deepstream-camera/
+docker_build:
+  image_name: deepstream_camera_dgpu
+  no_cache: true
+  squash: false

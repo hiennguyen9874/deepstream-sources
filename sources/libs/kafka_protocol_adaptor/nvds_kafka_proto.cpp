@@ -601,8 +601,8 @@ NvDsMsgApiErrorType nvds_msgapi_subscribe(NvDsMsgApiHandle h_ptr,
 // There could be several synchronous and asychronous send operations in flight.
 // Once a send operation callback is received the course of action  depends on if it's synch or
 // async
-//  -- if it's sync then the associated complletion flag should  be set
-//  -- if it's asynchronous then completion callback from the user should be called
+// -- if it's sync then the associated complletion flag should  be set
+// -- if it's asynchronous then completion callback from the user should be called
 NvDsMsgApiErrorType nvds_msgapi_send(NvDsMsgApiHandle h_ptr,
                                      char *topic,
                                      const uint8_t *payload,

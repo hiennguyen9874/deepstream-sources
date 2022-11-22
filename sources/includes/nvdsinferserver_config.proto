@@ -110,6 +110,14 @@ message TritonModelRepo
 
 message TritonGrpcParams {
   string url = 1;
+  /** Enable sharing of input CUDA buffers with local Triton server.
+    * If enabled, the input CUDA buffers are shared with the Triton server
+    * to improve performance. This feature should be enabled only when the
+    * Triton server is on the same machine. Applicable for x86 dGPU platform,
+    * not supported on Jetson devices.
+    * By default disabled, CUDA buffers are copied to system memory while
+    * creating the inference request */
+  bool enable_cuda_buffer_sharing = 2;
 }
 
 /** Triton inference backend parameters */
@@ -163,6 +171,13 @@ message ExtraControl {
   string custom_process_funcion = 3;
 }
 
+/** Input tensor is preprocessed */
+message InputTensorFromMeta
+{
+    /** first dims is not a batch-size*/
+    bool is_first_dim_batch = 1;
+}
+
 /** Inference configuration */
 message InferenceConfig {
   /** unique id, larger than 0, required for multiple models inference */
@@ -177,6 +192,7 @@ message InferenceConfig {
   /** preprocessing for tensors, required */
   oneof preprocessing {
     PreProcessParams preprocess = 5;
+    InputTensorFromMeta input_tensor_from_meta = 10;
   }
   /** postprocessing for all tensor data, required */
   oneof postprocessing {

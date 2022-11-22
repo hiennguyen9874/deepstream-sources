@@ -1,0 +1,99 @@
+#############################################################################
+# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+
+This sample demonstrates the usage of DeepStream's audio/video template
+components and the components used to configure the template components.
+
+"NvDsVideoTemplate" and "NvDsAudioTemplate" components load a shared library
+containing some custom functionality by implementing interfaces provided by the
+template components.
+
+The sample components "NvDsSampleAudioTemplateLib" and "NvDsSampleVideoTemplateLib"
+provide the configuration required by the template components including the path
+to the custom library and parameters for the custom library.
+
+"NvDsVideoTemplate" and "NvDsAudioTemplate" are based on DeepStream's
+"Gst-nvdsvideotemplate" and "Gst-nvdsaudiotemplate". For more information, refer to
+https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvdsvideotemplate.html
+https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvdsaudiotemplate.html
+
+================================================================================
+Pre-requisites
+================================================================================
+- DeepStreamSDK 6.1.1
+- Graph-Composer 2.0.1
+
+================================================================================
+Running the graph
+================================================================================
+On x86:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-audiotemplate.yaml \
+      -d ../common/target_x86_64.yaml
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-videotemplate.yaml \
+      -d ../common/target_x86_64.yaml
+
+On Jetson:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-audiotemplate.yaml \
+      -d ../common/target_aarch64.yaml
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-videotemplate.yaml \
+      -d ../common/target_aarch64.yaml
+
+================================================================================
+Building application(graph) specific container image
+================================================================================
+The Graph-Composer Container Builder tool can be used to build application(graph)
+specific containers. The container builder configuration files have already been
+provided for this sample.
+
+* Building a DGPU container and running on the same host
+  $ container_builder -c ds_videotemplate_plugin_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml
+    OR
+  $ container_builder -c ds_audiotemplate_plugin_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml
+
+  $ xhost +
+
+  $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
+        -e DISPLAY=:0 deepstream_videotemplate_plugin_dgpu
+    OR
+  $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
+        -e DISPLAY=:0 deepstream_audiotemplate_plugin_dgpu
+
+* Building a Jetson container on x86 host
+- In ds_runtime_src_add_del_container_builder_jetson.yaml, change <docker-container-registry>
+  to a valid docker registry where containers can be pushed, and then build:
+  $ container_builder -c ds_videotemplate_plugin_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml
+    OR
+  $ container_builder -c ds_audiotemplate_plugin_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml
+
+- Push the built image to the docker registry:
+  $ docker push <docker-container-registry>:deepstream-audiotemplate-plugin-jetson
+    OR
+  $ docker push <docker-container-registry>:deepstream-videotemplate-plugin-jetson
+
+* Running the image on Jetson
+  $ sudo docker pull <docker-container-registry>:deepstream-audiotemplate-plugin-jetson
+    OR
+  $ sudo docker pull <docker-container-registry>:deepstream-videotemplate-plugin-jetson
+
+  $ xhost +
+
+  $ sudo docker run -it --rm --net=host --runtime nvidia -e DISPLAY=:0 \
+        -v /tmp/.X11-unix/:/tmp/.X11-unix \
+        -v /tmp/argus_socket:/tmp/argus_socket \
+        <docker-container-registry>:deepstream-audiotemplate-plugin-jetson
+    OR
+  $ sudo docker run -it --rm --net=host --runtime nvidia -e DISPLAY=:0 \
+        -v /tmp/.X11-unix/:/tmp/.X11-unix \
+        -v /tmp/argus_socket:/tmp/argus_socket \
+        <docker-container-registry>:deepstream-videotemplate-plugin-jetson

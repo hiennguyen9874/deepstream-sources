@@ -49,6 +49,7 @@ typedef struct {
     gboolean sync_inputs;
     guint64 max_latency;
     gboolean frame_num_reset_on_eos;
+    gboolean frame_num_reset_on_stream_reset;
 } NvDsStreammuxConfig;
 
 // Function to create the bin and set properties

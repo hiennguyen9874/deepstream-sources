@@ -1,0 +1,175 @@
+#############################################################################
+# Copyright (c) 2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+application:
+  name: deepstream-ucx-server
+---
+dependencies:
+  - extension: NvDsVisualizationExt
+    uuid: 25903cd4-fc5c-4139-987b-47bb27e8b424
+    version: 1.0.0
+  - extension: NvDsBaseExt
+    uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
+    version: 1.0.0
+  - extension: NvDsOutputSinkExt
+    uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
+    version: 1.0.0
+  - extension: NvDsInferenceUtilsExt
+    uuid: 27856a43-5ad4-4d8e-be36-0ec2cf9bbb58
+    version: 1.0.0
+  - extension: NvDsConverterExt
+    uuid: 7fe1ae48-7bb3-49a8-98fb-142ba07eb273
+    version: 1.0.0
+  - extension: NvDsUcxExt
+    uuid: 4ee6215d-cb14-41e8-a266-5c45f4f9ffd4
+    version: 0.0.1
+---
+components:
+  - name: nv_ds_osd3
+    parameters:
+      video-in: nv_ds_static_input5
+      video-out: nv_ds_static_output4
+    type: nvidia::deepstream::NvDsOSD
+  - name: nv_ds_static_output4
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: nv_ds_static_input5
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsOSD
+ui_property:
+  position:
+    x: 742.773681640625
+    y: 180.22439575195312
+---
+components:
+  - name: gst_caps_filter6
+    parameters:
+      caps: video/x-raw(memory:NVMM), format=NV12, width=1920, height=1080, framerate=30/1
+      in: nv_ds_static_input8
+      out: nv_ds_static_output7
+    type: nvidia::deepstream::GstCapsFilter
+  - name: nv_ds_static_output7
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: nv_ds_static_input8
+    type: nvidia::deepstream::NvDsStaticInput
+name: GstCapsFilter
+ui_property:
+  position:
+    x: 101.52368927001953
+    y: 207.49012756347656
+---
+components:
+  - name: nv_ds_video_renderer11
+    parameters:
+      video-in: nv_ds_static_input12
+      async: false
+    type: nvidia::deepstream::NvDsVideoRenderer
+  - name: nv_ds_static_input12
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsVideoRenderer
+ui_property:
+  position:
+    x: 967.9686889648438
+    y: 183.25392150878906
+---
+components:
+  - name: nv_ds_connection13
+    parameters:
+      source: NvDsOSD/nv_ds_static_output4
+      target: NvDsVideoRenderer/nv_ds_static_input12
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_meta_deserialize14
+    parameters:
+      deserialize-lib: /opt/nvidia/deepstream/deepstream/lib/libnvds_video_metadata_serialization.so
+      in: nv_ds_static_input16
+      out: nv_ds_static_output15
+    type: nvidia::deepstream::NvDsMetaDeserialize
+  - name: nv_ds_static_output15
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: nv_ds_static_input16
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsMetaDeserialize
+ui_property:
+  position:
+    x: 317.63006591796875
+    y: 209.5098114013672
+---
+components:
+  - name: nv_ds_connection17
+    parameters:
+      source: GstCapsFilter/nv_ds_static_output7
+      target: NvDsMetaDeserialize/nv_ds_static_input16
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_video_convert19
+    parameters:
+      video-in: nv_ds_static_input21
+      video-out: nv_ds_static_output20
+    type: nvidia::deepstream::NvDsVideoConvert
+  - name: nv_ds_static_output20
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: nv_ds_static_input21
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsVideoConvert
+ui_property:
+  position:
+    x: 523.637939453125
+    y: 197.39161682128906
+---
+components:
+  - name: nv_ds_connection22
+    parameters:
+      source: NvDsMetaDeserialize/nv_ds_static_output15
+      target: NvDsVideoConvert/nv_ds_static_input21
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_connection23
+    parameters:
+      source: NvDsVideoConvert/nv_ds_static_output20
+      target: NvDsOSD/nv_ds_static_input5
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_ucx_server_src24
+    parameters:
+      out: nv_ds_static_output25
+      port: 7174
+      addr: 192.168.1.100
+    type: nvidia::deepstream::NvDsUcxServerSrc
+  - name: nv_ds_static_output25
+    type: nvidia::deepstream::NvDsStaticOutput
+name: NvDsUcxServerSrc
+ui_property:
+  position:
+    x: -120.64167785644531
+    y: 211.5294647216797
+---
+components:
+  - name: nv_ds_connection26
+    parameters:
+      source: NvDsUcxServerSrc/nv_ds_static_output25
+      target: GstCapsFilter/nv_ds_static_input8
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_scheduler27
+    type: nvidia::deepstream::NvDsScheduler
+name: NvDsScheduler
+ui_property:
+  position:
+    x: 405.31536865234375
+    y: 403.5892333984375

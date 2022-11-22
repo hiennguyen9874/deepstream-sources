@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -11,17 +11,6 @@
 
 Refer to the DeepStream SDK documentation for a description of the "nvinfer"
 plugin and "NvDsInfer" API.
-
---------------------------------------------------------------------------------
-Pre-requisites:
-- TensorRT 7.1+ development package
-- OpenCV 3.4.0+ development package
-
-Please refer to the TensorRT documentation for installing the TensorRT development
-package.
-
-To install OpenCV development pacakge
-   sudo apt-get install libopencv-dev
 
 --------------------------------------------------------------------------------
 Compiling and installing the plugin:

@@ -23,13 +23,12 @@
 ################################################################################
 
 """Prepare the ImageNet dataset"""
-import argparse
-import gzip
 import os
-import pickle
-import subprocess
+import argparse
 import tarfile
-
+import pickle
+import gzip
+import subprocess
 from tqdm import tqdm
 
 _TRAIN_TAR = 'ILSVRC2012_img_train.tar'

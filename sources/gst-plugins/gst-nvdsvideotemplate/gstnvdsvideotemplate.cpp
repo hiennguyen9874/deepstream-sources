@@ -44,9 +44,9 @@ enum {
     PROP_CUSTOMLIB_NAME,
     PROP_GPU_DEVICE_ID,
     PROP_CUSTOMLIB_PROPS,
+    PROP_CUSTOMLIB_PROPS_VALUES,
     PROP_DUMMY_META_INSERT,
     PROP_FILL_DUMMY_BATCH_META,
-    PROP_CUSTOMLIB_PROPS_VALUES,
 };
 
 /* Default values for properties */
@@ -326,11 +326,6 @@ static void gst_nvdsvideotemplate_class_init(GstNvDsVideoTemplateClass *klass)
             "get customlib properties",
             NULL, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
-    g_object_class_install_property(
-        gobject_class, PROP_DUMMY_META_INSERT,
-        g_param_spec_boolean("dummy-meta-insert", "dummy-meta-insert",
-                             "Set to enable dummy meta data insertion", false,
-                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
     if (g_getenv("NVDS_CUSTOMLIB")) {
         g_object_class_install_property(
             gobject_class, PROP_CUSTOMLIB_PROPS_VALUES,
@@ -338,6 +333,11 @@ static void gst_nvdsvideotemplate_class_init(GstNvDsVideoTemplateClass *klass)
                                 "Customlib property values", NULL,
                                 (GParamFlags)(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
     }
+    g_object_class_install_property(
+        gobject_class, PROP_DUMMY_META_INSERT,
+        g_param_spec_boolean("dummy-meta-insert", "dummy-meta-insert",
+                             "Set to enable dummy meta data insertion", false,
+                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobject_class, PROP_FILL_DUMMY_BATCH_META,
@@ -451,8 +451,6 @@ static void gst_nvdsvideotemplate_get_property(GObject *object,
     case PROP_CUSTOMLIB_PROPS:
         g_value_set_string(value, nvdsvideotemplate->custom_prop_string);
         break;
-    case PROP_DUMMY_META_INSERT:
-        g_value_set_boolean(value, nvdsvideotemplate->dummy_meta_insert);
     case PROP_CUSTOMLIB_PROPS_VALUES:
         if (g_getenv("NVDS_CUSTOMLIB")) {
             DSCustomLibrary_Factory *algo_factory = new DSCustomLibrary_Factory();
@@ -472,6 +470,8 @@ static void gst_nvdsvideotemplate_get_property(GObject *object,
             if (str)
                 delete str;
         }
+    case PROP_DUMMY_META_INSERT:
+        g_value_set_boolean(value, nvdsvideotemplate->dummy_meta_insert);
         break;
     case PROP_FILL_DUMMY_BATCH_META:
         g_value_set_boolean(value, nvdsvideotemplate->fill_dummy_batch_meta);

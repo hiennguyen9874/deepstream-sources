@@ -1,0 +1,22 @@
+#############################################################################
+# Copyright (c) 2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+---
+components:
+  - name: nv_ds_ucx_client_src7
+    parameters:
+      addr: 192.168.1.100
+      port: 7174
+name: NvDsUcxClientSrc
+---
+components:
+  - name: gst_caps_filter9
+    parameters:
+      caps: "video/x-raw(memory:NVMM), format=NV12, width=1280, height=720, framerate=30/1"
+name: GstCapsFilter

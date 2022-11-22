@@ -312,9 +312,6 @@ struct _GstNvDsPreProcess {
 
     /** NVTX Domain. */
     nvtxDomainHandle_t nvtx_domain;
-
-    // sum total of ROIs of all the groups
-    gint sum_total_rois;
 };
 
 /** Boiler plate stuff */

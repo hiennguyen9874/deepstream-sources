@@ -1,0 +1,75 @@
+#############################################################################
+# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+
+This sample has a pipeline equal to that in the "deepstream-test1" graph, except
+that it uses a subgraph to wrap the core inference part, which is defined in
+inference.yaml and can be re-used in different graphs.
+
+The video-in and video-out is the interface exported from the core inference
+subgraph, being used as the video input and video output from the parent graph.
+So in this example, the video-in of the inference subgraph is connected to the
+video out from the single source component in the parent graph and the video-out
+is connected to the video renderer component
+
+================================================================================
+Pre-requisites
+================================================================================
+- DeepStreamSDK 6.1.1
+- Graph-Composer 2.0.1
+
+================================================================================
+Running the graph
+================================================================================
+On x86:
+$ /opt/nvidia/graph-composer/execute_graph.sh main_graph.yaml \
+       -s inference_subgraph.yaml -d ../common/target_x86_64.yaml
+
+On Jetson:
+$ /opt/nvidia/graph-composer/execute_graph.sh main_graph.yaml \
+       -s inference_subgraph.yaml -d ../common/target_aarch64.yaml
+
+NOTE: When executing on a remote target, additional argument "--resources resources.yaml"
+      must be provided to execute_graph.sh script.
+
+NOTE: main_graph.yaml is the main graph file describing the DeepStream
+graph(pipeline) and it includes the inference_subgraph.yaml using the
+"nvidia::gxf::Subgraph" component.
+
+================================================================================
+Building application(graph) specific container image
+================================================================================
+The Graph-Composer Container Builder tool can be used to build application(graph)
+specific containers. The container builder configuration files have already been
+provided for this sample.
+
+* Building a DGPU container and running on the same host
+  $ container_builder -c ds_subgraph_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml
+  $ xhost +
+  $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
+        -e DISPLAY=:0 deepstream_subgraph_dgpu
+
+
+* Building a Jetson container on x86 host
+- In ds_subgraph_container_builder_jetson.yaml, change <docker-container-registry>
+  to a valid docker registry where containers can be pushed, and then build:
+  $ container_builder -c ds_subgraph_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml
+
+- Push the built image to the docker registry:
+  $ docker push <docker-container-registry>:deepstream-subgraph-jetson
+
+* Running the image on Jetson
+  $ sudo docker pull <docker-container-registry>:deepstream-subgraph-jetson
+  $ xhost +
+  $ sudo docker run -it --rm --net=host --runtime nvidia -e DISPLAY=:0 \
+        -v /tmp/.X11-unix/:/tmp/.X11-unix \
+        -v /tmp/argus_socket:/tmp/argus_socket \
+        <docker-container-registry>:deepstream-subgraph-jetson

@@ -1,0 +1,148 @@
+#############################################################################
+# Copyright (c) 2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+application:
+  name: deepstream-ucx-server
+---
+dependencies:
+  - extension: NvDsSourceExt
+    uuid: a632d022-3425-4848-9074-e6483ef74366
+    version: 1.0.0
+  - extension: NvDsBaseExt
+    uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
+    version: 1.0.0
+  - extension: NvDsUcxExt
+    uuid: 4ee6215d-cb14-41e8-a266-5c45f4f9ffd4
+    version: 0.0.1
+  - extension: NvDsConverterExt
+    uuid: 7fe1ae48-7bb3-49a8-98fb-142ba07eb273
+    version: 1.0.0
+---
+components:
+  - name: nv_ds_single_src_input0
+    parameters:
+      audio-out-%u: nv_ds_dynamic_output2
+      uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
+      video-out-%u: nv_ds_dynamic_output1
+    type: nvidia::deepstream::NvDsSingleSrcInput
+  - name: nv_ds_dynamic_output1
+    type: nvidia::deepstream::NvDsDynamicOutput
+  - name: nv_ds_dynamic_output2
+    type: nvidia::deepstream::NvDsDynamicOutput
+name: NvDsSingleSrcInput
+ui_property:
+  position:
+    x: 350.734375
+    y: 127.56455993652344
+---
+components:
+  - name: nv_ds_scheduler6
+    type: nvidia::deepstream::NvDsScheduler
+name: scheduler
+ui_property:
+  position:
+    x: 771.544189453125
+    y: 18.74936294555664
+---
+components:
+  - name: nv_ds_ucx_server_sink48
+    parameters:
+      addr: 1.1.3.10
+      async: false
+      in: nv_ds_static_input49
+      port: 7174
+    type: nvidia::deepstream::NvDsUcxServerSink
+  - name: nv_ds_static_input49
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsUcxServerSink
+ui_property:
+  position:
+    x: 1265.0362548828125
+    y: 154.74534606933594
+---
+components:
+  - name: gst_caps_filter77
+    parameters:
+      caps: video/x-raw(memory:NVMM), width=1280, height=720
+      in: nv_ds_static_input79
+      out: nv_ds_static_output78
+    type: nvidia::deepstream::GstCapsFilter
+  - name: nv_ds_static_output78
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: nv_ds_static_input79
+    type: nvidia::deepstream::NvDsStaticInput
+name: GstCapsFilter
+ui_property:
+  position:
+    x: 1045.24658203125
+    y: 147.76541137695312
+---
+components:
+  - name: nv_ds_connection81
+    parameters:
+      source: GstCapsFilter/nv_ds_static_output78
+      target: NvDsUcxServerSink/nv_ds_static_input49
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_queue88
+    parameters:
+      in: nv_ds_static_input90
+      out: nv_ds_static_output89
+    type: nvidia::deepstream::NvDsQueue
+  - name: nv_ds_static_output89
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: nv_ds_static_input90
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsQueue
+ui_property:
+  position:
+    x: 565.0821533203125
+    y: 166.51092529296875
+---
+components:
+  - name: nv_ds_connection91
+    parameters:
+      source: NvDsSingleSrcInput/nv_ds_dynamic_output1
+      target: NvDsQueue/nv_ds_static_input90
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_video_convert92
+    parameters:
+      video-in: nv_ds_static_input94
+      video-out: nv_ds_static_output93
+    type: nvidia::deepstream::NvDsVideoConvert
+  - name: nv_ds_static_output93
+    type: nvidia::deepstream::NvDsStaticOutput
+  - name: nv_ds_static_input94
+    type: nvidia::deepstream::NvDsStaticInput
+name: NvDsVideoConvert
+ui_property:
+  position:
+    x: 802.9263916015625
+    y: 156.0097198486328
+---
+components:
+  - name: nv_ds_connection95
+    parameters:
+      source: NvDsQueue/nv_ds_static_output89
+      target: NvDsVideoConvert/nv_ds_static_input94
+    type: nvidia::deepstream::NvDsConnection
+name: node
+---
+components:
+  - name: nv_ds_connection96
+    parameters:
+      source: NvDsVideoConvert/nv_ds_static_output93
+      target: GstCapsFilter/nv_ds_static_input79
+    type: nvidia::deepstream::NvDsConnection
+name: node

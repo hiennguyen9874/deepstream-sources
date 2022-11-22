@@ -1,0 +1,92 @@
+#############################################################################
+# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+
+This sample is meant for simple demonstration of how to use the various
+DeepStream extensions and components in the graph and extract meaningful
+insights from an audio stream.
+
+This sample uses the "NvDsSingleSrcInput" component to get decoded audio from
+a file. As opposed to other graphs containing "NvDsStreamMux" component, this
+graph uses "NvDsStreamMuxNew" component which is the new implementation and
+supports audio.
+
+It is connected to "NvDsInferAudio" component which is responsible for
+executing inference on the input audio samples. It is connected to the
+"NvDsFakeSink" component which just discards the data, since we don't really use
+the audio data after inferencing in this sample. Finally there is an
+"NvDsScheduler" component in the graph which is responsible for constructing the
+underlying DeepStream pipeline and scheduling the components in the graph.
+
+The "NvDsInferAudio" component is configured using
+"NvDsSonyCAudioClassifierModel". This component is derived from
+"INvDsInferModelConfigComponent" which is the base type for  model configuration
+provider components for "NvDsInferAudio" and are responsible for providing
+the model files and the configuration file to the "Gst-nvinferaudio" element executing
+underneath. In this case, it classifies audio into different types of urban
+sounds.
+
+"NvDsInferAudio" component attaches inference results as metadata to the buffer.
+This information can be extracted by adding a "INvDsInPlaceDataHandler" based
+component which essentially probes the data flowing through a particular point in
+the underlying pipeline. In this graph, "NvDsAudioClassificationPrint" is added
+to demonstrate printing the audio classification labels to the terminal.
+
+================================================================================
+Pre-requisites
+================================================================================
+- DeepStreamSDK 6.1.1
+- Graph-Composer 2.0.1
+
+================================================================================
+Running the graph
+================================================================================
+On x86:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-audio.yaml \
+      parameters.yaml -d ../common/target_x86_64.yaml
+
+On Jetson:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-audio.yaml \
+      parameters.yaml -d ../common/target_aarch64.yaml
+
+NOTE: deepstream-audio.yaml is the main graph file describing the DeepStream
+graph(pipeline) along with the configuration parameters for the components in the
+graph. parameters.yaml can be used to override these parameter values.
+
+================================================================================
+Building application(graph) specific container image
+================================================================================
+The Graph-Composer Container Builder tool can be used to build application(graph)
+specific containers. The container builder configuration files have already been
+provided for this sample.
+
+* Building a DGPU container and running on the same host
+  $ container_builder -c ds_audio_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml
+  $ xhost +
+  $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
+        -e DISPLAY=:0 deepstream_audio_dgpu
+
+
+* Building a Jetson container on x86 host
+- In ds_audio_container_builder_jetson.yaml, change <docker-container-registry>
+  to a valid docker registry where containers can be pushed, and then build:
+  $ container_builder -c ds_audio_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml
+
+- Push the built image to the docker registry:
+  $ docker push <docker-container-registry>:deepstream-audio-jetson
+
+* Running the image on Jetson
+  $ sudo docker pull <docker-container-registry>:deepstream-audio-jetson
+  $ xhost +
+  $ sudo docker run -it --rm --net=host --runtime nvidia -e DISPLAY=:0 \
+        -v /tmp/.X11-unix/:/tmp/.X11-unix \
+        -v /tmp/argus_socket:/tmp/argus_socket \
+        <docker-container-registry>:deepstream-audio-jetson

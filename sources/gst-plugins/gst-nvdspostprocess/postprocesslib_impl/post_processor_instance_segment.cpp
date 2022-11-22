@@ -186,7 +186,7 @@ NvDsPostProcessStatus InstanceSegmentModelPostProcessor::initResource(
         if (!strcmp("NvDsPostProcessParseCustomMrcnnTLT ",
                     initParams.customBBoxInstanceMaskParseFuncName)) {
             m_CustomParseFunc = NvDsPostProcessParseCustomMrcnnTLT;
-        } else if (!strcmp("NvDsPostProcessParseCustomMrcnnTLTV2",
+        } else if (!strcmp("NvDsInferParseCustomMrcnnTLTV2",
                            initParams.customBBoxInstanceMaskParseFuncName)) {
             m_CustomParseFunc = NvDsPostProcessParseCustomMrcnnTLTV2;
         } else {
