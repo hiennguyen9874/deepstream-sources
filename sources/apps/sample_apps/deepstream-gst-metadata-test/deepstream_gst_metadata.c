@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -305,7 +305,6 @@ int main(int argc, char *argv[])
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *source = NULL, *h264parser = NULL, *decoder = NULL,
                *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL, *nvosd = NULL;
-    GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *infer_src_pad = NULL;
@@ -360,17 +359,13 @@ int main(int argc, char *argv[])
 
     /* Finally render the osd output */
     if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+    } else {
+        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     }
-    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!source || !h264parser || !decoder || !pgie || !nvvidconv || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
-        return -1;
-    }
-
-    if (!transform && prop.integrated) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
         return -1;
     }
 
@@ -391,13 +386,8 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    if (prop.integrated) {
-        gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, nvvidconv,
-                         nvosd, transform, sink, NULL);
-    } else {
-        gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, nvvidconv,
-                         nvosd, sink, NULL);
-    }
+    gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, nvvidconv,
+                     nvosd, sink, NULL);
 
     GstPad *sinkpad, *srcpad;
     gchar pad_name_sink[16] = "sink_0";
@@ -432,16 +422,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (prop.integrated) {
-        if (!gst_element_link_many(streammux, pgie, nvvidconv, nvosd, transform, sink, NULL)) {
-            g_printerr("Elements could not be linked: 2. Exiting.\n");
-            return -1;
-        }
-    } else {
-        if (!gst_element_link_many(streammux, pgie, nvvidconv, nvosd, sink, NULL)) {
-            g_printerr("Elements could not be linked: 2. Exiting.\n");
-            return -1;
-        }
+    if (!gst_element_link_many(streammux, pgie, nvvidconv, nvosd, sink, NULL)) {
+        g_printerr("Elements could not be linked: 2. Exiting.\n");
+        return -1;
     }
 
     /* Lets add probe to set h264parse metadata attached with NvDsMeta.

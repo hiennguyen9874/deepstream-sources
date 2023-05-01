@@ -134,9 +134,9 @@ GstCaps *DSCustomLibraryBase::GetCompatibleCaps(GstPadDirection direction,
     gint num, denom;
     const gchar *inputFmt = NULL;
 
-    g_print("\n----------\ndirection = %d (1=Src, 2=Sink) -> %s:\nCAPS = %s\n", direction, __func__,
-            gst_caps_to_string(in_caps));
-    g_print("%s : OTHERCAPS = %s\n", __func__, gst_caps_to_string(othercaps));
+    GST_INFO_OBJECT(m_element, "\n----------\ndirection = %d (1=Src, 2=Sink) -> %s:\nCAPS = %s\n",
+                    direction, __func__, gst_caps_to_string(in_caps));
+    GST_INFO_OBJECT(m_element, "%s : OTHERCAPS = %s\n", __func__, gst_caps_to_string(othercaps));
 
 #if 0
   GST_INFO_OBJECT (nvdsvideotemplate, "%s : CAPS = %" GST_PTR_FORMAT "\n\n", __func__, in_caps);
@@ -181,7 +181,8 @@ GstCaps *DSCustomLibraryBase::GetCompatibleCaps(GstPadDirection direction,
 
     gst_caps_unref(othercaps);
 
-    g_print("%s : Updated OTHERCAPS = %s \n\n", __func__, gst_caps_to_string(othercaps));
+    GST_INFO_OBJECT(m_element, "%s : Updated OTHERCAPS = %s \n\n", __func__,
+                    gst_caps_to_string(othercaps));
 #if 0
   GST_INFO_OBJECT (nvdsvideotemplate, "%s : CAPS = %" GST_PTR_FORMAT "\n\n", __func__, othercaps);
   GST_INFO_OBJECT(nvdsvideotemplate, "CAPS fixate: %" GST_PTR_FORMAT ", direction %d",

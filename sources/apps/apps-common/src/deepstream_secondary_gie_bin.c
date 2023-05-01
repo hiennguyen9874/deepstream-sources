@@ -198,6 +198,9 @@ static gboolean create_secondary_gie(NvDsGieConfig *configs1,
     g_object_set(G_OBJECT(subbin->secondary_gie), "config-file-path",
                  GET_FILE_PATH(config->config_file_path), "process-mode", 2, NULL);
 
+    g_object_set(G_OBJECT(subbin->secondary_gie), "input-tensor-meta", config->input_tensor_meta,
+                 NULL);
+
     if (config->num_operate_on_class_ids != 0)
         g_object_set(G_OBJECT(subbin->secondary_gie), "infer-on-class-ids", operate_on_class_str,
                      NULL);

@@ -16,7 +16,7 @@ base_image: auto
 stage_model: clean_stage
 
 local_copy_files:
-  - src: "/opt/nvidia/graph-composer/graph_composer-2.0.1_arm64.deb"
+  - src: "/opt/nvidia/graph-composer/graph_composer-2.5.0_arm64.deb"
     dst: "/tmp/"
   - src: "source30_1080p_dec_infer-resnet_tiled_display_int8.parameters.yaml"
     dst: "/workspace/deepstream-app/"
@@ -25,7 +25,7 @@ apt_deps:
   - rsync
 
 custom_runs:
-  - "apt install -y /tmp/graph_composer-2.0.1_arm64.deb && rm -rf /tmp/graph_composer-2.0.1_arm64.deb"
+  - "apt install -y /tmp/graph_composer-2.5.0_arm64.deb && rm -rf /tmp/graph_composer-2.5.0_arm64.deb"
 
 work_folder: /workspace/deepstream-app/
 

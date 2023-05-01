@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -13,7 +14,7 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -52,6 +53,13 @@
 #define MUXER_BATCH_TIMEOUT_USEC 40000
 #define IS_YAML(file) (g_str_has_suffix(file, ".yml") || g_str_has_suffix(file, ".yaml"))
 
+/* Check for parsing error. */
+#define RETURN_ON_PARSER_ERROR(parse_expr)                    \
+    if (NVDS_YAML_PARSER_SUCCESS != parse_expr) {             \
+        g_printerr("Error in parsing configuration file.\n"); \
+        return -1;                                            \
+    }
+
 static gchar *cfg_file = NULL;
 static gchar *input_file = NULL;
 static gchar *topic = NULL;
@@ -76,7 +84,7 @@ GOptionEntry entries[] = {
     {"proto-lib", 'p', 0, G_OPTION_ARG_STRING, &proto_lib, "Absolute path of adaptor library",
      NULL},
     {"schema", 's', 0, G_OPTION_ARG_INT, &schema_type,
-     "Type of message schema (0=Full, 1=minimal), default=0", NULL},
+     "Type of message schema (0=Full, 1=minimal, 2=protobuf), default=0", NULL},
     {"msg2p-meta", 0, 0, G_OPTION_ARG_INT, &msg2p_meta,
      "msg2payload generation metadata type (0=Event Msg meta, 1=nvds meta), default=0", NULL},
     {"frame-interval", 0, 0, G_OPTION_ARG_INT, &frame_interval,
@@ -431,7 +439,6 @@ int main(int argc, char *argv[])
                *pgie = NULL, *nvvidconv = NULL, *nvosd = NULL, *nvstreammux;
     GstElement *msgconv = NULL, *msgbroker = NULL, *tee = NULL;
     GstElement *queue1 = NULL, *queue2 = NULL;
-    GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *osd_sink_pad = NULL;
@@ -442,6 +449,7 @@ int main(int argc, char *argv[])
     GOptionContext *ctx = NULL;
     GOptionGroup *group = NULL;
     GError *error = NULL;
+    NvDsGieType pgie_type = NVDS_GIE_PLUGIN_INFER;
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -484,6 +492,11 @@ int main(int argc, char *argv[])
 
     loop = g_main_loop_new(NULL, FALSE);
 
+    /* Parse inference plugin type */
+    if (argc > 1 && IS_YAML(argv[1])) {
+        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&pgie_type, argv[1], "primary-gie"));
+    }
+
     /* Create gstreamer elements */
     /* Create Pipeline element that will form a connection of other elements */
     pipeline = gst_pipeline_new("dstest4-pipeline");
@@ -500,9 +513,13 @@ int main(int argc, char *argv[])
 
     nvstreammux = gst_element_factory_make("nvstreammux", "nvstreammux");
 
-    /* Use nvinfer to run inferencing on decoder's output,
+    /* Use nvinfer or nvinferserver to run inferencing on decoder's output,
      * behaviour of inferencing is set through config file */
-    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    if (pgie_type == NVDS_GIE_PLUGIN_INFER_SERVER) {
+        pgie = gst_element_factory_make("nvinferserver", "primary-nvinference-engine");
+    } else {
+        pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    }
 
     /* Use convertor to convert from NV12 to RGBA as required by nvosd */
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
@@ -526,16 +543,10 @@ int main(int argc, char *argv[])
     /* Finally render the osd output */
     if (display_off) {
         sink = gst_element_factory_make("fakesink", "nvvideo-renderer");
+    } else if (prop.integrated) {
+        sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
     } else {
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-
-        if (prop.integrated) {
-            transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
-            if (!transform) {
-                g_printerr("nvegltransform element could not be created. Exiting.\n");
-                return -1;
-            }
-        }
     }
 
     if (!pipeline || !source || !h264parser || !decoder || !nvstreammux || !pgie || !nvvidconv ||
@@ -545,20 +556,23 @@ int main(int argc, char *argv[])
     }
 
     if (argc > 1 && IS_YAML(argv[1])) {
-        nvds_parse_file_source(source, argv[1], "source");
-        nvds_parse_streammux(nvstreammux, argv[1], "streammux");
+        RETURN_ON_PARSER_ERROR(nvds_parse_file_source(source, argv[1], "source"));
+        RETURN_ON_PARSER_ERROR(nvds_parse_streammux(nvstreammux, argv[1], "streammux"));
 
-        g_object_set(G_OBJECT(pgie), "config-file-path", "dstest4_pgie_config.yml", NULL);
+        RETURN_ON_PARSER_ERROR(nvds_parse_gie(pgie, argv[1], "primary-gie"));
 
         g_object_set(G_OBJECT(msgconv), "config", "dstest4_msgconv_config.yml", NULL);
-        nvds_parse_msgconv(msgconv, argv[1], "msgconv");
+        RETURN_ON_PARSER_ERROR(nvds_parse_msgconv(msgconv, argv[1], "msgconv"));
 
-        nvds_parse_msgbroker(msgbroker, argv[1], "msgbroker");
+        RETURN_ON_PARSER_ERROR(nvds_parse_msgbroker(msgbroker, argv[1], "msgbroker"));
 
-        if (display_off)
-            nvds_parse_fake_sink(sink, argv[1], "sink");
-        else
-            nvds_parse_egl_sink(sink, argv[1], "sink");
+        if (display_off) {
+            RETURN_ON_PARSER_ERROR(nvds_parse_fake_sink(sink, argv[1], "sink"));
+        } else if (prop.integrated) {
+            RETURN_ON_PARSER_ERROR(nvds_parse_3d_sink(sink, argv[1], "sink"));
+        } else {
+            RETURN_ON_PARSER_ERROR(nvds_parse_egl_sink(sink, argv[1], "sink"));
+        }
 
     } else {
         /* we set the input filename to the source element */
@@ -601,13 +615,9 @@ int main(int argc, char *argv[])
     gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, nvstreammux, pgie, nvvidconv,
                      nvosd, tee, queue1, queue2, msgconv, msgbroker, sink, NULL);
 
-    if (prop.integrated) {
-        if (!display_off)
-            gst_bin_add(GST_BIN(pipeline), transform);
-    }
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder -> nvstreammux ->
-     * nvinfer -> nvvidconv -> nvosd -> tee -> video-renderer
+     * pgie -> nvvidconv -> nvosd -> tee -> video-renderer
      *                                      |
      *                                      |-> msgconv -> msgbroker  */
 
@@ -646,23 +656,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (prop.integrated) {
-        if (!display_off) {
-            if (!gst_element_link_many(queue2, transform, sink, NULL)) {
-                g_printerr("Elements could not be linked. Exiting.\n");
-                return -1;
-            }
-        } else {
-            if (!gst_element_link(queue2, sink)) {
-                g_printerr("Elements could not be linked. Exiting.\n");
-                return -1;
-            }
-        }
-    } else {
-        if (!gst_element_link(queue2, sink)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    if (!gst_element_link(queue2, sink)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 
     sink_pad = gst_element_get_static_pad(queue1, "sink");

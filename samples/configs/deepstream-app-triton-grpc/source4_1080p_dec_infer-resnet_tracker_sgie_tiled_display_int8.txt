@@ -154,7 +154,7 @@ config-file=config_infer_plan_engine_primary.txt
 
 [tracker]
 enable=1
-# For NvDCF and DeepSORT tracker, tracker-width and tracker-height must be a multiple of 32, respectively
+# For NvDCF and NvDeepSORT tracker, tracker-width and tracker-height must be a multiple of 32, respectively
 tracker-width=640
 tracker-height=384
 ll-lib-file=/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so

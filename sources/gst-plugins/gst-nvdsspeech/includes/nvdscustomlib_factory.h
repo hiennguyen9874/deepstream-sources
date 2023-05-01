@@ -1,5 +1,6 @@
-/**
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -13,7 +14,7 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -54,7 +55,10 @@ public:
     {
         m_libName.assign(libName);
 
-        m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW);
+        // Using RTLD_GLOBAL to avoid libprotobuf.so 'file already exists in
+        // database' error when using common .proto file in two plugins.
+        // For e.g. riva_audio.proto in Riva ASR and TTS services.
+        m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW | RTLD_GLOBAL);
         if (m_libHandle) {
             std::cout << "Library Opened Successfully" << std::endl;
 

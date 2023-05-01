@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -283,6 +283,14 @@ void *nvll_osd_set_params(NvOSDCtxHandle nvosd_ctx, int width, int height);
 int nvll_osd_init_colors_for_hw_blend(void *nvosd_ctx,
                                       NvOSD_Color_info *color_info,
                                       int num_classes);
+
+/**
+ * Apply OSD to the video frame for GPU backend.
+ *
+ * @param[in] nvosd_ctx A handle for the NvOSD context.
+ * @param[in] buf_ptr Surface which the OSD apply.
+ */
+int nvll_osd_apply(NvOSDCtxHandle nvosd_ctx, NvBufSurfaceParams *buf_ptr);
 
 #ifdef __cplusplus
 }

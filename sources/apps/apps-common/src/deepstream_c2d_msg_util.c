@@ -40,7 +40,7 @@
 static time_t nvds_c2d_str_to_second(const gchar *str)
 {
     char *err;
-    struct tm tm_log;
+    struct tm tm_log = {0};
     time_t t1;
 
     g_return_val_if_fail(str, -1);

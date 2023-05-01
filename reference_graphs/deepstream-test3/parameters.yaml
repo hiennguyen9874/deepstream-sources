@@ -10,31 +10,31 @@
 ################################################################################
 
 components:
-  - name: nv_ds_multi_src_input0..d6a0
+  - name: multiple_source_input
     parameters:
       uri-list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
-name: NvDsMultiSrcInput..2278
+name: multiple_source_input
 ---
 components:
-  - name: nv_ds_stream_mux3..e400
+  - name: streammux
     parameters:
       batch-size: 4
       batched-push-timeout: 40000
       height: 1080
       width: 1920
-name: NvDsStreamMux..2198
+name: streammux
 ---
 components:
-  - name: nv_ds_infer7..edd8
+  - name: object_detector
     parameters:
       batch-size: 4
-  - name: resnet10_4_class_detector26..f6d8
+  - name: resnet10_4_class_detector
     parameters:
       model-engine-file: primary.resnet10.caffemodel_b4_gpu0_int8.engine
-name: NvDsInferVideo..2358
+name: object_detector
 ---
 components:
-  - name: per_class_object_counting22..8080
+  - name: per_class_object_counting
     parameters:
       overlay-count: false
-name: NvDsPerClassObjectCounting..4390
+name: per_class_object_counting

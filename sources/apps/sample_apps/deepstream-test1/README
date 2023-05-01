@@ -1,11 +1,13 @@
 *****************************************************************************
-* Copyright (c) 2018-2022 NVIDIA Corporation.  All rights reserved.
+* SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+* SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 *
-* NVIDIA Corporation and its licensors retain all intellectual property
-* and proprietary rights in and to this software, related documentation
-* and any modifications thereto.  Any use, reproduction, disclosure or
-* distribution of this software and related documentation without an express
-* license agreement from NVIDIA Corporation is strictly prohibited.
+* NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+* property and proprietary rights in and to this material, related
+* documentation and any modifications thereto. Any use, reproduction,
+* disclosure or distribution of this material and related documentation
+* without an express license agreement from NVIDIA CORPORATION or
+* its affiliates is strictly prohibited.
 *****************************************************************************
 
 *****************************************************************************
@@ -16,9 +18,8 @@
 ===============================================================================
 1. Prerequisites:
 ===============================================================================
-
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
-to install the prequisites for Deepstream SDK, the DeepStream SDK itself and the
+to install the prerequisites for Deepstream SDK, the DeepStream SDK itself and the
 apps.
 
 You must have the following development packages installed
@@ -30,6 +31,14 @@ You must have the following development packages installed
 To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
+
+This example can be configured to use either the nvinfer or the nvinferserver
+element for inference.
+If nvinferserver is selected, the Triton Inference Server is used for inference
+processing. In this case, the example needs to be run inside the
+DeepStream-Triton docker container. Please refer
+samples/configs/deepstream-app-triton/README for the steps to download the
+container image and setup model repository.
 
 ===============================================================================
 2. Purpose:
@@ -46,8 +55,8 @@ elements in the pipeline and extract meaningful insights from a video stream.
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.7
-  $ sudo make
+      For x86, CUDA_VER=11.8
+  $ sudo make (sudo not required in case of docker containers)
 
 ===============================================================================
 4. Usage:
@@ -68,20 +77,26 @@ elements in the pipeline and extract meaningful insights from a video stream.
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
 
-This sample creates instance of "nvinfer" element. Instance of
-the "nvinfer" uses TensorRT API to execute inferencing on a model. Using a
-correct configuration for a nvinfer element instance is therefore very
-important as considerable behaviors of the instance are parameterized
-through these configs.
+This sample creates instance of either "nvinfer" or "nvinferserver" element
+for inference. The "nvinfer" element uses TensorRT API to infer
+on frames/objects. The "nvinferserver" element uses the Triton Inference
+Server to infer on frames/objects. Both elements are configured through their
+respective config files. Using a correct configuration for a inference element
+instance is therefore very important as considerable behaviors of the instance
+are parameterized through these configs.
 
 For reference, here are the config files used for this sample :
 1. The 4-class detector (referred to as pgie in this sample) uses
-    dstest1_pgie_config.txt
+    dstest1_pgie_config.yml / dstest1_pgie_nvinferserver_config.yml
 
-In this sample, we first create one instance of "nvinfer", referred as the pgie.
-This is a 4 class detector and it detects for "Vehicle , RoadSign, TwoWheeler,
-Person".
-nvinfer element attach some MetaData to the buffer. By attaching
+The GIE configuration group in the YAML configuration file of the application
+can be used to set the inference plugin type (nvinfer or nvinferserver) and
+corresponding plugin configuration file.
+
+In this sample, we create one instance of either "nvinfer" or "nvinferserver",
+referred as the pgie. This is a 4 class detector and it detects the classes
+"Vehicle , RoadSign, TwoWheeler, Person".
+The inference element attaches inference metadata to the buffer. By attaching
 the probe function at the end of the pipeline, one can extract meaningful
 information from this inference. Please refer the "osd_sink_pad_buffer_probe"
 function in the sample code. For details on the Metadata format, refer to the

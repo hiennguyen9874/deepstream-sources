@@ -10,11 +10,11 @@
 ################################################################################
 ---
 components:
-  - name: nv_ds_camera_src_input0..56a0
+  - name: camera_source_input
     parameters:
       type: 0
       width: 640
       height: 480
       v4l2-device: /dev/video0
       framerate: 30
-name: NvDsCameraSrcInput..8ba8
+name: camera_source_input

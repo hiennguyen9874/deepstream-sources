@@ -1455,16 +1455,14 @@ static gpointer create_video_sink_bin(NvDsNmosAppCtx *appCtx, NvDsNmosSrcConfig 
         struct cudaDeviceProp prop;
         cudaGetDeviceProperties(&prop, 0);
 
-        sink = gst_element_factory_make("nveglglessink", NULL);
+        if (prop.integrated) {
+            sink = gst_element_factory_make("nv3dsink", NULL);
+        } else {
+            sink = gst_element_factory_make("nveglglessink", NULL);
+        }
         gst_bin_add_many(GST_BIN(sinkbin), queue, sink, NULL);
         g_object_set(G_OBJECT(sink), "sync", 0, NULL);
         GstElement *elemToLink = sink;
-        if (prop.integrated) {
-            GstElement *egltransform = gst_element_factory_make("nvegltransform", NULL);
-            gst_bin_add(GST_BIN(sinkbin), egltransform);
-            gst_element_link(egltransform, sink);
-            elemToLink = egltransform;
-        }
         gst_element_link(queue, elemToLink);
     }
 

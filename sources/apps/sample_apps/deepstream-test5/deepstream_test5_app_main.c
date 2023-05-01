@@ -452,7 +452,8 @@ static void generate_person_meta(gpointer data)
 }
 #endif /**< GENERATE_DUMMY_META_EXT */
 
-static void generate_event_msg_meta(gpointer data,
+static void generate_event_msg_meta(AppCtx *appCtx,
+                                    gpointer data,
                                     gint class_id,
                                     gboolean useTs,
                                     GstClockTime ts,
@@ -506,6 +507,15 @@ static void generate_event_msg_meta(gpointer data,
 
     /** tracking ID */
     meta->trackingId = obj_params->object_id;
+
+    /** sensor ID when streams are added using nvmultiurisrcbin REST API */
+    NvDsSensorInfo *sensorInfo = get_sensor_info(appCtx, stream_id);
+    if (sensorInfo) {
+        /** this stream was added using REST API; we have Sensor Info! */
+        LOGD("this stream [%d:%s] was added using REST API; we have Sensor Info\n",
+             sensorInfo->source_id, sensorInfo->sensor_id);
+        meta->sensorStr = g_strdup(sensorInfo->sensor_id);
+    }
 
     (void)ts_generated;
 
@@ -624,7 +634,7 @@ static void bbox_generated_probe_after_analytics(AppCtx *appCtx,
                 NvDsEventMsgMeta *msg_meta =
                     (NvDsEventMsgMeta *)g_malloc0(sizeof(NvDsEventMsgMeta));
                 generate_event_msg_meta(
-                    msg_meta, obj_meta->class_id, TRUE,
+                    appCtx, msg_meta, obj_meta->class_id, TRUE,
                     /**< useTs NOTE: Pass FALSE for files without base-timestamp in URI */
                     buffer_pts, appCtx->config.multi_source_config[stream_id].uri, stream_id,
                     appCtx->config.multi_source_config[stream_id].camera_id, obj_meta, scaleW,
@@ -684,11 +694,15 @@ static void perf_cb(gpointer context, NvDsAppPerfStruct *str)
     guint numf = str->num_instances;
 
     g_mutex_lock(&fps_lock);
+    guint active_src_count = 0;
     for (i = 0; i < numf; i++) {
         fps[i] = str->fps[i];
+        if (fps[i]) {
+            active_src_count++;
+        }
         fps_avg[i] = str->fps_avg[i];
     }
-
+    g_print("Active sources : %u\n", active_src_count);
     if (header_print_cnt % 20 == 0) {
         g_print("\n**PERF:  ");
         for (i = 0; i < numf; i++) {
@@ -1370,7 +1384,7 @@ int main(int argc, char *argv[])
 
         if (override_cfg_file && override_cfg_file[i]) {
             if (!g_file_test(override_cfg_file[i],
-                             G_FILE_TEST_IS_REGULAR | G_FILE_TEST_IS_SYMLINK)) {
+                             (GFileTest)(G_FILE_TEST_IS_REGULAR | G_FILE_TEST_IS_SYMLINK))) {
                 g_print("Override file %s does not exist, quitting...\n", override_cfg_file[i]);
                 appCtx[i]->return_value = -1;
                 goto done;

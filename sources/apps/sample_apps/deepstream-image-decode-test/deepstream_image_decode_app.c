@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -214,7 +214,8 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     g_object_set(G_OBJECT(source), "location", uri, NULL);
 
     const char *dot = strrchr(uri, '.');
-    if ((!strcmp(dot + 1, "mjpeg")) || (!strcmp(dot + 1, "mjpg")) || (multi_file_src == TRUE)) {
+    if ((!strcmp(dot + 1, "mjpeg")) || (!strcmp(dot + 1, "mjpg")) || (!strcmp(dot + 1, "mp4")) ||
+        (multi_file_src == TRUE)) {
         if (prop.integrated) {
             g_object_set(G_OBJECT(decoder), "mjpeg", 1, NULL);
         }
@@ -250,9 +251,8 @@ static GstElement *create_source_bin(guint index, gchar *uri)
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
-    GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL,
-               *nvosd = NULL, *tiler = NULL;
-    GstElement *transform = NULL;
+    GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *nvvideoconv = NULL, *pgie = NULL,
+               *nvvidconv = NULL, *nvosd = NULL, *tiler = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *tiler_src_pad = NULL;
@@ -326,6 +326,9 @@ int main(int argc, char *argv[])
         gst_object_unref(sinkpad);
     }
 
+    /* Use convertor to convert to appropriate format */
+    nvvideoconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter1");
+
     /* Use nvinfer to infer on batched frame. */
     pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
 
@@ -341,18 +344,14 @@ int main(int argc, char *argv[])
 
     /* Finally render the osd output */
     if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+    } else {
+        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     }
-    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     g_object_set(G_OBJECT(sink), "sync", 0, NULL);
 
-    if (!pgie || !tiler || !nvvidconv || !nvosd || !sink) {
+    if (!nvvideoconv || !pgie || !tiler || !nvvidconv || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
-        return -1;
-    }
-
-    if (!transform && prop.integrated) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
         return -1;
     }
 
@@ -383,23 +382,12 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    if (prop.integrated) {
-        gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, nvvidconv, nvosd, transform, sink, NULL);
-        /* we link the elements together
-         * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
-        if (!gst_element_link_many(streammux, pgie, tiler, nvvidconv, nvosd, transform, sink,
-                                   NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-    } else {
-        gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, nvvidconv, nvosd, sink, NULL);
-        /* we link the elements together
-         * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
-        if (!gst_element_link_many(streammux, pgie, tiler, nvvidconv, nvosd, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    gst_bin_add_many(GST_BIN(pipeline), nvvideoconv, pgie, tiler, nvvidconv, nvosd, sink, NULL);
+    /* we link the elements together
+     * nvstreammux -> nvvideoconv -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+    if (!gst_element_link_many(streammux, nvvideoconv, pgie, tiler, nvvidconv, nvosd, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 
     /* Lets add probe to get informed of the meta data generated, we add probe to

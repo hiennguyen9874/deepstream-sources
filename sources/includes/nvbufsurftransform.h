@@ -365,7 +365,7 @@ NvBufSurfTransform_Error NvBufSurfTransformComposite(
  *                  may include any combination of scaling, format conversion,
  *                  and cropping for both source and destination.
  *                  Flipping and rotation are supported on VIC/GPU.
- * @param[out] sync_obj
+ * @param[out] sync_objs
  *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
  *                  which holds synchronization information of the current
  *                  transform call. \ref NvBufSurfTransfromSyncObjWait() API to be
@@ -399,7 +399,7 @@ NvBufSurfTransform_Error NvBufSurfTransformAsync(NvBufSurface *src,
  *                  structure which specifies the compositing operation to be
  *                  performed, e.g., the source and destination rectangles
  *                  in \a src and \a dst.
- * @param[out] sync_obj
+ * @param[out] sync_objs
  *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
  *                  which holds synchronization information of the current
  *                  composite call. ref\ NvBufSurfTransfromSyncObjWait() API to be
@@ -489,7 +489,7 @@ NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufCompositeBlend(
  transformed.
  * @param[out] dst pointer (single buffer) where composited output would be stored.
  * @param[in] composite_blend_params pointer to NvBufSurfTransformCompositeParams structure.
- * @param[out] sync_obj
+ * @param[out] sync_objs
  *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
  *                  which holds synchronization information of the current
  *                  composite call. ref\ NvBufSurfTransfromSyncObjWait() API to be
@@ -509,7 +509,7 @@ NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufCompositeBlendAsync(
     NvBufSurfTransformSyncObj_t *sync_obj);
 
 /**
- * \brief  Wait on the synchronization object.
+ * \brief  Wait on the synchroization object.
  *
  * The API waits on the synchronization object to finish the corresponding
  * processing of transform/composite calls or returns on time_out
@@ -524,7 +524,7 @@ NvBufSurfTransform_Error NvBufSurfTransformSyncObjWait(NvBufSurfTransformSyncObj
                                                        uint32_t time_out);
 
 /**
- * \brief  Destroy the synchronization object.
+ * \brief  Destroy the synchroization object.
  *
  * The API deletes the sync_obj which was used for previous transform/composite
  * Asynchronous calls

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -204,7 +204,6 @@ int main(int argc, char *argv[])
     GstElement *pipeline = NULL, *nvvidconv1 = NULL, *caps_filter = NULL, *streammux = NULL,
                *sink = NULL, *pgie = NULL, *nvvidconv2 = NULL, *nvosd = NULL, *tee = NULL,
                *appsink = NULL;
-    GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     AppSrcData data;
@@ -327,13 +326,10 @@ int main(int argc, char *argv[])
         return -1;
     }
     if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
-        if (!transform) {
-            g_printerr("Tegra transform element could not be created. Exiting.\n");
-            return -1;
-        }
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+    } else {
+        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     }
-    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     if (!sink) {
         g_printerr("Display sink could not be created. Exiting.\n");
         return -1;
@@ -357,10 +353,6 @@ int main(int argc, char *argv[])
     g_signal_connect(data.app_source, "need-data", G_CALLBACK(start_feed), &data);
     g_signal_connect(data.app_source, "enough-data", G_CALLBACK(stop_feed), &data);
 
-#ifndef PLATFORM_TEGRA
-    g_object_set(G_OBJECT(nvvidconv1), "nvbuf-memory-type", 3, NULL);
-#endif
-
     caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, vidconv_format, NULL);
     feature = gst_caps_features_new("memory:NVMM", NULL);
     gst_caps_set_features(caps, 0, feature);
@@ -383,9 +375,6 @@ int main(int argc, char *argv[])
     /* we add all elements into the pipeline */
     gst_bin_add_many(GST_BIN(pipeline), data.app_source, nvvidconv1, caps_filter, streammux, pgie,
                      nvvidconv2, nvosd, tee, sink, appsink, NULL);
-    if (prop.integrated) {
-        gst_bin_add(GST_BIN(pipeline), transform);
-    }
 
     GstPad *sinkpad, *srcpad;
     gchar pad_name_sink[16] = "sink_0";
@@ -415,20 +404,11 @@ int main(int argc, char *argv[])
     /* app-source -> nvvidconv -> caps filter ->
      * nvinfer -> nvvidconv -> nvosd -> video-renderer */
 
-    if (prop.integrated) {
-        if (!gst_element_link_many(data.app_source, nvvidconv1, caps_filter, NULL) ||
-            !gst_element_link_many(nvosd, transform, sink, NULL) ||
-            !gst_element_link_many(streammux, pgie, nvvidconv2, tee, NULL)) {
-            g_printerr("Elements could not be linked: Exiting.\n");
-            return -1;
-        }
-    } else {
-        if (!gst_element_link_many(data.app_source, nvvidconv1, caps_filter, NULL) ||
-            !gst_element_link_many(nvosd, sink, NULL) ||
-            !gst_element_link_many(streammux, pgie, nvvidconv2, tee, NULL)) {
-            g_printerr("Elements could not be linked: Exiting.\n");
-            return -1;
-        }
+    if (!gst_element_link_many(data.app_source, nvvidconv1, caps_filter, NULL) ||
+        !gst_element_link_many(nvosd, sink, NULL) ||
+        !gst_element_link_many(streammux, pgie, nvvidconv2, tee, NULL)) {
+        g_printerr("Elements could not be linked: Exiting.\n");
+        return -1;
     }
 
     /* Manually link the Tee, which has "Request" pads.

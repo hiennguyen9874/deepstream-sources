@@ -230,6 +230,18 @@ FrameGuard wrapPointXYZFrame(void *data,
 }
 
 template <typename DataTypeTP>
+FrameGuard wrapLidarXYZIFrame(void *data,
+                              uint32_t points,
+                              MemType memType,
+                              uint64_t devId,
+                              std::function<void(void *)> &&deleter)
+{
+    Shape shape{2, {(int)points, 4}};
+    return WrapFrame<DataTypeTP, FrameType::kLidarXYZI>(data, sizeof(DataTypeTP) * ShapeSize(shape),
+                                                        shape, memType, devId, std::move(deleter));
+}
+
+template <typename DataTypeTP>
 FrameGuard wrapPointCoordUVFrame(void *data,
                                  uint32_t points,
                                  MemType memType,

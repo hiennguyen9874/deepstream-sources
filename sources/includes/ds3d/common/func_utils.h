@@ -67,7 +67,10 @@ template <class F, typename... Args>
 inline ErrCode CatchError(F f, Args... args)
 {
     ErrCode code = ErrCode::kGood;
-    DS3D_TRY { code = f(std::forward<Args>(args)...); }
+    DS3D_TRY
+    {
+        code = f(std::forward<Args>(args)...);
+    }
     DS3D_CATCH_ERROR(Exception, e.code(), "Catch Gst error")
     DS3D_CATCH_ANY(ErrCode::kGst, "Catch Gst error")
     return code;
@@ -75,7 +78,10 @@ inline ErrCode CatchError(F f, Args... args)
 
 inline ErrCode CatchVoidCall(std::function<void()> f)
 {
-    DS3D_TRY { f(); }
+    DS3D_TRY
+    {
+        f();
+    }
     DS3D_CATCH_ERROR(Exception, e.code(), "Catch Gst error")
     DS3D_CATCH_ANY(ErrCode::kGst, "Catch Gst error")
     return ErrCode::kGood;
@@ -103,6 +109,8 @@ inline uint32_t bytesPerPixel(FrameType f)
         return sizeof(T) * 3;
     case FrameType::kPointXYZ:
         return sizeof(T) * 3;
+    case FrameType::kLidarXYZI:
+        return sizeof(T) * 4;
     case FrameType::kPointCoordUV:
         return sizeof(T) * 3;
     default:
@@ -126,6 +134,7 @@ inline uint32_t dataTypeBytes(DataType t)
         __DS3D_DATATYPE_BYTES(kUint16);
         __DS3D_DATATYPE_BYTES(kUint32);
         __DS3D_DATATYPE_BYTES(kDouble);
+        __DS3D_DATATYPE_BYTES(kInt64);
 #undef __DS3D_DATATYPE_BYTES
     default:
         assert(t);
@@ -138,7 +147,7 @@ inline size_t ShapeSize(const Shape &shape)
     if (!shape.numDims) {
         return 0;
     }
-    if (std::any_of(shape.d, shape.d + shape.numDims, [](int d) { return d <= 0; })) {
+    if (std::any_of(shape.d, shape.d + shape.numDims, [](int d) { return d < 0; })) {
         assert(false);
         return 0;
     }

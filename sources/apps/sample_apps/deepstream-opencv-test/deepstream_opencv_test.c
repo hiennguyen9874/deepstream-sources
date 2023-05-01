@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -235,7 +235,6 @@ int main(int argc, char *argv[])
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL,
                *caps_filter = NULL, *dsexample = NULL, *nvosd = NULL;
-    GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *osd_sink_pad = NULL;
@@ -317,17 +316,13 @@ int main(int argc, char *argv[])
 
     /* Finally render the osd output */
     if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+    } else {
+        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     }
-    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!pgie || !nvvidconv || !caps_filter || !dsexample || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
-        return -1;
-    }
-
-    if (!transform && prop.integrated) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
         return -1;
     }
 
@@ -366,28 +361,15 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    gst_bin_add_many(GST_BIN(pipeline), pgie, nvvidconv, caps_filter, dsexample, nvosd, NULL);
+    gst_bin_add_many(GST_BIN(pipeline), pgie, nvvidconv, caps_filter, dsexample, nvosd, sink, NULL);
 
-    if (prop.integrated) {
-        gst_bin_add_many(GST_BIN(pipeline), transform, sink, NULL);
-    } else {
-        gst_bin_add_many(GST_BIN(pipeline), sink, NULL);
-    }
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder ->
      * nvinfer -> nvvidconv -> nvosd -> video-renderer */
-    if (prop.integrated) {
-        if (!gst_element_link_many(streammux, pgie, nvvidconv, caps_filter, dsexample, nvosd,
-                                   transform, sink, NULL)) {
-            g_printerr("Elements could not be linked: 2. Exiting.\n");
-            return -1;
-        }
-    } else {
-        if (!gst_element_link_many(streammux, pgie, nvvidconv, caps_filter, dsexample, nvosd, sink,
-                                   NULL)) {
-            g_printerr("Elements could not be linked: 2. Exiting.\n");
-            return -1;
-        }
+    if (!gst_element_link_many(streammux, pgie, nvvidconv, caps_filter, dsexample, nvosd, sink,
+                               NULL)) {
+        g_printerr("Elements could not be linked: 2. Exiting.\n");
+        return -1;
     }
 
     /* Lets add probe to get informed of the meta data generated, we add probe to

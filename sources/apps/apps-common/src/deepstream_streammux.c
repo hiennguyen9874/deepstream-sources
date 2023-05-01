@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -53,9 +53,12 @@ gboolean set_streammux_properties(NvDsStreammuxConfig *config, GstElement *eleme
             g_object_set(G_OBJECT(element), "width", config->pipeline_width, NULL);
             g_object_set(G_OBJECT(element), "height", config->pipeline_height, NULL);
         }
+        if (!config->use_nvmultiurisrcbin) {
+            g_object_set(G_OBJECT(element), "async-process", config->async_process, NULL);
+        }
     }
 
-    if (config->batch_size) {
+    if (config->batch_size && !config->use_nvmultiurisrcbin) {
         g_object_set(G_OBJECT(element), "batch-size", config->batch_size, NULL);
     }
 
@@ -66,6 +69,8 @@ gboolean set_streammux_properties(NvDsStreammuxConfig *config, GstElement *eleme
                      NULL);
     }
 
+    g_object_set(G_OBJECT(element), "frame-duration", config->frame_duration, NULL);
+
     g_object_set(G_OBJECT(element), "frame-num-reset-on-stream-reset",
                  config->frame_num_reset_on_stream_reset, NULL);
 
@@ -73,6 +78,7 @@ gboolean set_streammux_properties(NvDsStreammuxConfig *config, GstElement *eleme
 
     g_object_set(G_OBJECT(element), "max-latency", config->max_latency, NULL);
     g_object_set(G_OBJECT(element), "frame-num-reset-on-eos", config->frame_num_reset_on_eos, NULL);
+    g_object_set(G_OBJECT(element), "drop-pipeline-eos", config->no_pipeline_eos, NULL);
 
     ret = TRUE;
 

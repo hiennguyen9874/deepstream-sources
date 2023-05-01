@@ -103,6 +103,7 @@
 #define CONFIG_GROUP_INFER_NUM_DETECTED_CLASSES "num-detected-classes"
 #define CONFIG_GROUP_INFER_ENABLE_DBSCAN "enable-dbscan"
 #define CONFIG_GROUP_INFER_CLUSTER_MODE "cluster-mode"
+#define CONFIG_GROUP_INFER_CROP_OBJECTS_TO_ROI_BOUNDARY "crop-objects-to-roi-boundary"
 
 /** Classifier specific parameters. */
 #define CONFIG_GROUP_INFER_CLASSIFIER_TYPE "classifier-type"

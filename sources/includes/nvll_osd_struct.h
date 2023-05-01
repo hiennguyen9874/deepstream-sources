@@ -42,11 +42,7 @@ typedef enum {
                 Works with RGBA data only */
     MODE_GPU, /**< Specifies using the GPU for OSD processing.
                 Currently not implemented. */
-    MODE_HW   /**< Specifies the NVIDIA hardware engine
-               for rectangle drawing and masking.
-                   This mode works with both YUV and RGB data.
-                   It does not consider alpha parameter.
-                   Not applicable to drawing text. */
+    MODE_NONE /**< Invalid mode. Instead GPU mode will be used. */
 } NvOSD_Mode;
 
 /**
@@ -168,8 +164,8 @@ typedef struct _NvOSD_RectParams {
  * Holds the mask parameters of the segment to be overlayed
  */
 typedef struct _NvOSD_MaskParams {
-    float *data;         /** Mask data */
-    unsigned int size;   /** Mask size */
+    float *data;         /** Mask buffer */
+    unsigned int size;   /** Size of mask buffer in bytes */
     float threshold;     /** Threshold for binarization */
     unsigned int width;  /** Mask width */
     unsigned int height; /** Mask height */

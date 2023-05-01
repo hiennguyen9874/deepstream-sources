@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2020-2022 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2020-2023 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -186,8 +186,8 @@ This sample builds on top of the deepstream-test1 sample to demonstrate how to:
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.7
-  $ sudo make
+      For x86, CUDA_VER=11.8
+  $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
 

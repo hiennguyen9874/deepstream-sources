@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -13,7 +14,7 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -62,6 +63,13 @@
 /* NVIDIA Decoder source pad memory feature. This feature signifies that source
  * pads having this capability will push GstBuffers containing cuda buffers. */
 #define GST_CAPS_FEATURES_NVMM "memory:NVMM"
+
+/* Check for parsing error. */
+#define RETURN_ON_PARSER_ERROR(parse_expr)                    \
+    if (NVDS_YAML_PARSER_SUCCESS != parse_expr) {             \
+        g_printerr("Error in parsing configuration file.\n"); \
+        return -1;                                            \
+    }
 
 gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "RoadSign"};
 
@@ -241,6 +249,7 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     if (PERF_MODE) {
         uri_decode_bin = gst_element_factory_make("nvurisrcbin", "uri-decode-bin");
         g_object_set(G_OBJECT(uri_decode_bin), "file-loop", TRUE, NULL);
+        g_object_set(G_OBJECT(uri_decode_bin), "cudadec-memtype", 0, NULL);
     } else {
         uri_decode_bin = gst_element_factory_make("uridecodebin", "uri-decode-bin");
     }
@@ -280,13 +289,14 @@ int main(int argc, char *argv[])
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *queue1, *queue2,
                *queue3, *queue4, *queue5, *nvvidconv = NULL, *nvosd = NULL, *tiler = NULL,
                *nvdslogger = NULL;
-    GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *tiler_src_pad = NULL;
     guint i = 0, num_sources = 0;
     guint tiler_rows, tiler_columns;
     guint pgie_batch_size;
+    gboolean yaml_config = FALSE;
+    NvDsGieType pgie_type = NVDS_GIE_PLUGIN_INFER;
     PERF_MODE =
         g_getenv("NVDS_TEST3_PERF_MODE") && !g_strcmp0(g_getenv("NVDS_TEST3_PERF_MODE"), "1");
 
@@ -306,6 +316,13 @@ int main(int argc, char *argv[])
     gst_init(&argc, &argv);
     loop = g_main_loop_new(NULL, FALSE);
 
+    /* Parse inference plugin type */
+    yaml_config = (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml"));
+
+    if (yaml_config) {
+        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&pgie_type, argv[1], "primary-gie"));
+    }
+
     /* Create gstreamer elements */
     /* Create Pipeline element that will form a connection of other elements */
     pipeline = gst_pipeline_new("dstest3-pipeline");
@@ -321,8 +338,8 @@ int main(int argc, char *argv[])
 
     GList *src_list = NULL;
 
-    if (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml")) {
-        nvds_parse_source_list(&src_list, argv[1], "source-list");
+    if (yaml_config) {
+        RETURN_ON_PARSER_ERROR(nvds_parse_source_list(&src_list, argv[1], "source-list"));
 
         GList *temp = src_list;
         while (temp) {
@@ -373,17 +390,21 @@ int main(int argc, char *argv[])
         gst_object_unref(srcpad);
         gst_object_unref(sinkpad);
 
-        if (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml")) {
+        if (yaml_config) {
             src_list = src_list->next;
         }
     }
 
-    if (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml")) {
+    if (yaml_config) {
         g_list_free(src_list);
     }
 
-    /* Use nvinfer to infer on batched frame. */
-    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    /* Use nvinfer or nvinferserver to infer on batched frame. */
+    if (pgie_type == NVDS_GIE_PLUGIN_INFER_SERVER) {
+        pgie = gst_element_factory_make("nvinferserver", "primary-nvinference-engine");
+    } else {
+        pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    }
 
     /* Add queue elements between every two elements */
     queue1 = gst_element_factory_make("queue", "queue1");
@@ -410,13 +431,10 @@ int main(int argc, char *argv[])
     } else {
         /* Finally render the osd output */
         if (prop.integrated) {
-            transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
-            if (!transform) {
-                g_printerr("One tegra element could not be created. Exiting.\n");
-                return -1;
-            }
+            sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
+        } else {
+            sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
         }
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     }
 
     if (!pgie || !nvdslogger || !tiler || !nvvidconv || !nvosd || !sink) {
@@ -424,10 +442,10 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml")) {
-        nvds_parse_streammux(streammux, argv[1], "streammux");
+    if (yaml_config) {
+        RETURN_ON_PARSER_ERROR(nvds_parse_streammux(streammux, argv[1], "streammux"));
 
-        g_object_set(G_OBJECT(pgie), "config-file-path", "dstest3_pgie_config.yml", NULL);
+        RETURN_ON_PARSER_ERROR(nvds_parse_gie(pgie, argv[1], "primary-gie"));
 
         g_object_get(G_OBJECT(pgie), "batch-size", &pgie_batch_size, NULL);
         if (pgie_batch_size != num_sources) {
@@ -437,14 +455,18 @@ int main(int argc, char *argv[])
             g_object_set(G_OBJECT(pgie), "batch-size", num_sources, NULL);
         }
 
-        nvds_parse_osd(nvosd, argv[1], "osd");
+        RETURN_ON_PARSER_ERROR(nvds_parse_osd(nvosd, argv[1], "osd"));
 
         tiler_rows = (guint)sqrt(num_sources);
         tiler_columns = (guint)ceil(1.0 * num_sources / tiler_rows);
         g_object_set(G_OBJECT(tiler), "rows", tiler_rows, "columns", tiler_columns, NULL);
 
-        nvds_parse_tiler(tiler, argv[1], "tiler");
-        nvds_parse_egl_sink(sink, argv[1], "sink");
+        RETURN_ON_PARSER_ERROR(nvds_parse_tiler(tiler, argv[1], "tiler"));
+        if (prop.integrated) {
+            RETURN_ON_PARSER_ERROR(nvds_parse_3d_sink(sink, argv[1], "sink"));
+        } else {
+            RETURN_ON_PARSER_ERROR(nvds_parse_egl_sink(sink, argv[1], "sink"));
+        }
 
     } else {
         g_object_set(G_OBJECT(streammux), "batch-size", num_sources, NULL);
@@ -476,6 +498,14 @@ int main(int argc, char *argv[])
         g_object_set(G_OBJECT(sink), "qos", 0, NULL);
     }
 
+    if (PERF_MODE) {
+        if (prop.integrated) {
+            g_object_set(G_OBJECT(streammux), "nvbuf-memory-type", 4, NULL);
+        } else {
+            g_object_set(G_OBJECT(streammux), "nvbuf-memory-type", 2, NULL);
+        }
+    }
+
     /* we add a message handler */
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
     bus_watch_id = gst_bus_add_watch(bus, bus_call, loop);
@@ -483,28 +513,15 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    if (transform) {
-        gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, nvdslogger, tiler, queue3,
-                         nvvidconv, queue4, nvosd, queue5, transform, sink, NULL);
-        /* we link the elements together
-         * nvstreammux -> nvinfer -> nvdslogger -> nvtiler -> nvvidconv -> nvosd
-         * -> video-renderer */
-        if (!gst_element_link_many(streammux, queue1, pgie, queue2, nvdslogger, tiler, queue3,
-                                   nvvidconv, queue4, nvosd, queue5, transform, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-    } else {
-        gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, nvdslogger, tiler, queue3,
-                         nvvidconv, queue4, nvosd, queue5, sink, NULL);
-        /* we link the elements together
-         * nvstreammux -> nvinfer -> nvdslogger -> nvtiler -> nvvidconv -> nvosd
-         * -> video-renderer */
-        if (!gst_element_link_many(streammux, queue1, pgie, queue2, nvdslogger, tiler, queue3,
-                                   nvvidconv, queue4, nvosd, queue5, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, nvdslogger, tiler, queue3, nvvidconv,
+                     queue4, nvosd, queue5, sink, NULL);
+    /* we link the elements together
+     * nvstreammux -> nvinfer -> nvdslogger -> nvtiler -> nvvidconv -> nvosd
+     * -> video-renderer */
+    if (!gst_element_link_many(streammux, queue1, pgie, queue2, nvdslogger, tiler, queue3,
+                               nvvidconv, queue4, nvosd, queue5, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 
     /* Lets add probe to get informed of the meta data generated, we add probe to
@@ -519,7 +536,7 @@ int main(int argc, char *argv[])
     gst_object_unref(tiler_src_pad);
 
     /* Set the pipeline to "playing" state */
-    if (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml")) {
+    if (yaml_config) {
         g_print("Using file: %s\n", argv[1]);
     } else {
         g_print("Now playing:");

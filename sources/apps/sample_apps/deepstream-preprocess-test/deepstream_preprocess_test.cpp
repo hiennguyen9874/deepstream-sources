@@ -473,7 +473,6 @@ int main(int argc, char *argv[])
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *preprocess = NULL,
                *queue1, *queue2, *queue3, *queue4, *queue5, *queue6, *nvvidconv = NULL,
                *nvosd = NULL, *tiler = NULL;
-    GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *pgie_src_pad = NULL;
@@ -580,17 +579,13 @@ int main(int argc, char *argv[])
 
     /* Finally render the osd output */
     if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+    } else {
+        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     }
-    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!preprocess || !pgie || !tiler || !nvvidconv || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
-        return -1;
-    }
-
-    if (!transform && prop.integrated) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
         return -1;
     }
 
@@ -636,27 +631,14 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    if (prop.integrated) {
-        gst_bin_add_many(GST_BIN(pipeline), queue1, preprocess, queue2, pgie, queue3, tiler, queue4,
-                         nvvidconv, queue5, nvosd, queue6, transform, sink, NULL);
-        /* we link the elements together
-         * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
-        if (!gst_element_link_many(streammux, queue1, preprocess, queue2, pgie, queue3, tiler,
-                                   queue4, nvvidconv, queue5, nvosd, queue6, transform, sink,
-                                   NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-    } else {
-        gst_bin_add_many(GST_BIN(pipeline), queue1, preprocess, queue2, pgie, queue3, tiler, queue4,
-                         nvvidconv, queue5, nvosd, queue6, sink, NULL);
-        /* we link the elements together
-         * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
-        if (!gst_element_link_many(streammux, queue1, preprocess, queue2, pgie, queue3, tiler,
-                                   queue4, nvvidconv, queue5, nvosd, queue6, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    gst_bin_add_many(GST_BIN(pipeline), queue1, preprocess, queue2, pgie, queue3, tiler, queue4,
+                     nvvidconv, queue5, nvosd, queue6, sink, NULL);
+    /* we link the elements together
+     * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+    if (!gst_element_link_many(streammux, queue1, preprocess, queue2, pgie, queue3, tiler, queue4,
+                               nvvidconv, queue5, nvosd, queue6, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 #if 0
   pgie_sink_pad = gst_element_get_static_pad (pgie, "sink");

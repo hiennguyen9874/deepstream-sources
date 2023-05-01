@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -12,32 +12,32 @@
 dependencies:
   - extension: NvDsBaseExt
     uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
-    version: 1.0.0
+    version: 1.2.0
   - extension: NvDsSourceExt
     uuid: a632d022-3425-4848-9074-e6483ef74366
-    version: 1.0.0
+    version: 1.1.1
   - extension: NvDsOutputSinkExt
     uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsSampleExt
     uuid: 44a711e4-8519-4a68-81e8-be7ee4af3ff0
-    version: 1.0.0
+    version: 1.1.1
   - extension: NvDsTemplateExt
     uuid: 845a7fd3-51e8-4076-b3d9-e2974880925e
-    version: 1.0.0
+    version: 1.1.0
 ---
 components:
-  - name: nv_ds_single_src_input3..a358
+  - name: single_source_input
     parameters:
-      audio-out-%u: nv_ds_dynamic_output4..a518
+      audio-out-%u: audio_output
       uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
-      video-out-%u: nv_ds_dynamic_output5..a5c0
+      video-out-%u: video_output
     type: nvidia::deepstream::NvDsSingleSrcInput
-  - name: nv_ds_dynamic_output4..a518
+  - name: audio_output
     type: nvidia::deepstream::NvDsDynamicOutput
-  - name: nv_ds_dynamic_output5..a5c0
+  - name: video_output
     type: nvidia::deepstream::NvDsDynamicOutput
-name: NvDsSingleSrcInput..3860
+name: single_source_input
 ui_property:
   position:
     x: -63.82676696777344
@@ -45,21 +45,21 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_video_template6..32e8
+  - name: video_template
     parameters:
-      video-in: nv_ds_static_input7..33c8
-      video-out: nv_ds_static_output8..3470
-      video-template-config: sample_video_template_lib10..a898
+      video-in: video_input
+      video-out: video_output
+      video-template-config: sample_video_template_lib
     type: nvidia::deepstream::NvDsVideoTemplate
-  - name: nv_ds_static_input7..33c8
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output8..3470
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: sample_video_template_lib10..a898
+  - name: sample_video_template_lib
     parameters:
       scale-factor: 0.5
     type: nvidia::deepstream::NvDsSampleVideoTemplateLib
-name: NvDsVideoTemplate..14a8
+name: video_template
 ui_property:
   position:
     x: 229.11810302734375
@@ -69,20 +69,20 @@ ui_property:
 components:
   - name: nv_ds_connection9..56d8
     parameters:
-      source: NvDsSingleSrcInput..3860/nv_ds_dynamic_output5..a5c0
-      target: NvDsVideoTemplate..14a8/nv_ds_static_input7..33c8
+      source: single_source_input/video_output
+      target: video_template/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..0358
 ui_property: {}
 ---
 components:
-  - name: nv_ds_video_renderer11..b550
+  - name: video_renderer
     parameters:
-      video-in: nv_ds_static_input12..b5c0
+      video-in: video_input
     type: nvidia::deepstream::NvDsVideoRenderer
-  - name: nv_ds_static_input12..b5c0
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-name: NvDsVideoRenderer..bda0
+name: video_renderer
 ui_property:
   position:
     x: 566.4172973632812
@@ -92,16 +92,16 @@ ui_property:
 components:
   - name: nv_ds_connection13..0780
     parameters:
-      source: NvDsVideoTemplate..14a8/nv_ds_static_output8..3470
-      target: NvDsVideoRenderer..bda0/nv_ds_static_input12..b5c0
+      source: video_template/video_output
+      target: video_renderer/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..d3c8
 ui_property: {}
 ---
 components:
-  - name: nv_ds_scheduler14..b898
+  - name: scheduler
     type: nvidia::deepstream::NvDsScheduler
-name: NvDsScheduler..5710
+name: scheduler
 ui_property:
   position:
     x: 484.9291076660156

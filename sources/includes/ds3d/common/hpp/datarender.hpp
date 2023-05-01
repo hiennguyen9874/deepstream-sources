@@ -55,7 +55,7 @@ class GuardDataRender : public GuardDataProcess<abiDataRender> {
 
 public:
     template <typename... Args>
-    GuardDataRender(Args &&... args) : _Base(std::forward<Args>(args)...)
+    GuardDataRender(Args &&...args) : _Base(std::forward<Args>(args)...)
     {
     }
     ~GuardDataRender() = default;

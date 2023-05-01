@@ -39,6 +39,7 @@ typedef struct {
     gint compute_hw;
     gint num_surface_per_frame;
     gint interpolation_method;
+    guint64 frame_duration;
     guint gpu_id;
     guint nvbuf_memory_type;
     gboolean live_source;
@@ -50,6 +51,9 @@ typedef struct {
     guint64 max_latency;
     gboolean frame_num_reset_on_eos;
     gboolean frame_num_reset_on_stream_reset;
+    gboolean async_process;
+    gboolean no_pipeline_eos;
+    gboolean use_nvmultiurisrcbin;
 } NvDsStreammuxConfig;
 
 // Function to create the bin and set properties

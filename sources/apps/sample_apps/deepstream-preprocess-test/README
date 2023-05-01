@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2021-2023 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -55,16 +55,16 @@ how to:
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.7
+      For x86, CUDA_VER=11.8
 
   $ cd /opt/nvidia/deepstream/deepstream/sources/gst-plugins/gst-nvdspreprocess
-  $ sudo make && sudo make install
+  $ sudo make && sudo make install (sudo not required in case of docker containers)
 
   $ cd /opt/nvidia/deepstream/deepstream/sources/gst-plugins/gst-nvdspreprocess/nvdspreprocess_lib
-  $ sudo make && sudo make install
+  $ sudo make && sudo make install (sudo not required in case of docker containers)
 
   $ cd /opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-preprocess-test
-  $ sudo make && sudo make install
+  $ sudo make && sudo make install (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
 
@@ -78,10 +78,13 @@ e.g.
   $ ./deepstream-preprocess-test config_preprocess.txt config_infer.txt rtsp://127.0.0.1/video1 rtsp://127.0.0.1/video2
 
 NOTE:
-1. For optimal performance, set nvinfer batch-size in nvinfer config file same as
-   preprocess batch-size (network-input-shape[0]) in nvdspreprocess config file.
-2. Currently preprocessing only for primary gie has been supported.
-3. Modify config_preprocess.txt for as per use case.
+1. For optimal performance, set nvdspreprocess batch-size (network-input-shape[0]) in config file same as
+   sum of total units(rois/full-frames) provided in nvdspreprocess config file.
+2. For optimal performance, set nvinfer batch-size in config file same as
+   the batch size of nvdspreprocess (network-input-shape[0]) in nvdspreprocess config file.
+3. Buff-Pool-Size(scaling/tensor) should be larger or equal to total number of units of all srcs divided by nvdspreprocess batch-size.
+4. Currently preprocessing of secondary gie only for classifier-async-mode=0 has been supported.
+5. Modify config_preprocess.txt for as per use case.
 
 Refer to the deepstream-test3 sample documentation for an example of simple
 multi-stream inference, bounding-box overlay, and rendering.

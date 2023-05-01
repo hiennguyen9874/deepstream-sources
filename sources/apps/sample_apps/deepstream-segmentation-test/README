@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2019-2022 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2019-2023 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -39,7 +39,11 @@ The application demonstrates the usage of sematic models for segmentation.
 
 Pipeline:
 filesrc -> jpegparse -> nvv4l2decoder -> nvstreammux -> nvinfer/nvinferserver (segmentation)
-nvsegvidsual -> nvmultistreamtiler -> (nvegltransform) -> nveglglessink
+nvsegvidsual -> nvmultistreamtiler -> nveglglessink
+
+For Jetson:
+filesrc -> jpegparse -> nvv4l2decoder -> nvstreammux -> nvinfer/nvinferserver (segmentation)
+nvsegvidsual -> nvmultistreamtiler -> nv3dsink
 
 ===============================================================================
 3. To compile:
@@ -47,8 +51,8 @@ nvsegvidsual -> nvmultistreamtiler -> (nvegltransform) -> nveglglessink
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.7
-  $ sudo make
+      For x86, CUDA_VER=11.8
+  $ sudo make (sudo not required in case of docker containers)
 
 ===============================================================================
 4. Usage:
@@ -58,11 +62,12 @@ nvsegvidsual -> nvmultistreamtiler -> (nvegltransform) -> nveglglessink
     # -t infer-type: select from [infer, inferserver], infer by default
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
+      This app supports mjpeg & mjpg format with mp4 container only.
 
 E.g. for semantic segmentation, it needs semantic model which can get 4 classes map,
 including backgroud, car, person, bicycle.
 "nvsegvidsual" plugin chooses 4 different colors for them and to display.
-  $ ./deepstream-segmentation-app dstest_segmentation_config_semantic.txt sample_720p.mjpeg sample_720p.mjpeg
+  $ ./deepstream-segmentation-app dstest_segmentation_config_semantic.txt sample_720p_mjpeg.mp4 sample_720p_mjpeg.mp4
 
 E.g. for industrial segmentation, it needs industrial model which can only get defective
 area map.

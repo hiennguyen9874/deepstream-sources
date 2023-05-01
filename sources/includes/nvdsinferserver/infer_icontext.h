@@ -1,11 +1,22 @@
-/**
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
+ */
+
+/**
+ * @file infer_icontext.h
+ *
+ * @brief Inference context library interface header file.
+ *
+ * This file defines the low level library interface for inference using
+ * Triton inference server.
  *
  */
 
@@ -27,12 +38,12 @@
 namespace nvdsinferserver {
 
 /**
- * Inference Output callback interface.
+ * Inference output callback interface.
  */
 using InferOutputCb = std::function<void(NvDsInferStatus, SharedIBatchArray)>;
 
 /**
- * Inference Logging function interface.
+ * Inference logging function interface.
  */
 using InferLoggingFunc = std::function<void(NvDsInferLogLevel, const char *msg)>;
 
@@ -54,7 +65,7 @@ public:
     virtual NvDsInferStatus initialize(const std::string &prototxt, InferLoggingFunc logFunc) = 0;
 
     /**
-     * Run inference relavant processing behind. expect the call is async_mode.
+     * Run inference relevant processing behind. expect the call is async_mode.
      * When all behind processing finished. \a done would be called.
      *
      * @param[in]  input holds all batch buffer array.
@@ -90,7 +101,7 @@ extern "C" {
 
 /**
  * Creates a new instance of IInferContext initialized using the supplied
- * parameters.
+ * parameters. The Triton Inference server is accessed in C-API mode.
  *
  * @param[in]  configStr Parameters to use for initialization of the context.
  * @param[in]  configStrLen use for string length of \a configStr
@@ -106,12 +117,20 @@ INFER_EXPORT_API nvdsinferserver::IInferContext *createInferTrtISContext(const c
  */
 INFER_EXPORT_API nvdsinferserver::IInferContext *createInferTritonSimpleContext();
 
+/**
+ * Creates a new instance of IInferContext initialized using the supplied
+ * parameters. The Triton Inference server is accessed using gRPC.
+ *
+ * @param[in]  configStr Parameters to use for initialization of the context.
+ * @param[in]  configStrLen use for string length of \a configStr
+ * @return new instance of IInferContext. If failed, return nullptr
+ */
 INFER_EXPORT_API nvdsinferserver::IInferContext *createInferTritonGrpcContext(
     const char *configStr,
     uint32_t configStrLen);
 
 /**
- * Creates Triton Server Instance as global singleton. Application need hold it
+ * Creates Triton Server instance as global singleton. Application need hold it
  * until no component need triton inference in process.
  *
  * @param[in]  configStr Parameters for Triton model repo settings.
@@ -152,9 +171,9 @@ INFER_EXPORT_API nvdsinferserver::SharedIBatchBuffer NvDsInferServerWrapBuf(
     std::function<void(void *data)> freeFunc);
 
 /**
- * Create a empty BatchArray.
+ * Create an empty BatchArray.
  *
- * @return A empty Batched array in shared_ptr. If failed, return nullptr.
+ * @return An empty batched array in shared_ptr. If failed, return nullptr.
  */
 INFER_EXPORT_API nvdsinferserver::SharedIBatchArray NvDsInferServerCreateBatchArray();
 
@@ -168,7 +187,7 @@ INFER_EXPORT_API nvdsinferserver::SharedIBatchArray NvDsInferServerCreateBatchAr
  * @param[in]  name Tensor name of this buffer.
  * @param[in]  isInput Indicates whether the buffer is for input. It should
  *             always be true for external users.
- * @return A Batched Buffer stroing all strings with memtype InferMemType::kCpu.
+ * @return A batched buffer storing all strings with memtype InferMemType::kCpu.
  */
 INFER_EXPORT_API nvdsinferserver::SharedIBatchBuffer NvDsInferServerCreateStrBuf(
     const std::vector<std::string> &strings,

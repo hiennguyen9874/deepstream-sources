@@ -131,12 +131,12 @@ inline ErrCode NvDs3D_CreateDataLoaderSrc(const config::ComponentConfig &compCon
         compConfig.gstOutCaps.empty() ? loader.getOutputCaps() : compConfig.gstOutCaps;
     DS3D_FAILED_RETURN(!caps.empty(), ErrCode::kConfig,
                        "caps must be configure for dataloader source");
-    GstCaps *srcCaps = gst_caps_from_string(caps.c_str());
+    CapsPtr srcCaps(gst_caps_from_string(caps.c_str()));
     DS3D_FAILED_RETURN(srcCaps, ErrCode::kGst, "gst_caps_from_string: %s failed", caps.c_str());
     g_object_set(G_OBJECT(loaderEle.get()), "do-timestamp", TRUE, "stream-type",
                  GST_APP_STREAM_TYPE_STREAM, "max-bytes",
-                 (uint64_t)(kPoolSize * sizeof(NvDs3DBuffer)), "min-percent", 80, "caps", srcCaps,
-                 NULL);
+                 (uint64_t)(kPoolSize * sizeof(NvDs3DBuffer)), "min-percent", 80, "caps",
+                 srcCaps.get(), NULL);
 
     if (start) {
         DS3D_ERROR_RETURN(loader.start(compConfig.rawContent, compConfig.filePath),
@@ -171,11 +171,11 @@ inline ErrCode NvDs3D_CreateDataRenderSink(const config::ComponentConfig &compCo
     std::string caps = compConfig.gstInCaps.empty() ? render.getInputCaps() : compConfig.gstInCaps;
     DS3D_FAILED_RETURN(!caps.empty(), ErrCode::kConfig,
                        "caps must be configure for datarender source");
-    GstCaps *sinkCaps = gst_caps_from_string(caps.c_str());
+    CapsPtr sinkCaps(gst_caps_from_string(caps.c_str()));
     DS3D_FAILED_RETURN(sinkCaps, ErrCode::kGst, "gst_caps_from_string: %s failed", caps.c_str());
     GObject *eleObj = G_OBJECT(renderEle.get());
-    g_object_set(eleObj, "wait-on-eos", TRUE, "max-buffers", (uint32_t)maxBuffers, "caps", sinkCaps,
-                 nullptr);
+    g_object_set(eleObj, "wait-on-eos", TRUE, "max-buffers", (uint32_t)maxBuffers, "caps",
+                 sinkCaps.get(), nullptr);
 
     auto setGstProperties = [eleObj, &compConfig]() {
         YAML::Node node = YAML::Load(compConfig.rawContent);

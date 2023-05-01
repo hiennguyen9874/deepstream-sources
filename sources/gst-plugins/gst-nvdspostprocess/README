@@ -42,8 +42,8 @@ NOTE:
 --------------------------------------------------------------------------------
 How to test :
 
-Single Stream and Rendering, set appropriate CUDA_VER, 11.4 for Jetson 11.7 for dGPU
-   $ export CUDA_VER=11.7
+Single Stream and Rendering, set appropriate CUDA_VER, 11.4 for Jetson 11.8 for dGPU
+   $ export CUDA_VER=11.8
    $ make
    $ sudo -E make install
    $ cd postprocesslib_impl

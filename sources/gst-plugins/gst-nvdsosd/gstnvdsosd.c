@@ -1,11 +1,13 @@
-/**
- * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2016-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  *
  * version: 0.1
  */
@@ -47,7 +49,6 @@ enum {
     PROP_CLOCK_Y_OFFSET,
     PROP_CLOCK_COLOR,
     PROP_PROCESS_MODE,
-    PROP_HW_BLEND_COLOR_ATTRS,
     PROP_GPU_DEVICE_ID,
     PROP_SHOW_BBOX,
     PROP_SHOW_MASK,
@@ -58,18 +59,20 @@ static GstStaticPadTemplate nvdsosd_sink_factory = GST_STATIC_PAD_TEMPLATE(
     "sink",
     GST_PAD_SINK,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_NVMM, "{ RGBA }")));
+    GST_STATIC_CAPS(
+        GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_NVMM, "{ NV12, RGBA }")));
 
 static GstStaticPadTemplate nvdsosd_src_factory = GST_STATIC_PAD_TEMPLATE(
     "src",
     GST_PAD_SRC,
     GST_PAD_ALWAYS,
-    GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_NVMM, "{ RGBA }")));
+    GST_STATIC_CAPS(
+        GST_VIDEO_CAPS_MAKE_WITH_FEATURES(GST_CAPS_FEATURE_MEMORY_NVMM, "{ NV12, RGBA }")));
 
 /* Default values for properties */
 #define DEFAULT_FONT_SIZE 12
 #define DEFAULT_FONT "Serif"
-#define GST_NV_OSD_DEFAULT_PROCESS_MODE MODE_GPU
+#define GST_NV_OSD_DEFAULT_PROCESS_MODE MODE_CPU
 #define MAX_FONT_SIZE 60
 #define DEFAULT_BORDER_WIDTH 4
 
@@ -87,10 +90,10 @@ static GType gst_nvds_osd_process_mode_get_type(void)
 
     if (qtype == 0) {
         static const GEnumValue values[] = {
-            {MODE_CPU, "CPU_MODE", "CPU_MODE"},
-            {MODE_GPU, "GPU_MODE, yet to be implemented for Tegra", "GPU_MODE"},
+            {MODE_CPU, "CPU_MODE", "MODE_CPU"},
+            {MODE_GPU, "GPU_MODE", "MODE_GPU"},
 #ifdef PLATFORM_TEGRA
-            {MODE_HW, "HW_MODE. Only for Tegra. For rectdraw only.", "HW_MODE"},
+            {MODE_NONE, "Invalid mode. Falls back to GPU", "MODE_NONE"},
 #endif
             {0, NULL, NULL}};
 
@@ -113,8 +116,29 @@ static gboolean gst_nvds_osd_start(GstBaseTransform *btrans);
 static gboolean gst_nvds_osd_stop(GstBaseTransform *btrans);
 static gboolean gst_nvds_osd_parse_color(GstNvDsOsd *nvdsosd, guint clock_color);
 
-static gboolean gst_nvds_osd_parse_hw_blend_color_attrs(GstNvDsOsd *nvdsosd, const gchar *arr);
-static gboolean gst_nvds_osd_get_hw_blend_color_attrs(GValue *value, GstNvDsOsd *nvdsosd);
+static GstCaps *gst_nvds_osd_transform_caps(GstBaseTransform *trans,
+                                            GstPadDirection direction,
+                                            GstCaps *caps,
+                                            GstCaps *filter)
+{
+    GstNvDsOsd *nvdsosd = GST_NVDSOSD(trans);
+    GstCaps *ret;
+    GstCaps *caps_rgba = gst_caps_from_string("video/x-raw(memory:NVMM), format=(string)RGBA");
+
+    GST_DEBUG_OBJECT(trans, "identity from: %" GST_PTR_FORMAT, caps);
+    if (filter) {
+        ret = gst_caps_intersect_full(filter, caps, GST_CAPS_INTERSECT_FIRST);
+    } else {
+        ret = gst_caps_ref(caps);
+    }
+
+    /* Force to RGBA format for CPU mode. */
+    if (nvdsosd->nvdsosd_mode == MODE_CPU) {
+        ret = gst_caps_intersect_full(ret, caps_rgba, GST_CAPS_INTERSECT_FIRST);
+    }
+
+    return ret;
+}
 
 /**
  * Called when source / sink pad capabilities have been negotiated.
@@ -188,16 +212,10 @@ static gboolean gst_nvds_osd_start(GstBaseTransform *btrans)
 
     int flag_integrated = -1;
     cudaDeviceGetAttribute(&flag_integrated, cudaDevAttrIntegrated, nvdsosd->gpu_id);
-    if (!flag_integrated && nvdsosd->nvdsosd_mode == MODE_HW) {
+    if (!flag_integrated && nvdsosd->nvdsosd_mode > MODE_GPU) {
+        g_print("WARN !! Invalid mode selected, Falling back to GPU\n");
         nvdsosd->nvdsosd_mode = MODE_GPU;
     }
-
-    if (nvdsosd->num_class_entries == 0) {
-        gst_nvds_osd_parse_hw_blend_color_attrs(nvdsosd, DEFAULT_CLR);
-    }
-
-    nvll_osd_init_colors_for_hw_blend(nvdsosd->nvdsosd_context, nvdsosd->color_info,
-                                      nvdsosd->num_class_entries);
 
     if (nvdsosd->show_clock) {
         nvll_osd_set_clock_params(nvdsosd->nvdsosd_context, &nvdsosd->clock_text_params);
@@ -248,7 +266,7 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
     unsigned int arrow_cnt = 0;
     unsigned int circle_cnt = 0;
     unsigned int i = 0;
-    int idx = 0;
+
     gpointer state = NULL;
     NvBufSurface *surface = NULL;
     NvDsBatchMeta *batch_meta = NULL;
@@ -298,27 +316,6 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
         object_meta = (NvDsObjectMeta *)(l->data);
         if (nvdsosd->draw_bbox) {
             nvdsosd->rect_params[rect_cnt] = object_meta->rect_params;
-#ifdef PLATFORM_TEGRA
-            /* In case of hardware blending, values set in hw-blend-color-attr
-               should be considered as rect bg color values*/
-            if (nvdsosd->nvdsosd_mode == MODE_HW && nvdsosd->hw_blend) {
-                for (idx = 0; idx < nvdsosd->num_class_entries; idx++) {
-                    if (nvdsosd->color_info[idx].id == object_meta->class_id) {
-                        nvdsosd->rect_params[rect_cnt].color_id = idx;
-                        nvdsosd->rect_params[rect_cnt].has_bg_color = TRUE;
-                        nvdsosd->rect_params[rect_cnt].bg_color.red =
-                            nvdsosd->color_info[idx].color.red;
-                        nvdsosd->rect_params[rect_cnt].bg_color.blue =
-                            nvdsosd->color_info[idx].color.blue;
-                        nvdsosd->rect_params[rect_cnt].bg_color.green =
-                            nvdsosd->color_info[idx].color.green;
-                        nvdsosd->rect_params[rect_cnt].bg_color.alpha =
-                            nvdsosd->color_info[idx].color.alpha;
-                        break;
-                    }
-                }
-            }
-#endif
             rect_cnt++;
         }
         if (rect_cnt == MAX_OSD_ELEMS) {
@@ -538,6 +535,14 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
         }
     }
 
+    if (nvdsosd->nvdsosd_mode == MODE_GPU) {
+        if (nvll_osd_apply(nvdsosd->nvdsosd_context, &surface->surfaceList[0]) == -1) {
+            GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED,
+                              ("Unable to draw shapes onto video frame by GPU"), NULL);
+            return GST_FLOW_ERROR;
+        }
+    }
+
     nvtxRangePop();
     nvdsosd->frame_num++;
 
@@ -592,6 +597,7 @@ static void gst_nvds_osd_class_init(GstNvDsOsdClass *klass)
     base_transform_class->start = GST_DEBUG_FUNCPTR(gst_nvds_osd_start);
     base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_nvds_osd_stop);
     base_transform_class->set_caps = GST_DEBUG_FUNCPTR(gst_nvds_osd_set_caps);
+    base_transform_class->transform_caps = GST_DEBUG_FUNCPTR(gst_nvds_osd_transform_caps);
 
     gobject_class->set_property = gst_nvds_osd_set_property;
     gobject_class->get_property = gst_nvds_osd_get_property;
@@ -647,21 +653,10 @@ static void gst_nvds_osd_class_init(GstNvDsOsdClass *klass)
 
     g_object_class_install_property(
         gobject_class, PROP_PROCESS_MODE,
-        g_param_spec_enum("process-mode", "Process Mode", "Rect and text draw process mode",
+        g_param_spec_enum("process-mode", "Process Mode",
+                          "Rect and text draw process mode, CPU_MODE only support RGBA format",
                           GST_TYPE_NV_OSD_PROCESS_MODE, GST_NV_OSD_DEFAULT_PROCESS_MODE,
                           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY));
-
-    g_object_class_install_property(
-        gobject_class, PROP_HW_BLEND_COLOR_ATTRS,
-        g_param_spec_string("hw-blend-color-attr", "HW Blend Color Attr",
-                            "color attributes for all classes,\n"
-                            "\t\t\t Use string with values of color class atrributes \n"
-                            "\t\t\t in ClassID (int), r(float), g(float), b(float), a(float)\n"
-                            "\t\t\t in order to set the property.\n"
-                            "\t\t\t Applicable only for HW mode on Jetson.\n"
-                            "\t\t\t e.g. 0,0.0,1.0,0.0,0.3:1,1.0,0.0,0.3,0.3",
-                            DEFAULT_CLR,
-                            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobject_class, PROP_GPU_DEVICE_ID,
@@ -724,13 +719,11 @@ static void gst_nvds_osd_set_property(GObject *object,
         break;
     case PROP_PROCESS_MODE:
         nvdsosd->nvdsosd_mode = (NvOSD_Mode)g_value_get_enum(value);
-        if (nvdsosd->nvdsosd_mode == MODE_HW) {
-            g_print("WARN !! Hardware mode deprecated. Prefer GPU mode instead\n");
+        if (nvdsosd->nvdsosd_mode > MODE_GPU) {
+            g_print("WARN !! Invalid mode selected, Falling back to GPU\n");
+            nvdsosd->nvdsosd_mode =
+                nvdsosd->nvdsosd_mode > MODE_GPU ? MODE_GPU : nvdsosd->nvdsosd_mode;
         }
-        break;
-    case PROP_HW_BLEND_COLOR_ATTRS:
-        nvdsosd->hw_blend = TRUE;
-        gst_nvds_osd_parse_hw_blend_color_attrs(nvdsosd, g_value_get_string(value));
         break;
     case PROP_GPU_DEVICE_ID:
         nvdsosd->gpu_id = g_value_get_uint(value);
@@ -782,9 +775,6 @@ static void gst_nvds_osd_get_property(GObject *object,
     case PROP_PROCESS_MODE:
         g_value_set_enum(value, nvdsosd->nvdsosd_mode);
         break;
-    case PROP_HW_BLEND_COLOR_ATTRS:
-        gst_nvds_osd_get_hw_blend_color_attrs(value, nvdsosd);
-        break;
     case PROP_GPU_DEVICE_ID:
         g_value_set_uint(value, nvdsosd->gpu_id);
         break;
@@ -827,7 +817,6 @@ static void gst_nvds_osd_init(GstNvDsOsd *nvdsosd)
     nvdsosd->frame_line_params = g_new0(NvOSD_FrameLineParams, MAX_OSD_ELEMS);
     nvdsosd->frame_arrow_params = g_new0(NvOSD_FrameArrowParams, MAX_OSD_ELEMS);
     nvdsosd->frame_circle_params = g_new0(NvOSD_FrameCircleParams, MAX_OSD_ELEMS);
-    nvdsosd->hw_blend = FALSE;
 }
 
 /**
@@ -856,63 +845,6 @@ static gboolean nvdsosd_init(GstPlugin *nvdsosd)
     return gst_element_register(nvdsosd, "nvdsosd", GST_RANK_PRIMARY, GST_TYPE_NVDSOSD);
 }
 
-static gboolean gst_nvds_osd_parse_hw_blend_color_attrs(GstNvDsOsd *nvdsosd, const gchar *arr)
-{
-    gchar *str = (gchar *)arr;
-    int idx = 0;
-    int class_id = 0;
-
-    while (str != NULL && str[0] != '\0') {
-        class_id = atoi(str);
-        if (class_id >= MAX_BG_CLR) {
-            g_print("nvdsosd: class_id %d is exceeding than %d\n", class_id, MAX_BG_CLR);
-            exit(-1);
-        }
-        nvdsosd->color_info[idx].id = class_id;
-        str = g_strstr_len(str, -1, ",") + 1;
-
-        nvdsosd->color_info[idx].color.red = atof(str);
-        str = g_strstr_len(str, -1, ",") + 1;
-        nvdsosd->color_info[idx].color.green = atof(str);
-        str = g_strstr_len(str, -1, ",") + 1;
-        nvdsosd->color_info[idx].color.blue = atof(str);
-        str = g_strstr_len(str, -1, ",") + 1;
-        nvdsosd->color_info[idx].color.alpha = atof(str);
-        str = g_strstr_len(str, -1, ":");
-
-        if (str) {
-            str = str + 1;
-        }
-        idx++;
-        if (idx >= MAX_BG_CLR) {
-            g_print("idx (%d) entries exceeded MAX_CLASSES %d\n", idx, MAX_BG_CLR);
-            break;
-        }
-    }
-
-    nvdsosd->num_class_entries = idx;
-    return TRUE;
-}
-
-static gboolean gst_nvds_osd_get_hw_blend_color_attrs(GValue *value, GstNvDsOsd *nvdsosd)
-{
-    int idx = 0;
-    gchar arr[100];
-
-    while (idx < (nvdsosd->num_class_entries - 1)) {
-        sprintf(arr, "%d,%f,%f,%f,%f:", nvdsosd->color_info[idx].id,
-                nvdsosd->color_info[idx].color.red, nvdsosd->color_info[idx].color.green,
-                nvdsosd->color_info[idx].color.blue, nvdsosd->color_info[idx].color.alpha);
-        idx++;
-    }
-    sprintf(arr, "%d,%f,%f,%f,%f:", nvdsosd->color_info[idx].id, nvdsosd->color_info[idx].color.red,
-            nvdsosd->color_info[idx].color.green, nvdsosd->color_info[idx].color.blue,
-            nvdsosd->color_info[idx].color.alpha);
-
-    g_value_set_string(value, arr);
-    return TRUE;
-}
-
 #ifndef PACKAGE
 #define PACKAGE "nvdsosd"
 #endif
@@ -922,7 +854,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_osd,
                   PACKAGE_DESCRIPTION,
                   nvdsosd_init,
-                  "6.1",
+                  "6.2",
                   PACKAGE_LICENSE,
                   PACKAGE_NAME,
                   PACKAGE_URL)

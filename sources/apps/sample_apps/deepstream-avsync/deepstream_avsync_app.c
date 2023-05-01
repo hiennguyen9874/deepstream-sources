@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -819,7 +819,8 @@ int main(int argc, char *argv[])
     GMainLoop *loop = NULL;
     // GstElement *pipeline = NULL, *streammux = NULL, *pgie = NULL,
     GstElement *streammux = NULL, *pgie = NULL, *queue1, *queue2, *queue3, *queue4, *queue5,
-               *queue6, *queue7, *queue8, *nvvidconv = NULL, *nvosd = NULL, *tiler = NULL;
+               *queue6, *queue7, *queue8, *nvvidconv = NULL, *nvosd = NULL,
+               *tiler = NULL; // *sink = NULL;
     GstElement *rtspoutsinkbin = NULL;
 
     const gchar *new_mux_str = g_getenv("USE_NEW_NVSTREAMMUX");
@@ -854,9 +855,6 @@ int main(int argc, char *argv[])
     GstPad *fakesrc_srcpad = NULL;
 #endif
 
-#ifdef PLATFORM_TEGRA
-    GstElement *transform = NULL;
-#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *tiler_src_pad = NULL;
@@ -1279,6 +1277,7 @@ int main(int argc, char *argv[])
         g_object_set(G_OBJECT(rtspoutsinkbin), "bitrate", 768000, NULL);
         g_object_set(G_OBJECT(rtspoutsinkbin), "rtsp-port", rtsp_port_num, NULL);
         g_object_set(G_OBJECT(rtspoutsinkbin), "enc-type", enc_type, NULL);
+        g_object_set(G_OBJECT(rtspoutsinkbin), "audio-codec-type", 2, NULL); // use ac3 audio codec
 
         gst_bin_add_many(GST_BIN(pipeline), rtspoutsinkbin, NULL);
         if (!gst_element_link_many(audiomixer, rtspoutsinkbin, NULL)) {
@@ -1313,7 +1312,7 @@ int main(int argc, char *argv[])
 
     /* Finally render the osd output */
 #ifdef PLATFORM_TEGRA
-    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+    // sink = gst_element_factory_make ("nv3dsink", "nv3d-sink");
 #endif
     // sink = gst_element_factory_make ("nveglglessink", "nvvideo-renderer");
     // sink = gst_element_factory_make ("nvrtspoutsinkbin", "nvvideo-renderer");
@@ -1322,13 +1321,6 @@ int main(int argc, char *argv[])
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
-
-#ifdef PLATFORM_TEGRA
-    if (!transform) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
-        return -1;
-    }
-#endif
 
     g_object_set(G_OBJECT(streammux), "batch-size", num_sources, NULL);
 
@@ -1371,11 +1363,11 @@ int main(int argc, char *argv[])
     /* we add all elements into the pipeline */
 #ifdef PLATFORM_TEGRA
     gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, tiler, queue3, nvvidconv, queue4,
-                     nvosd, queue5, transform, sink, NULL);
+                     nvosd, queue5, sink, NULL);
     /* we link the elements together
      * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
     if (!gst_element_link_many(streammux, queue1, pgie, queue2, tiler, queue3, nvvidconv, queue4,
-                               nvosd, queue5, transform, sink, NULL)) {
+                               nvosd, queue5, sink, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }
@@ -1385,7 +1377,7 @@ int main(int argc, char *argv[])
     /* we link the elements together
      * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
     // if (!gst_element_link_many (streammux, queue1, pgie, queue2, tiler, queue3,
-    //    nvvidconv, queue4, nvosd, queue5, sink, NULL)) {
+    //     nvvidconv, queue4, nvosd, queue5, sink, NULL)) {
     if (!gst_element_link_many(streammux, queue1, pgie, queue2, tiler, queue3, nvvidconv, queue4,
                                nvosd, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");

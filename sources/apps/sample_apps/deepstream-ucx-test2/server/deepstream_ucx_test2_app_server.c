@@ -75,7 +75,8 @@ int main(int argc, char *argv[])
     if (argc != 7) {
         g_printerr(
             "Usage: %s <addr> <port> <width> <height> "
-            "<custom meta lib path> <file output path>\n",
+            "<video metadata serialization lib path> "
+            "<file output path>\n",
             argv[0]);
         return -1;
     }

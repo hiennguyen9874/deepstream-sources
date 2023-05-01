@@ -28,6 +28,7 @@ namespace cvcore {
  */
 enum class CameraDistortionType : uint8_t {
     UNKNOWN,             /**< Unknown arbitrary distortion model. */
+    NONE,                /**< No distortion applied. */
     Polynomial,          /**< Polynomial distortion model. */
     FisheyeEquidistant,  /**< Equidistant Fisheye distortion model. */
     FisheyeEquisolid,    /**< Equisolid Fisheye distortion model. */

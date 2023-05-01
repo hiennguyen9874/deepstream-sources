@@ -21,9 +21,9 @@ local_copy_files:
   - src: "parameters.yaml"
     dst: "/workspace/deepstream-action-recognition/"
   - src: "/opt/nvidia/deepstream/deepstream/samples/models/tao_pretrained_models/actionRecognition/resnet18_2d_rgb_hmdb5_32.etlt"
-    dst: "/opt/nvidia/deepstream/deepstream-6.1/samples/models/tao_pretrained_models/actionRecognition/"
+    dst: "/opt/nvidia/deepstream/deepstream-6.2/samples/models/tao_pretrained_models/actionRecognition/"
   - src: "/opt/nvidia/deepstream/deepstream/samples/models/tao_pretrained_models/actionRecognition/resnet18_3d_rgb_hmdb5_32.etlt"
-    dst: "/opt/nvidia/deepstream/deepstream-6.1/samples/models/tao_pretrained_models/actionRecognition/"
+    dst: "/opt/nvidia/deepstream/deepstream-6.2/samples/models/tao_pretrained_models/actionRecognition/"
 
 resources_files:
   - resources.yaml

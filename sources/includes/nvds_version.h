@@ -30,8 +30,8 @@
 #define _NVDS_VERSION_H_
 
 #define NVDS_VERSION_MAJOR 6
-#define NVDS_VERSION_MINOR 1
-#define NVDS_VERSION_MICRO 1
+#define NVDS_VERSION_MINOR 2
+#define NVDS_VERSION_MICRO 0
 
 #ifdef __cplusplus
 extern "C" {

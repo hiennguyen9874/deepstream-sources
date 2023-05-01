@@ -1,6 +1,6 @@
 ## Description
 
-This sample is to show the following TAO3.0 models runing with DeepStream
+This sample is to show the following TAO models runing with DeepStream
 
 - 2D Bodypose
 - Facial Landmarks Estimation
@@ -8,29 +8,39 @@ This sample is to show the following TAO3.0 models runing with DeepStream
 - Gaze Estimation
 - GestureNet
 - HeartRateNet
+- Retail Object Detection 100 classes
+- Retail Object Detection Binary
+- Retail Object Recognition
+- PeopleNet Transformer
+- ReIdentificationNet
 
 ## Prerequisition
 
-- [DeepStream SDK 6.0 GA and above](https://developer.nvidia.com/deepstream-sdk-6.0-members-page)
+- [DeepStream SDK 6.2 GA](https://developer.nvidia.com/deepstream-sdk)
 
   Make sure deepstream-test1 sample can run successful to verify your DeepStream installation
 
-- [TAO3.0 models](https://docs.nvidia.com/tao/tao-toolkit/text/overview.html)
+- [TAO models](https://docs.nvidia.com/tao/tao-toolkit/text/overview.html)
 
   Nvidia has provides all the trainable models in NGC.
-  The models used in the sample application are pre-trained models provided by TAO3.0:
+  The models used in the sample application are pre-trained models provided by TAO:
 
-| Model name                  | NGC link                                                              | Version                 |
-| --------------------------- | --------------------------------------------------------------------- | ----------------------- |
-| FaceDetect                  | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:facenet)      | pruned_quantized_v2.0.1 |
-| Facial Landmarks Estimation | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:fpenet)       | deployable_v3.0         |
-| EmotionNet                  | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:emotionnet)   | deployable_v1.0         |
-| Gaze Estimation             | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:gazenet)      | deployable_v1.0         |
-| GestureNet                  | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:gesturenet)   | deployable_v2.0.1       |
-| HeartRateNet                | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:heartratenet) | deployable_v1.0         |
-| BodyPoseNet                 | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:bodyposenet)  | deployable_v1.0.1       |
+| Model name                          | NGC link                                                                                      | Version                 |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------- |
+| FaceDetect                          | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:facenet)                              | pruned_quantized_v2.0.1 |
+| Facial Landmarks Estimation         | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:fpenet)                               | deployable_v3.0         |
+| EmotionNet                          | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:emotionnet)                           | deployable_v1.0         |
+| Gaze Estimation                     | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:gazenet)                              | deployable_v1.0         |
+| GestureNet                          | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:gesturenet)                           | deployable_v2.0.2       |
+| HeartRateNet                        | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:heartratenet)                         | deployable_v1.0         |
+| BodyPoseNet                         | [link](https://ngc.nvidia.com/catalog/models/nvidia:tao:bodyposenet)                          | deployable_v1.0.1       |
+| Retail Object Detection 100 Classes | [link](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/retail_object_detection)   | deployable_100_v1.0     |
+| Retail Object Detection Binary      | [link](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/retail_object_detection)   | deployable_binary_v1.0  |
+| PeopleNet Transformer               | [link](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/peoplenet_transformer)     | deployable_v1.0         |
+| Retail Object Recognition           | [link](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/retail_object_recognition) | deployable_v1.0         |
+| ReIdentificationNet                 | [link](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/reidentificationnet)       | deployable_v1.0         |
 
-The [Bodypose2D backbone](https://ngc.nvidia.com/catalog/models/nvidia:tao:bodyposenet) can be trained and deployed with TAO3.0 tools.
+The [Bodypose2D backbone](https://ngc.nvidia.com/catalog/models/nvidia:tao:bodyposenet) can be trained and deployed with TAO tools.
 
 There is blog for introducing training and optimization for bodypose 2D estimation model:
 
@@ -41,7 +51,9 @@ https://developer.nvidia.com/blog/training-optimizing-2d-pose-estimation-model-w
 1. Download Project with HTTPS
 
 ```
-    git clone https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps.git
+    sudo apt-get install git-lfs
+    git lfs install --skip-repo
+    git clone -b master https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps.git
 ```
 
 2. Prepare Models and TensorRT engine
@@ -53,8 +65,6 @@ Please run the following script to download pre-trained models and generate Gaze
 ```
     cd deepstream_tao_apps
     chmod 755 download_models.sh
-    export TAO_CONVERTER=the file path of tao-converter
-    export MODEL_PRECISION=fp16
     ./download_models.sh
 ```
 
@@ -69,7 +79,6 @@ Go into the application folder
 Build the application
 
 ```
-    export CUDA_VER=cuda version in the device
     make
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/nvidia/deepstream/deepstream/lib/cvcore_libs
 ```
@@ -137,6 +146,15 @@ OR
     ./deepstream-heartrate-app <app YAML config file>
 ```
 
+Start to run the mdx perception application
+
+```
+    cd deepstream-mdx-perception-app
+    ./deepstream-mdx-perception-app -c <txt config file>
+OR
+    ./deepstream-heartrate-app <app YAML config file>
+```
+
 A sample of 2D bodypose:
 
 `./deepstream-bodypose2d-app 1 ../../../configs/bodypose2d_tao/sample_bodypose2d_model_config.txt 0 0 file:///usr/data/bodypose2d_test.png ./body2dout`
@@ -179,6 +197,10 @@ A sample of heartrate:
 
 or
 `./deepstream-heartrate-app heartrate_app_config.yml`
+
+A sample of mdx perception:
+
+`./deepstream-mdx-perception-app  -c ../../../configs/app/peoplenet_reidentification.yml`
 
 ## Known Issue
 

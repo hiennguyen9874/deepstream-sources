@@ -57,7 +57,7 @@ GstMessage *gst_nvmessage_new_stream_eos(GstObject *obj, guint eos_stream_id);
 /**
  * Determines whether a message is a stream EOS message.
  *
- * params[in] message   A pointer to the nessage to be checked.
+ * params[in] message   A pointer to the message to be checked.
  *
  * @return  A Boolean; true if the message is a stream EOS message.
  */

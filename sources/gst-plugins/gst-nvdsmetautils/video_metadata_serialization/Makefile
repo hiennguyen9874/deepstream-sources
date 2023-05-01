@@ -21,56 +21,45 @@
 # DEALINGS IN THE SOFTWARE.
 #################################################################################
 
-CUDA_VER?=
-ifeq ($(CUDA_VER),)
-  $(error "CUDA_VER is not set")
-endif
+CC:= g++
 
-TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
-CXX:= g++
+PKGS:= glib-2.0 gobject-2.0 json-glib-1.0 uuid gstreamer-1.0
 
-SRCS:= video_metadata_serialization.cpp
+NVDS_VERSION:=6.2
 
-INCS:= $(wildcard *.h)
-LIB:=libnvds_video_metadata_serialization.so
-
-NVDS_VERSION:=6.1
-
-CFLAGS+= -fPIC -DDS_VERSION=\"6.1.1\" \
-	 -I /usr/local/cuda-$(CUDA_VER)/include \
-	 -I ../../../includes -I../includes
-
-GST_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/gst-plugins/
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 
-ifeq ($(TARGET_DEVICE),aarch64)
-	LIBS := -L/usr/lib/aarch64-linux-gnu/tegra
-endif
+CFLAGS:= -Wall -std=c++11 -shared -fPIC
 
+CFLAGS+= -fPIC -DDS_VERSION=\"6.2\" \
+	 -I /usr/local/cuda-$(CUDA_VER)/include \
+	 -I ../../../includes
 
-LIBS += -shared -Wl,-no-undefined \
-	-L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart -ldl -lpthread \
+CFLAGS+= $(shell pkg-config --cflags $(PKGS))
+LIBS:= $(shell pkg-config --libs $(PKGS))
+
+LIBS+= -shared -Wl,-no-undefined \
 	-L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_meta -lnvds_meta \
-	-Wl,-rpath,$(LIB_INSTALL_DIR)
+	-Wl,-rpath,$(LIB_INSTALL_DIR) -lprotobuf
 
-OBJS:= $(SRCS:.cpp=.o)
-PKGS:= gstreamer-1.0 gstreamer-base-1.0 gstreamer-video-1.0
+PROTOBUF_BUILD_DIR:= $(CURDIR)
 
-CFLAGS+=$(shell pkg-config --cflags $(PKGS))
-LIBS+=$(shell pkg-config --libs $(PKGS))
+SRCFILES:= video_metadata_serialization.cpp  \
+  $(PROTOBUF_BUILD_DIR)/ds_meta.pb.cc
 
-all: $(LIB)
+TARGET_LIB:= libnvds_video_metadata_serialization.so
 
-%.o: %.cpp $(INCS) Makefile
-	@echo $(CFLAGS)
-	$(CXX) -c -o $@ $(CFLAGS) $<
+all: $(TARGET_LIB)
 
-$(LIB): $(OBJS) $(DEP) Makefile
-	@echo $(CFLAGS)
-	$(CXX) -o $@ $(OBJS) $(LIBS)
+$(TARGET_LIB) : $(SRCFILES)
+	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
-install: $(LIB)
-	cp -rv $(LIB) $(GST_INSTALL_DIR)
+install: $(TARGET_LIB)
+	cp -rv $(TARGET_LIB) $(LIB_INSTALL_DIR)
 
 clean:
-	rm -rf $(OBJS) $(LIB)
+	rm -rf $(TARGET_LIB) $(PROTOBUF_BUILD_DIR)/*.pb.*
+
+SCHEMA_PROTOS:=$(wildcard $(CURDIR)/*.proto)
+$(PROTOBUF_BUILD_DIR)/%.pb.cc: $(SCHEMA_PROTOS) Makefile
+	protoc -I$(CURDIR) --cpp_out=$(PROTOBUF_BUILD_DIR)/ $<

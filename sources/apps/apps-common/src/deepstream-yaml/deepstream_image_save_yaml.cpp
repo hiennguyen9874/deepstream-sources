@@ -35,6 +35,7 @@ gboolean parse_image_save_yaml(NvDsImageSave *config, gchar *cfg_file_path)
     gboolean ret = FALSE;
     /*Default Values*/
     config->enable = FALSE;
+    config->gpu_id = 0;
     config->output_folder_path = NULL;
     config->frame_to_skip_rules_path = NULL;
     config->min_confidence = 0.0;
@@ -51,6 +52,8 @@ gboolean parse_image_save_yaml(NvDsImageSave *config, gchar *cfg_file_path)
         std::string paramKey = itr->first.as<std::string>();
         if (paramKey == "enable") {
             config->enable = itr->second.as<gboolean>();
+        } else if (paramKey == "gpu-id") {
+            config->gpu_id = itr->second.as<guint>();
         } else if (paramKey == "output-folder-path") {
             std::string temp = itr->second.as<std::string>();
             config->output_folder_path = (char *)malloc(sizeof(char) * 1024);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -57,6 +57,12 @@ gboolean create_tracking_bin(NvDsTrackerConfig *config, NvDsTrackerBin *bin)
 
     g_object_set(G_OBJECT(bin->tracker), "tracking-surface-type", config->tracking_surface_type,
                  NULL);
+
+    g_object_set(G_OBJECT(bin->tracker), "input-tensor-meta", config->input_tensor_meta, NULL);
+
+    g_object_set(G_OBJECT(bin->tracker), "tensor-meta-gie-id", config->input_tensor_gie_id, NULL);
+
+    g_object_set(G_OBJECT(bin->tracker), "compute-hw", config->compute_hw, NULL);
 
     gst_bin_add_many(GST_BIN(bin->bin), bin->tracker, NULL);
 

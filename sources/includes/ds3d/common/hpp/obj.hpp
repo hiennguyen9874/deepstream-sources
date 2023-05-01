@@ -17,10 +17,16 @@
 #include <ds3d/common/common.h>
 #include <ds3d/common/func_utils.h>
 
-#define DS3D_REF_COPY_DESTROY_IMPL(clss)  \
-    void destroy() final { delete this; } \
-    ~clss() override = default;           \
-    abiRefObj *refCopy_i() const final { return new clss(*this); }
+#define DS3D_REF_COPY_DESTROY_IMPL(clss) \
+    void destroy() final                 \
+    {                                    \
+        delete this;                     \
+    }                                    \
+    ~clss() override = default;          \
+    abiRefObj *refCopy_i() const final   \
+    {                                    \
+        return new clss(*this);          \
+    }
 
 namespace ds3d {
 
@@ -302,7 +308,7 @@ public:
     operator bool() { return this->abiRef(); }
 
     template <typename... Args>
-    void operator()(Args &&... args) const
+    void operator()(Args &&...args) const
     {
         DS_ASSERT(this->abiRef());
         this->abiRef()->notify(std::forward<Args>(args)...);

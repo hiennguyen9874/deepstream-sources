@@ -10,25 +10,25 @@
 ################################################################################
 
 components:
-  - name: nv_ds_single_src_input39..3c18
+  - name: single_source_input
     parameters:
       uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4
-name: NvDsSingleSrcInput..1b00
+name: single_source_input
 ---
 components:
-  - name: nv_ds_stream_mux42..36d8
+  - name: streammux
     parameters:
       batch-size: 1
       height: 1080
       width: 1920
-name: NvDsStreamMux..16d8
+name: streammux
 ---
 components:
-  - name: nv_ds_msg_conv_broker61..4748
+  - name: message_converter_broker
     parameters:
       msg-broker-conn-str: 127.0.0.1;9092;test-topic
       msg-broker-proto-lib: /opt/nvidia/deepstream/deepstream/lib/libnvds_kafka_proto.so
       msg-conv-config: /opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-test4/dstest4_msgconv_config.txt
       msg-conv-payload-type: 0
       topic: test-topic
-name: NvDsMsgConvBroker..bb00
+name: message_converter_broker

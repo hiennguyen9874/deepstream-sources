@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -292,7 +292,6 @@ int main(int argc, char *argv[])
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *nvtracker = NULL,
                *nvdsanalytics = NULL, *nvvidconv = NULL, *nvosd = NULL, *tiler = NULL, *queue1,
                *queue2, *queue3, *queue4, *queue5, *queue6, *queue7;
-    GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *nvdsanalytics_src_pad = NULL;
@@ -393,18 +392,14 @@ int main(int argc, char *argv[])
 
     /* Finally render the osd output */
     if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+    } else {
+        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     }
-    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!pgie || !nvtracker || !nvdsanalytics || !tiler || !nvvidconv || !nvosd || !sink ||
         !queue1 || !queue2 || !queue3 || !queue4 || !queue5 || !queue6 || !queue7) {
         g_printerr("One element could not be created. Exiting.\n");
-        return -1;
-    }
-
-    if (!transform && prop.integrated) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
         return -1;
     }
 
@@ -447,34 +442,17 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    if (prop.integrated) {
-        gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, nvtracker, queue3, nvdsanalytics,
-                         queue4, tiler, queue5, nvvidconv, queue6, nvosd, queue7, transform, sink,
-                         NULL);
-
-        /* we link the elements together, with queues in between
-         * nvstreammux -> nvinfer -> nvtracker -> nvdsanalytics -> nvtiler ->
-         * nvvideoconvert -> nvosd -> transform -> sink
-         */
-        if (!gst_element_link_many(streammux, queue1, pgie, queue2, nvtracker, queue3,
-                                   nvdsanalytics, queue4, tiler, queue5, nvvidconv, queue6, nvosd,
-                                   queue7, transform, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-    } else {
-        gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, nvtracker, queue3, nvdsanalytics,
-                         queue4, tiler, queue5, nvvidconv, queue6, nvosd, queue7, sink, NULL);
-        /* we link the elements together
-         * nvstreammux -> nvinfer -> nvtracker -> nvdsanalytics -> nvtiler ->
-         * nvvideoconvert -> nvosd -> sink
-         */
-        if (!gst_element_link_many(streammux, queue1, pgie, queue2, nvtracker, queue3,
-                                   nvdsanalytics, queue4, tiler, queue5, nvvidconv, queue6, nvosd,
-                                   queue7, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, nvtracker, queue3, nvdsanalytics,
+                     queue4, tiler, queue5, nvvidconv, queue6, nvosd, queue7, sink, NULL);
+    /* we link the elements together
+     * nvstreammux -> nvinfer -> nvtracker -> nvdsanalytics -> nvtiler ->
+     * nvvideoconvert -> nvosd -> sink
+     */
+    if (!gst_element_link_many(streammux, queue1, pgie, queue2, nvtracker, queue3, nvdsanalytics,
+                               queue4, tiler, queue5, nvvidconv, queue6, nvosd, queue7, sink,
+                               NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 
     /* Lets add probe to get informed of the meta data generated, we add probe to

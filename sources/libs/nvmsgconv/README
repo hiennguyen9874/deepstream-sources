@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -9,6 +9,20 @@
 #
 ################################################################################
 
+nvmsgconv (Message Convertor) library provides APIs for payload generation
+nvmsgconv library supports generation of payload in json & protobuf formats
+
+Below are the schemas supported for payload generation:
+  PAYLOAD_DEEPSTREAM - Json Full message schema with separate payload per object (Default)
+  PAYLOAD_DEEPSTREAM_MINIMAL - Json Minimal message with multiple objects in single payload.
+  PAYLOAD_DEEPSTREAM_PROTOBUF - Protobuf encoded message with multiple objects in single payload.
+
+Payload can be generated using below metadata types:
+  NVDS_EVENT_MSG_META type metadata attached to the buffer as user metadata of frame meta
+  OR
+  NVDS_FRAME_META type and NVDS_OBJECT_META type in Gst buffer and available fields in
+these metadata types are used to create message payload based on schema type.
+
 Refer to the DeepStream SDK documentation for a description of the plugin.
 
 --------------------------------------------------------------------------------
@@ -17,12 +31,15 @@ Pre-requisites:
 - json-glib-1.0
 - uuid
 - yaml-cpp
+- protobuf-compiler
 
 Install using:
-  sudo apt-get install libglib2.0-dev libjson-glib-dev uuid-dev libyaml-cpp-dev
+  sudo apt-get install libglib2.0-dev libjson-glib-dev uuid-dev libyaml-cpp-dev protobuf-compiler
 
---------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------
 Compiling and installing the plugin:
 Run make and sudo make install
 
-NOTE: To compile the sources, run make with "sudo" or root permission.
+NOTE:
+1) To compile the sources, run make with "sudo" or root permission.
+2) For payload generation using protobuf, proto.schema is provided within deepstream_schema directory.

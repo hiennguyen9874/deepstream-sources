@@ -49,7 +49,7 @@ class GuardDataLoader : public GuardDataProcess<abiDataLoader> {
 public:
     // GuardDataLoader() = default;
     template <typename... Args /*, _EnableIfConstructible<_Base, Args...> = true*/>
-    GuardDataLoader(Args &&... args) : _Base(std::forward<Args>(args)...)
+    GuardDataLoader(Args &&...args) : _Base(std::forward<Args>(args)...)
     {
     }
     ~GuardDataLoader() = default;

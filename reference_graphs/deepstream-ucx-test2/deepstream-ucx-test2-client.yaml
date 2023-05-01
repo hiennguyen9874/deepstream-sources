@@ -13,57 +13,57 @@ application:
 dependencies:
   - extension: NvDsSourceExt
     uuid: a632d022-3425-4848-9074-e6483ef74366
-    version: 1.0.0
+    version: 1.1.1
   - extension: NvDsBaseExt
     uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
-    version: 1.0.0
+    version: 1.2.0
   - extension: NvDsMuxDemuxExt
     uuid: 89b8398c-5820-4051-835c-a91f2d49766b
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsInferenceExt
     uuid: 0b02963e-c24e-4c13-ace0-c4cdf36c7c71
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsSampleModelsExt
     uuid: 909dc1ea-c654-44c1-97a3-0b8fec12141a
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsInferenceUtilsExt
     uuid: 27856a43-5ad4-4d8e-be36-0ec2cf9bbb58
-    version: 1.0.0
+    version: 1.1.1
   - extension: NvDsUcxExt
     uuid: 4ee6215d-cb14-41e8-a266-5c45f4f9ffd4
-    version: 0.0.1
+    version: 0.1.0
 ---
 components:
-  - name: nv_ds_single_src_input28
+  - name: single_source_input
     parameters:
-      audio-out-%u: nv_ds_dynamic_output30
+      audio-out-%u: audio_output
       uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
-      video-out-%u: nv_ds_dynamic_output29
+      video-out-%u: video_output
     type: nvidia::deepstream::NvDsSingleSrcInput
-  - name: nv_ds_dynamic_output29
+  - name: video_output
     type: nvidia::deepstream::NvDsDynamicOutput
-  - name: nv_ds_dynamic_output30
+  - name: audio_output
     type: nvidia::deepstream::NvDsDynamicOutput
-name: NvDsSingleSrcInput
+name: single_source_input
 ui_property:
   position:
     x: -103.81423950195312
     y: 141.44180297851562
 ---
 components:
-  - name: nv_ds_stream_mux31
+  - name: streammux
     parameters:
       batch-size: 1
       height: 1080
-      video-in-%u: nv_ds_on_request_input32
-      video-out: nv_ds_static_output33
+      video-in-%u: video_input
+      video-out: video_output
       width: 1920
     type: nvidia::deepstream::NvDsStreamMux
-  - name: nv_ds_on_request_input32
+  - name: video_input
     type: nvidia::deepstream::NvDsOnRequestInput
-  - name: nv_ds_static_output33
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-name: NvDsStreamMux
+name: streammux
 ui_property:
   position:
     x: 119.3364028930664
@@ -72,25 +72,25 @@ ui_property:
 components:
   - name: nv_ds_connection34
     parameters:
-      source: NvDsSingleSrcInput/nv_ds_dynamic_output29
-      target: NvDsStreamMux/nv_ds_on_request_input32
+      source: single_source_input/video_output
+      target: streammux/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node
 ---
 components:
-  - name: nv_ds_infer_video35
+  - name: object_detector
     parameters:
-      infer-model-config: nv_ds_resnet10_4_class_detector_model39
-      video-in: nv_ds_static_input37
-      video-out: nv_ds_static_output36
+      infer-model-config: resnet10_4_class_detector
+      video-in: video_input
+      video-out: video_output
     type: nvidia::deepstream::NvDsInferVideo
-  - name: nv_ds_static_output36
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: nv_ds_static_input37
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_resnet10_4_class_detector_model39
+  - name: resnet10_4_class_detector
     type: nvidia::deepstream::NvDsResnet10_4ClassDetectorModel
-name: NvDsInferVideo
+name: object_detector
 ui_property:
   position:
     x: 338.1537170410156
@@ -99,23 +99,23 @@ ui_property:
 components:
   - name: nv_ds_connection38
     parameters:
-      source: NvDsStreamMux/nv_ds_static_output33
-      target: NvDsInferVideo/nv_ds_static_input37
+      source: streammux/video_output
+      target: object_detector/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node
 ---
 components:
-  - name: nv_ds_meta_serialize40
+  - name: meta_serialize
     parameters:
       serialize-lib: /opt/nvidia/deepstream/deepstream/lib/libnvds_video_metadata_serialization.so
-      in: nv_ds_static_input42
-      out: nv_ds_static_output41
+      in: input
+      out: output
     type: nvidia::deepstream::NvDsMetaSerialize
-  - name: nv_ds_static_output41
+  - name: output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: nv_ds_static_input42
+  - name: input
     type: nvidia::deepstream::NvDsStaticInput
-name: NvDsMetaSerialize
+name: meta_serialize
 ui_property:
   position:
     x: 633.882080078125
@@ -124,21 +124,21 @@ ui_property:
 components:
   - name: nv_ds_connection43
     parameters:
-      source: NvDsInferVideo/nv_ds_static_output36
-      target: NvDsMetaSerialize/nv_ds_static_input42
+      source: object_detector/video_output
+      target: meta_serialize/input
     type: nvidia::deepstream::NvDsConnection
 name: node
 ---
 components:
-  - name: nv_ds_ucx_client_sink44
+  - name: ucx_client_sink
     parameters:
       addr: 192.168.1.100
-      in: nv_ds_static_input45
+      in: input
       port: 7174
     type: nvidia::deepstream::NvDsUcxClientSink
-  - name: nv_ds_static_input45
+  - name: input
     type: nvidia::deepstream::NvDsStaticInput
-name: NvDsUcxClientSink
+name: ucx_client_sink
 ui_property:
   position:
     x: 893.8632202148438
@@ -147,15 +147,15 @@ ui_property:
 components:
   - name: nv_ds_connection46
     parameters:
-      source: NvDsMetaSerialize/nv_ds_static_output41
-      target: NvDsUcxClientSink/nv_ds_static_input45
+      source: meta_serialize/output
+      target: ucx_client_sink/input
     type: nvidia::deepstream::NvDsConnection
 name: node
 ---
 components:
-  - name: nv_ds_scheduler47
+  - name: scheduler
     type: nvidia::deepstream::NvDsScheduler
-name: NvDsScheduler
+name: scheduler
 ui_property:
   position:
     x: 374.98419189453125

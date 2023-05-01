@@ -28,7 +28,10 @@ namespace config {
 ErrCode inline CatchYamlCall(std::function<ErrCode()> f)
 {
     ErrCode code = ErrCode::kGood;
-    DS3D_TRY { code = f(); }
+    DS3D_TRY
+    {
+        code = f();
+    }
     DS3D_CATCH_ERROR(Exception, ErrCode::kConfig, "parse config error")
     DS3D_CATCH_ERROR(std::runtime_error, ErrCode::kConfig, "parse config failed")
     DS3D_CATCH_ERROR(std::exception, ErrCode::kConfig, "parse config failed")
@@ -37,10 +40,13 @@ ErrCode inline CatchYamlCall(std::function<ErrCode()> f)
 }
 
 template <class F, typename... Args>
-ErrCode CatchConfigCall(F f, Args &&... args)
+ErrCode CatchConfigCall(F f, Args &&...args)
 {
     ErrCode code = ErrCode::kGood;
-    DS3D_TRY { code = f(std::forward<Args>(args)...); }
+    DS3D_TRY
+    {
+        code = f(std::forward<Args>(args)...);
+    }
     DS3D_CATCH_ERROR(Exception, ErrCode::kConfig, "parse config error")
     DS3D_CATCH_ERROR(std::runtime_error, ErrCode::kConfig, "parse config failed")
     DS3D_CATCH_ERROR(std::exception, ErrCode::kConfig, "parse config failed")

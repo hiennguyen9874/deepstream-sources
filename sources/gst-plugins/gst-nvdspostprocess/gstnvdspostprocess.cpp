@@ -446,7 +446,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_postprocess,
                   DESCRIPTION,
                   nvdspostprocess_plugin_init,
-                  "6.1",
+                  "6.2",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

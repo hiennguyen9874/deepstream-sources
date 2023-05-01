@@ -178,9 +178,9 @@ void *nvds_kafka_client_init(NvDsKafkaClientHandle *kh)
 
 // There could be several synchronous and asychronous send operations in flight.
 // Once a send operation callback is received the course of action  depends on if it's sync or async
-// -- if it's sync then the associated completion flag should  be set
-// -- if it's asynchronous then completion callback from the user should be called along with
-// context
+//  -- if it's sync then the associated completion flag should  be set
+//  -- if it's asynchronous then completion callback from the user should be called along with
+//  context
 NvDsMsgApiErrorType nvds_kafka_client_send(void *kv,
                                            const uint8_t *payload,
                                            int len,

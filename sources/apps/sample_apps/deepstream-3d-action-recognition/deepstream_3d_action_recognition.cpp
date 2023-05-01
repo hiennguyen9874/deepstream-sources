@@ -396,7 +396,6 @@ int main(int argc, char *argv[])
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *preprocess = NULL,
                *queue1 = NULL, *queue2 = NULL, *queue3 = NULL, *queue4 = NULL, *queue5 = NULL,
                *queue6 = NULL, *nvvidconv = NULL, *nvosd = NULL, *tiler = NULL;
-    GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *pgie_src_pad = NULL;
@@ -525,17 +524,13 @@ int main(int argc, char *argv[])
 
         /* Finally render the osd output */
         if (prop.integrated) {
-            transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+            sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
+        } else {
+            sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
         }
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
         if (!tiler || !nvvidconv || !nvosd || !sink) {
             g_printerr("One element could not be created. Exiting.\n");
-            return -1;
-        }
-
-        if (!transform && prop.integrated) {
-            g_printerr("One tegra element could not be created. Exiting.\n");
             return -1;
         }
 
@@ -581,17 +576,6 @@ int main(int argc, char *argv[])
         /* we link the elements together
          * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
         if (!gst_element_link_many(streammux, queue1, preprocess, queue2, pgie, queue3, sink,
-                                   NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-    } else if (prop.integrated) {
-        gst_bin_add_many(GST_BIN(pipeline), queue1, preprocess, queue2, pgie, queue3, tiler, queue4,
-                         nvvidconv, queue5, nvosd, queue6, transform, sink, NULL);
-        /* we link the elements together
-         * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
-        if (!gst_element_link_many(streammux, queue1, preprocess, queue2, pgie, queue3, tiler,
-                                   queue4, nvvidconv, queue5, nvosd, queue6, transform, sink,
                                    NULL)) {
             g_printerr("Elements could not be linked. Exiting.\n");
             return -1;

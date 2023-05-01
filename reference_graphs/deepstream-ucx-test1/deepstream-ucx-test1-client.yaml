@@ -13,42 +13,42 @@ application:
 dependencies:
   - extension: NvDsUcxExt
     uuid: 4ee6215d-cb14-41e8-a266-5c45f4f9ffd4
-    version: 0.0.1
+    version: 0.1.0
   - extension: NvDsBaseExt
     uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
-    version: 1.0.0
+    version: 1.2.0
   - extension: NvDsOutputSinkExt
     uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
-    version: 1.0.0
+    version: 1.1.0
 ---
 components:
-  - name: nv_ds_ucx_client_src7
+  - name: ucx_client_source
     parameters:
       addr: 192.168.1.100
       nvbuf-memory-type: 2
-      out: nv_ds_static_output8
+      out: output
       port: 7174
     type: nvidia::deepstream::NvDsUcxClientSrc
-  - name: nv_ds_static_output8
+  - name: output
     type: nvidia::deepstream::NvDsStaticOutput
-name: NvDsUcxClientSrc
+name: ucx_client_source
 ui_property:
   position:
     x: 497.3570861816406
     y: 141.3573455810547
 ---
 components:
-  - name: gst_caps_filter9
+  - name: gstreamer_caps_filter
     parameters:
       caps: "video/x-raw(memory:NVMM), format=NV12, width=1280, height=720, framerate=30/1"
-      in: nv_ds_static_input11
-      out: nv_ds_static_output10
+      in: input
+      out: output
     type: nvidia::deepstream::GstCapsFilter
-  - name: nv_ds_static_output10
+  - name: output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: nv_ds_static_input11
+  - name: input
     type: nvidia::deepstream::NvDsStaticInput
-name: GstCapsFilter
+name: gstreamer_caps_filter
 ui_property:
   position:
     x: 735.5586547851562
@@ -57,21 +57,21 @@ ui_property:
 components:
   - name: nv_ds_connection12
     parameters:
-      source: NvDsUcxClientSrc/nv_ds_static_output8
-      target: GstCapsFilter/nv_ds_static_input11
+      source: ucx_client_source/output
+      target: gstreamer_caps_filter/input
     type: nvidia::deepstream::NvDsConnection
 name: node
 ---
 components:
-  - name: nv_ds_video_renderer13
+  - name: video_renderer
     parameters:
-      video-in: nv_ds_static_input14
+      video-in: video_input
       async: false
       sync: false
     type: nvidia::deepstream::NvDsVideoRenderer
-  - name: nv_ds_static_input14
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-name: NvDsVideoRenderer
+name: video_renderer
 ui_property:
   position:
     x: 953.861083984375
@@ -80,15 +80,15 @@ ui_property:
 components:
   - name: nv_ds_connection15
     parameters:
-      source: GstCapsFilter/nv_ds_static_output10
-      target: NvDsVideoRenderer/nv_ds_static_input14
+      source: gstreamer_caps_filter/output
+      target: video_renderer/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node
 ---
 components:
-  - name: nv_ds_scheduler16
+  - name: scheduler
     type: nvidia::deepstream::NvDsScheduler
-name: NvDsScheduler
+name: scheduler
 ui_property:
   position:
     x: 741.03173828125

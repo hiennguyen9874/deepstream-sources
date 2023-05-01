@@ -43,6 +43,10 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
 
   apt-get install libssl-dev
 
+* protobuf
+
+  apt-get install protobuf-compiler
+
 (optional) : Install & setup kafka broker on your machine & create topic(s)
 --------------------------------------------------------------------------
 Follow instructions here: https://kafka.apache.org/quickstart

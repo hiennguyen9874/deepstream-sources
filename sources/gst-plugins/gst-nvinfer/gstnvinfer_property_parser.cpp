@@ -472,6 +472,11 @@ static gboolean gst_nvinfer_parse_other_attribute(GstNvInfer *nvinfer,
             goto done;
         }
         nvinfer->transform_params.transform_filter = (NvBufSurfTransform_Inter)val;
+    } else if (!g_strcmp0(key, CONFIG_GROUP_INFER_CROP_OBJECTS_TO_ROI_BOUNDARY)) {
+        if (g_key_file_get_boolean(key_file, group_name,
+                                   CONFIG_GROUP_INFER_CROP_OBJECTS_TO_ROI_BOUNDARY, &error))
+            nvinfer->crop_objects_to_roi_boundary = TRUE;
+        CHECK_ERROR(error);
     } else {
         g_printerr("Unknown or legacy key specified '%s' for group [%s]\n", key,
                    CONFIG_GROUP_PROPERTY);

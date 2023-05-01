@@ -1,7 +1,7 @@
 ## Description
 
 The facial landmarks estimation deepstream sample application identify landmarks in human face with face detection model and facial landmarks estimation model.
-With the TAO 3.0 pretrained facial landmarks estimation model, the application can idetify 80 landmarks in one human face.
+With the TAO pretrained facial landmarks estimation model, the application can idetify 80 landmarks in one human face.
 
 The TAO 3.0 pretrained models used in this sample application:
 
@@ -10,7 +10,7 @@ The TAO 3.0 pretrained models used in this sample application:
 
 ## Prerequisition
 
-- DeepStream SDK 6.0 GA and above
+- DeepStream SDK 6.2 GA and above
 
 ## Application Pipeline
 
@@ -24,18 +24,6 @@ The application can be build and run seperately.
 
 ```
 cd apps/tao_others/deepstream-faciallandmark-app
-```
-
-For Jetson platform
-
-```
-export CUDA_VER=10.2
-```
-
-For dGPU
-
-```
-export CUDA_VER=11.4
 ```
 
 Build the applications and run to inference one picture.

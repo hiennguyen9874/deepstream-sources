@@ -33,9 +33,12 @@ preprocessing there.
 
 NOTE:
 1. Custom Library needs to be compiled separately and provide the .so file here.
-2. For optimal performance, set nvinfer batch-size in config file same as
-   sum total of rois in nvdspreprocess config file.
-3. Currently preprocessing only for primary gie has been supported.
+2. For optimal performance, set nvdspreprocess batch-size (network-input-shape[0]) in config file same as
+   sum of total units(rois/full-frames) provided in nvdspreprocess config file.
+3. For optimal performance, set nvinfer batch-size in config file same as
+   the batch size of nvdspreprocess (network-input-shape[0]) in nvdspreprocess config file.
+4. Buff-Pool-Size(scaling/tensor) should be larger or equal to total number of units of all srcs divided by nvdspreprocess batch-size.
+5. Currently preprocessing of secondary gie only for classifier-async-mode=0 has been supported.
 
 Run:
 For X86 device:

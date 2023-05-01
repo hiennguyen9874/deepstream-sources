@@ -39,6 +39,9 @@ gboolean parse_tracker_yaml(NvDsTrackerConfig *config, gchar *cfg_file_path)
     config->display_tracking_id = TRUE;
     config->enable_past_frame = FALSE;
     config->tracking_id_reset_mode = 0;
+    config->input_tensor_meta = FALSE;
+    config->input_tensor_gie_id = 0;
+    config->compute_hw = 0;
 
     for (YAML::const_iterator itr = configyml["tracker"].begin(); itr != configyml["tracker"].end();
          ++itr) {
@@ -86,6 +89,12 @@ gboolean parse_tracker_yaml(NvDsTrackerConfig *config, gchar *cfg_file_path)
             config->display_tracking_id = itr->second.as<gboolean>();
         } else if (paramKey == "tracking-id-reset-mode") {
             config->tracking_id_reset_mode = itr->second.as<guint>();
+        } else if (paramKey == "input-tensor-meta") {
+            config->input_tensor_meta = itr->second.as<gboolean>();
+        } else if (paramKey == "tensor-meta-gie-id") {
+            config->input_tensor_gie_id = itr->second.as<guint>();
+        } else if (paramKey == "compute-hw") {
+            config->compute_hw = itr->second.as<guint>();
         } else {
             cout << "Unknown key " << paramKey << " for tracker" << endl;
         }

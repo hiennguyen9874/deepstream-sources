@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "deepstream_schema.h"
+#include "schema.pb.h"
 
 using namespace std;
 
@@ -96,7 +97,7 @@ NvDsPayload **nvds_msg2p_generate_multiple(NvDsMsg2pCtx *ctx,
                                            guint *payloadCount)
 {
     gchar *message = NULL;
-    gint len = 0;
+    size_t len = 0;
     NvDsPayload **payloads = NULL;
     *payloadCount = 0;
     // Set how many payloads are being sent back to the plugin
@@ -124,6 +125,15 @@ NvDsPayload **nvds_msg2p_generate_multiple(NvDsMsg2pCtx *ctx,
             ++(*payloadCount);
             g_free(message);
         }
+    } else if (ctx->payloadType == NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF) {
+        message = generate_event_message_protobuf(ctx->privData, events, eventSize, len);
+        if (message) {
+            payloads[*payloadCount] = (NvDsPayload *)g_malloc0(sizeof(NvDsPayload));
+            payloads[*payloadCount]->payload = g_memdup(message, len);
+            payloads[*payloadCount]->payloadSize = len;
+            ++(*payloadCount);
+            g_free(message);
+        }
     } else if (ctx->payloadType == NVDS_PAYLOAD_CUSTOM) {
         payloads[*payloadCount] = (NvDsPayload *)g_malloc0(sizeof(NvDsPayload));
         payloads[*payloadCount]->payload = (gpointer)g_strdup("CUSTOM Schema");
@@ -138,7 +148,7 @@ NvDsPayload **nvds_msg2p_generate_multiple(NvDsMsg2pCtx *ctx,
 NvDsPayload *nvds_msg2p_generate(NvDsMsg2pCtx *ctx, NvDsEvent *events, guint size)
 {
     gchar *message = NULL;
-    gint len = 0;
+    size_t len = 0;
     NvDsPayload *payload = (NvDsPayload *)g_malloc0(sizeof(NvDsPayload));
 
     if (ctx->payloadType == NVDS_PAYLOAD_DEEPSTREAM) {
@@ -159,6 +169,13 @@ NvDsPayload *nvds_msg2p_generate(NvDsMsg2pCtx *ctx, NvDsEvent *events, guint siz
             payload->payloadSize = len;
             g_free(message);
         }
+    } else if (ctx->payloadType == NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF) {
+        message = generate_event_message_protobuf(ctx->privData, events, size, len);
+        if (message) {
+            payload->payload = g_memdup(message, len);
+            payload->payloadSize = len;
+            g_free(message);
+        }
     } else if (ctx->payloadType == NVDS_PAYLOAD_CUSTOM) {
         payload->payload = (gpointer)g_strdup("CUSTOM Schema");
         payload->payloadSize = strlen((char *)payload->payload) + 1;
@@ -171,7 +188,7 @@ NvDsPayload *nvds_msg2p_generate(NvDsMsg2pCtx *ctx, NvDsEvent *events, guint siz
 NvDsPayload *nvds_msg2p_generate_new(NvDsMsg2pCtx *ctx, void *metadataInfo)
 {
     gchar *message = NULL;
-    gint len = 0;
+    size_t len = 0;
     NvDsMsg2pMetaInfo *meta_info = (NvDsMsg2pMetaInfo *)metadataInfo;
     NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)meta_info->frameMeta;
     NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)meta_info->objMeta;
@@ -196,6 +213,13 @@ NvDsPayload *nvds_msg2p_generate_new(NvDsMsg2pCtx *ctx, void *metadataInfo)
             payload->payloadSize = len;
             g_free(message);
         }
+    } else if (ctx->payloadType == NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF) {
+        message = generate_dsmeta_message_protobuf(ctx->privData, frame_meta, len);
+        if (message) {
+            payload->payload = g_memdup(message, len);
+            payload->payloadSize = len;
+            g_free(message);
+        }
     } else if (ctx->payloadType == NVDS_PAYLOAD_CUSTOM) {
         payload->payload = (gpointer)g_strdup("CUSTOM Schema");
         payload->payloadSize = strlen((char *)payload->payload) + 1;
@@ -210,7 +234,7 @@ NvDsPayload **nvds_msg2p_generate_multiple_new(NvDsMsg2pCtx *ctx,
                                                guint *payloadCount)
 {
     gchar *message = NULL;
-    gint len = 0;
+    size_t len = 0;
     NvDsPayload **payloads = NULL;
     *payloadCount = 0;
     // Set how many payloads are being sent back to the plugin
@@ -237,6 +261,15 @@ NvDsPayload **nvds_msg2p_generate_multiple_new(NvDsMsg2pCtx *ctx,
             len = strlen(message);
             payloads[*payloadCount] = (NvDsPayload *)g_malloc0(sizeof(NvDsPayload));
             // Remove '\0' character at the end of string and just copy the content.
+            payloads[*payloadCount]->payload = g_memdup(message, len);
+            payloads[*payloadCount]->payloadSize = len;
+            ++(*payloadCount);
+            g_free(message);
+        }
+    } else if (ctx->payloadType == NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF) {
+        message = generate_dsmeta_message_protobuf(ctx->privData, frame_meta, len);
+        if (message) {
+            payloads[*payloadCount] = (NvDsPayload *)g_malloc0(sizeof(NvDsPayload));
             payloads[*payloadCount]->payload = g_memdup(message, len);
             payloads[*payloadCount]->payloadSize = len;
             ++(*payloadCount);

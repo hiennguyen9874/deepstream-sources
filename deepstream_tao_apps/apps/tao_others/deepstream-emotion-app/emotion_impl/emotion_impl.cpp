@@ -668,7 +668,7 @@ bool EmotionAlgorithm::HandleEvent(GstEvent *event)
         m_processLock.unlock();
         while (outputthread_stopped == FALSE) {
             // g_print ("waiting for processq to be empty, buffers in processq
-            // = %ld\n", m_processQ.size());
+            //  = %ld\n", m_processQ.size());
             g_usleep(1000);
         }
         break;

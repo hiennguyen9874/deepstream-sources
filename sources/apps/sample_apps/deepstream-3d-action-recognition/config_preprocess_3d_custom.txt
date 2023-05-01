@@ -27,6 +27,9 @@
 enable=1
 target-unique-ids=1
 
+    # 0=process on objects 1=process on frames
+process-on-frame=1
+
     # network-input-shape: batch, channel, sequence, height, width
 # 3D sequence of 64 images
 #network-input-shape= 4;3;64;224;224

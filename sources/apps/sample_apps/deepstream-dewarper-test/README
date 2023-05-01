@@ -1,12 +1,24 @@
-*****************************************************************************
-* Copyright (c) 2020-2022 NVIDIA Corporation.  All rights reserved.
-*
-* NVIDIA Corporation and its licensors retain all intellectual property
-* and proprietary rights in and to this software, related documentation
-* and any modifications thereto.  Any use, reproduction, disclosure or
-* distribution of this software and related documentation without an express
-* license agreement from NVIDIA Corporation is strictly prohibited.
-*****************************************************************************
+################################################################################
+# Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+################################################################################
 
 *****************************************************************************
                      deepstream-dewarper-app
@@ -36,10 +48,10 @@ To install these packages, execute the following command:
 ===============================================================================
 
 This document shall describe the sample deepstream-dewarper-test application.
-The following description focus on the default use-case of parking garage 360
-cameras with spots and ailes surfaces but can also be used to test other
-types of applications like a single surface Perspective, Pushbroom, Vertical Cylender
-Projection use-case
+This application demonstartes the the usage of dewarper plugin for various usecases :
+* To remove camera induced distortion
+* Convert views to feed to machine learning software
+* A use-case of parking garage 360 cameras with spots and ailes surfaces that use Pushbroom, Vertical cylindrical projections
 
 For more information on the general functionality and further examples see the
 DeepStream Plugin Development Guide.
@@ -50,59 +62,83 @@ DeepStream Plugin Development Guide.
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.7
-  $ sudo make
+      For x86, CUDA_VER=11.8
+  $ sudo make (sudo not required in case of docker containers)
 
 ===============================================================================
 4. Usage:
 ===============================================================================
 
-  $ ./deepstream-dewarper-app [<uri1> <camera_id1>] [<uri2> <camera_id2>] ... [<uriN> <camera_idN>]
+  $ ./deepstream-dewarper-app --config <config_filename> --sink <sink_type> --enc_type <encoder_type> [<uri1> <camera_id1>] [<uri2> <camera_id2>] ... [<uriN> <camera_idN>]
+  Call "./deepstream-dewarper-app --help" to get information about command line parameters.
+  Following three command line parameters are optional :
+  1. --config <config_filename>
+      Configuration file that specifies the dewarping configuration.
+      If not specified, "config_dewarper.txt" in current directory is used by default.
+  2. --sink <sink_type>
+      Can take three values :
+      1:Fakesink, 2:Eglsink, 3:Filesink
+      Deafult value is 2 i.e. Eglsink
+      If 3:Filesink is specified, "out.mp4" output file gets created in current directory.
+  3. --enc_type <encoder_type>
+      Can take two values :
+      0:Hardware encoder, 1:Software encoder
+      Default values is 0 i.e. Hardware encoder.
 
-NOTE: To compile the sources, run make with "sudo" or root permission.
+  At least one pair of [<uri> <camera_id>] shoud be specified where
+  uri - represents the input video stream
+
+  camera_id - source id/ camera id
+  If csv file is specified, it refers to the first column of the CSV files (i.e. csv_files/nvaisle_2M.csv & csv_files/nvspot_2M.csv)
+  The dewarping parameters for the given camera are read from CSV files and used
+  to generate dewarp surfaces (i.e. multiple aisle and spot surface) from 360d
+  input video stream. More details about the CSV file can be found in the last section of this document.
+
+  NOTE : The optional coomand line parameteres should be specified before the [<uri> <camera_id>]  pairs.
 
 e.g.
   // Single Stream
-  $ ./deepstream-dewarper-app file:///home/nvidia/sample_cam6.mp4 6
+  $ ./deepstream-dewarper-app  file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_cam6.mp4 6
 
-  // Single Stream for Perspective Projection type (needs config file change)
-  $ ./deepstream-dewarper-app file:///home/nvidia/yoga.mp4 0
+  // Single Stream for Perspective Projection type
+  $ ./deepstream-dewarper-app --config config_dewarper_perspective.txt file:///opt/nvidia/deepstream/deepstream/samples/streams/yoga.mp4 0
 
   // Multi Stream
-  $ ./deepstream-dewarper-app file:///home/nvidia/sample_cam6.mp4 6 file:///home/nvidia/sample_cam6.mp4 6
+  $ ./deepstream-dewarper-app file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_cam6.mp4 6 file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_cam6.mp4 6
 
-  // Multi Stream for Perspective Projection type (needs config file change)
-  $ ./deepstream-dewarper-app file:///home/nvidia/yoga.mp4 0 file:///home/nvidia/yoga.mp4 0
+  // Multi Stream for Perspective Projection type
+  $ ./deepstream-dewarper-app --config config_dewarper_perspective.txt file:///opt/nvidia/deepstream/deepstream/samples/streams/yoga.mp4 0 file:///opt/nvidia/deepstream/deepstream/samples/streams/yoga.mp4 0
 
-Two configuration files are provided:
+  // Fish eye distortion correction and perspective projetion
+  $ ./deepstream-dewarper-app --config config_dewarper_fish_dist_correction.txt  file:///opt/nvidia/deepstream/deepstream/samples/streams/fisheye_dist.mp4 0
+
+  // Example usage of rot-axes config to get a dewarped surface useful for inferencing applications
+  $ ./deepstream-dewarper-app --config  config_dewarper_rot_axes.txt  file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_office.mp4 6
+
+  // Example usage of rot-matrix config to use the conventional rotation matrix
+  $ ./deepstream-dewarper-app --config  config_dewarper_rot_matrix.txt  file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_office.mp4 6
+
+Five example configuration files are provided:
    . config_dewarper.txt (default): tailors the 360 camera multi-surface use-case
-   . config_dewarper_perspective.txt: single-surface Perspective Projection
-use-case. To use this you should rename this file to config_dewarper.txt or
-change the application code (line 278) to have a different input file name.
+   . config_dewarper_perspective.txt: single-surface Perspective Projection use-case.
+   . config_dewarper_fish_dist_correction.txt: Fisheye to perspective projection with fisheye distortion correction use-case
+   . config_dewarper_rot_axes.txt: Fisheye to perspective projection useful as inferencing input use-case
+   . config_dewarper_rot_matrix.txt: Fisheye to fisheye projection with rotation use-case
 
-Note: For Perspective Projection Dewarping the use of the CSV Files is not
-supported. In this case please provide the parameters under each [surface*]
+Note: Except for PushBroom & VertRadCyl projections, use of the CSV Files is not
+supported in any other projections. In other projections please provide the parameters under each [surface*]
 group.
 To change the number of surfaces in use change the property "num-batch-buffers".
 It should match the number of "surfaces" groups in the configuration file. So if
 you want two surfaces per buffer you should have "num-batch-buffers"=2 and two
 surfaces groups ([surface0] and [surface1]). Default value is 4.
 
-
-Parameters:
-uri - represents the input video stream
-
-camera_id - refers to the first column of the CSV files (i.e. csv_files/nvaisle_2M.csv & csv_files/nvspot_2M.csv)
-The dewarping parameters for the given camera are read from CSV files and used
-to generate dewarp surfaces (i.e. multiple aisle and spot surface) from 360d
-input video stream.
-
 Output:
-For the 360 camera use-case there are total 4 surfaces generated by dewarper
+For the default config file(config_dewarper.txt) there are total 4 surfaces generated by dewarper
 plugin based on the inputs from spot and aisle CSV files.
 Both these CSV files mentions 2 surfaces each. All 4 surfaces are scaled to
 common resolution i.e. 960x752.
-Example video stream containing 360d video recorded in Car Parking Area
+Example video stream(sample_cam6.mp4) contains 360d video recorded in Car Parking Area
 Aisle area is where vehicle moves
 Spot area is where cars get parked
 Surfaces generated by dewarper plugin are as per below sequence
@@ -120,8 +156,9 @@ As mentioned, you can use this test for other examples (non-aisle/spot
 number of output surfaces might be different and the csv_files are not used.
 
 Note:
-gst-nvdewarper plugin uses "VRWorks 360 Video SDK".
-For further details please refer to https://developer.nvidia.com/vrworks/vrworks-360video/download
+gst-nvdewarper plugin internally uses  NVIDIA proprietery NVWarp360 SDK library.
+For further details about the library functionality and interface, please refer to
+"NVIDIA_Warp360_Programming_Guide.pdf" present in this folder.
 
 For description of general dewarper parameters please visit the DeepStream
 Plugin Development Guide.

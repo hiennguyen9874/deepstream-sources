@@ -9,15 +9,15 @@
 #############################################################################
 ---
 components:
-  - name: gst_caps_filter6
+  - name: gstreamer_caps_filter
     parameters:
       caps: video/x-raw(memory:NVMM), format=NV12, width=1920, height=1080, framerate=30/1
-name: GstCapsFilter
+name: gstreamer_caps_filter
 ---
 components:
-  - name: nv_ds_ucx_server_src24
+  - name: ucx_server_source
     parameters:
-      out: nv_ds_static_output25
+      out: output
       port: 7174
       addr: 1.1.3.8
-name: NvDsUcxServerSrc
+name: ucx_server_source

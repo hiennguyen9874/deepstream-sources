@@ -49,11 +49,21 @@ extern "C" {
 #define CONFIG_GROUP_SOURCE_LIST "source-list"
 #define CONFIG_GROUP_SOURCE_LIST_NUM_SOURCE_BINS "num-source-bins"
 #define CONFIG_GROUP_SOURCE_LIST_URI_LIST "list"
+/** this vector is one to one mapped with the uri-list/list */
+#define CONFIG_GROUP_SOURCE_LIST_SENSOR_ID_LIST "sensor-id-list"
+
+/** additional configs to support nvmultiurisrcbin usage */
+#define CONFIG_GROUP_SOURCE_LIST_USE_NVMULTIURISRCBIN "use-nvmultiurisrcbin"
+#define CONFIG_GROUP_SOURCE_LIST_MAX_BATCH_SIZE "max-batch-size"
+#define CONFIG_GROUP_SOURCE_LIST_HTTP_IP "http-ip"
+#define CONFIG_GROUP_SOURCE_LIST_HTTP_PORT "http-port"
+
 #define CONFIG_GROUP_SOURCE_ALL "source-attr-all"
 
 #define CONFIG_GROUP_SOURCE "source"
 #define CONFIG_GROUP_OSD "osd"
 #define CONFIG_GROUP_PREPROCESS "pre-process"
+#define CONFIG_GROUP_SECONDARY_PREPROCESS "secondary-pre-process"
 #define CONFIG_GROUP_PRIMARY_GIE "primary-gie"
 #define CONFIG_GROUP_SECONDARY_GIE "secondary-gie"
 #define CONFIG_GROUP_TRACKER "tracker"
@@ -156,12 +166,16 @@ gboolean parse_osd(NvDsOSDConfig *config, GKeyFile *key_file);
  *
  * @param[in] config pointer to @ref NvDsPreProcessConfig
  * @param[in] key_file pointer to file having key value pairs.
- * @param[in] group name of property group @ref CONFIG_GROUP_PREPROCESS
+ * @param[in] group name of property group @ref CONFIG_GROUP_PREPROCESS and
+ *            @ref CONFIG_GROUP_SECONDARY_PREPROCESS
  * @param[in] cfg_file_path path of configuration file.
  *
  * @return true if parsed successfully.
  */
-gboolean parse_preprocess(NvDsPreProcessConfig *config, GKeyFile *key_file, gchar *cfg_file_path);
+gboolean parse_preprocess(NvDsPreProcessConfig *config,
+                          GKeyFile *key_file,
+                          gchar *group,
+                          gchar *cfg_file_path);
 
 /**
  * Function to read properties of infer element from configuration file.

@@ -276,7 +276,6 @@ int main(int argc, char *argv[])
     struct cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, current_device);
 
-    GstElement *transform = NULL;
     GOptionContext *gctx = NULL;
     GOptionGroup *group = NULL;
     GError *error = NULL;
@@ -356,19 +355,15 @@ int main(int argc, char *argv[])
     tee_post_osd = gst_element_factory_make("tee", "tee-post-osd");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
-        if (!transform) {
-            g_printerr("One tegra element could not be created. Exiting.\n");
-            return -1;
-        }
-    }
-
     if (sink_type == 1) {
         sink = gst_element_factory_make("fakesink", "nvvideo-renderer");
     } else if (sink_type == 2) {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-        g_object_set(G_OBJECT(sink), "async", FALSE, NULL);
+        if (prop.integrated) {
+            sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+        } else {
+            sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+            g_object_set(G_OBJECT(sink), "async", FALSE, NULL);
+        }
     } else if (sink_type == 3) {
         sink = gst_element_factory_make("nvrtspoutsinkbin", "nvvideo-renderer");
         g_object_set(G_OBJECT(sink), "sync", TRUE, NULL);
@@ -425,10 +420,6 @@ int main(int argc, char *argv[])
                      decoder, streammux, pgie, nvvidconv, nvosd, nvvidconv2, cap_filter,
                      tee_post_osd, queue_pre_sink, sink, NULL);
 
-    if (prop.integrated) {
-        gst_bin_add(GST_BIN(pipeline), transform);
-    }
-
     /* Link the elements together till decoder */
     if (!gst_element_link_many(depay_pre_decode, tee_pre_decode, queue_pre_decode, decoder, NULL)) {
         g_printerr("Elements could not be linked: 1. Exiting.\n");
@@ -461,18 +452,10 @@ int main(int argc, char *argv[])
     gst_object_unref(srcpad);
 
     /* Link the remaining elements of the pipeline to streammux */
-    if (prop.integrated && sink_type == 2) {
-        if (!gst_element_link_many(streammux, pgie, nvvidconv, nvosd, nvvidconv2, cap_filter,
-                                   tee_post_osd, queue_pre_sink, transform, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-    } else {
-        if (!gst_element_link_many(streammux, pgie, nvvidconv, nvosd, nvvidconv2, cap_filter,
-                                   tee_post_osd, queue_pre_sink, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    if (!gst_element_link_many(streammux, pgie, nvvidconv, nvosd, nvvidconv2, cap_filter,
+                               tee_post_osd, queue_pre_sink, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 
     /* Parameters are set before creating record bin

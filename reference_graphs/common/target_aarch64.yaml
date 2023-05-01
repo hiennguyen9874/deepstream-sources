@@ -27,8 +27,8 @@ platform:
   distribution: ubuntu_20.04
 compute:
   cuda: 11.4
-  tensorrt: 8.4.1
-  cudnn: 8.4.1
-  deepstream: 6.1.1
+  tensorrt: 8.5.1
+  cudnn: 8.6.0
+  deepstream: 6.2
   triton: null
-  vpi: 2.1.5
+  vpi: 2.1.6

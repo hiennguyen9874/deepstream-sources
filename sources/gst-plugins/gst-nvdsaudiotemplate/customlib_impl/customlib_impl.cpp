@@ -113,8 +113,8 @@ public:
 };
 
 // Create Custom Algorithm / Library Context
-extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(DSCustom_CreateParams *params);
-extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(DSCustom_CreateParams *params)
+extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(GObject *params);
+extern "C" IDSCustomLibrary *CreateCustomAlgoCtx(GObject *params)
 {
     return new SampleAlgorithm();
 }

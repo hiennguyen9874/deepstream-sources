@@ -57,6 +57,16 @@ typedef enum NvDsYamlParserStatus {
 } NvDsYamlParserStatus;
 
 /**
+ * Enum for specifying the inference plugin type.
+ */
+typedef enum {
+    /** Inference using nvinfer GIE */
+    NVDS_GIE_PLUGIN_INFER = 0,
+    /** Inference using nvinferserver GIE */
+    NVDS_GIE_PLUGIN_INFER_SERVER,
+} NvDsGieType;
+
+/**
  * Set properties of a filesrc element from values specified in a YAML configuration file.
  *
  * @param[in]  element GStreamer element on which properties are to be set.
@@ -153,7 +163,7 @@ NvDsYamlParserStatus nvds_parse_alsasrc(GstElement *element,
  * @param[in]  src_list The empty GList address.
  * @param[in]  cfg_file_path The YAML config file used by an application.
  * @param[in]  group Group in the YAML config file on which parsing is done
- *             A key "location" is present in the group which contains semicolon
+ *             A key "list" is present in the group which contains semicolon
  *             separated uri(s). Once the API call finishes, the GList contains
  *             the uris(s).
  * @return Yaml parsing status for the API call.
@@ -248,6 +258,20 @@ NvDsYamlParserStatus nvds_parse_msgconv(GstElement *element,
 NvDsYamlParserStatus nvds_parse_gie(GstElement *element, gchar *cfg_file_path, const char *group);
 
 /**
+ * Get the GIE type, nvinfer or invinferserver, from the YAML configuration file.
+ *
+ * @param[out]  gie_type Pointer to variable of NvDSGieType to be updated if
+ *              the plugin type is specified.
+ * @param[in]   cfg_file_path The YAML config file used by an application.
+ * @param[in]   group Group in the YAML config file to be parsed and
+ *              corresponding properties set on the nvinfer element.
+ * @return Yaml parsing status for the API call.
+ */
+NvDsYamlParserStatus nvds_parse_gie_type(NvDsGieType *gie_type,
+                                         gchar *cfg_file_path,
+                                         const char *group);
+
+/**
  * Set properties of a nveglglessink element from values specified in a YAML configuration file.
  *
  * @param[in]  element Gstreamer element on which properties are to be set.
@@ -259,6 +283,19 @@ NvDsYamlParserStatus nvds_parse_gie(GstElement *element, gchar *cfg_file_path, c
 NvDsYamlParserStatus nvds_parse_egl_sink(GstElement *element,
                                          gchar *cfg_file_path,
                                          const char *group);
+
+/**
+ * Set properties of a nv3dsink element from values specified in a YAML configuration file.
+ *
+ * @param[in]  element Gstreamer element on which properties are to be set.
+ * @param[in]  cfg_file_path The YAML config file used by an application.
+ * @param[in]  group Group in the YAML config file to be parsed and
+ *             corresponding properties set on the nv3dsink element.
+ * @return Yaml parsing status for the API call.
+ */
+NvDsYamlParserStatus nvds_parse_3d_sink(GstElement *element,
+                                        gchar *cfg_file_path,
+                                        const char *group);
 
 /**
  * Set properties of a filesink element from values specified in a YAML configuration file.

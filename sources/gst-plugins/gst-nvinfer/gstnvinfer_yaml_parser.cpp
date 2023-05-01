@@ -391,6 +391,8 @@ static gboolean gst_nvinfer_parse_other_attribute_yaml(GstNvInfer *nvinfer,
             goto done;
         }
         nvinfer->transform_params.transform_filter = (NvBufSurfTransform_Inter)val;
+    } else if (pair[0] == "crop-objects-to-roi-boundary") {
+        nvinfer->crop_objects_to_roi_boundary = std::stoi(pair[1]);
     } else {
         g_printerr("Unknown or legacy key specified '%s' for group property\n", pair[0].c_str());
     }
@@ -905,7 +907,7 @@ gboolean gst_nvinfer_parse_config_file_yaml(GstNvInfer *nvinfer,
             std::string paramKey = itr->first.as<std::string>();
             std::string class_str = "class-attrs-";
             if (paramKey != "class-attrs-all") {
-                if (class_str.compare(0, class_str.size(), paramKey) == 0) {
+                if (paramKey.compare(0, class_str.size(), class_str) == 0) {
                     std::string num_str = paramKey.substr(class_str.size());
                     guint64 class_index = stoi(num_str);
 

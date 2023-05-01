@@ -44,8 +44,6 @@ GST_DEBUG_CATEGORY_EXTERN(APP_CFG_PARSER_CAT);
         goto done;                                               \
     }
 
-NvDsSourceConfig global_source_config;
-
 static gboolean parse_source_list(NvDsConfig *config, GKeyFile *key_file, gchar *cfg_file_path)
 {
     gboolean ret = FALSE;
@@ -71,6 +69,33 @@ static gboolean parse_source_list(NvDsConfig *config, GKeyFile *key_file, gchar 
                 NVGSTDS_ERR_MSG_V("App supports max %d sources", MAX_SOURCE_BINS);
                 goto done;
             }
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_SENSOR_ID_LIST)) {
+            config->sensor_id_list = g_key_file_get_string_list(
+                key_file, CONFIG_GROUP_SOURCE_LIST, CONFIG_GROUP_SOURCE_LIST_SENSOR_ID_LIST,
+                &num_strings, &error);
+            if (num_strings > MAX_SOURCE_BINS) {
+                NVGSTDS_ERR_MSG_V("App supports max %d sources", MAX_SOURCE_BINS);
+                goto done;
+            }
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_USE_NVMULTIURISRCBIN)) {
+            config->use_nvmultiurisrcbin =
+                g_key_file_get_boolean(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                       CONFIG_GROUP_SOURCE_LIST_USE_NVMULTIURISRCBIN, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_HTTP_IP)) {
+            config->http_ip = g_key_file_get_string(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                                    CONFIG_GROUP_SOURCE_LIST_HTTP_IP, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_HTTP_PORT)) {
+            config->http_port = g_key_file_get_string(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                                      CONFIG_GROUP_SOURCE_LIST_HTTP_PORT, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_MAX_BATCH_SIZE)) {
+            config->max_batch_size =
+                g_key_file_get_integer(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                       CONFIG_GROUP_SOURCE_LIST_MAX_BATCH_SIZE, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_SGIE_BATCH_SIZE)) {
             config->sgie_batch_size = g_key_file_get_integer(
@@ -112,7 +137,7 @@ static gboolean set_source_all_configs(NvDsConfig *config, gchar *cfg_file_path)
 {
     guint i = 0;
     for (i = 0; i < config->total_num_sources; i++) {
-        config->multi_source_config[i] = global_source_config;
+        config->multi_source_config[i] = config->source_attr_all_config;
         config->multi_source_config[i].camera_id = i;
         if (config->uri_list) {
             char *uri = config->uri_list[i];
@@ -249,6 +274,7 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
     guint i, j;
 
     config->source_list_enabled = FALSE;
+    config->source_attr_all_parsed = FALSE;
 
     if (!APP_CFG_PARSER_CAT) {
         GST_DEBUG_CATEGORY_INIT(APP_CFG_PARSER_CAT, "NVDS_CFG_PARSER", 0, NULL);
@@ -275,12 +301,14 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
         g_key_file_remove_group(cfg_file, CONFIG_GROUP_SOURCE_LIST, &error);
     }
     if (g_key_file_has_group(cfg_file, CONFIG_GROUP_SOURCE_ALL)) {
-        if (!parse_source(&global_source_config, cfg_file, CONFIG_GROUP_SOURCE_ALL,
-                          cfg_file_path)) {
+        if (!parse_source(&config->source_attr_all_config, cfg_file,
+                          (gchar *)CONFIG_GROUP_SOURCE_ALL, cfg_file_path)) {
             GST_CAT_ERROR(APP_CFG_PARSER_CAT, "Failed to parse '%s' group",
                           CONFIG_GROUP_SOURCE_LIST);
             goto done;
         }
+        config->source_attr_all_parsed = TRUE;
+
         if (!set_source_all_configs(config, cfg_file_path)) {
             ret = FALSE;
             goto done;
@@ -346,12 +374,13 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_PREPROCESS)) {
-            parse_err = !parse_preprocess(&config->preprocess_config, cfg_file, cfg_file_path);
+            parse_err =
+                !parse_preprocess(&config->preprocess_config, cfg_file, *group, cfg_file_path);
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_PRIMARY_GIE)) {
-            parse_err = !parse_gie(&config->primary_gie_config, cfg_file, CONFIG_GROUP_PRIMARY_GIE,
-                                   cfg_file_path);
+            parse_err = !parse_gie(&config->primary_gie_config, cfg_file,
+                                   (gchar *)CONFIG_GROUP_PRIMARY_GIE, cfg_file_path);
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_TRACKER)) {
@@ -369,6 +398,25 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
                 *group, cfg_file_path);
             if (config->secondary_gie_sub_bin_config[config->num_secondary_gie_sub_bins].enable) {
                 config->num_secondary_gie_sub_bins++;
+            }
+        }
+
+        if (!strncmp(*group, CONFIG_GROUP_SECONDARY_PREPROCESS,
+                     sizeof(CONFIG_GROUP_SECONDARY_PREPROCESS) - 1)) {
+            if (config->num_secondary_preprocess_sub_bins == MAX_SECONDARY_PREPROCESS_BINS) {
+                NVGSTDS_ERR_MSG_V("App supports max %d secondary PREPROCESSs",
+                                  MAX_SECONDARY_PREPROCESS_BINS);
+                ret = FALSE;
+                goto done;
+            }
+            parse_err = !parse_preprocess(&config->secondary_preprocess_sub_bin_config
+                                               [config->num_secondary_preprocess_sub_bins],
+                                          cfg_file, *group, cfg_file_path);
+
+            if (config
+                    ->secondary_preprocess_sub_bin_config[config->num_secondary_preprocess_sub_bins]
+                    .enable) {
+                config->num_secondary_preprocess_sub_bins++;
             }
         }
 

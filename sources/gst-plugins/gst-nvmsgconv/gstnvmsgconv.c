@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022 NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -42,6 +42,8 @@ static GType gst_nvmsgconv_payload_get_type(void)
             {NVDS_PAYLOAD_DEEPSTREAM, "Deepstream schema payload", "PAYLOAD_DEEPSTREAM"},
             {NVDS_PAYLOAD_DEEPSTREAM_MINIMAL, "Deepstream schema payload minimal",
              "PAYLOAD_DEEPSTREAM_MINIMAL"},
+            {NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF, "Deepstream schema payload in protobuf",
+             "PAYLOAD_DEEPSTREAM_PROTOBUF"},
             {NVDS_PAYLOAD_RESERVED, "Reserved type", "PAYLOAD_RESERVED"},
             {NVDS_PAYLOAD_CUSTOM, "Custom schema payload", "PAYLOAD_CUSTOM"},
             {0, NULL, NULL}};
@@ -593,7 +595,8 @@ static GstFlowReturn gst_nvmsgconv_transform_ip(GstBaseTransform *trans, GstBuff
                 meta_info.frameMeta = frame_meta;
                 meta_info.mediaType = self->is_video ? "video" : "audio";
 
-                if (self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_MINIMAL) {
+                if ((self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_MINIMAL) ||
+                    (self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF)) {
                     if (self->multiplePayloads)
                         payloads = self->msg2p_generate_multiple_new(self->pCtx, &meta_info,
                                                                      &payloadCount);
@@ -645,7 +648,8 @@ static GstFlowReturn gst_nvmsgconv_transform_ip(GstBaseTransform *trans, GstBuff
                     }
                 }
             } else {
-                if (self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_MINIMAL) {
+                if ((self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_MINIMAL) ||
+                    (self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF)) {
                     NvDsEvent *eventList = g_new0(NvDsEvent, g_list_length(user_meta_list));
                     guint eventCount = 0;
                     for (l = user_meta_list; l; l = l->next) {
@@ -745,7 +749,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_msgconv,
                   "Metadata conversion",
                   plugin_init,
-                  "6.1",
+                  "6.2",
                   "Proprietary",
                   "NvMsgConv",
                   "http://nvidia.com")

@@ -32,7 +32,7 @@ https://ngc.nvidia.com.
 
 1. Pull docker container
    $ docker pull nvcr.io/nvidia/deepstream:[version]-triton
-   [version] means deepstream version numbers e.g. 6.1
+   [version] means deepstream version numbers e.g. 6.2
 
 2. Allow external applications to connect to the host's X display:
    $ xhost +

@@ -68,6 +68,10 @@ template <>
 struct TpId<bool> : __TypeID<DS3D_TYPEID_BOOL>, __DataTypeVal<DataType::kDouble> {
 };
 
+template <>
+struct TpId<int64_t> : __TypeID<DS3D_TYPEID_INT64_T>, __DataTypeVal<DataType::kInt64> {
+};
+
 template <typename TP>
 struct __DataTypeTrait {
     static constexpr DataType _data_type() { return TpId<TP>::_data_type_value(); }
@@ -118,6 +122,11 @@ struct NativeData<DataType::kUint32> {
 template <>
 struct NativeData<DataType::kDouble> {
     using type = double;
+};
+
+template <>
+struct NativeData<DataType::kInt64> {
+    using type = int64_t;
 };
 
 } // namespace ds3d

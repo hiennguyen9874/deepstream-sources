@@ -55,4 +55,4 @@ property:
   gie-unique-id: 3
   operate-on-class-ids: 0
   classifier-type: carmake
-  labelfile-path: /opt/nvidia/deepstream/deepstream-6.1/samples/models/Secondary_CarMake/labels.txt
+  labelfile-path: /opt/nvidia/deepstream/deepstream/samples/models/Secondary_CarMake/labels.txt

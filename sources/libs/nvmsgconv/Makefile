@@ -14,7 +14,7 @@ CC:= g++
 
 PKGS:= glib-2.0 gobject-2.0 json-glib-1.0 uuid
 
-NVDS_VERSION:=6.1
+NVDS_VERSION:=6.2
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 
@@ -25,12 +25,16 @@ CFLAGS+= -I../../includes -I./deepstream_schema
 CFLAGS+= $(shell pkg-config --cflags $(PKGS))
 LIBS:= $(shell pkg-config --libs $(PKGS))
 
-LIBS+= -lyaml-cpp
+LIBS+= -lyaml-cpp -lprotobuf
+
+PROTOBUF_BUILD_DIR:= ./deepstream_schema
 
 SRCFILES:= nvmsgconv.cpp  \
   deepstream_schema/eventmsg_payload.cpp \
   deepstream_schema/dsmeta_payload.cpp \
-  deepstream_schema/deepstream_schema.cpp
+  deepstream_schema/deepstream_schema.cpp \
+  $(PROTOBUF_BUILD_DIR)/schema.pb.cc
+
 TARGET_LIB:= libnvds_msgconv.so
 
 all: $(TARGET_LIB)
@@ -42,4 +46,8 @@ install: $(TARGET_LIB)
 	cp -rv $(TARGET_LIB) $(LIB_INSTALL_DIR)
 
 clean:
-	rm -rf $(TARGET_LIB)
+	rm -rf $(TARGET_LIB) $(PROTOBUF_BUILD_DIR)/*.pb.*
+
+SCHEMA_PROTOS:=$(wildcard deepstream_schema/*.proto)
+$(PROTOBUF_BUILD_DIR)/%.pb.cc: $(SCHEMA_PROTOS) Makefile
+	protoc -I./deepstream_schema --cpp_out=$(PROTOBUF_BUILD_DIR)/ $<

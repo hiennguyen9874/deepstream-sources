@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -441,7 +441,6 @@ int main(int argc, char *argv[])
                *sgie1 = NULL, *sgie2 = NULL, *sgie3 = NULL, *tiler = NULL, *queue2, *queue3,
                *queue4, *queue5, *queue6;
     g_print("With tracker\n");
-    GstElement *transform = NULL;
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -536,17 +535,13 @@ int main(int argc, char *argv[])
 
     /* Finally render the osd output */
     if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+    } else {
+        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     }
-    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!pgie || !sgie1 || !sgie2 || !sgie3 || !nvvidconv || !nvosd || !sink || !tiler) {
         g_printerr("One element could not be created. Exiting.\n");
-        return -1;
-    }
-
-    if (!transform && prop.integrated) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
         return -1;
     }
 
@@ -592,10 +587,6 @@ int main(int argc, char *argv[])
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
     /* decoder | pgie1 | sgie1 | sgie2 | sgie3 | etc.. */
-    if (prop.integrated) {
-        gst_bin_add(GST_BIN(pipeline), transform);
-    }
-
     gst_bin_add_many(GST_BIN(pipeline), streammux, pgie, queue, sgie1, queue5, sgie2, queue6, sgie3,
                      queue2, tiler, queue3, nvvidconv, queue4, nvosd, sink, NULL);
 
@@ -650,19 +641,10 @@ int main(int argc, char *argv[])
         g_object_set(G_OBJECT(source), "location", files[i].c_str(), NULL);
     }
 
-    if (prop.integrated) {
-        if (!gst_element_link_many(streammux, pgie, queue, sgie1, queue5, sgie2, queue6, sgie3,
-                                   queue2, tiler, queue3, nvvidconv, queue4, nvosd, transform, sink,
-                                   NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-    } else {
-        if (!gst_element_link_many(streammux, pgie, queue, sgie1, queue5, sgie2, queue6, sgie3,
-                                   queue2, tiler, queue3, nvvidconv, queue4, nvosd, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    if (!gst_element_link_many(streammux, pgie, queue, sgie1, queue5, sgie2, queue6, sgie3, queue2,
+                               tiler, queue3, nvvidconv, queue4, nvosd, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 
     /* Add probe to get informed of the meta data generated, we add probe to

@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -12,28 +12,28 @@
 dependencies:
   - extension: NvDsMuxDemuxExt
     uuid: 89b8398c-5820-4051-835c-a91f2d49766b
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsBaseExt
     uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
-    version: 1.0.0
+    version: 1.2.0
   - extension: NvDsInferenceExt
     uuid: 0b02963e-c24e-4c13-ace0-c4cdf36c7c71
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsSampleModelsExt
     uuid: 909dc1ea-c654-44c1-97a3-0b8fec12141a
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsVisualizationExt
     uuid: 25903cd4-fc5c-4139-987b-47bb27e8b424
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsInferenceUtilsExt
     uuid: 27856a43-5ad4-4d8e-be36-0ec2cf9bbb58
-    version: 1.0.0
+    version: 1.1.1
 ---
 interfaces:
   - name: video-in
-    target: NvDsOSD..eb90/nv_ds_static_output10..6110
+    target: onscreen_display/video_output
   - name: video-out
-    target: NvDsStreamMux..e9d0/nv_ds_on_request_input4..3290
+    target: streammux/video_input
 name: interface..ef50
 ui_property:
   position:
@@ -42,19 +42,19 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_stream_mux3..4710
+  - name: streammux
     parameters:
       batch-size: 1
       height: 1080
-      video-in-%u: nv_ds_on_request_input4..3290
-      video-out: nv_ds_static_output5..c410
+      video-in-%u: video_input
+      video-out: video_output
       width: 1920
     type: nvidia::deepstream::NvDsStreamMux
-  - name: nv_ds_on_request_input4..3290
+  - name: video_input
     type: nvidia::deepstream::NvDsOnRequestInput
-  - name: nv_ds_static_output5..c410
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-name: NvDsStreamMux..e9d0
+name: streammux
 ui_property:
   position:
     x: 448.0
@@ -62,19 +62,19 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_infer_video6..81d0
+  - name: object_detector
     parameters:
-      infer-model-config: nv_ds_resnet10_4_class_detector..8490
-      video-in: nv_ds_static_input8..8050
-      video-out: nv_ds_static_output7..8150
+      infer-model-config: resnet10_4_class_detector
+      video-in: video_input
+      video-out: video_output
     type: nvidia::deepstream::NvDsInferVideo
-  - name: nv_ds_static_output7..8150
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: nv_ds_static_input8..8050
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_resnet10_4_class_detector..8490
+  - name: resnet10_4_class_detector
     type: nvidia::deepstream::NvDsResnet10_4ClassDetectorModel
-name: NvDsInferVideo..ce50
+name: object_detector
 ui_property:
   position:
     x: 681.0
@@ -82,16 +82,16 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_osd9..cad0
+  - name: onscreen_display
     parameters:
-      video-in: nv_ds_static_input11..c4d0
-      video-out: nv_ds_static_output10..6110
+      video-in: video_input
+      video-out: video_output
     type: nvidia::deepstream::NvDsOSD
-  - name: nv_ds_static_output10..6110
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: nv_ds_static_input11..c4d0
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-name: NvDsOSD..eb90
+name: onscreen_display
 ui_property:
   position:
     x: 980.0
@@ -101,8 +101,8 @@ ui_property:
 components:
   - name: nv_ds_connection12..c690
     parameters:
-      source: NvDsStreamMux..e9d0/nv_ds_static_output5..c410
-      target: NvDsInferVideo..ce50/nv_ds_static_input8..8050
+      source: streammux/video_output
+      target: object_detector/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..4f90
 ui_property:
@@ -114,8 +114,8 @@ ui_property:
 components:
   - name: nv_ds_connection13..9950
     parameters:
-      source: NvDsInferVideo..ce50/nv_ds_static_output7..8150
-      target: NvDsOSD..eb90/nv_ds_static_input11..c4d0
+      source: object_detector/video_output
+      target: onscreen_display/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..0f50
 ui_property:
@@ -125,13 +125,13 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_per_class_object_counting14..9610
+  - name: per_class_object_counting
     parameters:
-      probe-connector: nv_ds_probe_connector15..d110
+      probe-connector: probe_connector
     type: nvidia::deepstream::NvDsPerClassObjectCounting
-  - name: nv_ds_probe_connector15..d110
+  - name: probe_connector
     type: nvidia::deepstream::NvDsProbeConnector
-name: NvDsPerClassObjectCounting..bb90
+name: per_class_object_counting
 ui_property:
   position:
     x: 979.0
@@ -141,8 +141,8 @@ ui_property:
 components:
   - name: nv_ds_probe16..da50
     parameters:
-      io: NvDsInferVideo..ce50/nv_ds_static_output7..8150
-      probe-connector: NvDsPerClassObjectCounting..bb90/nv_ds_probe_connector15..d110
+      io: object_detector/video_output
+      probe-connector: per_class_object_counting/probe_connector
     type: nvidia::deepstream::NvDsProbe
 name: node..f990
 ui_property:
@@ -152,9 +152,9 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_scheduler18..6710
+  - name: scheduler
     type: nvidia::deepstream::NvDsScheduler
-name: NvDsScheduler..5dd0
+name: scheduler
 ui_property:
   position:
     x: 15.0

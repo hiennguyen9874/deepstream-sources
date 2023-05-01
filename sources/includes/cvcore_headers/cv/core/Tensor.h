@@ -56,6 +56,8 @@ enum ChannelCount {
 enum ChannelType {
     U8,  /**< uint8_t. */
     U16, /**< uint16_t. */
+    S8,  /**< int8_t. */
+    S16, /**< int16_t. */
     F16, /**< cvcore::half. */
     F32, /**< float. */
     F64, /**< double. */
@@ -312,6 +314,16 @@ struct ChannelTypeToNative<U16> {
 };
 
 template <>
+struct ChannelTypeToNative<S8> {
+    using Type = std::int8_t;
+};
+
+template <>
+struct ChannelTypeToNative<S16> {
+    using Type = std::int16_t;
+};
+
+template <>
 struct ChannelTypeToNative<F32> {
     using Type = float;
 };
@@ -327,7 +339,7 @@ struct ChannelTypeToNative<F64> {
 };
 
 template <ChannelCount CC>
-std::size_t ChannelToCount()
+constexpr std::size_t ChannelToCount()
 {
     switch (CC) {
     case C1:

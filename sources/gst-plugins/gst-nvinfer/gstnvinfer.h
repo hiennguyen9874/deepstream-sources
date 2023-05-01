@@ -73,6 +73,8 @@ enum {
     PROP_OUTPUT_TENSOR_META,
     PROP_OUTPUT_INSTANCE_MASK,
     PROP_INPUT_TENSOR_META,
+    PROP_CLIP_OBJECT_OUTSIDE_ROI,
+    PROP_CROP_OBJECTS_TO_ROI_BOUNDARY,
     PROP_LAST
 };
 
@@ -224,6 +226,10 @@ struct _GstNvInfer {
 
     gboolean input_tensor_from_meta;
 
+    /** Clip the object bounding-box which lies outside the roi specified by nvdspreprosess plugin.
+     */
+    gboolean clip_object_outside_roi;
+
     /** Boolean indicating if aspect ratio should be maintained when scaling to
      * network resolution. Right/bottom areas will be filled with black areas. */
     gboolean maintain_aspect_ratio;
@@ -317,6 +323,9 @@ struct _GstNvInfer {
 
     /** NVTX Domain. */
     nvtxDomainHandle_t nvtx_domain;
+
+    /*Clip the object bounding-box which lies outside the roi boundary. */
+    gboolean crop_objects_to_roi_boundary;
 
     GstNvInferImpl *impl;
 };

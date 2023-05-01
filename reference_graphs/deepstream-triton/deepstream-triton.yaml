@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -12,38 +12,38 @@
 dependencies:
   - extension: NvDsBaseExt
     uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
-    version: 1.0.0
+    version: 1.2.0
   - extension: NvDsInferenceUtilsExt
     uuid: 27856a43-5ad4-4d8e-be36-0ec2cf9bbb58
-    version: 1.0.0
+    version: 1.1.1
   - extension: NvDsSourceExt
     uuid: a632d022-3425-4848-9074-e6483ef74366
-    version: 1.0.0
+    version: 1.1.1
   - extension: NvDsMuxDemuxExt
     uuid: 89b8398c-5820-4051-835c-a91f2d49766b
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsOutputSinkExt
     uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsTritonExt
     uuid: 68de050b-138f-4f60-af99-e74125ab929e
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsVisualizationExt
-    version: 1.0.0
+    version: 1.1.0
     uuid: 25903cd4-fc5c-4139-987b-47bb27e8b424
 ---
 components:
-  - name: nv_ds_multi_src_input334..71d0
+  - name: multiple_source_input
     parameters:
-      audio-%u-out: nv_ds_multi_output335..7358
+      audio-%u-out: audio_output
       uri-list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
-      video-%u-out: nv_ds_multi_output336..7400
+      video-%u-out: video_output
     type: nvidia::deepstream::NvDsMultiSrcInput
-  - name: nv_ds_multi_output335..7358
+  - name: audio_output
     type: nvidia::deepstream::NvDsMultiOutput
-  - name: nv_ds_multi_output336..7400
+  - name: video_output
     type: nvidia::deepstream::NvDsMultiOutput
-name: NvDsMultiSrcInput..e828
+name: multiple_source_input
 ui_property:
   position:
     x: -87.5511703491211
@@ -51,20 +51,20 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_stream_mux337..7710
+  - name: streammux
     parameters:
       batch-size: 1
       batched-push-timeout: 40000
       height: 720
-      video-in-%u: nv_ds_on_request_input338..fcf8
-      video-out: nv_ds_static_output339..fda0
+      video-in-%u: video_input
+      video-out: video_output
       width: 1280
     type: nvidia::deepstream::NvDsStreamMux
-  - name: nv_ds_on_request_input338..fcf8
+  - name: video_input
     type: nvidia::deepstream::NvDsOnRequestInput
-  - name: nv_ds_static_output339..fda0
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-name: NvDsStreamMux..27b8
+name: streammux
 ui_property:
   position:
     x: 168.2598419189453
@@ -74,25 +74,25 @@ ui_property:
 components:
   - name: nv_ds_multi_src_connection340..24e0
     parameters:
-      source: NvDsMultiSrcInput..e828/nv_ds_multi_output336..7400
-      target: NvDsStreamMux..27b8/nv_ds_on_request_input338..fcf8
+      source: multiple_source_input/video_output
+      target: streammux/video_input
     type: nvidia::deepstream::NvDsMultiSrcConnection
 name: node..d550
 ui_property: {}
 ---
 components:
-  - name: nv_ds_triton341..fba8
+  - name: triton
     parameters:
       batch-size: 1
-      config-file-path: config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.dgpu_container.txt
-      video-in: nv_ds_static_input342..3a58
-      video-out: nv_ds_static_output343..3ac8
+      config-file-path: config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.container.txt
+      video-in: video_input
+      video-out: video_output
     type: nvidia::deepstream::NvDsTriton
-  - name: nv_ds_static_input342..3a58
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output343..3ac8
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-name: NvDsTriton..fe10
+name: triton
 ui_property:
   position:
     x: 415.8189392089844
@@ -102,23 +102,23 @@ ui_property:
 components:
   - name: nv_ds_connection344..6080
     parameters:
-      source: NvDsStreamMux..27b8/nv_ds_static_output339..fda0
-      target: NvDsTriton..fe10/nv_ds_static_input342..3a58
+      source: streammux/video_output
+      target: triton/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..6160
 ui_property: {}
 ---
 components:
-  - name: nv_ds_osd345..e4e0
+  - name: onscreen_display
     parameters:
-      video-in: nv_ds_static_input346..2588
-      video-out: nv_ds_static_output347..25c0
+      video-in: video_input
+      video-out: video_output
     type: nvidia::deepstream::NvDsOSD
-  - name: nv_ds_static_input346..2588
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output347..25c0
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-name: NvDsOSD..7208
+name: onscreen_display
 ui_property:
   position:
     x: 884.1177978515625
@@ -126,14 +126,14 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_video_renderer349..28d0
+  - name: video_renderer
     parameters:
       sync: false
-      video-in: nv_ds_static_input350..8160
+      video-in: video_input
     type: nvidia::deepstream::NvDsVideoRenderer
-  - name: nv_ds_static_input350..8160
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-name: NvDsVideoRenderer..76a0
+name: video_renderer
 ui_property:
   position:
     x: 1117.2362060546875
@@ -143,25 +143,25 @@ ui_property:
 components:
   - name: nv_ds_connection351..8550
     parameters:
-      source: NvDsOSD..7208/nv_ds_static_output347..25c0
-      target: NvDsVideoRenderer..76a0/nv_ds_static_input350..8160
+      source: onscreen_display/video_output
+      target: video_renderer/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..f358
 ui_property: {}
 ---
 components:
-  - name: nv_ds_tiler352..fc88
+  - name: tiler
     parameters:
       height: 720
-      video-in: nv_ds_static_input353..b780
-      video-out: nv_ds_static_output354..f160
+      video-in: video_input
+      video-out: video_output
       width: 1280
     type: nvidia::deepstream::NvDsTiler
-  - name: nv_ds_static_input353..b780
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output354..f160
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-name: NvDsTiler..7940
+name: tiler
 ui_property:
   position:
     x: 657.1888427734375
@@ -171,8 +171,8 @@ ui_property:
 components:
   - name: nv_ds_connection355..6f28
     parameters:
-      source: NvDsTriton..fe10/nv_ds_static_output343..3ac8
-      target: NvDsTiler..7940/nv_ds_static_input353..b780
+      source: triton/video_output
+      target: tiler/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..7390
 ui_property: {}
@@ -180,16 +180,16 @@ ui_property: {}
 components:
   - name: nv_ds_connection356..6c88
     parameters:
-      source: NvDsTiler..7940/nv_ds_static_output354..f160
-      target: NvDsOSD..7208/nv_ds_static_input346..2588
+      source: tiler/video_output
+      target: onscreen_display/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..fcf8
 ui_property: {}
 ---
 components:
-  - name: nv_ds_scheduler357..4cf8
+  - name: scheduler
     type: nvidia::deepstream::NvDsScheduler
-name: NvDsScheduler..2470
+name: scheduler
 ui_property:
   position:
     x: -19.472444534301758
@@ -197,13 +197,13 @@ ui_property:
   state: 0
 ---
 components:
-  - name: fps_measurement0..ca90
+  - name: fps_measurement
     parameters:
-      probe-connector: nv_ds_probe_connector1..4da0
+      probe-connector: probe_connector
     type: nvidia::deepstream::NvDsFpsMeasurement
-  - name: nv_ds_probe_connector1..4da0
+  - name: probe_connector
     type: nvidia::deepstream::NvDsProbeConnector
-name: NvDsFpsMeasurement..c710
+name: fps_measurement
 ui_property:
   position:
     x: 615.9291381835938
@@ -213,8 +213,8 @@ ui_property:
 components:
   - name: nv_ds_probe2..7fd0
     parameters:
-      io: NvDsTriton..fe10/nv_ds_static_output343..3ac8
-      probe-connector: NvDsFpsMeasurement..c710/nv_ds_probe_connector1..4da0
+      io: triton/video_output
+      probe-connector: fps_measurement/probe_connector
     type: nvidia::deepstream::NvDsProbe
 name: node..e470
 ui_property: {}

@@ -40,3 +40,12 @@ tiler:
 
 sink:
   qos: 0
+
+# Inference using nvinfer:
+primary-gie:
+  plugin-type: 0
+  config-file-path: dstest3_pgie_config.yml
+## Inference using nvinferserver:
+#primary-gie:
+#  plugin-type: 1
+#  config-file-path: dstest3_pgie_nvinferserver_config.txt

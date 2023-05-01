@@ -32,6 +32,9 @@ extern "C" {
 typedef struct {
     /** create a bin for the element only if enabled */
     gboolean enable;
+    /*gie id on which preprocessing is to be done*/
+    gint operate_on_gie_id;
+    gboolean is_operate_on_gie_id_set;
     /** config file path having properties for preprocess */
     gchar *config_file_path;
 } NvDsPreProcessConfig;

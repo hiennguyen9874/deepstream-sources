@@ -1,0 +1,74 @@
+#############################################################################
+# Copyright (c) 2022 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#############################################################################
+
+This sample is an example to demonstrate detection for industrial CAN position
+and rotation angles with respect to a reference image.
+
+This sample uses the "DeepStream Video Template" (NvDsVideoTemplate) component.
+DeepStream provided libnvds_vpicanmatch.so library which implements the matching
+algorithm is used along with the component.
+
+This sample additionally uses the "Template Matcher Output" component to print
+the results to console and "Template Matcher Output Visualizer" component to
+visualize the results by overlaying them on the video.
+
+Two application graphs are provided in this sample:
+* deepstream-can-orientation-pylon.yaml - Uses the "Pylon Camera Input" component
+  for getting frames from a Basler Camera and run CAN template matching on it.
+* deepstream-can-orientation-perf.yaml - Used for performance measurement. Uses
+  the "Custom Data Feeder" component along with "Video Frame Reader" to read
+  frames one-by-one from a file, wait till processing on the frame is completely
+  done before pushing next frame. The application will print the processing
+  latency and FPS.
+
+================================================================================
+Pre-requisites
+================================================================================
+- DeepStreamSDK 6.2
+- Graph-Composer 2.5.0
+- Basler Camera and Pylon GStreamer Plugin setup - https://github.com/basler/gst-plugin-pylon
+
+================================================================================
+Running the graph
+================================================================================
+Prepare sample data:
+$ cd /opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-can-orientation-app/
+$ ./prepare_sample_data.sh
+
+Note: If there is file permission issues, try with sudo.
+
+For using Basler Camera (Pylon):
+* Generate a camera parameters file. Refer to
+  https://www.baslerweb.com/en/sales-support/knowledge-base/frequently-asked-questions/saving-camera-features-or-user-sets-as-file-on-hard-disk/588482/
+* Update the camera serial number and pfs file location in
+  "deepstream-can-orientation-pylon.parameters.yaml" and "resources.yaml"
+
+Execute the graph:
+
+If using emulated camera device, export the following environment variable
+before running the application graph containing pylon camera component:
+$ export PYLON_CAMEMU=1
+
+On x86:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-can-orientation-perf.yaml \
+      -d ../common/target_x86_64.yaml
+OR
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-can-orientation-pylon.yaml \
+      deepstream-can-orientation-pylon.parameters.yaml -d ../common/target_x86_64.yaml
+
+On Jetson:
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-can-orientation-perf.yaml \
+      -d ../common/target_aarch64.yaml
+OR
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-can-orientation-pylon.yaml \
+      deepstream-can-orientation-pylon.parameters.yaml -d ../common/target_aarch64.yaml
+
+NOTE: When executing on a remote target, additional argument "--resources resources.yaml"
+      must be provided to execute_graph.sh script.

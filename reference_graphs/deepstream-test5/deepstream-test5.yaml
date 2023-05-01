@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -12,62 +12,62 @@
 dependencies:
   - extension: NvDsBaseExt
     uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
-    version: 1.0.0
+    version: 1.2.0
   - extension: NvDsCloudMsgExt
     uuid: d16b1366-dba2-47f6-95fc-b09b39f885de
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsInferenceExt
     uuid: 0b02963e-c24e-4c13-ace0-c4cdf36c7c71
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsInferenceUtilsExt
     uuid: 27856a43-5ad4-4d8e-be36-0ec2cf9bbb58
-    version: 1.0.0
+    version: 1.1.1
   - extension: NvDsSourceExt
     uuid: a632d022-3425-4848-9074-e6483ef74366
-    version: 1.0.0
+    version: 1.1.1
   - extension: NvDsMuxDemuxExt
     uuid: 89b8398c-5820-4051-835c-a91f2d49766b
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsOutputSinkExt
     uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsTrackerExt
     uuid: f5aaeb53-e9b8-4317-87d1-9549d67c1638
-    version: 1.0.0
+    version: 1.1.0
   - extension: NvDsVisualizationExt
-    version: 1.0.0
+    version: 1.1.0
     uuid: 25903cd4-fc5c-4139-987b-47bb27e8b424
   - extension: NvDsSampleExt
     uuid: 44a711e4-8519-4a68-81e8-be7ee4af3ff0
-    version: 1.0.0
+    version: 1.1.1
   - extension: NvDsSampleModelsExt
     uuid: 909dc1ea-c654-44c1-97a3-0b8fec12141a
-    version: 1.0.0
+    version: 1.1.0
 ---
 components:
-  - name: nv_ds_multi_src_input144..1a58
+  - name: multiple_source_input
     parameters:
-      audio-%u-out: nv_ds_multi_output145..1be0
+      audio-%u-out: audio_output
       smart-rec-cache: 20
       smart-rec-container: 0
       smart-rec-dir-path: .
       smart-rec-mode: 0
       smart-record: 1
-      smart-record-action: nv_ds_multi_source_smart_record_action7..5470
-      smart-record-done-signal: nv_ds_sr_done_signal8..05f8
+      smart-record-action: smart_record_action
+      smart-record-done-signal: smart_record_done_signal
       source-id-list: 0;1;2;3
       uri-list: rtsp://127.0.0.1:8654/file-stream;rtsp://127.0.0.1:8654/file-stream;rtsp://127.0.0.1:8654/file-stream;rtsp://127.0.0.1:8654/file-stream
-      video-%u-out: nv_ds_multi_output146..1c88
+      video-%u-out: video_output
     type: nvidia::deepstream::NvDsMultiSrcInput
-  - name: nv_ds_multi_output145..1be0
+  - name: audio_output
     type: nvidia::deepstream::NvDsMultiOutput
-  - name: nv_ds_multi_output146..1c88
+  - name: video_output
     type: nvidia::deepstream::NvDsMultiOutput
-  - name: nv_ds_multi_source_smart_record_action7..5470
+  - name: smart_record_action
     type: nvidia::deepstream::NvDsMultiSourceSmartRecordAction
-  - name: nv_ds_sr_done_signal8..05f8
+  - name: smart_record_done_signal
     type: nvidia::deepstream::NvDsSrDoneSignal
-name: NvDsMultiSrcInput..3198
+name: multiple_source_input
 ui_property:
   position:
     x: -182.44876098632812
@@ -75,22 +75,22 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_stream_mux147..b588
+  - name: streammux
     parameters:
       attach-sys-ts: false
       batch-size: 4
       batched-push-timeout: 40000
       height: 1080
       live-source: true
-      video-in-%u: nv_ds_on_request_input148..b5f8
-      video-out: nv_ds_static_output149..b6a0
+      video-in-%u: video_input
+      video-out: video_output
       width: 1920
     type: nvidia::deepstream::NvDsStreamMux
-  - name: nv_ds_on_request_input148..b5f8
+  - name: video_input
     type: nvidia::deepstream::NvDsOnRequestInput
-  - name: nv_ds_static_output149..b6a0
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-name: NvDsStreamMux..96d8
+name: streammux
 ui_property:
   position:
     x: 122.87410736083984
@@ -100,8 +100,8 @@ ui_property:
 components:
   - name: nv_ds_multi_src_connection150..add8
     parameters:
-      source: NvDsMultiSrcInput..3198/nv_ds_multi_output146..1c88
-      target: NvDsStreamMux..96d8/nv_ds_on_request_input148..b5f8
+      source: multiple_source_input/video_output
+      target: streammux/video_input
     type: nvidia::deepstream::NvDsMultiSrcConnection
 name: node..4e10
 ui_property:
@@ -111,7 +111,7 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_tracker151..b470
+  - name: tracker
     parameters:
       enable-batch-process: true
       enable-past-frame: false
@@ -119,14 +119,14 @@ components:
       ll-config-file: /opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml
       tracker-height: 384
       tracker-width: 640
-      video-in: nv_ds_static_input152..e208
-      video-out: nv_ds_static_output153..e278
+      video-in: video_input
+      video-out: video_output
     type: nvidia::deepstream::NvDsTracker
-  - name: nv_ds_static_input152..e208
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output153..e278
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-name: NvDsTracker..54e0
+name: tracker
 ui_property:
   position:
     x: 584.984375
@@ -134,16 +134,16 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_tee155..4d68
+  - name: tee_1
     parameters:
-      in: nv_ds_static_input156..7c18
-      out-%u: nv_ds_on_request_output157..7c50
+      in: input
+      out-%u: output
     type: nvidia::deepstream::NvDsTee
-  - name: nv_ds_static_input156..7c18
+  - name: input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_on_request_output157..7c50
+  - name: output
     type: nvidia::deepstream::NvDsOnRequestOutput
-name: NvDsTee..1fd0
+name: tee_1
 ui_property:
   position:
     x: 789.220703125
@@ -153,8 +153,8 @@ ui_property:
 components:
   - name: nv_ds_connection158..7ef0
     parameters:
-      source: NvDsTracker..54e0/nv_ds_static_output153..e278
-      target: NvDsTee..1fd0/nv_ds_static_input156..7c18
+      source: tracker/video_output
+      target: tee_1/input
     type: nvidia::deepstream::NvDsConnection
 name: node..c048
 ui_property:
@@ -164,26 +164,26 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_infer159..3710
+  - name: object_detector
     parameters:
       batch-size: 4
-      infer-model-config: resnet10_4_class_detector163..fef0
-      property-controller: nv_ds_infer_video_property_controller1..5cf8
+      infer-model-config: resnet10_4_class_detector
+      property-controller: property_controller
       unique-id: 1
-      video-in: nv_ds_static_input160..a2e8
-      video-out: nv_ds_static_output161..a3c8
+      video-in: video_input
+      video-out: video_output
     type: nvidia::deepstream::NvDsInferVideo
-  - name: nv_ds_static_input160..a2e8
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output161..a3c8
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: resnet10_4_class_detector163..fef0
+  - name: resnet10_4_class_detector
     parameters:
       model-engine-file: primary.resnet10.caffemodel_b4_gpu0_int8.engine
     type: nvidia::deepstream::NvDsResnet10_4ClassDetectorModel
-  - name: nv_ds_infer_video_property_controller1..5cf8
+  - name: property_controller
     type: nvidia::deepstream::NvDsInferVideoPropertyController
-name: NvDsInferVideo..cb00
+name: object_detector
 ui_property:
   position:
     x: 326.0790710449219
@@ -193,8 +193,8 @@ ui_property:
 components:
   - name: nv_ds_connection162..4860
     parameters:
-      source: NvDsStreamMux..96d8/nv_ds_static_output149..b6a0
-      target: NvDsInferVideo..cb00/nv_ds_static_input160..a2e8
+      source: streammux/video_output
+      target: object_detector/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..2b70
 ui_property:
@@ -206,8 +206,8 @@ ui_property:
 components:
   - name: nv_ds_connection164..3d68
     parameters:
-      source: NvDsInferVideo..cb00/nv_ds_static_output161..a3c8
-      target: NvDsTracker..54e0/nv_ds_static_input152..e208
+      source: object_detector/video_output
+      target: tracker/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..56a0
 ui_property:
@@ -217,25 +217,25 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_infer165..9278
+  - name: car_color_classifier
     parameters:
       batch-size: 16
-      infer-model-config: secondary_car_color_classifier200..cc50
+      infer-model-config: secondary_car_color_classifier
       infer-on-class-ids: "0"
       infer-on-gie-id: 1
       unique-id: 5
-      video-in: nv_ds_static_input166..e390
-      video-out: nv_ds_static_output167..e438
+      video-in: video_input
+      video-out: video_output
     type: nvidia::deepstream::NvDsInferVideo
-  - name: nv_ds_static_input166..e390
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output167..e438
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: secondary_car_color_classifier200..cc50
+  - name: secondary_car_color_classifier
     parameters:
       model-engine-file: sec.carcolor.resnet18.caffemodel_b16_gpu0_int8.engine
     type: nvidia::deepstream::NvDsSecondaryCarColorClassifierModel
-name: NvDsInferVideo..c1d0
+name: car_color_classifier
 ui_property:
   position:
     x: 1000.6773071289062
@@ -245,8 +245,8 @@ ui_property:
 components:
   - name: nv_ds_connection168..7898
     parameters:
-      source: NvDsTee..1fd0/nv_ds_on_request_output157..7c50
-      target: NvDsInferVideo..c1d0/nv_ds_static_input166..e390
+      source: tee_1/output
+      target: car_color_classifier/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..e358
 ui_property:
@@ -256,25 +256,25 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_infer169..90f0
+  - name: car_make_classifier
     parameters:
       batch-size: 16
-      infer-model-config: secondary_car_make_classifier201..97f0
+      infer-model-config: secondary_car_make_classifier
       infer-on-class-ids: "0"
       infer-on-gie-id: 1
       unique-id: 6
-      video-in: nv_ds_static_input170..a550
-      video-out: nv_ds_static_output171..a6d8
+      video-in: video_input
+      video-out: video_output
     type: nvidia::deepstream::NvDsInferVideo
-  - name: nv_ds_static_input170..a550
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output171..a6d8
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: secondary_car_make_classifier201..97f0
+  - name: secondary_car_make_classifier
     parameters:
       model-engine-file: sec.carmake.resnet18.caffemodel_b16_gpu0_int8.engine
     type: nvidia::deepstream::NvDsSecondaryCarMakeClassifierModel
-name: NvDsInferVideo..f8d0
+name: car_make_classifier
 ui_property:
   position:
     x: 1018.2127685546875
@@ -284,8 +284,8 @@ ui_property:
 components:
   - name: nv_ds_connection172..ea20
     parameters:
-      source: NvDsTee..1fd0/nv_ds_on_request_output157..7c50
-      target: NvDsInferVideo..f8d0/nv_ds_static_input170..a550
+      source: tee_1/output
+      target: car_make_classifier/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..b8d0
 ui_property:
@@ -295,25 +295,25 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_infer173..0080
+  - name: vehicle_type_classifier
     parameters:
       batch-size: 16
-      infer-model-config: secondary_vehicle_type_classifier202..bf60
+      infer-model-config: secondary_vehicle_type_classifier
       infer-on-class-ids: "0"
       infer-on-gie-id: 1
       unique-id: 4
-      video-in: nv_ds_static_input174..4518
-      video-out: nv_ds_static_output175..46d8
+      video-in: video_input
+      video-out: video_output
     type: nvidia::deepstream::NvDsInferVideo
-  - name: nv_ds_static_input174..4518
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output175..46d8
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: secondary_vehicle_type_classifier202..bf60
+  - name: secondary_vehicle_type_classifier
     parameters:
       model-engine-file: sec.vehicletypes.resnet18.caffemodel_b16_gpu0_int8.engine
     type: nvidia::deepstream::NvDsSecondaryVehicleTypeClassifierModel
-name: NvDsInferVideo..3438
+name: vehicle_type_classifier
 ui_property:
   position:
     x: 1035.7481689453125
@@ -323,8 +323,8 @@ ui_property:
 components:
   - name: nv_ds_connection176..4b00
     parameters:
-      source: NvDsTee..1fd0/nv_ds_on_request_output157..7c50
-      target: NvDsInferVideo..3438/nv_ds_static_input174..4518
+      source: tee_1/output
+      target: vehicle_type_classifier/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..b828
 ui_property:
@@ -334,19 +334,19 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_buffer_sync177..aba8
+  - name: buffer_sync
     parameters:
-      in-%u: nv_ds_on_request_input178..5da0
-      out: nv_ds_static_output179..2fd0
-      sync-in: nv_ds_static_input180..8160
+      in-%u: input
+      out: output
+      sync-in: sync_input
     type: nvidia::deepstream::NvDsBufferSync
-  - name: nv_ds_on_request_input178..5da0
+  - name: input
     type: nvidia::deepstream::NvDsOnRequestInput
-  - name: nv_ds_static_output179..2fd0
+  - name: output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: nv_ds_static_input180..8160
+  - name: sync_input
     type: nvidia::deepstream::NvDsStaticInput
-name: NvDsBufferSync..b940
+name: buffer_sync
 ui_property:
   position:
     x: 1321.105224609375
@@ -356,8 +356,8 @@ ui_property:
 components:
   - name: nv_ds_connection181..6f28
     parameters:
-      source: NvDsInferVideo..c1d0/nv_ds_static_output167..e438
-      target: NvDsBufferSync..b940/nv_ds_on_request_input178..5da0
+      source: car_color_classifier/video_output
+      target: buffer_sync/input
     type: nvidia::deepstream::NvDsConnection
 name: node..2f60
 ui_property:
@@ -369,8 +369,8 @@ ui_property:
 components:
   - name: nv_ds_connection182..1748
     parameters:
-      source: NvDsInferVideo..f8d0/nv_ds_static_output171..a6d8
-      target: NvDsBufferSync..b940/nv_ds_on_request_input178..5da0
+      source: car_make_classifier/video_output
+      target: buffer_sync/input
     type: nvidia::deepstream::NvDsConnection
 name: node..0e48
 ui_property:
@@ -382,8 +382,8 @@ ui_property:
 components:
   - name: nv_ds_connection183..80b8
     parameters:
-      source: NvDsInferVideo..3438/nv_ds_static_output175..46d8
-      target: NvDsBufferSync..b940/nv_ds_static_input180..8160
+      source: vehicle_type_classifier/video_output
+      target: buffer_sync/sync_input
     type: nvidia::deepstream::NvDsConnection
 name: node..84e0
 ui_property:
@@ -393,20 +393,20 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_tiler184..1940
+  - name: tiler
     parameters:
       columns: 2
       height: 720
       rows: 2
-      video-in: nv_ds_static_input185..9940
-      video-out: nv_ds_static_output186..f5c0
+      video-in: video_input
+      video-out: video_output
       width: 1280
     type: nvidia::deepstream::NvDsTiler
-  - name: nv_ds_static_input185..9940
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output186..f5c0
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-name: NvDsTiler..36a0
+name: tiler
 ui_property:
   position:
     x: 367.0698547363281
@@ -414,30 +414,30 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_osd187..3320
+  - name: onscreen_display
     parameters:
       bbox-border-colors: Car=0xff0000ff;Bicycle=0x00ffffff;Person=0x0000ffff;RoadSign=0x00ff00ff
       border-width: 1
       clock-color: 4278190335
       display-clock: false
       font: Serif
-      property-controller: nv_ds_osd_property_controller6..d470
+      property-controller: property_controller
       reformat-object-labels: true
       text-bg-color: 1296911871
       text-color: 4294967295
       text-size: 15
-      video-in: nv_ds_static_input188..b4a8
-      video-out: nv_ds_static_output189..0c18
+      video-in: video_input
+      video-out: video_output
       x-clock-offset: 800
       y-clock-offset: 820
     type: nvidia::deepstream::NvDsOSD
-  - name: nv_ds_static_input188..b4a8
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_static_output189..0c18
+  - name: video_output
     type: nvidia::deepstream::NvDsStaticOutput
-  - name: nv_ds_osd_property_controller6..d470
+  - name: property_controller
     type: nvidia::deepstream::NvDsOSDPropertyController
-name: NvDsOSD..7828
+name: onscreen_display
 ui_property:
   position:
     x: 631.92626953125
@@ -447,8 +447,8 @@ ui_property:
 components:
   - name: nv_ds_connection190..44e0
     parameters:
-      source: NvDsTiler..36a0/nv_ds_static_output186..f5c0
-      target: NvDsOSD..7828/nv_ds_static_input188..b4a8
+      source: tiler/video_output
+      target: onscreen_display/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..d278
 ui_property:
@@ -458,16 +458,16 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_video_renderer191..7908
+  - name: video_renderer
     parameters:
-      prop-controller: nv_ds_video_renderer_property_controller70..d940
-      video-in: nv_ds_static_input192..e630
+      prop-controller: property_controller
+      video-in: video_input
     type: nvidia::deepstream::NvDsVideoRenderer
-  - name: nv_ds_static_input192..e630
+  - name: video_input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_video_renderer_property_controller70..d940
+  - name: property_controller
     type: nvidia::deepstream::NvDsVideoRendererPropertyController
-name: NvDsVideoRenderer..a5f8
+name: video_renderer
 ui_property:
   position:
     x: 928.1260986328125
@@ -477,8 +477,8 @@ ui_property:
 components:
   - name: nv_ds_connection193..d978
     parameters:
-      source: NvDsOSD..7828/nv_ds_static_output189..0c18
-      target: NvDsVideoRenderer..a5f8/nv_ds_static_input192..e630
+      source: onscreen_display/video_output
+      target: video_renderer/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..5eb8
 ui_property:
@@ -488,13 +488,13 @@ ui_property:
   state: 0
 ---
 components:
-  - name: fps_measurement195..5f28
+  - name: fps_measurement
     parameters:
-      probe-connector: nv_ds_probe_connector196..f9b0
+      probe-connector: probe_connector
     type: nvidia::deepstream::NvDsFpsMeasurement
-  - name: nv_ds_probe_connector196..f9b0
+  - name: probe_connector
     type: nvidia::deepstream::NvDsProbeConnector
-name: NvDsFpsMeasurement..4c50
+name: fps_measurement
 ui_property:
   position:
     x: 1311.552978515625
@@ -502,14 +502,14 @@ ui_property:
   state: 0
 ---
 components:
-  - name: kitti_dump203..0a90
+  - name: kitti_dump_detector
     parameters:
       output-dir: /tmp/detector-kitti-out
-      probe-connector: nv_ds_probe_connector204..0be0
+      probe-connector: probe_connector
     type: nvidia::deepstream::NvDsKittiDump
-  - name: nv_ds_probe_connector204..0be0
+  - name: probe_connector
     type: nvidia::deepstream::NvDsProbeConnector
-name: NvDsKittiDump - Detector..7be0
+name: kitti_dump_detector
 ui_property:
   position:
     x: 571.57470703125
@@ -519,21 +519,21 @@ ui_property:
 components:
   - name: nv_ds_probe205..0dd8
     parameters:
-      io: NvDsInferVideo..cb00/nv_ds_static_output161..a3c8
-      probe-connector: NvDsKittiDump - Detector..7be0/nv_ds_probe_connector204..0be0
+      io: object_detector/video_output
+      probe-connector: kitti_dump_detector/probe_connector
     type: nvidia::deepstream::NvDsProbe
 name: node..0b70
 ui_property: {}
 ---
 components:
-  - name: kitti_dump206..4d68
+  - name: kitti_dump_tracker
     parameters:
       output-dir: /tmp/tracker-kitti-out
-      probe-connector: nv_ds_probe_connector207..fa20
+      probe-connector: probe_connector
     type: nvidia::deepstream::NvDsKittiDump
-  - name: nv_ds_probe_connector207..fa20
+  - name: probe_connector
     type: nvidia::deepstream::NvDsProbeConnector
-name: NvDsKittiDump - Tracker..4a58
+name: kitti_dump_tracker
 ui_property:
   position:
     x: 785.0945434570312
@@ -543,16 +543,16 @@ ui_property:
 components:
   - name: nv_ds_probe208..7e10
     parameters:
-      io: NvDsTracker..54e0/nv_ds_static_output153..e278
-      probe-connector: NvDsKittiDump - Tracker..4a58/nv_ds_probe_connector207..fa20
+      io: tracker/video_output
+      probe-connector: kitti_dump_tracker/probe_connector
     type: nvidia::deepstream::NvDsProbe
 name: node..a438
 ui_property: {}
 ---
 components:
-  - name: nv_ds_scheduler209..a320
+  - name: scheduler
     type: nvidia::deepstream::NvDsScheduler
-name: NvDsScheduler..15c0
+name: scheduler
 ui_property:
   position:
     x: 100.18109130859375
@@ -560,21 +560,21 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_tiler_event_handler67..7160
+  - name: tiler_event_handler
     parameters:
-      kb-input: nv_ds_keyboard_input3..5e48
-      latency-probe-connector: nv_ds_probe_connector68..d908
-      nvdsosd-prop-controller: NvDsOSD..7828/nv_ds_osd_property_controller6..d470
-      renderer-prop-controller: NvDsVideoRenderer..a5f8/nv_ds_video_renderer_property_controller70..d940
-      tiler-out: nv_ds_probe_connector69..ecc0
+      kb-input: keyboard_input
+      latency-probe-connector: probe_connector
+      nvdsosd-prop-controller: onscreen_display/property_controller
+      renderer-prop-controller: video_renderer/property_controller
+      tiler-out: tiler_out_probe_connector
     type: nvidia::deepstream::NvDsTilerEventHandler
-  - name: nv_ds_probe_connector68..d908
+  - name: probe_connector
     type: nvidia::deepstream::NvDsProbeConnector
-  - name: nv_ds_probe_connector69..ecc0
+  - name: tiler_out_probe_connector
     type: nvidia::deepstream::NvDsProbeConnector
-  - name: nv_ds_keyboard_input3..5e48
+  - name: keyboard_input
     type: nvidia::deepstream::NvDsKeyboardInput
-name: NvDsTilerEventHandler..9fd0
+name: tiler_event_handler
 ui_property:
   position:
     x: 306.4803771972656
@@ -584,8 +584,8 @@ ui_property:
 components:
   - name: nv_ds_probe71..9748
     parameters:
-      io: NvDsTiler..36a0/nv_ds_static_output186..f5c0
-      probe-connector: NvDsTilerEventHandler..9fd0/nv_ds_probe_connector69..ecc0
+      io: tiler/video_output
+      probe-connector: tiler_event_handler/tiler_out_probe_connector
     type: nvidia::deepstream::NvDsProbe
 name: node..b390
 ui_property: {}
@@ -593,8 +593,8 @@ ui_property: {}
 components:
   - name: nv_ds_probe72..a358
     parameters:
-      io: NvDsOSD..7828/nv_ds_static_output189..0c18
-      probe-connector: NvDsTilerEventHandler..9fd0/nv_ds_probe_connector68..d908
+      io: onscreen_display/video_output
+      probe-connector: tiler_event_handler/probe_connector
     type: nvidia::deepstream::NvDsProbe
 name: node..39e8
 ui_property: {}
@@ -602,23 +602,23 @@ ui_property: {}
 components:
   - name: nv_ds_probe0..c438
     parameters:
-      io: NvDsBufferSync..b940/nv_ds_static_output179..2fd0
-      probe-connector: NvDsFpsMeasurement..4c50/nv_ds_probe_connector196..f9b0
+      io: buffer_sync/output
+      probe-connector: fps_measurement/probe_connector
     type: nvidia::deepstream::NvDsProbe
 name: node..7390
 ui_property: {}
 ---
 components:
-  - name: nv_ds_tee1..f4e0
+  - name: tee_2
     parameters:
-      in: nv_ds_static_input2..03c8
-      out-%u: nv_ds_on_request_output3..b278
+      in: input
+      out-%u: output
     type: nvidia::deepstream::NvDsTee
-  - name: nv_ds_static_input2..03c8
+  - name: input
     type: nvidia::deepstream::NvDsStaticInput
-  - name: nv_ds_on_request_output3..b278
+  - name: output
     type: nvidia::deepstream::NvDsOnRequestOutput
-name: NvDsTee..c080
+name: tee_2
 ui_property:
   position:
     x: 122.2026596069336
@@ -628,8 +628,8 @@ ui_property:
 components:
   - name: nv_ds_connection4..8be0
     parameters:
-      source: NvDsTee..c080/nv_ds_on_request_output3..b278
-      target: NvDsTiler..36a0/nv_ds_static_input185..9940
+      source: tee_2/output
+      target: tiler/video_input
     type: nvidia::deepstream::NvDsConnection
 name: node..acc0
 ui_property: {}
@@ -637,25 +637,25 @@ ui_property: {}
 components:
   - name: nv_ds_connection5..5748
     parameters:
-      source: NvDsBufferSync..b940/nv_ds_static_output179..2fd0
-      target: NvDsTee..c080/nv_ds_static_input2..03c8
+      source: buffer_sync/output
+      target: tee_2/input
     type: nvidia::deepstream::NvDsConnection
 name: node..59e8
 ui_property: {}
 ---
 components:
-  - name: nv_ds_msg_conv_broker6..b080
+  - name: message_converter_broker
     parameters:
-      in: nv_ds_static_input7..e048
+      in: input
       msg-broker-conn-str: 127.0.0.1;9092;test-topic
       msg-broker-proto-lib: /opt/nvidia/deepstream/deepstream/lib/libnvds_kafka_proto.so
       msg-conv-config: dstest5_msgconv_sample_config.txt
       msg-conv-payload-type: 1
       topic: test-topic
     type: nvidia::deepstream::NvDsMsgConvBroker
-  - name: nv_ds_static_input7..e048
+  - name: input
     type: nvidia::deepstream::NvDsStaticInput
-name: NvDsMsgConvBroker..b048
+name: message_converter_broker
 ui_property:
   position:
     x: 399.9431457519531
@@ -665,23 +665,23 @@ ui_property:
 components:
   - name: nv_ds_connection8..6358
     parameters:
-      source: NvDsTee..c080/nv_ds_on_request_output3..b278
-      target: NvDsMsgConvBroker..b048/nv_ds_static_input7..e048
+      source: tee_2/output
+      target: message_converter_broker/input
     type: nvidia::deepstream::NvDsConnection
 name: node..1390
 ui_property: {}
 ---
 components:
-  - name: nv_ds_sample_probe_message_meta_creation9..2b70
+  - name: sample_probe_message_meta_creation
     parameters:
       car-color-unique-id: 5
       car-make-unique-id: 6
-      probe-connector: nv_ds_probe_connector10..5550
+      probe-connector: probe_connector
       vehicle-type-unique-id: 4
     type: nvidia::deepstream::NvDsSampleProbeMessageMetaCreation
-  - name: nv_ds_probe_connector10..5550
+  - name: probe_connector
     type: nvidia::deepstream::NvDsProbeConnector
-name: NvDsSampleProbeMessageMetaCreation..ff60
+name: sample_probe_message_meta_creation
 ui_property:
   position:
     x: 1370.581787109375
@@ -691,19 +691,19 @@ ui_property:
 components:
   - name: nv_ds_probe11..e588
     parameters:
-      io: NvDsBufferSync..b940/nv_ds_static_output179..2fd0
-      probe-connector: NvDsSampleProbeMessageMetaCreation..ff60/nv_ds_probe_connector10..5550
+      io: buffer_sync/output
+      probe-connector: sample_probe_message_meta_creation/probe_connector
     type: nvidia::deepstream::NvDsProbe
 name: node..3da0
 ui_property: {}
 ---
 components:
-  - name: nv_ds_model_engine_watch_otf_trigger0..ca20
+  - name: model_engine_watch_otf_trigger
     parameters:
-      nvdsinfervideo-prop-controller: NvDsInferVideo..cb00/nv_ds_infer_video_property_controller1..5cf8
+      nvdsinfervideo-prop-controller: object_detector/property_controller
       watch-file: /tmp/model-otf-test/model.engine
     type: nvidia::deepstream::NvDsModelEngineWatchOTFTrigger
-name: NvDsModelEngineWatchOTFTrigger..ccf8
+name: model_engine_watch_otf_trigger
 ui_property:
   position:
     x: -128.81103515625
@@ -711,16 +711,16 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_sample_c2_d_smart_record_trigger5..e2e8
+  - name: sample_cloud2device_smart_record_trigger
     parameters:
-      msg-rx: nv_ds_msg_relay_receiver6..2c88
+      msg-rx: message_relay_receiver
       msgconv-config: dstest5_msgconv_sample_config.txt
-      smart-record-action: NvDsMultiSrcInput..3198/nv_ds_multi_source_smart_record_action7..5470
-      smart-record-done-signal: NvDsMultiSrcInput..3198/nv_ds_sr_done_signal8..05f8
+      smart-record-action: multiple_source_input/smart_record_action
+      smart-record-done-signal: multiple_source_input/smart_record_done_signal
     type: nvidia::deepstream::NvDsSampleC2DSmartRecordTrigger
-  - name: nv_ds_msg_relay_receiver6..2c88
+  - name: message_relay_receiver
     type: nvidia::deepstream::NvDsMsgRelayReceiver
-name: NvDsSampleC2DSmartRecordTrigger..b358
+name: sample_cloud2device_smart_record_trigger
 ui_property:
   position:
     x: 181.66949462890625
@@ -728,16 +728,16 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_msg_broker_c2_d_receiver9..5ac8
+  - name: message_broker_cloud2device_receiver
     parameters:
       conn-str: 127.0.0.1;9092
       proto-lib: /opt/nvidia/deepstream/deepstream/lib/libnvds_kafka_proto.so
       topics: test-topic-sr
-      tx: nv_ds_msg_relay_transmitter10..5c88
+      tx: message_relay_transmitter
     type: nvidia::deepstream::NvDsMsgBrokerC2DReceiver
-  - name: nv_ds_msg_relay_transmitter10..5c88
+  - name: message_relay_transmitter
     type: nvidia::deepstream::NvDsMsgRelayTransmitter
-name: NvDsMsgBrokerC2DReceiver..aef0
+name: message_broker_cloud2device_receiver
 ui_property:
   position:
     x: -155.6299591064453
@@ -745,10 +745,10 @@ ui_property:
   state: 0
 ---
 components:
-  - name: nv_ds_msg_relay11..b898
+  - name: message_relay
     parameters:
-      source: NvDsMsgBrokerC2DReceiver..aef0/nv_ds_msg_relay_transmitter10..5c88
-      target: NvDsSampleC2DSmartRecordTrigger..b358/nv_ds_msg_relay_receiver6..2c88
+      source: message_broker_cloud2device_receiver/message_relay_transmitter
+      target: sample_cloud2device_smart_record_trigger/message_relay_receiver
     type: nvidia::deepstream::NvDsMsgRelay
 name: node..89b0
 ui_property: {}

@@ -31,7 +31,7 @@ class GuardDataProcess : public GuardDataT<abiDataProcessorT> {
 protected:
     GuardDataProcess() = default;
     template <typename... Args /*, _EnableIfConstructible<_Base, Args...> = true*/>
-    GuardDataProcess(Args &&... args) : _Base(std::forward<Args>(args)...)
+    GuardDataProcess(Args &&...args) : _Base(std::forward<Args>(args)...)
     {
     }
     using GuardDataT<abiDataProcessorT>::ptr;
