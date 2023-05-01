@@ -33,9 +33,9 @@ SRCS:= customlib_impl.cpp
 INCS:= $(wildcard *.h)
 LIB:=libcustom_videoimpl.so
 
-NVDS_VERSION:=6.1
+NVDS_VERSION:=6.2
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.1.1\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.2.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../../includes -I../includes
 
@@ -73,7 +73,7 @@ $(DEP): $(DEP_FILES)
 	$(MAKE) -C customlib_impl/
 
 install: $(LIB)
-	cp -rv $(LIB) $(GST_INSTALL_DIR)
+	cp -rv $(LIB) $(LIB_INSTALL_DIR)
 
 clean:
 	rm -rf $(OBJS) $(LIB)

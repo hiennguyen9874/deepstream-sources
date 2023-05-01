@@ -714,7 +714,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_msgbroker,
                   "Message broker",
                   plugin_init,
-                  "6.1",
+                  "6.2",
                   "Proprietary",
                   "NvMsgBroker",
                   "http://nvidia.com")

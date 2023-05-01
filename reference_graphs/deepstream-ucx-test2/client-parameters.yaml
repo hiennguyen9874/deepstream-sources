@@ -9,22 +9,22 @@
 #############################################################################
 ---
 components:
-  - name: nv_ds_single_src_input28
+  - name: single_source_input
     parameters:
       uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
-name: NvDsSingleSrcInput
+name: single_source_input
 ---
 components:
-  - name: nv_ds_stream_mux31
+  - name: streammux
     parameters:
       batch-size: 1
       height: 1080
       width: 1920
-name: NvDsStreamMux
+name: streammux
 ---
 components:
-  - name: nv_ds_ucx_client_sink44
+  - name: ucx_client_sink
     parameters:
       addr: 192.168.1.100
       port: 7174
-name: NvDsUcxClientSink
+name: ucx_client_sink

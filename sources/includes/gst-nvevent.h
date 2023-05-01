@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -55,7 +55,7 @@ typedef enum {
     GST_NVEVENT_STREAM_RESET = GST_EVENT_MAKE_TYPE(404, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
     /** Specifies a custom event to indicate start of a particular stream
      in a batch. */
-    GST_NVEVENT_STREAM_START = GST_EVENT_MAKE_TYPE(405, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    GST_NVEVENT_STREAM_START = GST_EVENT_MAKE_TYPE(405, FLAG(DOWNSTREAM) | FLAG(SERIALIZED))
 } GstNvEventType;
 #undef FLAG
 

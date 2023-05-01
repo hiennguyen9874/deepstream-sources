@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -99,7 +99,8 @@ void ImageMetaConsumer::stop()
         nvds_obj_enc_destroy_context(obj_ctx_handle_);
 }
 
-void ImageMetaConsumer::init(const std::string &output_folder_path,
+void ImageMetaConsumer::init(const unsigned gpu_id,
+                             const std::string &output_folder_path,
                              const std::string &frame_to_skip_rules_path,
                              const float min_box_confidence,
                              const float max_box_confidence,
@@ -137,6 +138,7 @@ void ImageMetaConsumer::init(const std::string &output_folder_path,
         return;
     }
 
+    gpu_id_ = gpu_id;
     min_confidence_ = min_box_confidence;
     max_confidence_ = max_box_confidence;
     min_box_width_ = min_box_width;
@@ -340,6 +342,11 @@ float ImageMetaConsumer::get_max_confidence() const
     return max_confidence_;
 }
 
+unsigned ImageMetaConsumer::get_gpu_id() const
+{
+    return gpu_id_;
+}
+
 unsigned ImageMetaConsumer::get_min_box_width() const
 {
     return min_box_width_;
@@ -373,7 +380,7 @@ void ImageMetaConsumer::init_image_save_library_on_first_time()
         m_csv_.lock();
         if (!image_saving_library_is_init_ &&
             (save_cropped_obj_enabled_ || save_full_frame_enabled_)) {
-            obj_ctx_handle_ = nvds_obj_enc_create_context();
+            obj_ctx_handle_ = nvds_obj_enc_create_context(gpu_id_);
             if (obj_ctx_handle_)
                 image_saving_library_is_init_ = true;
             else

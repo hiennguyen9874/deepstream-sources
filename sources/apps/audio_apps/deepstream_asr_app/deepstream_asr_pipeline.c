@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -13,7 +14,7 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -57,7 +58,6 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer data)
     case GST_MESSAGE_ERROR: {
         GError *error = NULL;
         gchar *debuginfo = NULL;
-        guint i = 0;
         gst_message_parse_error(message, &error, &debuginfo);
         g_printerr("ERROR from %s: %s\n", GST_OBJECT_NAME(message->src), error->message);
         if (debuginfo) {
@@ -221,7 +221,6 @@ static int create_asr_pipeline(AppCtx *appctx,
     GstElement *tee = NULL;
     GstElement *audio_resampler = NULL, *asr = NULL, *displaysink = NULL;
     GstElement *audio_sink = NULL;
-    GstElement *audio_convert = NULL, *audio_enc = NULL, *audio_mux = NULL, *filesink = NULL;
 
     /* Gst pads */
     GstPad *link_sinkpad = NULL, *decoder_srcpad = NULL;
@@ -405,6 +404,7 @@ int destroy_pipeline(StreamCtx *sctx)
         fclose(sctx->FP_asr);
         sctx->FP_asr = NULL;
     }
+    return 0;
 }
 
 int start_pipeline(int stream_num, StreamCtx *sctx)

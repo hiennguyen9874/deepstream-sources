@@ -41,13 +41,13 @@ endif
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_dsexample.so
 
-NVDS_VERSION:=6.1
+NVDS_VERSION:=6.2
 
 DEP:=dsexample_lib/libdsexample.a
 DEP_FILES:=$(wildcard dsexample_lib/dsexample_lib.* )
 DEP_FILES-=$(DEP)
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.1.1\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.2.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes
 

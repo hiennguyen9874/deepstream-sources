@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -13,7 +14,7 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -61,7 +62,6 @@
 
 guint get_num_sources_yaml(gchar *config_file)
 {
-    gboolean ret = FALSE;
     guint num_users = 0;
 
     DS_TRY
@@ -80,7 +80,7 @@ guint get_num_sources_yaml(gchar *config_file)
     return num_users;
 }
 
-gboolean parse_src_config_yaml(StreamCtx *sctx, YAML::Node node)
+static gboolean parse_src_config_yaml(StreamCtx *sctx, YAML::Node node)
 {
     DS_TRY
     {
@@ -113,7 +113,7 @@ gboolean parse_src_config_yaml(StreamCtx *sctx, YAML::Node node)
     return TRUE;
 }
 
-gboolean parse_asr_config_yaml(StreamCtx *sctx, YAML::Node node)
+static gboolean parse_asr_config_yaml(StreamCtx *sctx, YAML::Node node)
 {
     DS_TRY
     {
@@ -129,7 +129,7 @@ gboolean parse_asr_config_yaml(StreamCtx *sctx, YAML::Node node)
     return TRUE;
 }
 
-gboolean parse_sink_config_yaml(AppCtx *appctx, YAML::Node node)
+static gboolean parse_sink_config_yaml(AppCtx *appctx, YAML::Node node)
 {
     DS_TRY
     {

@@ -9,14 +9,14 @@
 #############################################################################
 ---
 components:
-  - name: nv_ds_ucx_client_src7
+  - name: ucx_client_source
     parameters:
       addr: 192.168.1.100
       port: 7174
-name: NvDsUcxClientSrc
+name: ucx_client_source
 ---
 components:
-  - name: gst_caps_filter9
+  - name: gstreamer_caps_filter
     parameters:
       caps: "video/x-raw(memory:NVMM), format=NV12, width=1280, height=720, framerate=30/1"
-name: GstCapsFilter
+name: gstreamer_caps_filter

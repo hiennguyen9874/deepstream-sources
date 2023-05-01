@@ -62,6 +62,25 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
         obj.width /= frame.scale_ratio_x;
         obj.height /= frame.scale_ratio_y;
 
+        /** Clipping the object bounding-box which lies outside the roi
+         * specified by nvdspreprosess plugin. */
+        if (nvinfer->input_tensor_from_meta && nvinfer->clip_object_outside_roi) {
+            if (obj.left + obj.width >= frame.roi_meta->roi.left + frame.roi_meta->roi.width) {
+                obj.width = frame.roi_meta->roi.left + frame.roi_meta->roi.width - obj.left;
+            }
+            if (obj.top + obj.height >= frame.roi_meta->roi.top + frame.roi_meta->roi.height) {
+                obj.height = frame.roi_meta->roi.top + frame.roi_meta->roi.height - obj.top;
+            }
+            if (obj.left < frame.roi_meta->roi.left) {
+                obj.left = frame.roi_meta->roi.left;
+                obj.width = obj.width - frame.roi_meta->roi.left + obj.left;
+            }
+            if (obj.top < frame.roi_meta->roi.top) {
+                obj.top = frame.roi_meta->roi.top;
+                obj.height = obj.height - frame.roi_meta->roi.top + obj.top;
+            }
+        }
+
         /* Check if the scaled box co-ordinates meet the detection filter criteria.
          * Skip the box if it does not. */
         if (nvinfer->filter_out_class_ids->find(obj.classIndex) !=
@@ -75,11 +94,27 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
             continue;
         if (filter_params.detectionMaxHeight > 0 && obj.height > filter_params.detectionMaxHeight)
             continue;
-        if (obj.top < filter_params.roiTopOffset)
-            continue;
-        if (obj.top + obj.height >
-            (frame.input_surf_params->height - filter_params.roiBottomOffset))
-            continue;
+        if (nvinfer->crop_objects_to_roi_boundary) {
+            if (obj.top < 0)
+                obj.top = 0;
+            if (obj.left < 0)
+                obj.left = 0;
+            if (obj.top < filter_params.roiTopOffset)
+                obj.top = filter_params.roiTopOffset;
+            if (obj.left + obj.width >= frame.input_surf_params->width)
+                obj.width = frame.input_surf_params->width - obj.left;
+            if (obj.top + obj.height >
+                (frame.input_surf_params->height - filter_params.roiBottomOffset))
+                obj.height =
+                    frame.input_surf_params->height - filter_params.roiBottomOffset - obj.top;
+        } else {
+            if (obj.top < filter_params.roiTopOffset)
+                continue;
+            if (obj.top + obj.height >
+                (frame.input_surf_params->height - filter_params.roiBottomOffset))
+                continue;
+        }
+
         obj_meta = nvds_acquire_obj_meta_from_pool(batch_meta);
 
         obj_meta->unique_component_id = nvinfer->unique_id;
@@ -99,7 +134,7 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
         rect_params.width = obj.width;
         rect_params.height = obj.height;
 
-        if (!nvinfer->process_full_frame) {
+        if (!nvinfer->process_full_frame && !nvinfer->input_tensor_from_meta) {
             rect_params.left += parent_obj_meta->rect_params.left;
             rect_params.top += parent_obj_meta->rect_params.top;
         }
@@ -270,6 +305,10 @@ void attach_metadata_classifier(GstNvInfer *nvinfer,
     }
     if (nvinfer->input_tensor_from_meta) {
         nvds_add_classifier_meta_to_roi(frame.roi_meta, classifier_meta);
+        /* if object is roi itself */
+        if (object_meta) {
+            nvds_add_classifier_meta_to_object(object_meta, classifier_meta);
+        }
     } else {
         nvds_add_classifier_meta_to_object(object_meta, classifier_meta);
     }
@@ -316,6 +355,7 @@ static gpointer copy_segmentation_meta(gpointer data, gpointer user_data)
     NvDsInferSegmentationMeta *meta =
         (NvDsInferSegmentationMeta *)g_malloc(sizeof(NvDsInferSegmentationMeta));
 
+    meta->unique_id = src_meta->unique_id;
     meta->classes = src_meta->classes;
     meta->width = src_meta->width;
     meta->height = src_meta->height;
@@ -342,6 +382,7 @@ void attach_metadata_segmentation(GstNvInfer *nvinfer,
     NvDsInferSegmentationMeta *meta =
         (NvDsInferSegmentationMeta *)g_malloc(sizeof(NvDsInferSegmentationMeta));
 
+    meta->unique_id = nvinfer->unique_id;
     meta->classes = segmentation_output.classes;
     meta->width = segmentation_output.width;
     meta->height = segmentation_output.height;
@@ -369,23 +410,9 @@ static void release_tensor_output_meta(gpointer data, gpointer user_data)
 {
     NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
     NvDsInferTensorMeta *meta = (NvDsInferTensorMeta *)user_meta->user_meta_data;
-    if (meta->priv_data) {
-        gst_mini_object_unref(GST_MINI_OBJECT(meta->priv_data));
-    } else {
-        if (cudaSetDevice(meta->gpu_id) != cudaSuccess)
-            g_print("Unable to set gpu device id during memory release.\n");
 
-        for (unsigned int i = 0; i < meta->num_output_layers; i++) {
-            if (meta->out_buf_ptrs_dev[i] && cudaFree(meta->out_buf_ptrs_dev[i]) != cudaSuccess)
-                g_print("Unable to release device memory. \n");
-            if (meta->out_buf_ptrs_host[i] &&
-                cudaFreeHost(meta->out_buf_ptrs_host[i]) != cudaSuccess)
-                g_print("Unable to release host memory. \n");
-        }
-
-        g_free(meta->output_layers_info);
-    }
-
+    g_free(meta->output_layers_info);
+    gst_mini_object_unref(GST_MINI_OBJECT(meta->priv_data));
     delete[] meta->out_buf_ptrs_dev;
     delete[] meta->out_buf_ptrs_host;
     delete meta;
@@ -401,49 +428,29 @@ static gpointer copy_tensor_output_meta(gpointer data, gpointer user_data)
     tensor_output_meta->num_output_layers = src_meta->num_output_layers;
     tensor_output_meta->output_layers_info = (NvDsInferLayerInfo *)g_memdup(
         src_meta->output_layers_info, src_meta->num_output_layers * sizeof(NvDsInferLayerInfo));
-
     tensor_output_meta->out_buf_ptrs_host = new void *[src_meta->num_output_layers];
-
     tensor_output_meta->out_buf_ptrs_dev = new void *[src_meta->num_output_layers];
 
-    size_t layer_size = 0;
-    if (cudaSetDevice(src_meta->gpu_id) != cudaSuccess)
-        g_print("Unable to set gpu device id.\n");
-
     for (unsigned int i = 0; i < src_meta->num_output_layers; i++) {
-        NvDsInferLayerInfo *info = &src_meta->output_layers_info[i];
-        info->buffer = src_meta->out_buf_ptrs_host[i];
-        layer_size = get_element_size(info->dataType) * info->inferDims.numElements;
+        NvDsInferLayerInfo *info = &tensor_output_meta->output_layers_info[i];
 
         if (src_meta->out_buf_ptrs_host[i]) {
-            if (cudaMallocHost((void **)&tensor_output_meta->out_buf_ptrs_host[i], layer_size) !=
-                cudaSuccess)
-                g_print("Unable to allocate host memory. \n");
-
-            if (cudaMemcpy(tensor_output_meta->out_buf_ptrs_host[i], src_meta->out_buf_ptrs_host[i],
-                           layer_size, cudaMemcpyHostToHost) != cudaSuccess)
-                g_print("Unable to copy between two host memories. \n");
-
+            tensor_output_meta->out_buf_ptrs_host[i] = src_meta->out_buf_ptrs_host[i];
         } else {
             tensor_output_meta->out_buf_ptrs_host[i] = NULL;
         }
+        info->buffer = tensor_output_meta->out_buf_ptrs_host[i];
 
         if (src_meta->out_buf_ptrs_dev[i]) {
-            if (cudaMalloc((void **)&tensor_output_meta->out_buf_ptrs_dev[i], layer_size) !=
-                cudaSuccess)
-                g_print("Unable to allocate device memory. \n");
-
-            if (cudaMemcpy(tensor_output_meta->out_buf_ptrs_dev[i], src_meta->out_buf_ptrs_dev[i],
-                           layer_size, cudaMemcpyDeviceToDevice) != cudaSuccess)
-                g_print("Unable to copy between two device memories. \n");
-
+            tensor_output_meta->out_buf_ptrs_dev[i] = src_meta->out_buf_ptrs_dev[i];
         } else {
             tensor_output_meta->out_buf_ptrs_dev[i] = NULL;
         }
     }
 
     tensor_output_meta->gpu_id = src_meta->gpu_id;
-    tensor_output_meta->priv_data = NULL;
+    tensor_output_meta->priv_data =
+        (void *)gst_mini_object_ref((GstMiniObject *)src_meta->priv_data);
 
     return tensor_output_meta;
 }
@@ -468,7 +475,9 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer,
         NvDsInferTensorMeta *meta = new NvDsInferTensorMeta;
         meta->unique_id = nvinfer->unique_id;
         meta->num_output_layers = nvinfer->output_layers_info->size();
-        meta->output_layers_info = nvinfer->output_layers_info->data();
+        meta->output_layers_info =
+            (NvDsInferLayerInfo *)g_memdup(nvinfer->output_layers_info->data(),
+                                           meta->num_output_layers * sizeof(NvDsInferLayerInfo));
         meta->out_buf_ptrs_host = new void *[meta->num_output_layers];
         meta->out_buf_ptrs_dev = new void *[meta->num_output_layers];
         meta->gpu_id = nvinfer->gpu_id;
@@ -495,6 +504,10 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer,
 
         if (nvinfer->input_tensor_from_meta) {
             nvds_add_user_meta_to_roi(frame.roi_meta, user_meta);
+            /* if object is roi itself */
+            if (frame.obj_meta) {
+                nvds_add_user_meta_to_obj(frame.obj_meta, user_meta);
+            }
         } else if (nvinfer->process_full_frame) {
             nvds_add_user_meta_to_frame(frame.frame_meta, user_meta);
         } else {
@@ -508,7 +521,9 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer,
         NvDsInferTensorMeta *meta = new NvDsInferTensorMeta;
         meta->unique_id = nvinfer->unique_id;
         meta->num_output_layers = nvinfer->output_layers_info->size();
-        meta->output_layers_info = nvinfer->output_layers_info->data();
+        meta->output_layers_info =
+            (NvDsInferLayerInfo *)g_memdup(nvinfer->output_layers_info->data(),
+                                           meta->num_output_layers * sizeof(NvDsInferLayerInfo));
         meta->out_buf_ptrs_host = new void *[meta->num_output_layers];
         meta->out_buf_ptrs_dev = new void *[meta->num_output_layers];
         meta->gpu_id = nvinfer->gpu_id;

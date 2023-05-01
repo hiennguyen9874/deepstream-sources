@@ -80,6 +80,9 @@ typedef struct {
     /** vector of src_ids */
     std::vector<gint> src_ids;
 
+    /** vector of operate_on_class_ids for sgie*/
+    std::vector<gint> operate_on_class_ids;
+
     /** total rois/full-frames in a group */
     guint num_units;
 
@@ -99,6 +102,24 @@ typedef struct {
     /** boolean indicating if processing on rois/full-frames inside the group */
     gboolean process_on_roi = 0;
 
+    /** boolean indicating if secondary classification is done on all detections/roi inside the
+     * group */
+    gboolean process_on_all_objects = 0;
+
+    /** boolean indicating that the roi is to be drawn or not */
+    gboolean draw_roi = 0;
+
+    /** color of roi*/
+    NvOSD_ColorParams roi_color;
+
+    /** Input object size-based filtering parameters for object processing mode. */
+    guint min_input_object_width;
+    guint min_input_object_height;
+    guint max_input_object_width;
+    guint max_input_object_height;
+
+    /** src-id whose rois is used by all the src within the preprocess-group (when src-ids[0]=-1)*/
+    guint replicated_src_id;
 } GstNvDsPreProcessGroup;
 
 /** Used by plugin to access GstBuffer and GstNvDsPreProcessMemory
@@ -134,8 +155,6 @@ typedef struct {
     gboolean processing_width;
     /** for config param : processsing-height*/
     gboolean processing_height;
-    /** for config param : target-unique-ids */
-    gboolean target_unique_ids;
     /** for config param : network-input-order */
     gboolean network_input_order;
     /** for config param : network-input-shape */
@@ -152,14 +171,30 @@ typedef struct {
     gboolean custom_tensor_function_name;
     /** for config param : src-ids */
     gboolean src_ids;
+    /** for config param : operate-on-class-ids */
+    gboolean operate_on_class_ids;
     /** for config param : process-on-rois */
     gboolean process_on_roi;
+    /** for config param : process-on-all-objects */
+    gboolean process_on_all_objects;
     /** for config param : roi-params-src */
     gboolean roi_params_src;
     /** for config param : scaling-pool-interpolation-filter */
     gboolean scaling_pool_interpolation_filter;
     /** for config param : scaling-pool-memory-type */
     gboolean scaling_pool_memory_type;
+    /** for config param : draw_roi */
+    gboolean draw_roi;
+    /** for config param : roi_color */
+    gboolean roi_color;
+    /** for config param : input-object-min-width */
+    gboolean min_input_object_width;
+    /** for config param : input-object-min-height */
+    gboolean min_input_object_height;
+    /** for config param : input-object-max-width */
+    gboolean max_input_object_width;
+    /** for config param : input-object-max-height */
+    gboolean max_input_object_height;
 } NvDsPreProcessPropertySet;
 
 /**
@@ -171,6 +206,9 @@ struct _GstNvDsPreProcess {
 
     /** Target unique ids */
     std::vector<guint64> target_unique_ids;
+
+    /** Gie id to process */
+    gint operate_on_gie_id;
 
     /** group information as specified in config file */
     std::vector<GstNvDsPreProcessGroup *> nvdspreprocess_groups;
@@ -220,6 +258,9 @@ struct _GstNvDsPreProcess {
 
     /** Scaling buffer pool size */
     guint scaling_buf_pool_size;
+
+    /** meta id for differentiating between multiple tensor meta from same gst buffer */
+    guint meta_id;
 
     /** Internal buffer pool for memory required for tensor preparation */
     GstBufferPool *tensor_pool;
@@ -312,6 +353,12 @@ struct _GstNvDsPreProcess {
 
     /** NVTX Domain. */
     nvtxDomainHandle_t nvtx_domain;
+
+    /** Map src-id : preprocess-group-id */
+    std::unordered_map<gint, gint> *src_to_group_map;
+
+    /** Lock for framemeta_map */
+    GMutex framemeta_map_lock;
 };
 
 /** Boiler plate stuff */

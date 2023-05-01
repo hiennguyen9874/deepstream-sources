@@ -10,30 +10,30 @@
 ################################################################################
 
 components:
-  - name: nv_ds_multi_src_input334..71d0
+  - name: multiple_source_input
     parameters:
       uri-list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
-name: NvDsMultiSrcInput..e828
+name: multiple_source_input
 ---
 components:
-  - name: nv_ds_stream_mux337..7710
+  - name: streammux
     parameters:
       batch-size: 1
       batched-push-timeout: 40000
       height: 720
       width: 1280
-name: NvDsStreamMux..27b8
+name: streammux
 ---
 components:
-  - name: nv_ds_triton341..fba8
+  - name: triton
     parameters:
       batch-size: 1
-      config-file-path: /opt/nvidia/deepstream/deepstream-6.1/samples/configs/deepstream-app-triton/config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.txt
-name: NvDsTriton..fe10
+      config-file-path: /opt/nvidia/deepstream/deepstream-6.2/samples/configs/deepstream-app-triton/config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.txt
+name: triton
 ---
 components:
-  - name: nv_ds_tiler352..fc88
+  - name: tiler
     parameters:
       height: 720
       width: 1280
-name: NvDsTiler..7940
+name: tiler

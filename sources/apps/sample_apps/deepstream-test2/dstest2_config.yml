@@ -35,8 +35,43 @@ tracker:
   gpu-id: 0
   ll-lib-file: /opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
   # ll-config-file required to set different tracker types
-  # ll-config-file=../../../../samples/configs/deepstream-app/config_tracker_IOU.yml
+  # ll-config-file: ../../../../samples/configs/deepstream-app/config_tracker_IOU.yml
+  # ll-config-file: ../../../../samples/configs/deepstream-app/config_tracker_NvSORT.yml
   ll-config-file: ../../../../samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml
-  # ll-config-file=../../../../samples/configs/deepstream-app/config_tracker_NvDCF_accuracy.yml
-  # ll-config-file=../../../../samples/configs/deepstream-app/config_tracker_DeepSORT.yml
+  # ll-config-file: ../../../../samples/configs/deepstream-app/config_tracker_NvDCF_accuracy.yml
+  # ll-config-file: ../../../../samples/configs/deepstream-app/config_tracker_NvDeepSORT.yml
   enable-batch-process: 1
+
+# Inference using nvinfer:
+primary-gie:
+  plugin-type: 0
+  config-file-path: dstest2_pgie_config.yml
+
+secondary-gie1:
+  plugin-type: 0
+  config-file-path: dstest2_sgie1_config.yml
+
+secondary-gie2:
+  plugin-type: 0
+  config-file-path: dstest2_sgie2_config.yml
+
+secondary-gie3:
+  plugin-type: 0
+  config-file-path: dstest2_sgie3_config.yml
+## Inference using nvinferserver:
+#primary-gie:
+#  plugin-type: 1
+#  config-file-path: dstest2_pgie_nvinferserver_config.txt
+
+#secondary-gie1:
+#  plugin-type: 1
+#  config-file-path: dstest2_sgie1_nvinferserver_config.txt
+
+#secondary-gie2:
+#  plugin-type: 1
+#  config-file-path: dstest2_sgie2_nvinferserver_config.txt
+
+#secondary-gie3:
+#  plugin-type: 1
+#  config-file-path: dstest2_sgie3_nvinferserver_config.txt
+

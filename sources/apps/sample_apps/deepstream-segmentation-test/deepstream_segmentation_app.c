@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -111,6 +111,20 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
     return TRUE;
 }
 
+static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
+{
+    GstPad *sinkpad;
+    GstElement *jpegparse = (GstElement *)data;
+
+    g_print("Dynamic pad created, linking qtdemux to parser\n");
+
+    sinkpad = gst_element_get_static_pad(jpegparse, "sink");
+
+    gst_pad_link(pad, sinkpad);
+
+    gst_object_unref(sinkpad);
+}
+
 static GstElement *create_source_bin(guint index, gchar *uri)
 {
     GstElement *bin = NULL;
@@ -140,15 +154,27 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     }
     g_object_set(G_OBJECT(source), "location", uri, NULL);
     const char *dot = strrchr(uri, '.');
-    if ((!strcmp(dot + 1, "mjpeg")) || (!strcmp(dot + 1, "mjpg"))) {
+    if (!strcmp(dot + 1, "mp4")) {
         if (prop.integrated) {
             g_object_set(G_OBJECT(decoder), "mjpeg", 1, NULL);
         }
+
+        GstElement *qtdemux = gst_element_factory_make("qtdemux", "qt-demux");
+        if (!qtdemux) {
+            g_printerr("One element could not be created. Exiting.\n");
+            return NULL;
+        }
+
+        gst_bin_add_many(GST_BIN(bin), source, qtdemux, NULL);
+        gst_element_link_many(source, qtdemux, NULL);
+        gst_bin_add_many(GST_BIN(bin), jpegparser, decoder, NULL);
+        gst_element_link_many(jpegparser, decoder, NULL);
+
+        g_signal_connect(qtdemux, "pad-added", G_CALLBACK(on_pad_added), jpegparser);
+    } else {
+        gst_bin_add_many(GST_BIN(bin), source, jpegparser, decoder, NULL);
+        gst_element_link_many(source, jpegparser, decoder, NULL);
     }
-
-    gst_bin_add_many(GST_BIN(bin), source, jpegparser, decoder, NULL);
-
-    gst_element_link_many(source, jpegparser, decoder, NULL);
 
     /* We need to create a ghost pad for the source bin which will act as a proxy
      * for the video decoder src pad. The ghost pad will not have a target right
@@ -182,9 +208,8 @@ static void usage(const char *bin)
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
-    GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *seg = NULL, *nvsegvisual = NULL,
-               *tiler = NULL;
-    GstElement *transform = NULL;
+    GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *nvvidconv = NULL, *seg = NULL,
+               *nvsegvisual = NULL, *tiler = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *seg_src_pad = NULL;
@@ -288,6 +313,9 @@ int main(int argc, char *argv[])
         gst_object_unref(sinkpad);
     }
 
+    /* Use convertor to convert to appropriate format */
+    nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
+
     /* Use nvinfer to infer on batched frame. */
     seg = gst_element_factory_make(is_nvinfer_server ? NVINFERSERVER_PLUGIN : NVINFER_PLUGIN,
                                    "primary-nvinference-engine");
@@ -299,18 +327,13 @@ int main(int argc, char *argv[])
     tiler = gst_element_factory_make("nvmultistreamtiler", "nvtiler");
 
     if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "transform");
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+    } else {
+        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     }
 
-    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-
-    if (!seg || !nvsegvisual || !tiler || !sink) {
+    if (!nvvidconv || !seg || !nvsegvisual || !tiler || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
-        return -1;
-    }
-
-    if (!transform && prop.integrated) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
         return -1;
     }
 
@@ -349,22 +372,12 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* Add all elements into the pipeline */
-    if (prop.integrated) {
-        gst_bin_add_many(GST_BIN(pipeline), seg, nvsegvisual, tiler, transform, sink, NULL);
-        /* we link the elements together
-         * nvstreammux -> nvinfer -> nvsegvidsual -> nvtiler -> transform -> video-renderer */
-        if (!gst_element_link_many(streammux, seg, nvsegvisual, tiler, transform, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-    } else {
-        gst_bin_add_many(GST_BIN(pipeline), seg, nvsegvisual, tiler, sink, NULL);
-        /* Link the elements together
-         * nvstreammux -> nvinfer -> nvsegvisual -> nvtiler -> video-renderer */
-        if (!gst_element_link_many(streammux, seg, nvsegvisual, tiler, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    gst_bin_add_many(GST_BIN(pipeline), nvvidconv, seg, nvsegvisual, tiler, sink, NULL);
+    /* Link the elements together
+     * nvstreammux -> nvvideoconv -> nvinfer -> nvsegvisual -> nvtiler -> video-renderer */
+    if (!gst_element_link_many(streammux, nvvidconv, seg, nvsegvisual, tiler, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 
     /* Lets add probe to get informed of the meta data generated, we add probe to

@@ -41,7 +41,10 @@
         move_copy(std::move(o)); \
         return *this;            \
     }                            \
-    Cls(Cls &&o) { move_copy(std::move(o)); }
+    Cls(Cls &&o)                 \
+    {                            \
+        move_copy(std::move(o)); \
+    }
 
 #define CHECK_NVINFER_ERROR(err, action, fmt, ...)                         \
     do {                                                                   \

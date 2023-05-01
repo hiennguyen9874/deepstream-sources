@@ -1,0 +1,26 @@
+%YAML 1.2
+################################################################################
+# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+---
+radius: 3.3
+distance: 12.7
+center: 0.5
+can_width: 1.0
+input_width: 870
+input_height: 1200
+crop_width: 500
+target_x: 250
+ref_image:
+  perimeter: 1689
+  image_path: /opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-can-orientation-app/data/reference_sample.grey
+  image_format: GREY
+  image_width: 2508
+  image_height: 625

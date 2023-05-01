@@ -594,7 +594,7 @@ int NvBufSurfaceCopy(NvBufSurface *srcSurf, NvBufSurface *dstSurf);
  * This function can be used to copy plane memory content from source raw buffer pointer
  * to specific destination batch buffer of supported memory type.
  *
- * @param[in] Surf pointer to NvBufSurface structure.
+ * @param[in] surf pointer to NvBufSurface structure.
  * @param[in] index index of buffer in the batch.
  * @param[in] plane index of plane in buffer.
  * @param[in] out_width aligned width of the raw data plane.
@@ -606,8 +606,8 @@ int NvBufSurfaceCopy(NvBufSurface *srcSurf, NvBufSurface *dstSurf);
 int NvBufSurface2Raw(NvBufSurface *Surf,
                      unsigned int index,
                      unsigned int plane,
-                     unsigned int out_width,
-                     unsigned int out_height,
+                     unsigned int outwidth,
+                     unsigned int outheight,
                      unsigned char *ptr);
 
 /**
@@ -622,15 +622,15 @@ int NvBufSurface2Raw(NvBufSurface *Surf,
  * @param[in] plane index of plane in buffer.
  * @param[in] in_width aligned width of the raw data plane.
  * @param[in] in_height aligned height of the raw data plane.
- * @param[in] Surf pointer to NvBufSurface structure.
+ * @param[in] surf pointer to NvBufSurface structure.
  *
  * @return 0 for success, -1 for failure.
  */
 int Raw2NvBufSurface(unsigned char *ptr,
                      unsigned int index,
                      unsigned int plane,
-                     unsigned int in_width,
-                     unsigned int in_height,
+                     unsigned int inwidth,
+                     unsigned int inheight,
                      NvBufSurface *Surf);
 
 /**

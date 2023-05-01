@@ -66,7 +66,7 @@ cudadec-memtype=0
 
 [sink0]
 enable=1
-#Type - 1=FakeSink 2=EglSink 3=File 7=nv3dsink (Jetson only)
+#Type - 1=FakeSink 2=EglSink/nv3dsink (Jetson only) 3=File
 type=2
 sync=1
 source-id=0

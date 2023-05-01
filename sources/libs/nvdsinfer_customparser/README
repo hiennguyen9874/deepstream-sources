@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -16,7 +16,7 @@ Compile the library :
 
   # Export correct CUDA version as per the platform
   For Jetson:  $ export CUDA_VER=11.4
-  For x86:     $ export CUDA_VER=11.7
+  For x86:     $ export CUDA_VER=11.8
 
   $ sudo -E make install
 

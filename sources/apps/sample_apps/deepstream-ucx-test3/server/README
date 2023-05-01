@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2022 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2022-2023 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -70,8 +70,8 @@ these libraries.
 3. To compile:
 ===============================================================================
 
-  $ Set CUDA_VER to 11.6 for x86.
-  $ sudo make
+  $ Set CUDA_VER to 11.8 for x86.
+  $ sudo make (sudo not required in case of docker containers)
 
 Note, the nvdsgst_ucx plugin is not supported on Jetson.
 
@@ -102,7 +102,7 @@ To run:
      For example,
 
      $ ./deepstream-ucx-test3-app-server 192.168.100.1 4000 \
-     /opt/nvidia/deepstream/deepstream-6.1/lib/libnvds_audio_metadata_serialization.so \
+     /path/to/libnvds_audio_metadata_serialization.so \
      /path/to/file.mp4
 
   4. Run the client application next. Required parameters (in order) are the
@@ -110,7 +110,7 @@ To run:
      serialization library, Path to output audio file. For example,
 
      $ ./deepstream-ucx-test3-app-client 192.168.100.1 4000 \
-     /opt/nvidia/deepstream/deepstream-6.1/lib/libnvds_audio_metadata_serialization.so \
+     /path/to/libnvds_audio_metadata_serialization.so \
      /path/to/output_file.wav
 
 NOTE: To compile the sources, run make with "sudo" or root permission.

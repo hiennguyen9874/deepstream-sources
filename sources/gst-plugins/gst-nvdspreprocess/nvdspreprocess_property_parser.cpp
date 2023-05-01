@@ -229,6 +229,21 @@ static gboolean nvdspreprocess_parse_property_group(GstNvDsPreProcess *nvdsprepr
                 g_key_file_get_boolean(key_file, group, NVDSPREPROCESS_PROPERTY_ENABLE, &error);
             CHECK_ERROR(error, group);
             nvdspreprocess->enable = val;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_UNIQUE_ID)) {
+            gboolean val =
+                g_key_file_get_integer(key_file, group, NVDSPREPROCESS_PROPERTY_UNIQUE_ID, &error);
+            CHECK_ERROR(error, group);
+            nvdspreprocess->unique_id = val;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_GPU_ID)) {
+            gboolean val =
+                g_key_file_get_integer(key_file, group, NVDSPREPROCESS_PROPERTY_GPU_ID, &error);
+            CHECK_ERROR(error, group);
+            nvdspreprocess->gpu_id = val;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_PROCESS_ON_FRAME)) {
+            gboolean val = g_key_file_get_boolean(key_file, group,
+                                                  NVDSPREPROCESS_PROPERTY_PROCESS_ON_FRAME, &error);
+            CHECK_ERROR(error, group);
+            nvdspreprocess->process_on_frame = val;
         } else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_MAINTAIN_ASPECT_RATIO)) {
             gboolean val = g_key_file_get_boolean(
                 key_file, group, NVDSPREPROCESS_PROPERTY_MAINTAIN_ASPECT_RATIO, &error);
@@ -271,7 +286,10 @@ static gboolean nvdspreprocess_parse_property_group(GstNvDsPreProcess *nvdsprepr
             }
             g_free(target_unique_ids_list);
             target_unique_ids_list = nullptr;
-            nvdspreprocess->property_set.target_unique_ids = TRUE;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_GIE_ID_FOR_OPERATION)) {
+            guint val = g_key_file_get_integer(key_file, group, *key, &error);
+            CHECK_ERROR(error, group);
+            nvdspreprocess->operate_on_gie_id = val;
         } else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_NETWORK_INPUT_ORDER)) {
             guint val = g_key_file_get_integer(key_file, group, *key, &error);
             CHECK_ERROR(error, group);
@@ -419,7 +437,6 @@ static gboolean nvdspreprocess_parse_property_group(GstNvDsPreProcess *nvdsprepr
 
     if (!(nvdspreprocess->property_set.processing_width &&
           nvdspreprocess->property_set.processing_height &&
-          nvdspreprocess->property_set.target_unique_ids &&
           nvdspreprocess->property_set.network_input_order &&
           nvdspreprocess->property_set.network_input_shape &&
           nvdspreprocess->property_set.network_color_format &&
@@ -461,17 +478,35 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
     guint64 source_index = 0;
     gint *roi_list = nullptr;
     gint *src_list = nullptr;
+    gint *class_list = nullptr;
+    std::vector<gint> operate_on_class_ids;
     std::vector<gint> src_ids;
     gsize roi_list_len = 0;
     gsize src_list_len = 0;
+    gsize class_list_len = 0;
     gint num_roi_per_stream = 0;
     GstNvDsPreProcessGroup *preprocess_group;
     guint num_units = 0;
+    guint same_roi_for_all_srcs = 0;
 
     preprocess_group = new GstNvDsPreProcessGroup;
 
     keys = g_key_file_get_keys(key_file, group, nullptr, &error);
     CHECK_ERROR(error, group);
+
+    /**Default value*/
+    preprocess_group->draw_roi = 1;
+    if (nvdspreprocess->process_on_frame) {
+        preprocess_group->roi_color = {0, 1, 0, 1};
+    } else {
+        preprocess_group->roi_color = {0, 1, 1, 1};
+    }
+
+    preprocess_group->min_input_object_width = 0;
+    preprocess_group->min_input_object_height = 0;
+    preprocess_group->max_input_object_width = 0;
+    preprocess_group->max_input_object_height = 0;
+    preprocess_group->replicated_src_id = 0;
 
     for (key = keys; *key; key++) {
         if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_SRC_IDS)) {
@@ -496,6 +531,94 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
                          preprocess_group->custom_transform_function_name, group);
             GST_DEBUG_OBJECT(nvdspreprocess, "Custom Transformation Function = %s\n",
                              preprocess_group->custom_transform_function_name);
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_OPERATE_ON_CLASS_IDS)) {
+            class_list =
+                g_key_file_get_integer_list(key_file, group, *key, &class_list_len, &error);
+            if (class_list == nullptr) {
+                CHECK_ERROR(error, group);
+            }
+            operate_on_class_ids.clear();
+            for (gsize icnt = 0; icnt < class_list_len; icnt++) {
+                operate_on_class_ids.push_back(class_list[icnt]);
+                GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed '%s=%d' in group '%s'\n", *key,
+                             class_list[icnt], group);
+            }
+            preprocess_group->operate_on_class_ids = operate_on_class_ids;
+            nvdspreprocess->property_set.operate_on_class_ids = TRUE;
+            g_free(class_list);
+            class_list = nullptr;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_OBJECT_MIN_WIDTH)) {
+            guint val = g_key_file_get_integer(key_file, group, *key, &error);
+            if ((gint)val < 0) {
+                g_printerr("Error: Negative value specified for %s(%d)\n", *key, val);
+                return FALSE;
+            }
+            CHECK_ERROR(error, group);
+            preprocess_group->min_input_object_width = val;
+            GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%d in group '%s'\n", *key,
+                         preprocess_group->min_input_object_width, group);
+            nvdspreprocess->property_set.min_input_object_width = TRUE;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_OBJECT_MIN_HEIGHT)) {
+            guint val = g_key_file_get_integer(key_file, group, *key, &error);
+            if ((gint)val < 0) {
+                g_printerr("Error: Negative value specified for %s(%d)\n", *key, val);
+                return FALSE;
+            }
+            CHECK_ERROR(error, group);
+            preprocess_group->min_input_object_height = val;
+            GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%d in group '%s'\n", *key,
+                         preprocess_group->min_input_object_height, group);
+            nvdspreprocess->property_set.min_input_object_height = TRUE;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_OBJECT_MAX_WIDTH)) {
+            guint val = g_key_file_get_integer(key_file, group, *key, &error);
+            if ((gint)val < 0) {
+                g_printerr("Error: Negative value specified for %s(%d)\n", *key, val);
+                return FALSE;
+            }
+            CHECK_ERROR(error, group);
+            preprocess_group->max_input_object_width = val;
+            GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%d in group '%s'\n", *key,
+                         preprocess_group->max_input_object_width, group);
+            nvdspreprocess->property_set.max_input_object_width = TRUE;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_OBJECT_MAX_HEIGHT)) {
+            guint val = g_key_file_get_integer(key_file, group, *key, &error);
+            if ((gint)val < 0) {
+                g_printerr("Error: Negative value specified for %s(%d)\n", *key, val);
+                return FALSE;
+            }
+            CHECK_ERROR(error, group);
+            preprocess_group->max_input_object_height = val;
+            GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%d in group '%s'\n", *key,
+                         preprocess_group->max_input_object_height, group);
+            nvdspreprocess->property_set.max_input_object_height = TRUE;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_ROI_COLOR)) {
+            gsize roi_color_list_len;
+            gdouble *roi_color_list =
+                g_key_file_get_double_list(key_file, group, *key, &roi_color_list_len, &error);
+            if (roi_color_list == nullptr) {
+                CHECK_ERROR(error, group);
+            }
+            if (roi_color_list_len != 4) {
+                g_printerr(
+                    "Error: Group %s, Number of Color params should be exactly 4 floats {r, g, b, "
+                    "a} between 0 and 1",
+                    group);
+                goto done;
+            }
+            preprocess_group->roi_color.red = roi_color_list[0];
+            preprocess_group->roi_color.green = roi_color_list[1];
+            preprocess_group->roi_color.blue = roi_color_list[2];
+            preprocess_group->roi_color.alpha = roi_color_list[3];
+            nvdspreprocess->property_set.roi_color = TRUE;
+            g_free(roi_color_list);
+            roi_color_list = nullptr;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_DRAW_ROI)) {
+            gboolean val = g_key_file_get_boolean(key_file, group, *key, &error);
+            CHECK_ERROR(error, group);
+            preprocess_group->draw_roi = val;
+            GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%d in group '%s'\n", *key,
+                         preprocess_group->draw_roi, group);
+            nvdspreprocess->property_set.draw_roi = TRUE;
         } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_PROCESS_ON_ROI)) {
             gboolean val = g_key_file_get_boolean(key_file, group, *key, &error);
             CHECK_ERROR(error, group);
@@ -503,9 +626,17 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
             GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%d in group '%s'\n", *key,
                          preprocess_group->process_on_roi, group);
             nvdspreprocess->property_set.process_on_roi = TRUE;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_PROCESS_ON_ALL_OBJECTS)) {
+            gboolean val = g_key_file_get_boolean(key_file, group, *key, &error);
+            CHECK_ERROR(error, group);
+            preprocess_group->process_on_all_objects = val;
+            GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%d in group '%s'\n", *key,
+                         preprocess_group->process_on_all_objects, group);
+            nvdspreprocess->property_set.process_on_all_objects = TRUE;
         } else if (!strncmp(*key, NVDSPREPROCESS_GROUP_ROI_PARAMS_SRC,
                             sizeof(NVDSPREPROCESS_GROUP_ROI_PARAMS_SRC) - 1) &&
-                   preprocess_group->process_on_roi) {
+                   (preprocess_group->process_on_roi ||
+                    !preprocess_group->process_on_all_objects)) {
             EXTRACT_STREAM_ID(key);
             roi_list = g_key_file_get_integer_list(key_file, group, *key, &roi_list_len, &error);
             if (roi_list == nullptr) {
@@ -538,73 +669,87 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
                 preprocess_frame.roi_vector.push_back(roi_info);
             }
 
-            if (preprocess_group->src_ids[0] == -1 && source_index != 0) {
-                GST_ELEMENT_WARNING(nvdspreprocess, RESOURCE, FAILED,
-                                    ("Only roi-params-0 will get used\n"), (nullptr));
+            if (same_roi_for_all_srcs) {
+                /* same roi of replicated_src is used for all the sources within the group*/
+                preprocess_group->framemeta_map.emplace(
+                    source_index,
+                    preprocess_group->framemeta_map[preprocess_group->replicated_src_id]);
             } else {
                 preprocess_group->framemeta_map.emplace(source_index, preprocess_frame);
             }
+
+            if (preprocess_group->src_ids[0] == -1) {
+                same_roi_for_all_srcs = 1;
+                preprocess_group->replicated_src_id = source_index;
+            }
+
+            nvdspreprocess->src_to_group_map->emplace(source_index, group_id);
 
             GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed '%s' in group '%s'\n",
                          NVDSPREPROCESS_GROUP_ROI_PARAMS_SRC, group);
             nvdspreprocess->property_set.roi_params_src = TRUE;
             g_free(roi_list);
             roi_list = nullptr;
-        }
-    }
-    if (preprocess_group->process_on_roi && preprocess_group->src_ids[0] == -1) {
-        auto get_preprocess_frame_meta = preprocess_group->framemeta_map.find(0);
-        if (get_preprocess_frame_meta == preprocess_group->framemeta_map.end()) {
-            GST_ELEMENT_ERROR(nvdspreprocess, RESOURCE, FAILED,
-                              ("For src-ids = -1 roi-params-0 is required\n"), (nullptr));
-            ret = FALSE;
-            goto done;
-        }
-        for (int i = 1; i < nvdspreprocess->tensor_params.network_input_shape[0]; i++) {
-            preprocess_group->framemeta_map.emplace(i, preprocess_group->framemeta_map[0]);
-        }
-    }
-
-    if (!preprocess_group->process_on_roi) {
-        if (preprocess_group->src_ids[0] != -1) {
-            for (auto &source_index : preprocess_group->src_ids) {
-                GstNvDsPreProcessFrame preprocess_frame;
-                NvDsRoiMeta roi_info;
-                roi_info.roi = {0};
-
-                preprocess_frame.roi_vector.push_back(roi_info);
-                preprocess_group->framemeta_map.emplace(source_index, preprocess_frame);
-
-                sum_total_rois++;
-                num_units++;
-            }
-        } else {
-            GST_ELEMENT_WARNING(nvdspreprocess, RESOURCE, FAILED,
-                                ("Processing all sources in full frame\n"), (nullptr));
+        } else if (!strncmp(*key, NVDSPREPROCESS_GROUP_ROI_PARAMS_SRC,
+                            sizeof(NVDSPREPROCESS_GROUP_ROI_PARAMS_SRC) - 1) &&
+                   !preprocess_group->process_on_roi) {
+            EXTRACT_STREAM_ID(key);
             GstNvDsPreProcessFrame preprocess_frame;
             NvDsRoiMeta roi_info;
             roi_info.roi = {0};
-
             preprocess_frame.roi_vector.push_back(roi_info);
-            for (int i = 0; i < nvdspreprocess->tensor_params.network_input_shape[0]; i++) {
-                preprocess_group->framemeta_map.emplace(i, preprocess_frame);
+            sum_total_rois++;
+            num_units++;
+            preprocess_group->framemeta_map.emplace(source_index, preprocess_frame);
+
+            if (preprocess_group->src_ids[0] == -1) {
+                preprocess_group->replicated_src_id = source_index;
             }
+
+            nvdspreprocess->src_to_group_map->emplace(source_index, group_id);
         }
     }
+
     preprocess_group->num_units = num_units;
     nvdspreprocess->nvdspreprocess_groups.push_back(preprocess_group);
 
-    if (preprocess_group->process_on_roi) {
-        if (!(nvdspreprocess->property_set.src_ids && nvdspreprocess->property_set.process_on_roi &&
-              nvdspreprocess->property_set.roi_params_src)) {
-            printf("ERROR: Some preprocess group config properties not set\n");
-            return FALSE;
+    if (nvdspreprocess->process_on_frame) {
+        if (preprocess_group->process_on_roi) {
+            if (!(nvdspreprocess->property_set.src_ids &&
+                  nvdspreprocess->property_set.process_on_roi &&
+                  nvdspreprocess->property_set.roi_params_src)) {
+                printf(
+                    "ERROR: Some preprocess group config properties not set in preprocess config "
+                    "file\n");
+                return FALSE;
+            }
+        } else {
+            if (!(nvdspreprocess->property_set.src_ids &&
+                  nvdspreprocess->property_set.process_on_roi)) {
+                printf(
+                    "ERROR: Some preprocess group config properties not set in preprocess config "
+                    "file\n");
+                return FALSE;
+            }
         }
     } else {
-        if (!(nvdspreprocess->property_set.src_ids &&
-              nvdspreprocess->property_set.process_on_roi)) {
-            printf("ERROR: Some preprocess group config properties not set\n");
-            return FALSE;
+        if (!preprocess_group->process_on_all_objects) {
+            if (!(nvdspreprocess->property_set.src_ids &&
+                  nvdspreprocess->property_set.process_on_all_objects &&
+                  nvdspreprocess->property_set.roi_params_src)) {
+                printf(
+                    "ERROR: Some preprocess group config properties not set in sgie preprocess "
+                    "config file\n");
+                return FALSE;
+            }
+        } else {
+            if (!(nvdspreprocess->property_set.src_ids &&
+                  nvdspreprocess->property_set.process_on_all_objects)) {
+                printf(
+                    "ERROR: Some preprocess group config properties not set in sgie preprocess "
+                    "config file\n");
+                return FALSE;
+            }
         }
     }
 
@@ -630,7 +775,8 @@ static gboolean nvdspreprocess_parse_user_configs(GstNvDsPreProcess *nvdspreproc
 
     for (key = keys; *key; key++) {
         std::string val = g_key_file_get_string(key_file, group, *key, &error);
-        GST_DEBUG_OBJECT("parsed user-config key = %s value = %s\n", *key, val.c_str());
+        GST_DEBUG_OBJECT(nvdspreprocess, "parsed user-config key = %s value = %s\n", *key,
+                         val.c_str());
         CHECK_ERROR(error, group);
         user_configs.emplace(std::string(*key), val);
     }
@@ -706,19 +852,7 @@ gboolean nvdspreprocess_parse_config_file(GstNvDsPreProcess *nvdspreprocess, gch
     GST_DEBUG_OBJECT(nvdspreprocess, "network-input-shape[0] = %d, sum-total-rois=%d\n",
                      nvdspreprocess->tensor_params.network_input_shape[0], sum_total_rois);
 
-    if (nvdspreprocess->nvdspreprocess_groups[0]->src_ids[0] != -1) {
-        if (sum_total_rois <= nvdspreprocess->tensor_params.network_input_shape[0]) {
-            nvdspreprocess->max_batch_size = nvdspreprocess->tensor_params.network_input_shape[0];
-            GST_DEBUG_OBJECT(nvdspreprocess, "setting batch-size = %d\n",
-                             nvdspreprocess->max_batch_size);
-        } else {
-            g_print(
-                "ERROR: Batch-size in network-input-shape should be atleast Sum Total of ROIs\n");
-            ret = FALSE;
-        }
-    } else {
-        nvdspreprocess->max_batch_size = nvdspreprocess->tensor_params.network_input_shape[0];
-    }
+    nvdspreprocess->max_batch_size = nvdspreprocess->tensor_params.network_input_shape[0];
 
 done:
     return ret;

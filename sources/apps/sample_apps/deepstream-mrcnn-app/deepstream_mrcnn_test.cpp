@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -506,7 +506,6 @@ int main(int argc, char *argv[])
                *pgie = NULL, *nvvidconv = NULL, *nvosd = NULL, *nvstreammux;
     GstElement *msgconv = NULL, *msgbroker = NULL, *tee = NULL;
     GstElement *queue1 = NULL, *queue2 = NULL;
-    GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *osd_sink_pad = NULL;
@@ -590,16 +589,10 @@ int main(int argc, char *argv[])
     /* Finally render the osd output */
     if (display_off) {
         sink = gst_element_factory_make("fakesink", "nvvideo-renderer");
+    } else if (prop.integrated) {
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
     } else {
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-
-        if (prop.integrated) {
-            transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
-            if (!transform) {
-                g_printerr("nvegltransform element could not be created. Exiting.\n");
-                return -1;
-            }
-        }
     }
 
     if (!pipeline || !source || !h264parser || !decoder || !nvstreammux || !pgie || !nvvidconv ||
@@ -650,10 +643,6 @@ int main(int argc, char *argv[])
     gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, nvstreammux, pgie, nvvidconv,
                      nvosd, tee, queue1, queue2, msgconv, msgbroker, sink, NULL);
 
-    if (prop.integrated) {
-        if (!display_off)
-            gst_bin_add(GST_BIN(pipeline), transform);
-    }
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder -> nvstreammux ->
      * nvinfer -> nvvidconv -> nvosd -> tee -> video-renderer
@@ -695,23 +684,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (prop.integrated) {
-        if (!display_off) {
-            if (!gst_element_link_many(queue2, transform, sink, NULL)) {
-                g_printerr("Elements could not be linked. Exiting.\n");
-                return -1;
-            }
-        } else {
-            if (!gst_element_link(queue2, sink)) {
-                g_printerr("Elements could not be linked. Exiting.\n");
-                return -1;
-            }
-        }
-    } else {
-        if (!gst_element_link(queue2, sink)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    if (!gst_element_link(queue2, sink)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 
     sink_pad = gst_element_get_static_pad(queue1, "sink");

@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2020-2022 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2020-2023 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -60,8 +60,8 @@ It demonstrates, how to encode objects detected by nvinfer in jpeg format.
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.7
-  $ sudo make
+      For x86, CUDA_VER=11.8
+  $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
 
@@ -69,13 +69,16 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
 4. Usage:
 ===============================================================================
 
-  $ ./deepstream-image-meta-test <uri>
+  $ ./deepstream-image-meta-test <gpu_id> <uri1> [uri2] ... [uriN]
 e.g.
-  $ ./deepstream-image-meta-test file:///home/ubuntu/video1.mp4
-  $ ./deepstream-image-meta-test rtsp://127.0.0.1/video1
+  $ ./deepstream-image-meta-test 0 file:///home/ubuntu/video1.mp4
+  $ ./deepstream-image-meta-test 0 rtsp://127.0.0.1/video1
 
 NOTE: Run app with `sudo` or change directory and file permissions
 as necessary.
+
+The encode will take place on the GPU with the "gpu_id" mentioned by the
+user in the command.
 
 The user can set "save_img" and "save_user_meta" according to their
 requirements.
@@ -98,7 +101,7 @@ sample code for details on the user arguments. For demonstration purposes,
 only the first detected object of each frame is encoded.
 For Jetson Platform the encoded images will always have even resolution even if
 the detected objects have odd width or height. Even resolution is achieved by
-decreasing the odd value by 1. Objects are not encoded on Jetson Platform if
+increasing the odd value by 1. Objects are not encoded on Jetson Platform if
 the scaledHeight or scaledWidth is more than 16 times the objectHeight or
 objectWidth respectively.
 Furthermore the encoded objects are verified by attaching a probe on the sink

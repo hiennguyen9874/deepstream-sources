@@ -42,3 +42,12 @@ msgbroker:
 
 sink:
   sync: 1
+
+# Inference using nvinfer:
+primary-gie:
+  plugin-type: 0
+  config-file-path: dstest4_pgie_config.yml
+## Inference using nvinferserver:
+#primary-gie:
+#  plugin-type: 1
+#  config-file-path: dstest4_pgie_nvinferserver_config.txt

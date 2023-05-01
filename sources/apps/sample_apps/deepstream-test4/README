@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2018-2022 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2018-2023 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -30,6 +30,14 @@ You must have the following development packages installed
 To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
+
+This example can be configured to use either the nvinfer or the nvinferserver
+element for inference.
+If nvinferserver is selected, the Triton Inference Server is used for inference
+processing. In this case, the example needs to be run inside the
+DeepStream-Triton docker container. Please refer
+samples/configs/deepstream-app-triton/README for the steps to download the
+container image and setup model repository.
 
 #Deepstream msgbroker supports sending messages to Azure(mqtt) IOThub, kafka, AMQP broker(rabbitmq) and Redis
 
@@ -89,6 +97,7 @@ SETUP:
     Json payload to send to cloud can be generated using different message schemas.
     schema = 0; Full message schema with separate payload per object (Default)
     schema = 1; Minimal message with multiple objects in single payload.
+    schema = 2; Protobuf encoded message with multiple objects in single payload.
     Refer user guide to get more details about message schema.
 
   5.Use --no-display to disable display.
@@ -195,8 +204,8 @@ type of meta and attach to buffer. NVDS_EVENT_MSG_META is used for different typ
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.7
-  $ sudo make
+      For x86, CUDA_VER=11.8
+  $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
 
@@ -216,6 +225,11 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
 
     $ ./deepstream-test4-app <yml file>
     e.g. $ ./deepstream-test4-app dstest4_config.yml
+
+    The GIE configuration group in the YAML configuration file of the application
+    can be used to set the inference plugin type (nvinfer or nvinferserver) and
+    corresponding plugin configuration file.
+
 
 NOTE: More details about the message adapters can be found at README inside DS_PACKAGE_DIR/sources/libs/*_protocol_adaptor
     Update the msgbroker properties, "proto-lib", "conn-str" and "topic" accordingly in the dstest4_config.yml before running

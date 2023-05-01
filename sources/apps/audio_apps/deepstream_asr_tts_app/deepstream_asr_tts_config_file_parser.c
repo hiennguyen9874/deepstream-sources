@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -13,7 +14,7 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -54,8 +55,6 @@ static guint get_num_sources_cfg(gchar *config_file)
     groups = g_key_file_get_groups(cf, NULL);
 
     for (group = groups; *group; group++) {
-        gboolean parse_err = FALSE;
-
         if (!strncmp(*group, CONFIG_GROUP_SOURCE, sizeof(CONFIG_GROUP_SOURCE) - 1)) {
             num_users++;
         }
@@ -90,7 +89,10 @@ guint get_num_sources(gchar *config_file)
     }
 }
 
-gboolean parse_src_config(StreamCtx *sctx, GKeyFile *key_file, gchar *config_file, gchar *group)
+static gboolean parse_src_config(StreamCtx *sctx,
+                                 GKeyFile *key_file,
+                                 gchar *config_file,
+                                 gchar *group)
 {
     gchar **keys = NULL;
     gchar **key = NULL;
@@ -121,7 +123,10 @@ gboolean parse_src_config(StreamCtx *sctx, GKeyFile *key_file, gchar *config_fil
     return TRUE;
 }
 
-gboolean parse_asr_config(StreamCtx *sctx, GKeyFile *key_file, gchar *config_file, gchar *group)
+static gboolean parse_asr_config(StreamCtx *sctx,
+                                 GKeyFile *key_file,
+                                 gchar *config_file,
+                                 gchar *group)
 {
     gchar **keys = NULL;
     gchar **key = NULL;
@@ -139,7 +144,10 @@ gboolean parse_asr_config(StreamCtx *sctx, GKeyFile *key_file, gchar *config_fil
     return TRUE;
 }
 
-gboolean parse_sink_config(AppCtx *apptx, GKeyFile *key_file, gchar *config_file, gchar *group)
+static gboolean parse_sink_config(AppCtx *apptx,
+                                  GKeyFile *key_file,
+                                  gchar *config_file,
+                                  gchar *group)
 {
     gchar **keys = NULL;
     gchar **key = NULL;
@@ -174,7 +182,6 @@ static gboolean parse_config_file_cfg(AppCtx *appctx, gchar *config_file)
     gboolean ret = FALSE;
     gchar **groups = NULL;
     gchar **group;
-    guint num_users = 0;
     int i = 0;
     StreamCtx *sctx = NULL;
 
@@ -188,8 +195,6 @@ static gboolean parse_config_file_cfg(AppCtx *appctx, gchar *config_file)
     groups = g_key_file_get_groups(cf, NULL);
 
     for (group = groups; *group; group++) {
-        gboolean parse_err = FALSE;
-
         /* parse source group */
         if (!strncmp(*group, CONFIG_GROUP_SOURCE, sizeof(CONFIG_GROUP_SOURCE) - 1)) {
             sctx = &appctx->sctx[i];

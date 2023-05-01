@@ -33,9 +33,9 @@ SRCS:= gstnvdsvideotemplate.cpp
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_videotemplate.so
 
-NVDS_VERSION:=6.1
+NVDS_VERSION:=6.2
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.1.1\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.2.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes -I ./includes \
 	 -std=c++17 -Wall -Werror

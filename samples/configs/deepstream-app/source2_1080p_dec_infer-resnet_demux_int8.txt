@@ -134,7 +134,7 @@ nvbuf-memory-type=0
 gpu-id=0
 ##Boolean property to inform muxer that sources are live
 live-source=0
-batch-size=1
+batch-size=2
 ##time out in usec, to wait after the first buffer is available
 ##to push the batch even if the complete batch is not formed
 batched-push-timeout=33000
@@ -155,8 +155,8 @@ nvbuf-memory-type=0
 [primary-gie]
 enable=1
 gpu-id=0
-model-engine-file=../../models/Primary_Detector/resnet10.caffemodel_b1gpu0_int8.engine
-batch-size=1
+model-engine-file=../../models/Primary_Detector/resnet10.caffemodel_b2_gpu0_int8.engine
+batch-size=2
 #Required by the app for OSD, not a plugin property
 bbox-border-color0=1;0;0;1
 bbox-border-color1=0;1;1;1

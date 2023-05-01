@@ -73,6 +73,10 @@ gboolean parse_source_yaml(NvDsSourceConfig *config,
             std::string temp = source_values[i];
             config->alsa_device = (char *)malloc(sizeof(char) * 1024);
             std::strncpy(config->alsa_device, temp.c_str(), 1024);
+        } else if (paramKey == "video-format") {
+            std::string temp = source_values[i];
+            config->video_format = (char *)malloc(sizeof(char) * 1024);
+            std::strncpy(config->video_format, temp.c_str(), 1024);
         } else if (paramKey == "uri") {
             std::string temp = source_values[i];
             char *uri = (char *)malloc(sizeof(char) * 1024);

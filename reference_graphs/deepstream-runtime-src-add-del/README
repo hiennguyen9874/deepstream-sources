@@ -14,13 +14,15 @@ supported by INvDsElement based components.
 
 The "NvDsSourceManipulationAction" of "NvDsMultiSrcInput" component is used to
 add/remove the sources. This action is triggered by another sample component
-"NvDsSampleSourceManipulator" every fixed interval which can be configured.
+"NvDsSampleSourceManipulator" every fixed interval which can be configured; or
+this action can be triggered by an Http service "NvDsStreamManager" upon add
+source or remove source Http request.
 
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.1.1
-- Graph-Composer 2.0.1
+- DeepStreamSDK 6.2
+- Graph-Composer 2.5.0
 
 ================================================================================
 Running the graph
@@ -29,11 +31,29 @@ On x86:
 $ /opt/nvidia/graph-composer/execute_graph.sh deepstream-runtime-src-add-del.yaml \
       parameters.yaml -d ../common/target_x86_64.yaml
 
+$ /opt/nvidia/graph-composer/execute_graph.sh deepstream-runtime-src-add-del-as-a-service.yaml \
+      parameters.yaml -d ../common/target_x86_64.yaml
+* Using client to add or remove input stream on the same host
+  Add stream with id 1:
+  $ curl -X POST "http://localhost:8082/AddStream/stream" -d "{\"sensor\":{\"id\": \"1\", \"uri\": \"file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4\"}}"
+  Add stream with id 2:
+  $ curl -X POST "http://localhost:8082/AddStream/stream" -d "{\"sensor\":{\"id\": \"2\", \"uri\": \"file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4\"}}"
+  ......
+  Util reaching to the max number of streams configured in NvDsStreamManager
+
+  Remove stream with id 2:
+  $ curl -X POST "http://localhost:8082/RemoveStream/stream" -d "{\"sensor\":{\"id\": \"2\"}}"
+  Remove stream with id 1:
+  $ curl -X POST "http://localhost:8082/RemoveStream/stream" -d "{\"sensor\":{\"id\": \"1\"}}"
+  ......
+  Util removing all streams
+
 On Jetson:
 $ /opt/nvidia/graph-composer/execute_graph.sh deepstream-runtime-src-add-del.yaml \
       parameters.yaml -d ../common/target_aarch64.yaml
 
-NOTE: deepstream-runtime-src-add-del.yaml is the main graph file describing the DeepStream
+NOTE: deepstream-runtime-src-add-del.yaml and deepstream-runtime-src-add-del-as-a-service.yaml 
+are the main graph file describing the DeepStream
 graph(pipeline) along with the configuration parameters for the components in the
 graph. parameters.yaml can be used to override these parameter values.
 

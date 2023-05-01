@@ -87,7 +87,14 @@ static constexpr const char *kEOS = DS3D_KEY_NAME("EndOfStream");
 static constexpr const char *kPointXYZ = DS3D_KEY_NAME("PointXYZ");
 // get from FrameGuard
 static constexpr const char *kPointCoordUV = DS3D_KEY_NAME("PointColorCoord");
-
+// get from FrameGuard
+static constexpr const char *kLidarXYZI = DS3D_KEY_NAME("LidarXYZI");
+// get from FrameGuard
+static constexpr const char *kLidarInferenceParas = DS3D_KEY_NAME("LidarInferenceParas");
+// get from FrameGuard
+static constexpr const char *kLidarRefDataMap = DS3D_KEY_NAME("LidarRefDataMap");
+// get from FrameGuard
+static constexpr const char *kLidar3DBboxRawData = DS3D_KEY_NAME("Lidar3DBboxRawData");
 // default caps for input and ouptut
 static constexpr const char *kDefaultDs3dCaps = "ds3d/datamap";
 

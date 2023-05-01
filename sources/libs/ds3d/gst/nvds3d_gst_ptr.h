@@ -127,7 +127,7 @@ public:
     {
     }
     template <typename... Args>
-    PadPtr(Args &&... args) : GstObjPtr<GstPad>(std::forward<Args>(args)...)
+    PadPtr(Args &&...args) : GstObjPtr<GstPad>(std::forward<Args>(args)...)
     {
     }
     ~PadPtr() = default;
@@ -157,7 +157,7 @@ public:
     {
     }
     template <typename... Args>
-    ElePtr(Args &&... args) : GstObjPtr<GstElement>(std::forward<Args>(args)...)
+    ElePtr(Args &&...args) : GstObjPtr<GstElement>(std::forward<Args>(args)...)
     {
     }
     ~ElePtr() = default;

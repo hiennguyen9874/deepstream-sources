@@ -48,7 +48,7 @@ to setup DeepStream Triton server container. Run the container with cmdline:
 
   $ docker run --gpus '"'device=0'"' -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix \
     -e DISPLAY=$DISPLAY --net=host nvcr.io/nvidia/deepstream:[version]-triton
-  [version] means deepstream version numbers. e.g. 6.1
+  [version] means deepstream version numbers. e.g. 6.2
 
 Inside the container, easiest way to set up the model repository with DS provided
 models is to run prepare_ds_triton_model_repo.sh script.
@@ -103,7 +103,7 @@ Start another container:
 
 $ docker run --gpus '"'device=0'"' -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix \
     -e DISPLAY=$DISPLAY --net=host nvcr.io/nvidia/deepstream:[version]-triton
-  [version] means deepstream version numbers. e.g. 6.1
+  [version] means deepstream version numbers. e.g. 6.2
 
 For Jetson, the gRPC samples could run on L4T host directly.
 

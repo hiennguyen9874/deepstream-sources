@@ -80,6 +80,7 @@ enum class DataType : int {
     kUint16,
     kUint32,
     kDouble,
+    kInt64,
 };
 
 enum class FrameType : int {
@@ -89,6 +90,7 @@ enum class FrameType : int {
     kColorRGB = 3,
     kPointXYZ = 32,
     kPointCoordUV = 33,
+    kLidarXYZI = 34,
     kCustom = 255,
 };
 

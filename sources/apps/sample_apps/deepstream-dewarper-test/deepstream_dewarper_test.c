@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -188,14 +188,20 @@ int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *caps_filter = NULL,
-               *tiler = NULL, *nvdewarper = NULL, *nvvideoconvert = NULL;
-    GstElement *transform = NULL;
+               *tiler = NULL, *nvdewarper = NULL, *nvvideoconvert = NULL, *outmux = NULL,
+               *h264parser = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     guint i, num_sources;
     guint tiler_rows, tiler_columns;
     guint arg_index = 0;
     guint max_surface_per_frame;
+    guint sink_type = 2; // Eglsink
+    guint enc_type = 0;  // Hardware encoder
+    guint source_index_start = 0;
+    GstElement *h264enc = NULL, *capfilt = NULL, *nvvidconv1 = NULL;
+    char dewarp_filename[500] = {};
+    strcpy(dewarp_filename, "config_dewarper.txt");
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -205,8 +211,13 @@ int main(int argc, char *argv[])
     /* Check input arguments */
     if (argc < 3) {
         g_printerr(
-            "Usage: %s <uri1> <source id1> [<uri2> <source id2>] ... [<uriN> <source idN>] \n",
+            "Usage: %s --config <dewarp_config_filename> --sink <1/2/3> --enc_type <0/1> <uri1> <source id1> [<uri2> <source id2>] ... [<uriN> <source idN>]\
+    \n",
             argv[0]);
+        g_printerr("\t --config <filename> (Default : config_dewarper.txt) \n");
+        g_printerr("\t --sink <1/2/3> 1:Fakesink, 2:Eglsink, 3:Filesink (Default : 2) \n");
+        g_printerr("\t --enc_type <0/1> 0:Hardware encoder, 1:Software encoder (Default : 0) \n");
+
         return -1;
     }
     num_sources = (argc - 1) / 2;
@@ -229,6 +240,34 @@ int main(int argc, char *argv[])
     gst_bin_add(GST_BIN(pipeline), streammux);
 
     arg_index = 1;
+    while ((!strcmp(argv[arg_index], "--config")) || (!strcmp(argv[arg_index], "--sink")) ||
+           (!strcmp(argv[arg_index], "--enc_type"))) {
+        if (!strcmp(argv[arg_index], "--config")) {
+            num_sources = num_sources - 1;
+            arg_index++;
+            strcpy(dewarp_filename, argv[arg_index++]);
+        }
+        if (!strcmp(argv[arg_index], "--sink")) {
+            num_sources = num_sources - 1;
+            arg_index++;
+            sink_type = atoi(argv[arg_index++]);
+            if ((sink_type < 1) || (sink_type > 3)) {
+                printf("Invalid sink type = %d. Setting to default : Eglsink\n", sink_type);
+                sink_type = 2;
+            }
+        }
+        if (!strcmp(argv[arg_index], "--enc_type")) {
+            num_sources = num_sources - 1;
+            arg_index++;
+            enc_type = atoi(argv[arg_index++]);
+            if ((enc_type < 0) || (enc_type > 1)) {
+                printf("Invalid encoder type = %d. Setting to default : Hardware encoder\n",
+                       sink_type);
+                enc_type = 0;
+            }
+        }
+    }
+    source_index_start = arg_index;
     for (i = 0; i < num_sources; i++) {
         guint source_id = 0;
 
@@ -269,8 +308,8 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        g_object_set(G_OBJECT(nvdewarper), "config-file", "./config_dewarper.txt", "source-id",
-                     source_id, NULL);
+        g_object_set(G_OBJECT(nvdewarper), "config-file", dewarp_filename, "source-id", source_id,
+                     NULL);
 
         gst_bin_add_many(GST_BIN(pipeline), source_bin, nvvideoconvert, caps_filter, nvdewarper,
                          NULL);
@@ -326,16 +365,24 @@ int main(int argc, char *argv[])
      * on the source of the frames. */
     tiler = gst_element_factory_make("nvmultistreamtiler", "nvtiler");
 
-    /* Finally render the osd output */
-    if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegltransform");
-
-        if (!transform) {
-            g_printerr("nvegltransform element could not be created. Exiting.\n");
-            return -1;
+    if (sink_type == 1) {
+        sink = gst_element_factory_make("fakesink", "fakesink");
+    } else if (sink_type == 2) {
+        /* Finally render the osd output */
+        if (prop.integrated) {
+            sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+        } else {
+            sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
         }
+    } else if (sink_type == 3) {
+        h264parser = gst_element_factory_make("h264parse", "h264-parser");
+        outmux = gst_element_factory_make("mp4mux", "mp4-mux");
+        sink = gst_element_factory_make("filesink", "nvvideo-filesink");
+        g_object_set(G_OBJECT(sink), "location", "out.mp4", NULL);
+    } else {
+        g_printerr("Sink type invalid!!");
+        return -1;
     }
-    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!nvdewarper || !tiler || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
@@ -363,9 +410,41 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    if (prop.integrated) {
-        gst_bin_add_many(GST_BIN(pipeline), tiler, transform, sink, NULL);
-        if (!gst_element_link_many(streammux, tiler, transform, sink, NULL)) {
+    if (sink_type == 3) {
+        if (enc_type == 0) {
+            // Hardware encoder
+            h264enc = gst_element_factory_make("nvv4l2h264enc", "nvvideo-h264enc");
+            if (!h264enc) {
+                g_printerr("h264enc element could not be created. Exiting.\n");
+                return -1;
+            }
+            capfilt = gst_element_factory_make("capsfilter", "nvvideo-caps");
+            GstCaps *caps =
+                gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "I420", NULL);
+            GstCapsFeatures *feature = gst_caps_features_new("memory:NVMM", NULL);
+            gst_caps_set_features(caps, 0, feature);
+            g_object_set(G_OBJECT(capfilt), "caps", caps, NULL);
+            gst_caps_unref(caps);
+        } else {
+            // Software encoder
+            h264enc = gst_element_factory_make("x264enc", "x264enc");
+            if (!h264enc) {
+                g_printerr("h264enc element could not be created. Exiting.\n");
+                return -1;
+            }
+            capfilt = gst_element_factory_make("capsfilter", "x264-caps");
+            GstCaps *caps =
+                gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "I420", NULL);
+            g_object_set(G_OBJECT(capfilt), "caps", caps, NULL);
+            gst_caps_unref(caps);
+        }
+
+        nvvidconv1 = gst_element_factory_make("nvvideoconvert", "nvvid-converter1");
+
+        gst_bin_add_many(GST_BIN(pipeline), tiler, nvvidconv1, capfilt, h264enc, h264parser, outmux,
+                         sink, NULL);
+        if (!gst_element_link_many(streammux, tiler, nvvidconv1, capfilt, h264enc, h264parser,
+                                   outmux, sink, NULL)) {
             g_printerr("Elements could not be linked. Exiting.\n");
             return -1;
         }
@@ -380,15 +459,15 @@ int main(int argc, char *argv[])
     /* Set the pipeline to "playing" state */
     g_print("Now playing:");
     for (i = 0; i < num_sources; i++) {
-        g_print(" %s,", argv[i + 1]);
+        g_print(" %s,", argv[source_index_start]);
+        source_index_start += 2;
     }
     g_print("\n");
 
-    GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN(pipeline), GST_DEBUG_GRAPH_SHOW_ALL,
-                                      "dewarper_test_playing");
-
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
+    GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN(pipeline), GST_DEBUG_GRAPH_SHOW_ALL,
+                                      "dewarper_test_playing");
     /* Wait till pipeline encounters an error or EOS */
     g_print("Running...\n");
     g_main_loop_run(loop);

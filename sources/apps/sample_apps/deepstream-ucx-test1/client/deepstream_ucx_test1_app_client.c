@@ -68,9 +68,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
-    GstElement *pipeline = NULL, *nvstreamdemux = NULL, *ucxclientsrc = NULL, *nvvidconv = NULL,
-               *caps_filter = NULL, *filesink = NULL;
-    GstElement *queue1 = NULL, *queue2 = NULL;
+    GstElement *pipeline = NULL, *ucxclientsrc = NULL, *nvvidconv = NULL, *caps_filter = NULL,
+               *filesink = NULL, *queue1 = NULL;
     GstElement *h264enc = NULL, *h264parser = NULL, *qtmux = NULL;
 
     GstCaps *caps = NULL;
@@ -131,21 +130,18 @@ int main(int argc, char *argv[])
 
     ucxclientsrc = gst_element_factory_make("nvdsucxclientsrc", "ucxclientsrc");
     caps_filter = gst_element_factory_make("capsfilter", "caps_filter");
-    nvstreamdemux = gst_element_factory_make("nvstreamdemux", "stream-demux");
+    queue1 = gst_element_factory_make("queue", "queue1");
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
     h264enc = gst_element_factory_make("nvv4l2h264enc", "h264-hw-enc");
     h264parser = gst_element_factory_make("h264parse", "h264-parse");
     qtmux = gst_element_factory_make("qtmux", "qt-mux");
     filesink = gst_element_factory_make("filesink", "file-sink");
 
-    if (!ucxclientsrc || !caps_filter || !nvstreamdemux || !nvvidconv || !h264enc || !h264parser ||
+    if (!ucxclientsrc || !caps_filter || !queue1 || !nvvidconv || !h264enc || !h264parser ||
         !qtmux || !filesink) {
         g_printerr("One pipeline element could not be created. Exiting\n");
         return -1;
     }
-
-    queue1 = gst_element_factory_make("queue", "queue1");
-    queue2 = gst_element_factory_make("queue", "queue2");
 
     /* Set ucxclientsrc properties */
     g_object_set(G_OBJECT(ucxclientsrc), "addr", addr, "port", port, "nvbuf-batch-size", 1,
@@ -166,34 +162,11 @@ int main(int argc, char *argv[])
     bus_watch_id = gst_bus_add_watch(bus, bus_call, loop);
     gst_object_unref(bus);
 
-    gst_bin_add_many(GST_BIN(pipeline), ucxclientsrc, caps_filter, nvstreamdemux, nvvidconv, queue1,
-                     h264enc, h264parser, queue2, qtmux, filesink, NULL);
+    gst_bin_add_many(GST_BIN(pipeline), ucxclientsrc, caps_filter, nvvidconv, queue1, h264enc,
+                     h264parser, qtmux, filesink, NULL);
 
-    if (!gst_element_link_many(ucxclientsrc, caps_filter, nvstreamdemux, NULL)) {
-        g_printerr("Failed to link ucx, caps, demux elements. Exiting.\n");
-        return -1;
-    }
-
-    GstPad *srcpad, *sinkpad;
-
-    srcpad = gst_element_get_request_pad(nvstreamdemux, "src_0");
-    sinkpad = gst_element_get_static_pad(nvvidconv, "sink");
-
-    if (!srcpad || !sinkpad) {
-        g_printerr("Failed to request sink or srcpad for videoconv/demux. Exiting.\n");
-        return -1;
-    }
-
-    if (gst_pad_link(srcpad, sinkpad) != GST_PAD_LINK_OK) {
-        g_printerr("Failed to link streamdemux and videoconv. Exiting.\n");
-        return -1;
-    }
-
-    gst_object_unref(srcpad);
-    gst_object_unref(sinkpad);
-
-    if (!gst_element_link_many(nvvidconv, queue1, h264enc, h264parser, queue2, qtmux, filesink,
-                               NULL)) {
+    if (!gst_element_link_many(ucxclientsrc, caps_filter, queue1, nvvidconv, h264enc, h264parser,
+                               qtmux, filesink, NULL)) {
         g_printerr("Failed to link several elements. Exiting.\n");
         return -1;
     }

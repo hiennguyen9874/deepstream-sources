@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -66,6 +66,7 @@ public:
     /// on a frame should have, in order to be kept.
     /// @param [in] max_box_confidence Maximum confidence that an object detected
     /// on a frame should have, in order to be kept.
+    /// @param [in] gpu_id GPU ID of the gpu which is to be used for encoding
     /// @param [in] min_box_width Minimum box width that an object detected
     /// on a frame should have, in order to be kept.
     /// @param [in] min_box_height Minimum box height that an object detected
@@ -75,7 +76,8 @@ public:
     /// @param [in] seconds_to_skip_interval Unsigned integer giving the number of seconds to skip.
     /// @param [in] source_nb Unsigned integer giving the number of sources that are currently
     /// giving a stream.
-    void init(const std::string &output_folder_path,
+    void init(unsigned gpu_id,
+              const std::string &output_folder_path,
               const std::string &frame_to_skip_rules_path,
               float min_box_confidence,
               float max_box_confidence,
@@ -109,6 +111,10 @@ public:
     /// Max confidence getter.
     /// @return The maximum confidence required for an object.
     float get_max_confidence() const;
+
+    /// GPU ID getter.
+    /// @return The gpu id used for encoding an object.
+    unsigned get_gpu_id() const;
 
     /// Minimum box width getter.
     /// @return The minimum box width required for an object.
@@ -221,6 +227,7 @@ private:
     unsigned int unique_index_ = 0;
     float min_confidence_;
     float max_confidence_;
+    unsigned gpu_id_;
     unsigned min_box_width_;
     unsigned min_box_height_;
     bool save_full_frame_enabled_;

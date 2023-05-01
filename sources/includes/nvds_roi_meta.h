@@ -49,6 +49,9 @@ typedef struct NvBufSurfaceParams NvBufSurfaceParams;
 /** DS NvDsFrameMeta */
 typedef struct _NvDsFrameMeta NvDsFrameMeta;
 
+/** DS NvDsObjectMeta */
+typedef struct _NvDsObjectMeta NvDsObjectMeta;
+
 /** classifier meta list */
 typedef GList NvDsClassifierMetaList;
 
@@ -122,6 +125,9 @@ typedef struct NvDsRoiMeta {
 
     /** Holds a pointer to a list of pointers of type @ref NvDsUserMeta. */
     NvDsUserMetaList *roi_user_meta_list;
+
+    /* Deepstream object meta */
+    NvDsObjectMeta *object_meta;
 
 } NvDsRoiMeta;
 

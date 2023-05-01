@@ -45,8 +45,10 @@
 #define NVDS_ELEM_QUEUE "queue"
 #define NVDS_ELEM_CAPS_FILTER "capsfilter"
 #define NVDS_ELEM_TEE "tee"
+#define NVDS_ELEM_IDENTITY "identity"
 
 #define NVDS_ELEM_PREPROCESS "nvdspreprocess"
+#define NVDS_ELEM_SECONDARY_PREPROCESS "nvdspreprocess"
 #define NVDS_ELEM_PGIE "nvinfer"
 #define NVDS_ELEM_SGIE "nvinfer"
 #define NVDS_ELEM_NVINFER "nvinfer"
@@ -91,6 +93,9 @@
 #define MAX_SOURCE_BINS 1024
 #define MAX_SINK_BINS (1024)
 #define MAX_SECONDARY_GIE_BINS (16)
+#define MAX_SECONDARY_PREPROCESS_BINS (16)
 #define MAX_MESSAGE_CONSUMERS (16)
+
+#define NVDS_ELEM_NVMULTIURISRCBIN "nvmultiurisrcbin"
 
 #endif

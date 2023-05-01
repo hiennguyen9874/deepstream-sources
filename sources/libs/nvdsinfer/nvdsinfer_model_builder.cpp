@@ -603,7 +603,11 @@ std::unique_ptr<TrtEngine> TrtModelBuilder::getCudaEngineFromCustomLib(
 
     /* Set the maximum batch size */
     m_Builder->setMaxBatchSize(initParams.maxBatchSize);
-    m_BuilderConfig->setMaxWorkspaceSize(kWorkSpaceSize);
+    /* By default the workspace size is the size of total global memory in the device. */
+    if (initParams.workspaceSize) {
+        size_t workspaceSize = initParams.workspaceSize * UINT64_C(1024) * UINT64_C(1024);
+        m_BuilderConfig->setMaxWorkspaceSize(workspaceSize);
+    }
 
     int dla = -1;
     /* Use DLA if specified. */

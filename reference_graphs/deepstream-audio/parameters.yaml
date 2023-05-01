@@ -10,25 +10,25 @@
 ################################################################################
 
 components:
-  - name: nv_ds_multi_src_input75..d470
+  - name: multiple_source_input
     parameters:
       uri-list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sonyc_mixed_audio.wav;file:///opt/nvidia/deepstream/deepstream/samples/streams/sonyc_mixed_audio.wav
-name: NvDsMultiSrcInput..6550
+name: multiple_source_input
 ---
 components:
-  - name: nv_ds_stream_mux_new78..c828
+  - name: streammux
     parameters:
       batch-size: 2
-name: NvDsStreamMuxNew..fe48
+name: streammux
 ---
 components:
-  - name: nv_ds_infer_audio86..6b38
+  - name: audio_classifier
     parameters:
       audio-framesize: 441000
       audio-hopsize: 110250
       audio-transform: melsdb,fft_length=2560,hop_size=692,dsp_window=hann,num_mels=128,sample_rate=44100,p2db_ref=(float)1.0,p2db_min_power=(float)0.0,p2db_top_db=(float)80.0
       batch-size: 2
-  - name: sony_c_audio_classifier93..6160
+  - name: sony_c_audio_classifier
     parameters:
       model-engine-file: sonyc_audio_classify.onnx_b2_gpu0_fp32.engine
-name: NvDsInferAudio..d0b8
+name: audio_classifier

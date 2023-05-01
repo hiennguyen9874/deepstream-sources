@@ -31,7 +31,7 @@ APP:= deepstream-transfer-learning-app
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.1
+NVDS_VERSION:=6.2
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
@@ -58,7 +58,7 @@ CFLAGS+= -I../../apps-common/includes \
 
 LIBS:= -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart
 
-LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvds_msgbroker -lnvds_batch_jpegenc -lnvdsgst_helper -lnvdsgst_smartrecord -lnvds_utils -lm \
+LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvds_msgbroker -lnvds_batch_jpegenc -lnvdsgst_helper -lnvdsgst_customhelper -lnvdsgst_smartrecord -lnvds_utils -lm \
        -lcuda -lgstrtspserver-1.0 -lpthread -ldl -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 CFLAGS+= $(shell pkg-config --cflags $(PKGS))

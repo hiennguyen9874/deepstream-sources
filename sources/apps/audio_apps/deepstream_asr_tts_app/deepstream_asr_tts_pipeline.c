@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -13,7 +14,7 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -57,7 +58,6 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer data)
     case GST_MESSAGE_ERROR: {
         GError *error = NULL;
         gchar *debuginfo = NULL;
-        guint i = 0;
         gst_message_parse_error(message, &error, &debuginfo);
         g_printerr("ERROR from %s: %s\n", GST_OBJECT_NAME(message->src), error->message);
         if (debuginfo) {
@@ -224,7 +224,7 @@ static GstPadProbeReturn asr_src_pad_buffer_probe(GstPad *pad,
         g_printerr("Unable to map info from buffer\n");
         return GST_FLOW_ERROR;
     }
-    text_data = inmap.data;
+    text_data = (char *)inmap.data;
     fwrite(text_data, strlen(text_data), 1, sctx->FP_asr);
     fwrite(&newline, 1, 1, sctx->FP_asr);
     return GST_PAD_PROBE_OK;
@@ -238,7 +238,6 @@ static GstPadProbeReturn proxy_sink_pad_event_probe(GstPad *pad,
                                                     gpointer u_data)
 {
     GstEvent *event = GST_PAD_PROBE_INFO_EVENT(info);
-    StreamCtx *sctx = (StreamCtx *)u_data;
 
     if (GST_EVENT_TYPE(event) == GST_EVENT_EOS) {
         GstElement *component = GST_ELEMENT_PARENT(pad);
@@ -502,6 +501,7 @@ int destroy_pipeline(StreamCtx *sctx)
         fclose(sctx->FP_asr);
         sctx->FP_asr = NULL;
     }
+    return 0;
 }
 
 int start_pipeline(int stream_num, StreamCtx *sctx)
@@ -544,7 +544,6 @@ static gboolean renderer_bus_callback(GstBus *bus, GstMessage *message, gpointer
     case GST_MESSAGE_ERROR: {
         GError *error = NULL;
         gchar *debuginfo = NULL;
-        guint i = 0;
         gst_message_parse_error(message, &error, &debuginfo);
         g_printerr("ERROR from %s: %s\n", GST_OBJECT_NAME(message->src), error->message);
         if (debuginfo) {
@@ -574,21 +573,20 @@ static gboolean renderer_bus_callback(GstBus *bus, GstMessage *message, gpointer
 
 int create_renderer_pipeline(AppCtx *appctx)
 {
-    int ret = 0, i = 0;
+    int ret = 0;
+    unsigned int i = 0;
 
     /* Create Renderer Pipeline */
     GstElement *pipeline = NULL, *audio_mixer = NULL;
     GstElement *audio_sink = NULL;
     GstElement *audio_convert = NULL;
     GstElement *file_out = NULL;
-    GstElement *audio_out = NULL;
-    GstElement *audio_enc = NULL, *audio_mux = NULL;
+    GstElement *audio_enc = NULL;
 
     GstElement *out_muxer = NULL;
     GstElement *muxer_aqueue = NULL;
     GstElement *out_aqueue = NULL;
     GstElement *rtsp_out_bin = NULL;
-    StreamCtx *sctx = &appctx->sctx[0];
     guint enc_type = 0;
     guint rtsp_port_num = 8554;
     guint enable_playback = appctx->enable_playback;

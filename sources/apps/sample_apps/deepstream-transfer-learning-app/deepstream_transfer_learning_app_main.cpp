@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -809,12 +809,17 @@ int main(int argc, char *argv[])
                 can_start = false;
             }
             if (can_start) {
-                g_img_meta_consumer.init(
-                    nvds_imgsave.output_folder_path, nvds_imgsave.frame_to_skip_rules_path,
-                    nvds_imgsave.min_confidence, nvds_imgsave.max_confidence,
-                    nvds_imgsave.min_box_width, nvds_imgsave.min_box_height,
-                    nvds_imgsave.save_image_full_frame, nvds_imgsave.save_image_cropped_object,
-                    nvds_imgsave.second_to_skip_interval, MAX_SOURCE_BINS);
+                /* Initiating the encode process for images. Each init function creates a context
+                 * on the specified gpu and can then be used to encode images. Multiple contexts
+                 * (even on different gpus) can also be initialized according to user requirements.
+                 * Only one is shown here for demonstration purposes. */
+                g_img_meta_consumer.init(nvds_imgsave.gpu_id, nvds_imgsave.output_folder_path,
+                                         nvds_imgsave.frame_to_skip_rules_path,
+                                         nvds_imgsave.min_confidence, nvds_imgsave.max_confidence,
+                                         nvds_imgsave.min_box_width, nvds_imgsave.min_box_height,
+                                         nvds_imgsave.save_image_full_frame,
+                                         nvds_imgsave.save_image_cropped_object,
+                                         nvds_imgsave.second_to_skip_interval, MAX_SOURCE_BINS);
             }
             if (g_img_meta_consumer.get_is_stopped()) {
                 std::cerr << "Consumer could not be started => exiting...\n\n";
@@ -827,6 +832,7 @@ int main(int argc, char *argv[])
                       << "or adding [img-save] part in config file. (example below)\n"
                       << "[img-save]\n"
                       << "enable=1\n"
+                      << "gpu_id=0\n"
                       << "output-folder-path=./output\n"
                       << "save-img-cropped-obj=0\n"
                       << "save-img-full-frame=1\n"

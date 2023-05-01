@@ -246,6 +246,8 @@ typedef struct {
 typedef struct {
     /** Vector of units in the batch. Can be for Frame/ROI/Crop */
     std::vector<NvDsPreProcessUnit> units;
+    /** Vector of sync objects for async transformation of the batch */
+    std::vector<NvBufSurfTransformSyncObj_t> sync_objects;
     /** Pointer to the input GstBuffer. */
     GstBuffer *inbuf = nullptr;
     /** Batch number of the input batch. */

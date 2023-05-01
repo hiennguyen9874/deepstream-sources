@@ -12,7 +12,7 @@
 CXX:=g++
 DS_INC:= ../../includes
 
-NVDS_VERSION:=6.1
+NVDS_VERSION:=6.2
 
 DS_LIB:=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 

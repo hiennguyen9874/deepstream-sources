@@ -33,9 +33,9 @@ SRCS:= gstnvdsaudiotemplate.cpp
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_audiotemplate.so
 
-NVDS_VERSION:=6.1
+NVDS_VERSION:=6.2
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.1.1\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.2.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes -I ./common \
 	 -std=c++17 -Wall -Werror

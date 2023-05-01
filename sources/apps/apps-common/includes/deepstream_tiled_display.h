@@ -64,6 +64,7 @@ typedef struct {
      * (2): VIC              - VIC
      *  */
     guint compute_hw;
+    guint buffer_pool_size;
 } NvDsTiledDisplayConfig;
 
 /**

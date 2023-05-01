@@ -38,9 +38,9 @@ SRCS:= gstnvdspreprocess.cpp gstnvdspreprocess_allocator.cpp \
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_preprocess.so
 
-NVDS_VERSION:=6.1
+NVDS_VERSION:=6.2
 
-CFLAGS+= -fPIC -DHAVE_CONFIG_H -std=c++17 -Wall -Werror -DDS_VERSION=\"6.1.1\" \
+CFLAGS+= -fPIC -DHAVE_CONFIG_H -std=c++17 -Wall -Werror -DDS_VERSION=\"6.2.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I include \
 	 -I ../../includes
@@ -50,7 +50,7 @@ LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 
 LIBS := -shared -Wl,-no-undefined \
 	-L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart -ldl \
-	-L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_meta -lnvds_meta -lnvbufsurface -lnvbufsurftransform\
+	-L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_customhelper -lnvdsgst_meta -lnvds_meta -lnvbufsurface -lnvbufsurftransform\
 	-lcuda -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 OBJS:= $(SRCS:.cpp=.o)
@@ -60,11 +60,7 @@ PKGS:= gstreamer-1.0 gstreamer-base-1.0 gstreamer-video-1.0
 ifeq ($(WITH_OPENCV),1)
   CFLAGS+= -DWITH_OPENCV
   LIBS+= -lopencv_imgproc -lopencv_core -lopencv_imgcodecs
-ifeq ($(TARGET_DEVICE),aarch64)
-	PKGS+= opencv4
-else
-	PKGS+= opencv
-endif
+  PKGS+= opencv4
 endif
 
 CFLAGS+=$(shell pkg-config --cflags $(PKGS))

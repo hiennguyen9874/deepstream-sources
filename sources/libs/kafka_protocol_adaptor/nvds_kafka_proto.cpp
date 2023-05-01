@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2018-2022 NVIDIA Corporation.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -33,6 +33,7 @@
 #include "nvds_logger.h"
 #include "nvds_msgapi.h"
 #include "nvds_utils.h"
+#include "schema.pb.h"
 
 int json_get_key_value(const char *msg, int msglen, const char *key, char *value, int nbuf);
 NvDsMsgApiErrorType nvds_kafka_parse_proto_cfg(char *confptr, rd_kafka_conf_t *conf);
@@ -601,8 +602,8 @@ NvDsMsgApiErrorType nvds_msgapi_subscribe(NvDsMsgApiHandle h_ptr,
 // There could be several synchronous and asychronous send operations in flight.
 // Once a send operation callback is received the course of action  depends on if it's synch or
 // async
-// -- if it's sync then the associated complletion flag should  be set
-// -- if it's asynchronous then completion callback from the user should be called
+//  -- if it's sync then the associated complletion flag should  be set
+//  -- if it's asynchronous then completion callback from the user should be called
 NvDsMsgApiErrorType nvds_msgapi_send(NvDsMsgApiHandle h_ptr,
                                      char *topic,
                                      const uint8_t *payload,
@@ -679,15 +680,25 @@ NvDsMsgApiErrorType nvds_msgapi_send_async(NvDsMsgApiHandle h_ptr,
     retval = json_get_key_value((const char *)payload, nbuf, kh->p_instance.partition_key_field,
                                 idval, sizeof(idval));
 
-    if (retval)
+    if (retval) {
         return nvds_kafka_client_send(kh, payload, nbuf, topic, 0, user_ptr, send_callback, idval,
                                       strlen(idval));
-    else {
-        nvds_log(NVDS_KAFKA_LOG_CAT, LOG_ERR,
-                 "no matching json field found \
-        based on kafka key config; using default partition\n");
-        return nvds_kafka_client_send(kh, payload, nbuf, topic, 0, user_ptr, send_callback, NULL,
-                                      0);
+    } else {
+        nv::Frame protomsg;
+        protomsg.ParseFromString(string((char *)payload, nbuf));
+        string proto_sensor_id = "";
+        proto_sensor_id = protomsg.sensorid();
+        if (proto_sensor_id != "") {
+            return nvds_kafka_client_send(kh, payload, nbuf, topic, 0, user_ptr, send_callback,
+                                          (char *)proto_sensor_id.c_str(),
+                                          proto_sensor_id.length());
+        } else {
+            nvds_log(NVDS_KAFKA_LOG_CAT, LOG_ERR,
+                     "no matching json field found \
+                based on kafka key config; using default partition\n");
+            return nvds_kafka_client_send(kh, payload, nbuf, topic, 0, user_ptr, send_callback,
+                                          NULL, 0);
+        }
     }
 }
 

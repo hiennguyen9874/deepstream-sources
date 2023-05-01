@@ -41,7 +41,7 @@ TrajectoryManagement:
 
 DataAssociator:
   dataAssociatorType: 0 # the type of data associator among { DEFAULT= 0 }
-  associationMatcherType: 0 # the type of matching algorithm among { GREEDY=0, GLOBAL=1 }
+  associationMatcherType: 0 # the type of matching algorithm among { GREEDY=0, CASCADED=1 }
   checkClassMatch: 1  # If checked, only the same-class objects are associated with each other. Default: true
 
   # [Association Metric: Thresholds for valid candidates]

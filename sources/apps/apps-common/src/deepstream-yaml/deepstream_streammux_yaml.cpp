@@ -34,8 +34,11 @@ gboolean parse_streammux_yaml(NvDsStreammuxConfig *config, gchar *cfg_file_path)
 {
     gboolean ret = FALSE;
 
+    config->frame_duration = -1;
     config->batched_push_timeout = -1;
     config->attach_sys_ts_as_ntp = TRUE;
+    config->async_process = TRUE;
+    config->no_pipeline_eos = FALSE;
 
     YAML::Node configyml = YAML::LoadFile(cfg_file_path);
     for (YAML::const_iterator itr = configyml["streammux"].begin();
@@ -57,6 +60,8 @@ gboolean parse_streammux_yaml(NvDsStreammuxConfig *config, gchar *cfg_file_path)
             config->batched_push_timeout = itr->second.as<gint>();
         } else if (paramKey == "enable-padding") {
             config->enable_padding = itr->second.as<gboolean>();
+        } else if (paramKey == "frame-duration") {
+            config->frame_duration = itr->second.as<guint64>();
         } else if (paramKey == "nvbuf-memory-type") {
             config->nvbuf_memory_type = itr->second.as<guint>();
         } else if (paramKey == "config-file") {
@@ -85,6 +90,10 @@ gboolean parse_streammux_yaml(NvDsStreammuxConfig *config, gchar *cfg_file_path)
             config->sync_inputs = itr->second.as<gboolean>();
         } else if (paramKey == "max-latency") {
             config->max_latency = itr->second.as<guint64>();
+        } else if (paramKey == "async-process") {
+            config->async_process = itr->second.as<gboolean>();
+        } else if (paramKey == "drop-pipeline-eos") {
+            config->no_pipeline_eos = itr->second.as<gboolean>();
         } else {
             cout << "[WARNING] Unknown param found in streammux: " << paramKey << endl;
             goto done;

@@ -99,10 +99,18 @@ static gboolean create_camera_source_bin(NvDsSourceConfig *config, NvDsSrcBin *b
         NVGSTDS_ERR_MSG_V("Could not create 'src_cap_filter'");
         goto done;
     }
-    caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "NV12", "width", G_TYPE_INT,
-                               config->source_width, "height", G_TYPE_INT, config->source_height,
-                               "framerate", GST_TYPE_FRACTION, config->source_fps_n,
-                               config->source_fps_d, NULL);
+
+    if (config->video_format) {
+        caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, config->video_format,
+                                   "width", G_TYPE_INT, config->source_width, "height", G_TYPE_INT,
+                                   config->source_height, "framerate", GST_TYPE_FRACTION,
+                                   config->source_fps_n, config->source_fps_d, NULL);
+    } else {
+        caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "NV12", "width",
+                                   G_TYPE_INT, config->source_width, "height", G_TYPE_INT,
+                                   config->source_height, "framerate", GST_TYPE_FRACTION,
+                                   config->source_fps_n, config->source_fps_d, NULL);
+    }
 
     if (config->type == NV_DS_SOURCE_CAMERA_CSI) {
         GstCapsFeatures *feature = NULL;
@@ -397,6 +405,8 @@ static void decodebin_child_added(GstChildProxy *child_proxy,
         g_object_set(object, "DeepStream", TRUE, NULL);
     }
     if (g_strstr_len(name, -1, "nvv4l2decoder") == name) {
+        if (config->low_latency_mode)
+            g_object_set(object, "low-latency-mode", TRUE, NULL);
         if (config->Intra_decode)
             g_object_set(object, "skip-frames", 2, NULL);
 #ifdef __aarch64__
@@ -602,6 +612,12 @@ static void check_rtsp_reconnection_attempts(NvDsSrcBin *src_bin)
     for (i = 0; i < src_bin->parent_bin->num_bins; i++) {
         if (src_bin->parent_bin->sub_bins[i].config->type != NV_DS_SOURCE_RTSP)
             continue;
+        if (src_bin->parent_bin->sub_bins[i].have_eos &&
+            (src_bin->parent_bin->sub_bins[i].rtsp_reconnect_interval_sec == 0 ||
+             src_bin->parent_bin->sub_bins[i].rtsp_reconnect_attempts == 0)) {
+            remove_probe = FALSE;
+            break;
+        }
         if (src_bin->parent_bin->sub_bins[i].num_rtsp_reconnects <=
             src_bin->parent_bin->sub_bins[i].rtsp_reconnect_attempts) {
             if (src_bin->parent_bin->sub_bins[i].rtsp_reconnect_interval_sec ||
@@ -764,7 +780,6 @@ static gboolean watch_source_async_state_change(gpointer data)
         src_bin->async_state_watch_running = FALSE;
         return FALSE;
     }
-
     // Bin successfully changed state to PLAYING. Stop watching state
     if (state == GST_STATE_PLAYING) {
         src_bin->reconfiguring = FALSE;
@@ -772,7 +787,6 @@ static gboolean watch_source_async_state_change(gpointer data)
         src_bin->num_rtsp_reconnects = 0;
         return FALSE;
     }
-
     // Bin has stopped ASYNC state change but has not gone into
     // PLAYING. Expliclity set state to PLAYING and keep watching
     // state
@@ -951,7 +965,12 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
             NVGSTDS_ERR_MSG_V("Could not create element 'nvvidconv_elem'");
             goto done;
         }
-        caps = gst_caps_new_empty_simple("video/x-raw");
+        if (config->video_format) {
+            caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, config->video_format,
+                                       NULL);
+        } else {
+            caps = gst_caps_new_empty_simple("video/x-raw");
+        }
         feature = gst_caps_features_new("memory:NVMM", NULL);
         gst_caps_set_features(caps, 0, feature);
 
@@ -1226,7 +1245,12 @@ static gboolean create_uridecode_src_bin(NvDsSourceConfig *config, NvDsSrcBin *b
         goto done;
     }
 
-    caps = gst_caps_new_empty_simple("video/x-raw");
+    if (config->video_format) {
+        caps =
+            gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, config->video_format, NULL);
+    } else {
+        caps = gst_caps_new_empty_simple("video/x-raw");
+    }
     feature = gst_caps_features_new("memory:NVMM", NULL);
     gst_caps_set_features(caps, 0, feature);
 
@@ -1452,6 +1476,92 @@ gboolean create_multi_source_bin(guint num_sub_bins,
 
         bin->num_bins++;
     }
+    NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->streammux, "src");
+
+    if (install_mux_eosmonitor_probe) {
+        NVGSTDS_ELEM_ADD_PROBE(bin->nvstreammux_eosmonitor_probe, bin->streammux, "src",
+                               nvstreammux_eosmonitor_probe_func,
+                               GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, bin);
+    }
+
+    ret = TRUE;
+
+done:
+    if (!ret) {
+        NVGSTDS_ERR_MSG_V("%s failed", __func__);
+    }
+    return ret;
+}
+
+static void set_properties_nvuribin(GstElement *element_, NvDsSourceConfig const *config)
+{
+    GstElementFactory *factory = GST_ELEMENT_GET_CLASS(element_)->elementfactory;
+    if (!g_strcmp0(GST_OBJECT_NAME(factory), "nvurisrcbin"))
+        g_object_set(element_, "uri", config->uri, NULL);
+    if (config->num_extra_surfaces)
+        g_object_set(element_, "num-extra-surfaces", config->num_extra_surfaces, NULL);
+    if (config->gpu_id)
+        g_object_set(element_, "gpu-id", config->gpu_id, NULL);
+    g_object_set(element_, "cudadec-memtype", config->cuda_memory_type, NULL);
+    if (config->drop_frame_interval)
+        g_object_set(element_, "drop-frame-interval", config->drop_frame_interval, NULL);
+    if (config->select_rtp_protocol)
+        g_object_set(element_, "select-rtp-protocol", config->select_rtp_protocol, NULL);
+    if (config->loop)
+        g_object_set(element_, "file-loop", config->loop, NULL);
+    if (config->smart_record)
+        g_object_set(element_, "smart-record", config->smart_record, NULL);
+    if (config->smart_rec_cache_size)
+        g_object_set(element_, "smart-rec-cache", config->smart_rec_cache_size, NULL);
+    if (config->smart_rec_container)
+        g_object_set(element_, "smart-rec-container", config->smart_rec_container, NULL);
+    if (config->smart_rec_def_duration)
+        g_object_set(element_, "smart-rec-default-duration", config->smart_rec_def_duration, NULL);
+    if (config->rtsp_reconnect_interval_sec)
+        g_object_set(element_, "rtsp-reconnect-interval", config->rtsp_reconnect_interval_sec,
+                     NULL);
+    if (config->latency)
+        g_object_set(element_, "latency", config->latency, NULL);
+    if (config->udp_buffer_size)
+        g_object_set(element_, "udp-buffer-size", config->udp_buffer_size, NULL);
+}
+
+gboolean create_nvmultiurisrcbin_bin(guint num_sub_bins,
+                                     NvDsSourceConfig *configs,
+                                     NvDsSrcParentBin *bin)
+{
+    gboolean ret = FALSE;
+    guint i = 0;
+
+    bin->reset_thread = NULL;
+
+    bin->bin = gst_bin_new("multiuri_src_bin");
+    if (!bin->bin) {
+        NVGSTDS_ERR_MSG_V("Failed to create element 'multiuri_src_bin'");
+        goto done;
+    }
+
+    g_object_set(bin->bin, "message-forward", TRUE, NULL);
+
+    bin->nvmultiurisrcbin = bin->streammux =
+        gst_element_factory_make(NVDS_ELEM_NVMULTIURISRCBIN, "src_nvmultiurisrcbin");
+    if (!bin->streammux) {
+        NVGSTDS_ERR_MSG_V("Failed to create element 'src_nvmultiurisrcbin'");
+        goto done;
+    }
+    gst_bin_add(GST_BIN(bin->bin), bin->streammux);
+
+    /** set properties for the nvurisrcbin if atleast one uri was provided */
+    for (i = 0; i < num_sub_bins; i++) {
+        if (!configs[i].enable) {
+            continue;
+        }
+        set_properties_nvuribin(bin->nvmultiurisrcbin, &configs[i]);
+    }
+    if (num_sub_bins == 0) {
+        set_properties_nvuribin(bin->nvmultiurisrcbin, configs);
+    }
+
     NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->streammux, "src");
 
     if (install_mux_eosmonitor_probe) {

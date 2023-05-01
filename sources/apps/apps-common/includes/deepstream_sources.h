@@ -49,6 +49,7 @@ typedef struct {
     gboolean loop;
     gboolean live_source;
     gboolean Intra_decode;
+    gboolean low_latency_mode;
     guint smart_record;
     gint source_width;
     gint source_height;
@@ -86,6 +87,8 @@ typedef struct {
     guint input_audio_rate;
     /** ALSA device, as defined in an asound configuration file */
     gchar *alsa_device;
+    /** Video format to be applied at nvvideoconvert source pad. */
+    gchar *video_format;
 } NvDsSourceConfig;
 
 typedef struct NvDsSrcParentBin NvDsSrcParentBin;
@@ -149,6 +152,7 @@ typedef struct {
 struct NvDsSrcParentBin {
     GstElement *bin;
     GstElement *streammux;
+    GstElement *nvmultiurisrcbin;
     GThread *reset_thread;
     NvDsSrcBin sub_bins[MAX_SOURCE_BINS];
     guint num_bins;
@@ -176,6 +180,23 @@ gboolean create_audio_source_bin(NvDsSourceConfig *config, NvDsSrcBin *bin);
 gboolean create_multi_source_bin(guint num_sub_bins,
                                  NvDsSourceConfig *configs,
                                  NvDsSrcParentBin *bin);
+
+/**
+ * Initialize @ref NvDsSrcParentBin. It creates and adds nvmultiurisrcbin
+ * needed for processing to the bin.
+ * It also sets properties mentioned in the configuration file under
+ * group @ref CONFIG_GROUP_SOURCE_LIST, @ref CONFIG_GROUP_SOURCE_ALL
+ *
+ * @param[in] num_sub_bins number of source elements.
+ * @param[in] configs array of pointers of type @ref NvDsSourceConfig
+ *            parsed from configuration file.
+ * @param[in] bin pointer to @ref NvDsSrcParentBin to be filled.
+ *
+ * @return true if bin created successfully.
+ */
+gboolean create_nvmultiurisrcbin_bin(guint num_sub_bins,
+                                     NvDsSourceConfig *configs,
+                                     NvDsSrcParentBin *bin);
 
 gboolean reset_source_pipeline(gpointer data);
 gboolean set_source_to_playing(gpointer data);

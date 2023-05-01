@@ -9,29 +9,29 @@
 #
 ################################################################################
 components:
-  - name: nv_ds_multi_src_input0..bf50
+  - name: multiple_source_input
     parameters:
       uri-list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_walk.mov;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_ride_bike.mov;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_run.mov;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_push.mov
-name: NvDsMultiSrcInput..4690
+name: multiple_source_input
 ---
 components:
-  - name: nv_ds_stream_mux3..7d10
+  - name: streammux
     parameters:
       batch-size: 4
       batched-push-timeout: 40000
       height: 720
       width: 1280
-name: NvDsStreamMux..bd10
+name: streammux
 ---
 components:
-  - name: nv_ds_pre_process7..e590
+  - name: pre_process
     parameters:
       config-file: config_preprocess_3d_custom.txt
       # config-file: config_preprocess_2d_custom.txt
-name: NvDsPreProcess..7a90
+name: pre_process
 ---
 components:
-  - name: nv_ds_infer_video11..e750
+  - name: action_recognition_infer
     parameters:
       batch-size: 4
-name: NvDsInferVideo..b550
+name: action_recognition_infer

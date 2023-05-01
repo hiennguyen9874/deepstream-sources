@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
     if (argc != 6) {
         g_printerr(
             "Usage: %s <addr> <port> <infer config path> "
-            "<custom meta lib path> <file path>\n",
+            "<video metadata serialization lib path> <file path>\n",
             argv[0]);
         return -1;
     }

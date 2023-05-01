@@ -32,6 +32,17 @@ template <class T>
 struct Vector2 {
     T x; /**< point x coordinate. */
     T y; /**< point y coordinate. */
+
+    inline T &operator[](size_t i)
+    {
+        if (i == 0) {
+            return x;
+        } else if (i == 1) {
+            return y;
+        } else {
+            throw std::out_of_range("cvcore::Vector2 ==> Requested index is out of bounds");
+        }
+    }
 };
 
 /**
@@ -43,6 +54,19 @@ struct Vector3 {
     T x; /**< point x coordinate. */
     T y; /**< point y coordinate. */
     T z; /**< point z coordinate. */
+
+    inline T &operator[](size_t i)
+    {
+        if (i == 0) {
+            return x;
+        } else if (i == 1) {
+            return y;
+        } else if (i == 2) {
+            return z;
+        } else {
+            throw std::out_of_range("cvcore::Vector3 ==> Requested index is out of bounds");
+        }
+    }
 };
 
 using Vector2i = Vector2<int>;

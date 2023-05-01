@@ -1,0 +1,272 @@
+*****************************************************************************
+* SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+* SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+*
+* NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+* property and proprietary rights in and to this material, related
+* documentation and any modifications thereto. Any use, reproduction,
+* disclosure or distribution of this material and related documentation
+* without an express license agreement from NVIDIA CORPORATION or
+* its affiliates is strictly prohibited.
+*
+*****************************************************************************
+
+*****************************************************************************
+                         deepstream-server-app
+                                README
+*****************************************************************************
+
+===============================================================================
+1. Prerequisites:
+===============================================================================
+
+Please follow instructions in the apps/sample_apps/deepstream-app/README on how
+to install the prerequisites for the Deepstream SDK, the DeepStream SDK itself,
+and the apps.
+
+You must have the following development packages installed
+   GStreamer-1.0
+   GStreamer-1.0 Base Plugins
+   GStreamer-1.0 gstrtspserver
+   X11 client-side library
+
+To install these packages, execute the following command:
+   sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
+   libgstrtspserver-1.0-dev libx11-dev libjsoncpp-dev
+
+===============================================================================
+2. Purpose:
+===============================================================================
+
+REST API server is implemented as library which provides standard interfaces for
+initilization/deinitialization of the server.
+The REST API library interfaces can be used directly by an application or the
+application can make use of nvmultiurisrcbin which has REST API interfaces enabled
+by default.
+
+The deepstream-server-app uses nvmultiurisrcbin to demonstrate REST API server
+functionality.
+
+This document describes the sample deepstream-server application to demonstrate
+how to:
+
+* Start with uri(s) from config file "dsserver_config.yml". The fetched uri(s)
+  will be used in the deepstream pipeline.
+* Use a nvmultiurisrcbin to process URI input , any GStreamer
+  supported container format, and any codec can be used as input.
+* nvmultiurisrcbin has default http server enabled.
+  rest server callbacks are implemented inside the nvmultiurisrcbin.
+  Custom events are intercepted and parsed by respective plugin to update
+  properties on-the-fly.
+
+===============================================================================
+3. To compile:
+===============================================================================
+
+  $ Set CUDA_VER in the MakeFile as per platform.
+      For x86, CUDA_VER=11.8
+  $ sudo make (sudo not required in case of docker containers)
+
+NOTE: To compile the sources, run make with "sudo" or root permission.
+
+===============================================================================
+4. Usage:
+===============================================================================
+
+  Run with the yml file.
+
+    $ ./deepstream-server-app <yml file>
+    e.g. $ ./deepstream-server-app dsserver_config.yml
+
+To see the effect of Http requests for respective endpoints using proper json object,
+the application should be running and in playing state.
+
+Refer "Supported feaures" section for schema and endpoints details. User can use postman
+tool or curl command to send a request.
+
+NOTE: User can use curl command in a separate terminal to send a Http request.
+      Alternatively, Postman tool can also be used to send Http request.
+
+Download postman tool from: https://www.postman.com/downloads/
+
+Install curl using below:
+sudo apt update
+sudo apt install curl
+
+curl command template to POST Http request:
+
+curl -XPOST 'http://<IP address>:<port><Endpoint>' -d '<Schema>'
+
+Refer "Supported features" section  for curl command and endpoint details.
+
+===============================================================================
+4. Supported features:
+===============================================================================
+
+Features supported with this application are:
+
+1. Stream add/remove
+  a. Stream add
+
+  Endpoint: /stream/add
+  Curl command to add stream:
+
+  curl -XPOST 'http://localhost:9000/stream/add' -d '{
+    "key": "sensor",
+    "value": {
+        "camera_id": "uniqueSensorID1",
+        "camera_name": "front_door",
+        "camera_url": "file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4",
+        "change": "camera_add",
+        "metadata": {
+            "resolution": "1920 x1080",
+            "codec": "h264",
+            "framerate": 30
+        }
+    },
+    "headers": {
+        "source": "vst",
+        "created_at": "2021-06-01T14:34:13.417Z"
+    }
+  }'
+
+
+  Expected output: The uri specified should be added to the display.
+  Note: The camera_id should be unique for each newly added streams.
+
+  b. Stream remove
+
+  Endpoint: /stream/remove
+  Curl command to remove stream:
+
+  curl -XPOST 'http://localhost:9000/stream/remove' -d '{
+    "key": "sensor",
+    "value": {
+        "camera_id": "uniqueSensorID1",
+        "camera_name": "front_door",
+        "camera_url": "file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4",
+        "change": "camera_remove",
+        "metadata": {
+            "resolution": "1920 x1080",
+            "codec": "h264",
+            "framerate": 30
+        }
+    },
+    "headers": {
+        "source": "vst",
+        "created_at": "2021-06-01T14:34:13.417Z"
+    }
+  }'
+
+  Expected output: The uri specified should be removed from the display.
+  Note: The camera_id used to remove stream should be same as being used while adding stream using REST API.
+
+2. ROI
+
+  Endpoint: /roi/update
+  Curl command to update ROI:
+
+  curl -XPOST 'http://localhost:9000/roi/update' -d '{
+    "stream": {
+        "stream_id": "0",
+        "roi_count": 2,
+        "roi": [{
+                "roi_id": "0",
+                "left": 100,
+                "top": 300,
+                "width": 400,
+                "height": 400
+            },
+            {
+                "roi_id": "1",
+                "left": 550,
+                "top": 300,
+                "width": 500,
+                "height": 500
+            }
+        ]
+    }
+  }'
+
+  Expected output: The updated roi dimension should be observed at display.
+
+3. Decoder
+
+  Endpoint: /dec/drop-frame-interval
+  Curl command to configure decoder drop-frame-interval property:
+
+  curl -XPOST 'http://localhost:9000/dec/drop-frame-interval' -d '{
+  "stream":
+    {
+        "stream_id":"0",
+        "drop_frame_interval":2
+    }
+  }'
+
+  Expected output: The drop-frame-interval value will be set on the decoder.
+  Decoder drop frame interval should reflect with every interval <value> frame
+  given by decoder, rest all dropped for selected stream.
+
+4. Nvinfer
+
+  Endpoint: /infer/set-interval
+  Curl command to configure nvinfer interval property:
+
+  curl -XPOST 'http://localhost:9000/infer/set-interval' -d '{
+  "stream":
+    {
+        "stream_id":"0",
+        "interval":2
+    }
+  }'
+
+  Expected output: The interval value will be set on the nvinfer.
+  Interval value specify consecutive batches will be skipped for inference for
+  the video stream.
+
+  Note: Disable/comment "input-tensor-meta" property in dsserver_pgie_config.yml
+  to see "interval" property functionality of nvinfer.
+  Currently stream_id (specified in the schema) do not have any impact on specified
+  stream_id, rather configuration is getting applied to all active streams.
+
+This sample accepts one or more comma separated uri(s) . It uses
+a nvmultiurisrcbin which internally creates nvurisrcbin for each uri
+and connects to an instance of the "nvstreammux" element, which forms the
+batch of frames. The batch of frames is fed to "nvdspreprocess" following "nvinfer"
+for batched inferencing. The batched buffer is composited into a 2D tile array
+using "nvmultistreamtiler." The rest of the pipeline is similar to the
+deepstream-test3 sample.
+
+The "width" and "height" properties must be set on the nvmultiurisrcbin to set the
+output resolution. If the input frame resolution is different from
+stream-muxer's "width" and "height", the input frame will be scaled to muxer's
+output resolution.
+
+The stream-muxer inside nvmultiurisrcbin waits for a user-defined timeout before
+forming the batch. The timeout is set using the "batched-push-timeout" property on
+nvmultiurisrcbin. If the complete batch is formed before the timeout is reached,
+the batch is pushed to the downstream element. If the timeout is reached before
+the complete batch can be formed (which can happen in case of rtsp sources),
+the batch is formed from the available input buffers and pushed. Ideally, the
+timeout of the stream-muxer inside nvmultiurisrcbin should be set based on the
+framerate of the fastest source. It can also be set to -1 to make the stream-muxer
+wait infinitely.
+
+The "nvmultistreamtiler" composite streams based on their stream-ids in
+row-major order (starting from stream 0, left to right across the top row, then
+across the next row, etc.).
+
+NOTE:
+1. To reuse engine files generated in previous runs, update the
+model-engine-file parameter in the nvinfer config file to an existing engine file
+2. The sample app uses max_batch size =8. User needs to update this inside the app,
+inorder to increase the  number of streams.
+3. The sample application uses port 9000. If User needs to use different port
+update the application source and recompile. Also the curl commands need to have
+the updated port.
+The curl commands mentioned in this file uses localhost in the "IP address".
+This is valid if user sends Http request from the same machine on which
+server/application is running. If user needs to use separate machine to send
+Http request, use the IP address of machine on which server/application is running
+instead of "localhost".
+For example: curl -XPOST 'http://<IP address>:<port><Endpoint>' -d '<Schema>'

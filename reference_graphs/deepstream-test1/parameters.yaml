@@ -10,15 +10,15 @@
 ################################################################################
 
 components:
-  - name: nv_ds_single_src_input3..c518
+  - name: single_source_input
     parameters:
       uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4
-name: NvDsSingleSrcInput..5320
+name: single_source_input
 ---
 components:
-  - name: nv_ds_stream_mux6..db00
+  - name: streammux
     parameters:
       batch-size: 1
       height: 1080
       width: 1920
-name: NvDsStreamMux..5d68
+name: streammux

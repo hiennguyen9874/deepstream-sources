@@ -42,11 +42,14 @@ extern "C" {
 #include "deepstream_preprocess.h"
 #include "deepstream_primary_gie.h"
 #include "deepstream_secondary_gie.h"
+#include "deepstream_secondary_preprocess.h"
 #include "deepstream_sinks.h"
 #include "deepstream_sources.h"
 #include "deepstream_streammux.h"
 #include "deepstream_tiled_display.h"
 #include "deepstream_tracker.h"
+#include "gst-nvcommonconfig.h"
+#include "gst-nvcustommessage.h"
 
 typedef struct _AppCtx AppCtx;
 
@@ -71,6 +74,7 @@ typedef struct {
     NvDsPrimaryGieBin primary_gie_bin;
     NvDsOSDBin osd_bin;
     NvDsSecondaryGieBin secondary_gie_bin;
+    NvDsSecondaryPreProcessBin secondary_preprocess_bin;
     NvDsTrackerBin tracker_bin;
     NvDsSinkBin sink_bin;
     NvDsSinkBin demux_sink_bin;
@@ -102,6 +106,7 @@ typedef struct {
     guint total_num_sources;
     guint num_source_sub_bins;
     guint num_secondary_gie_sub_bins;
+    guint num_secondary_preprocess_sub_bins;
     guint num_sink_sub_bins;
     guint num_message_consumers;
     guint perf_measurement_interval_sec;
@@ -110,10 +115,12 @@ typedef struct {
     gchar *kitti_track_dir_path;
 
     gchar **uri_list;
+    gchar **sensor_id_list;
     NvDsSourceConfig multi_source_config[MAX_SOURCE_BINS];
     NvDsStreammuxConfig streammux_config;
     NvDsOSDConfig osd_config;
     NvDsPreProcessConfig preprocess_config;
+    NvDsPreProcessConfig secondary_preprocess_sub_bin_config[MAX_SECONDARY_PREPROCESS_BINS];
     NvDsGieConfig primary_gie_config;
     NvDsTrackerConfig tracker_config;
     NvDsGieConfig secondary_gie_sub_bin_config[MAX_SECONDARY_GIE_BINS];
@@ -125,6 +132,13 @@ typedef struct {
     NvDsSinkMsgConvBrokerConfig msg_conv_config;
     NvDsImageSave image_save_config;
 
+    /** To support nvmultiurisrcbin */
+    gboolean use_nvmultiurisrcbin;
+    guint max_batch_size;
+    gchar *http_ip;
+    gchar *http_port;
+    gboolean source_attr_all_parsed;
+    NvDsSourceConfig source_attr_all_config;
 } NvDsConfig;
 
 typedef struct {
@@ -160,6 +174,11 @@ struct _AppCtx {
     GThread *ota_handler_thread;
     guint ota_inotify_fd;
     guint ota_watch_desc;
+
+    /** Hash table to save NvDsSensorInfo
+     * obtained with REST API stream/add, remove operations
+     * The key is souce_id */
+    GHashTable *sensorInfoHash;
 };
 
 /**
@@ -211,6 +230,22 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path);
  * @return true if parsed successfully.
  */
 gboolean parse_config_file_yaml(NvDsConfig *config, gchar *cfg_file_path);
+
+/**
+ * Function to procure the NvDsSensorInfo for the source_id
+ * that was added using the nvmultiurisrcbin REST API
+ *
+ * @param[in] appCtx [IN/OUT] The application context
+ *            providing the config info and where the
+ *            pipeline resources are maintained
+ * @param[in] source_id [IN] The unique source_id found in NvDsFrameMeta
+ *
+ * @return [transfer-floating] The NvDsSensorInfo for the source_id
+ * that was added using the nvmultiurisrcbin REST API.
+ * Please note that the returned pointer
+ * will be valid only until the stream is removed.
+ */
+NvDsSensorInfo *get_sensor_info(AppCtx *appCtx, guint source_id);
 
 #ifdef __cplusplus
 }

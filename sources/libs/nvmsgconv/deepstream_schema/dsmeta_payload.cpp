@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -9,6 +9,7 @@
  *
  */
 
+#include <google/protobuf/util/time_util.h>
 #include <json-glib/json-glib.h>
 #include <stdlib.h>
 #include <uuid.h>
@@ -19,6 +20,8 @@
 #include <vector>
 
 #include "deepstream_schema.h"
+//#include "nv-schema/src/main/c++/schema.pb.h"
+#include "schema.pb.h"
 
 using namespace std;
 
@@ -65,7 +68,7 @@ static JsonObject *generate_place_object(void *privData, NvDsFrameMeta *frame_me
          "id": "string",
          "name": "endeavor",
          “type”: “garage”,
-         "location": {
+         "location": {
            "lat": 30.333,
            "lon": -40.555,
            "alt": 100.00
@@ -381,7 +384,7 @@ gchar *generate_dsmeta_message_minimal(void *privData, void *frameMeta)
      "version": "4.0",
      "id": "frame-id",
      "@timestamp": "2018-04-11T04:59:59.828Z",
-     "sensorId": "sensor-id",
+     "sensor": "sensor-id",
      "objects": [
         ".......object-1 attributes...........",
         ".......object-2 attributes...........",
@@ -496,5 +499,84 @@ gchar *generate_dsmeta_message_minimal(void *privData, void *frameMeta)
     json_node_free(rootNode);
     json_object_unref(jobject);
 
+    return message;
+}
+
+gchar *generate_dsmeta_message_protobuf(void *privData, void *frameMeta, size_t &message_len)
+{
+    GOOGLE_PROTOBUF_VERIFY_VERSION;
+    nv::Frame pbFrame;
+
+    pbFrame.set_version("4.0");
+
+    // frameId
+    NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)frameMeta;
+    pbFrame.set_id(std::to_string(frame_meta->frame_num));
+
+    // generate timestamp
+    char ts[MAX_TIME_STAMP_LEN + 1];
+    generate_ts_rfc3339(ts, MAX_TIME_STAMP_LEN);
+    std::string ts_string(ts);
+    google::protobuf::Timestamp *timestamp = pbFrame.mutable_timestamp();
+    if (!::google::protobuf::util::TimeUtil::FromString(ts_string, timestamp)) {
+        message_len = 0;
+        return NULL;
+    }
+
+    // fetch sensor id
+    string sensorId = "0";
+    NvDsPayloadPriv *privObj = (NvDsPayloadPriv *)privData;
+    auto idMap = privObj->sensorObj.find(frame_meta->source_id);
+    if (idMap != privObj->sensorObj.end()) {
+        NvDsSensorObject &obj = privObj->sensorObj[frame_meta->source_id];
+        sensorId = obj.id;
+    }
+    pbFrame.set_sensorid(sensorId);
+
+    // objects
+    for (NvDsObjectMetaList *obj_l = frame_meta->obj_meta_list; obj_l; obj_l = obj_l->next) {
+        NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)obj_l->data;
+        if (obj_meta == NULL) {
+            // Ignore Null object.
+            continue;
+        }
+
+        // bbox sub object
+        float scaleW = (float)frame_meta->source_frame_width / (frame_meta->pipeline_width == 0)
+                           ? 1
+                           : frame_meta->pipeline_width;
+        float scaleH = (float)frame_meta->source_frame_height / (frame_meta->pipeline_height == 0)
+                           ? 1
+                           : frame_meta->pipeline_height;
+
+        float left = obj_meta->rect_params.left * scaleW;
+        float top = obj_meta->rect_params.top * scaleH;
+        float width = obj_meta->rect_params.width * scaleW;
+        float height = obj_meta->rect_params.height * scaleH;
+
+        nv::Object *object = pbFrame.add_objects();
+        object->set_id(std::to_string(obj_meta->object_id));
+
+        nv::Bbox *bbox = object->mutable_bbox();
+        bbox->set_leftx(left);
+        bbox->set_topy(top);
+        bbox->set_rightx(left + width);
+        bbox->set_bottomy(top + height);
+
+        object->set_type(obj_meta->obj_label);
+        object->set_confidence(obj_meta->confidence);
+    }
+
+    std::string msg_str;
+    if (!pbFrame.SerializeToString(&msg_str)) {
+        cout << "generate_event_message_protobuf : Failed to serialize protobuf message to "
+                "string.\n";
+        message_len = 0;
+        return NULL;
+    }
+
+    message_len = msg_str.length();
+    // Save the content of msg_str before the function returns which puts msg_str out of scope.
+    gchar *message = (gchar *)g_memdup(msg_str.c_str(), message_len);
     return message;
 }

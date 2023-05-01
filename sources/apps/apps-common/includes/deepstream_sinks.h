@@ -23,6 +23,10 @@
 #ifndef __NVGSTDS_SINKS_H__
 #define __NVGSTDS_SINKS_H__
 
+#ifdef __aarch64__
+#define IS_TEGRA
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,12 +35,15 @@ extern "C" {
 
 typedef enum {
     NV_DS_SINK_FAKE = 1,
+#ifndef IS_TEGRA
     NV_DS_SINK_RENDER_EGL,
+#else
+    NV_DS_SINK_RENDER_3D,
+#endif
     NV_DS_SINK_ENCODE_FILE,
     NV_DS_SINK_UDPSINK,
     NV_DS_SINK_RENDER_DRM,
     NV_DS_SINK_MSG_CONV_BROKER,
-    NV_DS_SINK_RENDER_3D,
 } NvDsSinkType;
 
 typedef enum { NV_DS_CONTAINER_MP4 = 1, NV_DS_CONTAINER_MKV } NvDsContainerType;
@@ -44,6 +51,11 @@ typedef enum { NV_DS_CONTAINER_MP4 = 1, NV_DS_CONTAINER_MKV } NvDsContainerType;
 typedef enum { NV_DS_ENCODER_H264 = 1, NV_DS_ENCODER_H265, NV_DS_ENCODER_MPEG4 } NvDsEncoderType;
 
 typedef enum { NV_DS_ENCODER_TYPE_HW, NV_DS_ENCODER_TYPE_SW } NvDsEncHwSwType;
+
+typedef enum {
+    NV_DS_ENCODER_OUTPUT_IO_MODE_MMAP = 2,
+    NV_DS_ENCODER_OUTPUT_IO_MODE_DMABUF_IMPORT = 5,
+} NvDsEncOutputIOMode;
 
 typedef struct {
     NvDsSinkType type;
@@ -59,6 +71,8 @@ typedef struct {
     guint udp_port;
     guint64 udp_buffer_size;
     guint iframeinterval;
+    guint copy_meta;
+    NvDsEncOutputIOMode output_io_mode;
 } NvDsSinkEncoderConfig;
 
 typedef struct {

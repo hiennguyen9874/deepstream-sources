@@ -23,8 +23,8 @@ Plugin Manual at https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.1.1
-- Graph-Composer 2.0.1
+- DeepStreamSDK 6.2
+- Graph-Composer 2.5.0
 - NVIDIA TAO Toolkit Pretrained 2D/3D Action Recognition Model v2 (https://ngc.nvidia.com/catalog/models/nvidia:tao:actionrecognitionnet)
  (The model files must be downloaded to `/opt/nvidia/deepstream/deepstream/samples/models/tao_pretrained_models/actionRecognition` directory)
 

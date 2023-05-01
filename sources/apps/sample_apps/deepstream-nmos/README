@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2022 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2022-2023 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -29,7 +29,8 @@ Additionally you must have the following development packages installed
     avahi-compat-libdnssd
 
 To install these packages, execute the following command:
-    $ sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
+    $ sudo apt-get update && sudo apt-get install \
+     libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
      gstreamer1.0-libav libavahi-compat-libdnssd-dev
 
 ===============================================================================
@@ -64,8 +65,8 @@ This application has three modes of operations -
 
 $ Set CUDA_VER in the MakeFile as per platform.
     For Jetson, CUDA_VER=11.4
-    For x86, CUDA_VER=11.7
-$ sudo make
+    For x86, CUDA_VER=11.8
+$ sudo make (sudo not required in case of docker containers)
 
 ===============================================================================
 4. Usage:

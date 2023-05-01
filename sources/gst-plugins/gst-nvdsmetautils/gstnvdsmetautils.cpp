@@ -55,7 +55,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_metautils,
                   PACKAGE_DESCRIPTION,
                   plugin_init,
-                  "6.1",
+                  "6.2",
                   PACKAGE_LICENSE,
                   PACKAGE_NAME,
                   PACKAGE_URL)

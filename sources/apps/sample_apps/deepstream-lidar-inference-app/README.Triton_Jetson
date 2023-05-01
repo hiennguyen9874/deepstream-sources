@@ -1,0 +1,46 @@
+# Prepare Trtion Enviroment
+
+On Jetson platforms, the application is meant to be executed on target device directly or inside [DeepStream L4T container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/deepstream-l4t).
+
+Setup Triton backend
+In case of Jetson to run the Triton Inference Server directly on device, Triton Server setup will be required. Go to samples directory and run the following command to set up the Triton Server and backends.
+```
+   $ cd  /opt/nvidia/deepstream/deepstream/samples
+   $ sudo ./triton_backend_setup.sh
+```
+Notes:
+   By default script will download the Triton Server version 2.20.0. For setting
+   up any other version change the package path accordingly.
+
+
+## Triton CAPI deployment
+
+Generate inference engines
+```
+    $ cd tritonserver/
+    $ sudo ./build_engine.sh       # this will take some time to build TensorRT engines
+```
+
+##  Triton GRPC deployment
+Jetson dose not support to start Tritonserver locally, please start Tritonserver on DGPU.
+start Triton server docker on DGPU
+
+```
+    #start Triton docker, 10001:8001 is used to map docker container's 8000 port to host's 10000 port, these ports can be changed.
+    $ docker run --gpus all -it  --ipc=host --rm -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY -w /opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream_lidar_inference_app  nvcr.io/nvidia/deepstream:6.2-triton
+```
+Generate inference engines on DGPU
+```
+    $ cd tritonserver/
+    $ sudo ./build_engine.sh       # this will take some time to build TensorRT engines
+```
+start Tritonserver application program on DGPU
+```
+    $ tritonserver --model-repository=./models --strict-model-config=false --grpc-infer-allocation-pool-size=16 --log-verbose=1
+```
+On Jetson, set config_file to triton_mode_CAPI.txt in config_lidar_triton_infer.yaml, fill the actual grpc url in triton_mode_GRPC.txt, the gRPC url setting looks like:
+```
+    grpc {
+        url: "10.23.89.105:10001"
+    }
+```

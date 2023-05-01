@@ -109,6 +109,58 @@ void gst_nvquery_numStreams_size_set(GstQuery *query, guint numStreams_size);
  */
 gboolean gst_nvquery_numStreams_size_parse(GstQuery *query, guint *numStreams_size);
 
+/**
+ * Creates a preprocess poolsize query, used by elements to query
+ * preprocess element for the size of buffer pool.
+ *
+ * params[in] gieid    An unsigned integer in which
+ *                     the preprocess gie id is stored.
+ * @return  A pointer to the new query.
+ */
+GstQuery *gst_nvquery_preprocess_poolsize_new(guint gieid);
+
+/**
+ * Determines whether a query is a preprocess poolsize query.
+ *
+ * params[in] query     A pointer to the query to be checked.
+ *
+ * @return  A Boolean; true if the query is a preprocess poolsize query.
+ */
+gboolean gst_nvquery_is_preprocess_poolsize(GstQuery *query);
+
+/**
+ * \brief  Sets the preprocess poolsize as a reponse to query.
+ *
+ * This function is used by elements responding to
+ * a number of streams query. It fails if the query is not of the correct type.
+ *
+ * params[in] query             A pointer to a nv-preprocess-poolsize query.
+ * params[in] preprocess_poolsize   The preprocess poolsize to be set.
+ */
+void gst_nvquery_preprocess_poolsize_set(GstQuery *query, guint preprocess_poolsize);
+
+/**
+ * Parses the preprocess poolsize from a preprocess poolsize query.
+ *
+ * params[in] query         A pointer to a nv-preprocess-poolsize query.
+ * params[out] preprocess_poolsize   A pointer to an unsigned integer in which
+ *                          the preprocess poolsize is stored.
+ *
+ * @return  True if the query was successfully parsed.
+ */
+gboolean gst_nvquery_preprocess_poolsize_parse(GstQuery *query, guint *preprocess_poolsize);
+
+/**
+ * Parses the preprocess gie id from a preprocess poolsize query.
+ *
+ * params[in] query     A pointer to a nv-preprocess-poolsize query.
+ * params[out] gieid    A pointer to an unsigned integer in which
+ *                          the preprocess gie id is stored.
+ *
+ * @return  True if the query was successfully parsed.
+ */
+gboolean gst_nvquery_preprocess_poolsize_gieid_parse(GstQuery *query, guint *gieId);
+
 /** @} */
 
 #ifdef __cplusplus

@@ -16,14 +16,14 @@ base_image: auto
 stage_model: clean_stage
 
 local_copy_files:
-  - src: "/opt/nvidia/graph-composer/graph_composer-2.0.1_arm64.deb"
+  - src: "/opt/nvidia/graph-composer/graph_composer-2.5.0_arm64.deb"
     dst: "/tmp/"
   - src: "parameters.yaml"
     dst: "/workspace/deepstream-action-recognition/"
   - src: "/opt/nvidia/deepstream/deepstream/samples/models/tao_pretrained_models/actionRecognition/resnet18_2d_rgb_hmdb5_32.etlt"
-    dst: "/opt/nvidia/deepstream/deepstream-6.1/samples/models/tao_pretrained_models/actionRecognition/"
+    dst: "/opt/nvidia/deepstream/deepstream-6.2/samples/models/tao_pretrained_models/actionRecognition/"
   - src: "/opt/nvidia/deepstream/deepstream/samples/models/tao_pretrained_models/actionRecognition/resnet18_3d_rgb_hmdb5_32.etlt"
-    dst: "/opt/nvidia/deepstream/deepstream-6.1/samples/models/tao_pretrained_models/actionRecognition/"
+    dst: "/opt/nvidia/deepstream/deepstream-6.2/samples/models/tao_pretrained_models/actionRecognition/"
 
 resources_files:
   - resources.yaml
@@ -32,7 +32,7 @@ apt_deps:
   - rsync
 
 custom_runs:
-  - "apt install -y /tmp/graph_composer-2.0.1_arm64.deb && rm -rf /tmp/graph_composer-2.0.1_arm64.deb"
+  - "apt install -y /tmp/graph_composer-2.5.0_arm64.deb && rm -rf /tmp/graph_composer-2.5.0_arm64.deb"
 
 work_folder: /workspace/deepstream-action-recognition/
 

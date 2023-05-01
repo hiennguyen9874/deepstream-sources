@@ -262,7 +262,7 @@ GstCaps *SampleAlgorithm::GetCompatibleCaps(GstPadDirection direction,
     to_fmt = gst_structure_get_string(out_struct, "format");
 
     if (m_scaleFactor != 1)
-        g_print("from_fmt = %s to_fmt = %s\n", from_fmt, to_fmt);
+        GST_DEBUG_OBJECT(m_element, "from_fmt = %s to_fmt = %s\n", from_fmt, to_fmt);
 
     // num_input_caps = gst_caps_get_size (in_caps);
     int num_output_caps = gst_caps_get_size(othercaps);
@@ -748,7 +748,9 @@ void SampleAlgorithm::OutputThread(void)
                 // Copy previous buffer to new buffer, repreat the frame
                 NvBufSurface *out_surf = getNvBufSurface(newGstOutBuf);
                 if (!in_surf || !out_surf) {
-                    g_print("CustomLib: NvBufSurface not found in the buffer...exiting...\n");
+                    GST_ERROR_OBJECT(
+                        m_element,
+                        "CustomLib: NvBufSurface not found in the buffer...exiting...\n");
                     exit(-1);
                 }
 
@@ -879,7 +881,8 @@ void SampleAlgorithm::InsertCustomFrame(PacketInfo *packetInfo)
     NvBufSurface *in_surf = getNvBufSurface(packetInfo->inbuf);
     NvBufSurface *out_surf = getNvBufSurface(newGstOutBuf);
     if (!in_surf || !out_surf) {
-        g_print("CustomLib: NvBufSurface not found in the buffer...exiting...\n");
+        GST_DEBUG_OBJECT(m_element,
+                         "CustomLib: NvBufSurface not found in the buffer...exiting...\n");
         exit(-1);
     }
     // Enable below code to copy the frame, else it will insert GREEN frame
@@ -992,7 +995,8 @@ void SampleAlgorithm::DumpNvBufSurface(NvBufSurface *in_surface, NvDsBatchMeta *
         } break;
 
         default:
-            g_print("CustomLib: %s : NOT SUPPORTED FORMAT\n", GST_ELEMENT_NAME(m_element));
+            GST_ERROR_OBJECT(m_element, "CustomLib: %s : NOT SUPPORTED FORMAT\n",
+                             GST_ELEMENT_NAME(m_element));
             break;
         }
     }

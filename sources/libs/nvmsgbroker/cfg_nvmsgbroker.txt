@@ -21,3 +21,6 @@ retry-interval=1
 
 #connection max retry limit in seconds
 max-retry-limit=3600
+
+#interval at which to perform work, in microseconds
+work-interval=10000

@@ -57,7 +57,7 @@ property:
   cluster-mode: 2
   output-blob-names: conv2d_bbox;conv2d_cov/Sigmoid
   network-type: 0
-  labelfile-path: /opt/nvidia/deepstream/deepstream-6.1/samples/models/Primary_Detector/labels.txt
+  labelfile-path: /opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/labels.txt
 
 #Use the config params below for dbscan clustering mode
 #class-attrs-all:

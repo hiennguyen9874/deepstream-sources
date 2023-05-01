@@ -181,7 +181,7 @@ static void process_buffer(GstBuffer *buf, AppCtx *appCtx, guint index)
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
     if (!batch_meta) {
         // TODO add audio support in streammux to attach batch metadata
-        //    NVGSTDS_WARN_MSG_V ("Batch meta not found for buffer %p", buf);
+        //     NVGSTDS_WARN_MSG_V ("Batch meta not found for buffer %p", buf);
         return;
     }
     process_meta(appCtx, batch_meta);
@@ -465,10 +465,21 @@ void destroy_pipeline(AppCtx *appCtx)
     if (!appCtx)
         return;
 
-    if (appCtx->pipeline.instance_bin.sink_bin.bin) {
-        gst_pad_send_event(
-            gst_element_get_static_pad(appCtx->pipeline.instance_bin.sink_bin.bin, "sink"),
-            gst_event_new_eos());
+    if (appCtx->pipeline.multi_src_bin.streammux) {
+        NvDsConfig *config = &appCtx->config;
+        gchar pad_name[16];
+        for (guint i = 0; i < config->num_source_sub_bins; i++) {
+            GstPad *gstpad = NULL;
+            g_snprintf(pad_name, 16, "sink_%d", i);
+            gstpad = gst_element_get_static_pad(appCtx->pipeline.multi_src_bin.streammux, pad_name);
+            gst_pad_send_event(gstpad, gst_event_new_eos());
+            gst_object_unref(gstpad);
+        }
+    } else if (appCtx->pipeline.instance_bin.sink_bin.bin) {
+        GstPad *gstpad =
+            gst_element_get_static_pad(appCtx->pipeline.instance_bin.sink_bin.bin, "sink");
+        gst_pad_send_event(gstpad, gst_event_new_eos());
+        gst_object_unref(gstpad);
     }
 
     g_usleep(100000);

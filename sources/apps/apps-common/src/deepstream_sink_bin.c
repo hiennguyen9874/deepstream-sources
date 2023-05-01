@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -62,6 +62,7 @@ static gboolean create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBi
 
     g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin_sink%d", uid);
     switch (config->type) {
+#ifndef IS_TEGRA
     case NV_DS_SINK_RENDER_EGL:
         GST_CAT_INFO(NVDS_APP, "NVvideo renderer\n");
         bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_EGL, elem_name);
@@ -70,6 +71,7 @@ static gboolean create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBi
                      config->height, NULL);
         g_object_set(G_OBJECT(bin->sink), "enable-last-sample", FALSE, NULL);
         break;
+#endif
     case NV_DS_SINK_RENDER_DRM:
 #ifndef IS_TEGRA
         NVGSTDS_ERR_MSG_V("nvdrmvideosink is only supported for Jetson");
@@ -86,11 +88,8 @@ static gboolean create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBi
             g_object_set(G_OBJECT(bin->sink), "set-mode", config->set_mode, NULL);
         }
         break;
+#ifdef IS_TEGRA
     case NV_DS_SINK_RENDER_3D:
-#ifndef IS_TEGRA
-        NVGSTDS_ERR_MSG_V("nv3d is only supported for Jetson");
-        return FALSE;
-#endif
         GST_CAT_INFO(NVDS_APP, "NVvideo renderer\n");
         bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_3D, elem_name);
         g_object_set(G_OBJECT(bin->sink), "window-x", config->offset_x, "window-y",
@@ -98,6 +97,7 @@ static gboolean create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBi
                      config->height, NULL);
         g_object_set(G_OBJECT(bin->sink), "enable-last-sample", FALSE, NULL);
         break;
+#endif
     case NV_DS_SINK_FAKE:
         bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_FAKESINK, elem_name);
         g_object_set(G_OBJECT(bin->sink), "enable-last-sample", FALSE, NULL);
@@ -125,6 +125,7 @@ static gboolean create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBi
     }
 
     g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin_transform%d", uid);
+#ifndef IS_TEGRA
     if (config->type == NV_DS_SINK_RENDER_EGL) {
         if (prop.integrated) {
             bin->transform = gst_element_factory_make(NVDS_ELEM_EGLTRANSFORM, elem_name);
@@ -150,6 +151,7 @@ static gboolean create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBi
                          NULL);
         }
     }
+#endif
 
     g_snprintf(elem_name, sizeof(elem_name), "render_queue%d", uid);
     bin->queue = gst_element_factory_make(NVDS_ELEM_QUEUE, elem_name);
@@ -303,6 +305,7 @@ static gboolean create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBi
     int probe_id = 0;
     gulong bitrate = config->bitrate;
     guint profile = config->profile;
+    const gchar *latency = g_getenv("NVDS_ENABLE_LATENCY_MEASUREMENT");
 
     uid++;
 
@@ -375,6 +378,22 @@ static gboolean create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBi
     struct cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, config->gpu_id);
 
+    if (config->copy_meta == 1) {
+        g_object_set(G_OBJECT(bin->encoder), "copy-meta", TRUE, NULL);
+    }
+
+    switch (config->output_io_mode) {
+    case NV_DS_ENCODER_OUTPUT_IO_MODE_MMAP:
+    default:
+        g_object_set(G_OBJECT(bin->encoder), "output-io-mode", NV_DS_ENCODER_OUTPUT_IO_MODE_MMAP,
+                     NULL);
+        break;
+    case NV_DS_ENCODER_OUTPUT_IO_MODE_DMABUF_IMPORT:
+        g_object_set(G_OBJECT(bin->encoder), "output-io-mode",
+                     NV_DS_ENCODER_OUTPUT_IO_MODE_DMABUF_IMPORT, NULL);
+        break;
+    }
+
     if (config->enc_type == NV_DS_ENCODER_TYPE_HW) {
         g_object_set(G_OBJECT(bin->encoder), "profile", profile, NULL);
         g_object_set(G_OBJECT(bin->encoder), "iframeinterval", config->iframeinterval, NULL);
@@ -403,16 +422,22 @@ static gboolean create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBi
     }
 
     g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin_mux%d", uid);
-    switch (config->container) {
-    case NV_DS_CONTAINER_MP4:
-        bin->mux = gst_element_factory_make(NVDS_ELEM_MUX_MP4, elem_name);
-        break;
-    case NV_DS_CONTAINER_MKV:
-        bin->mux = gst_element_factory_make(NVDS_ELEM_MKV, elem_name);
-        break;
-    default:
-        goto done;
+    // disabling the mux when latency measurement logs are enabled
+    if (latency) {
+        bin->mux = gst_element_factory_make(NVDS_ELEM_IDENTITY, elem_name);
+    } else {
+        switch (config->container) {
+        case NV_DS_CONTAINER_MP4:
+            bin->mux = gst_element_factory_make(NVDS_ELEM_MUX_MP4, elem_name);
+            break;
+        case NV_DS_CONTAINER_MKV:
+            bin->mux = gst_element_factory_make(NVDS_ELEM_MKV, elem_name);
+            break;
+        default:
+            goto done;
+        }
     }
+
     if (!bin->mux) {
         NVGSTDS_ERR_MSG_V("Failed to create '%s'", elem_name);
         goto done;
@@ -564,6 +589,7 @@ static gboolean create_udpsink_bin(NvDsSinkEncoderConfig *config, NvDsSinkBinSub
     switch (config->codec) {
     case NV_DS_ENCODER_H264:
         bin->codecparse = gst_element_factory_make("h264parse", "h264-parser");
+        g_object_set(G_OBJECT(bin->codecparse), "config-interval", -1, NULL);
         bin->rtppay = gst_element_factory_make("rtph264pay", rtppay_name);
         if (config->enc_type == NV_DS_ENCODER_TYPE_SW)
             bin->encoder = gst_element_factory_make(NVDS_ELEM_ENC_H264_SW, encode_name);
@@ -706,8 +732,11 @@ gboolean create_sink_bin(guint num_sub_bins,
             continue;
         }
         switch (config_array[i].type) {
+#ifndef IS_TEGRA
         case NV_DS_SINK_RENDER_EGL:
+#else
         case NV_DS_SINK_RENDER_3D:
+#endif
         case NV_DS_SINK_RENDER_DRM:
         case NV_DS_SINK_FAKE:
             config_array[i].render_config.type = config_array[i].type;
@@ -805,8 +834,11 @@ gboolean create_demux_sink_bin(guint num_sub_bins,
             continue;
         }
         switch (config_array[i].type) {
+#ifndef IS_TEGRA
         case NV_DS_SINK_RENDER_EGL:
+#else
         case NV_DS_SINK_RENDER_3D:
+#endif
         case NV_DS_SINK_RENDER_DRM:
         case NV_DS_SINK_FAKE:
             config_array[i].render_config.type = config_array[i].type;

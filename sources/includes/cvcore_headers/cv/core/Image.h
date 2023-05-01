@@ -14,7 +14,9 @@
 #include <cassert>
 #include <functional>
 #include <tuple>
+#include <type_traits>
 
+#include "Memory.h"
 #include "Tensor.h"
 
 namespace cvcore {
@@ -24,8 +26,10 @@ namespace cvcore {
  * Enum type for image type.
  */
 enum ImageType {
-    Y_U8,            /**< 8-bit gray. */
-    Y_U16,           /**< 16-bit gray. */
+    Y_U8,            /**< 8-bit unsigned gray. */
+    Y_U16,           /**< 16-bit unsigned gray. */
+    Y_S8,            /**< 8-bit signed gray. */
+    Y_S16,           /**< 16-bit signed gray. */
     Y_F16,           /**< half normalized gray. */
     Y_F32,           /**< float normalized gray. */
     RGB_U8,          /**< 8-bit RGB. */
@@ -67,6 +71,25 @@ struct ImagePreProcessingParams {
     float stdDev[3];        /**< Standard deviation values for  R,G,B channels. Default is 1.0f */
 };
 
+template <ImageType T>
+struct IsCompositeImage : std::integral_constant<bool, T == NV12 || T == NV24> {
+};
+
+template <ImageType T>
+struct IsPlanarImage
+    : std::integral_constant<bool,
+                             T == PLANAR_RGB_U8 || T == PLANAR_RGB_U16 || T == PLANAR_RGB_F16 ||
+                                 T == PLANAR_RGB_F32 || T == PLANAR_BGR_U8 || T == PLANAR_BGR_U16 ||
+                                 T == PLANAR_BGR_F16 || T == PLANAR_BGR_F32 ||
+                                 T == PLANAR_RGBA_U8 || T == PLANAR_RGBA_U16 ||
+                                 T == PLANAR_RGBA_F16 || T == PLANAR_RGBA_F32> {
+};
+
+template <ImageType T>
+struct IsInterleavedImage
+    : std::integral_constant<bool, !IsCompositeImage<T>::value && !IsPlanarImage<T>::value> {
+};
+
 /**
  * Image traits that map ImageType to TensorLayout, ChannelCount and ChannelType.
  */
@@ -99,6 +122,34 @@ struct ImageTraits<Y_U16, 4> {
     static constexpr TensorLayout TL = TensorLayout::NHWC;
     static constexpr ChannelCount CC = ChannelCount::C1;
     static constexpr ChannelType CT = ChannelType::U16;
+};
+
+template <>
+struct ImageTraits<Y_S8, 3> {
+    static constexpr TensorLayout TL = TensorLayout::HWC;
+    static constexpr ChannelCount CC = ChannelCount::C1;
+    static constexpr ChannelType CT = ChannelType::S8;
+};
+
+template <>
+struct ImageTraits<Y_S8, 4> {
+    static constexpr TensorLayout TL = TensorLayout::NHWC;
+    static constexpr ChannelCount CC = ChannelCount::C1;
+    static constexpr ChannelType CT = ChannelType::S8;
+};
+
+template <>
+struct ImageTraits<Y_S16, 3> {
+    static constexpr TensorLayout TL = TensorLayout::HWC;
+    static constexpr ChannelCount CC = ChannelCount::C1;
+    static constexpr ChannelType CT = ChannelType::S16;
+};
+
+template <>
+struct ImageTraits<Y_S16, 4> {
+    static constexpr TensorLayout TL = TensorLayout::NHWC;
+    static constexpr ChannelCount CC = ChannelCount::C1;
+    static constexpr ChannelType CT = ChannelType::S16;
 };
 
 template <>
@@ -292,6 +343,7 @@ inline size_t GetImageElementSize(const ImageType type)
 
     switch (type) {
     case ImageType::Y_U8:
+    case ImageType::Y_S8:
     case ImageType::RGB_U8:
     case ImageType::BGR_U8:
     case ImageType::RGBA_U8:
@@ -302,6 +354,7 @@ inline size_t GetImageElementSize(const ImageType type)
         break;
     }
     case ImageType::Y_U16:
+    case ImageType::Y_S16:
     case ImageType::RGB_U16:
     case ImageType::BGR_U16:
     case ImageType::RGBA_U16:
@@ -346,6 +399,8 @@ inline size_t GetImageChannelCount(const ImageType type)
     switch (type) {
     case ImageType::Y_U8:
     case ImageType::Y_U16:
+    case ImageType::Y_S8:
+    case ImageType::Y_S16:
     case ImageType::Y_F16:
     case ImageType::Y_F32: {
         imageChannelCount = 1;
@@ -401,6 +456,16 @@ class Image<ImageType::Y_U8> : public Tensor<HWC, C1, U8> {
 template <>
 class Image<ImageType::Y_U16> : public Tensor<HWC, C1, U16> {
     using Tensor<HWC, C1, U16>::Tensor;
+};
+
+template <>
+class Image<ImageType::Y_S8> : public Tensor<HWC, C1, S8> {
+    using Tensor<HWC, C1, S8>::Tensor;
+};
+
+template <>
+class Image<ImageType::Y_S16> : public Tensor<HWC, C1, S16> {
+    using Tensor<HWC, C1, S16>::Tensor;
 };
 
 template <>
@@ -574,6 +639,16 @@ public:
 
     std::size_t getChromaHeight() const { return std::get<1>(m_data).getHeight(); }
 
+    std::size_t getLumaStride(TensorDimension dim) const
+    {
+        return std::get<0>(m_data).getStride(dim);
+    }
+
+    std::size_t getChromaStride(TensorDimension dim) const
+    {
+        return std::get<1>(m_data).getStride(dim);
+    }
+
     std::uint8_t *getLumaData() { return std::get<0>(m_data).getData(); }
 
     std::uint8_t *getChromaData() { return std::get<1>(m_data).getData(); }
@@ -587,6 +662,8 @@ public:
     std::size_t getChromaDataSize() const { return std::get<1>(m_data).getDataSize(); }
 
     bool isCPU() const { return std::get<0>(m_data).isCPU(); }
+
+    friend void Copy(Image<NV12> &dst, const Image<NV12> &src, cudaStream_t stream);
 
 private:
     using Y = Tensor<HWC, C1, U8>;
@@ -633,6 +710,16 @@ public:
 
     std::size_t getChromaHeight() const { return std::get<1>(m_data).getHeight(); }
 
+    std::size_t getLumaStride(TensorDimension dim) const
+    {
+        return std::get<0>(m_data).getStride(dim);
+    }
+
+    std::size_t getChromaStride(TensorDimension dim) const
+    {
+        return std::get<1>(m_data).getStride(dim);
+    }
+
     std::uint8_t *getLumaData() { return std::get<0>(m_data).getData(); }
 
     const std::uint8_t *getLumaData() const { return std::get<0>(m_data).getData(); }
@@ -647,12 +734,26 @@ public:
 
     bool isCPU() const { return std::get<0>(m_data).isCPU(); }
 
+    friend void Copy(Image<NV24> &dst, const Image<NV24> &src, cudaStream_t stream);
+
 private:
     using Y = Tensor<HWC, C1, U8>;
     using UV = Tensor<HWC, C2, U8>;
 
     std::tuple<Y, UV> m_data;
 };
+
+void inline Copy(Image<NV12> &dst, const Image<NV12> &src, cudaStream_t stream = 0)
+{
+    Copy(std::get<0>(dst.m_data), std::get<0>(src.m_data), stream);
+    Copy(std::get<1>(dst.m_data), std::get<1>(src.m_data), stream);
+}
+
+void inline Copy(Image<NV24> &dst, const Image<NV24> &src, cudaStream_t stream = 0)
+{
+    Copy(std::get<0>(dst.m_data), std::get<0>(src.m_data), stream);
+    Copy(std::get<1>(dst.m_data), std::get<1>(src.m_data), stream);
+}
 
 } // namespace cvcore
 

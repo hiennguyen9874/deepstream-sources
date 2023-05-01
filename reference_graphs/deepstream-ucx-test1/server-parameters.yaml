@@ -9,20 +9,20 @@
 #############################################################################
 ---
 components:
-  - name: nv_ds_single_src_input0
+  - name: single_source_input
     parameters:
       uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
-name: NvDsSingleSrcInput
+name: single_source_input
 ---
 components:
-  - name: nv_ds_ucx_server_sink48
+  - name: ucx_server_sink
     parameters:
       addr: 192.168.1.100
       port: 7174
-name: NvDsUcxServerSink
+name: ucx_server_sink
 ---
 components:
-  - name: gst_caps_filter77
+  - name: gstreamer_caps_filter
     parameters:
       caps: video/x-raw(memory:NVMM), width=1280, height=720
-name: GstCapsFilter
+name: gstreamer_caps_filter

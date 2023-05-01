@@ -117,6 +117,8 @@ typedef struct {
     gfloat *class_probabilities_map;
     /** Private data used for the meta producer's internal memory management. */
     void *priv_data;
+    /** Unique ID of the gst-nvinfer instance which attached this meta. */
+    gint unique_id;
 } NvDsInferSegmentationMeta;
 
 G_END_DECLS

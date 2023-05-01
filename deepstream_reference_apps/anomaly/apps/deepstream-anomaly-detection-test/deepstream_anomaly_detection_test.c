@@ -183,8 +183,6 @@ int main(int argc, char *argv[])
                *nvofvisual = NULL, *dsdirection = NULL, *of_queue = NULL, *ofvisual_queue = NULL,
                *sink_infer = NULL, *tiler_infer = NULL, *pgie = NULL, *nvvidconv = NULL,
                *nvosd = NULL, *tee = NULL, *of_branch_queue = NULL, *infer_branch_queue = NULL;
-    GstElement *transform_of = NULL;
-    GstElement *transform_infer = NULL;
 
     GstBus *bus = NULL;
     guint bus_watch_id;
@@ -305,16 +303,13 @@ int main(int argc, char *argv[])
 
     /* Finally render the osd output */
     if (prop.integrated) {
-        transform_of = gst_element_factory_make("nvegltransform", "nvegl-transform-of");
-        transform_infer = gst_element_factory_make("nvegltransform", "nvegl-transform-infer");
+        sink_of = gst_element_factory_make("nv3dsink", "nv3dsink-of");
+        sink_infer = gst_element_factory_make("nv3dsink", "nv3dsink-infer");
 
-        if (!transform_of || !transform_infer) {
-            g_printerr("nvegltransform element could not be created. Exiting.\n");
-            return -1;
-        }
+    } else {
+        sink_of = gst_element_factory_make("nveglglessink", "nvelgglessink-of");
+        sink_infer = gst_element_factory_make("nveglglessink", "nvelgglessink-infer");
     }
-    sink_of = gst_element_factory_make("nveglglessink", "nvelgglessink-of");
-    sink_infer = gst_element_factory_make("nveglglessink", "nvelgglessink-infer");
 
     if (!tee) {
         g_printerr("Tee could not be created. Exiting.\n");
@@ -340,6 +335,7 @@ int main(int argc, char *argv[])
     g_object_set(G_OBJECT(sink_of), "sync", 1, NULL);
     g_object_set(G_OBJECT(sink_infer), "sync", 1, NULL);
 
+    g_object_set(G_OBJECT(streammux), "sync-inputs", TRUE, NULL);
     g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
                  "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
@@ -380,33 +376,15 @@ int main(int argc, char *argv[])
                      tiler_infer_queue, nvvidconv, nvvidconv_queue, nvosd, nvosd_queue, sink_infer,
                      NULL);
 
-    if (prop.integrated) {
-        gst_bin_add(GST_BIN(pipeline), transform_of);
-        gst_bin_add(GST_BIN(pipeline), transform_infer);
-    }
-
-    if (prop.integrated) {
-        if ((!gst_element_link_many(streammux, streammux_queue, pgie, pgie_queue, nvof, of_queue,
-                                    dsdirection, dsdirection_queue, tee, NULL)) ||
-            (!gst_element_link_many(of_branch_queue, nvofvisual, ofvisual_queue, tiler_of, NULL)) ||
-            (!gst_element_link_many(infer_branch_queue, tiler_infer, tiler_infer_queue, nvvidconv,
-                                    nvvidconv_queue, nvosd, nvosd_queue, NULL)) ||
-            (!gst_element_link_many(tiler_of, transform_of, sink_of, NULL)) ||
-            (!gst_element_link_many(nvosd_queue, transform_infer, sink_infer, NULL))) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-    } else {
-        if ((!gst_element_link_many(streammux, streammux_queue, pgie, pgie_queue, nvof, of_queue,
-                                    dsdirection, dsdirection_queue, tee, NULL)) ||
-            (!gst_element_link_many(of_branch_queue, nvofvisual, ofvisual_queue, tiler_of, NULL)) ||
-            (!gst_element_link_many(infer_branch_queue, tiler_infer, tiler_infer_queue, nvvidconv,
-                                    nvvidconv_queue, nvosd, nvosd_queue, NULL)) ||
-            (!gst_element_link_many(tiler_of, sink_of, NULL)) ||
-            (!gst_element_link_many(nvosd_queue, sink_infer, NULL))) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    if ((!gst_element_link_many(streammux, streammux_queue, pgie, pgie_queue, nvof, of_queue,
+                                dsdirection, dsdirection_queue, tee, NULL)) ||
+        (!gst_element_link_many(of_branch_queue, nvofvisual, ofvisual_queue, tiler_of, NULL)) ||
+        (!gst_element_link_many(infer_branch_queue, tiler_infer, tiler_infer_queue, nvvidconv,
+                                nvvidconv_queue, nvosd, nvosd_queue, NULL)) ||
+        (!gst_element_link_many(tiler_of, sink_of, NULL)) ||
+        (!gst_element_link_many(nvosd_queue, sink_infer, NULL))) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 
     /* Manually link the Tee, which has "Request" pads */

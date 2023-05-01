@@ -26,6 +26,7 @@
 #define DS3D_TYPEID_DOUBLE 0x10009
 #define DS3D_TYPEID_HALF_FLOAT 0x10010
 #define DS3D_TYPEID_BOOL 0x10011
+#define DS3D_TYPEID_INT64_T 0x10012
 
 // type_id for common datatype structures
 #define DS3D_TYPEID_TIMESTAMP 0x20002

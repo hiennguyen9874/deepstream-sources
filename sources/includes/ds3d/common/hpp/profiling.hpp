@@ -17,6 +17,8 @@
 #include <ds3d/common/common.h>
 #include <sys/time.h>
 
+#include <chrono>
+
 namespace ds3d {
 namespace profiling {
 
@@ -47,6 +49,34 @@ public:
 private:
     std::unordered_map<uint32_t, std::queue<double>> _timestamps;
     uint32_t _max_frame_nums = 50;
+};
+
+class Timing {
+public:
+    Timing(uint32_t maxSlots = 50) : _maxTimeLotNum(maxSlots) {}
+    ~Timing() = default;
+    void push(double t)
+    {
+        _timelots.push(t);
+        _total += t;
+        DS_ASSERT(_maxTimeLotNum > 0);
+        while (_timelots.size() > _maxTimeLotNum) {
+            _total -= _timelots.front();
+            _timelots.pop();
+        }
+    }
+    double avg() const
+    {
+        if (_timelots.size()) {
+            return _total / _timelots.size();
+        }
+        return 0;
+    }
+
+private:
+    std::queue<double> _timelots;
+    double _total = 0;
+    uint32_t _maxTimeLotNum = 0;
 };
 
 class FileWriter {

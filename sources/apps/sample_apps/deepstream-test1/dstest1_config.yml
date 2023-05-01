@@ -28,3 +28,12 @@ streammux:
   batched-push-timeout: 40000
   width: 1920
   height: 1080
+
+# Inference using nvinfer:
+primary-gie:
+  plugin-type: 0
+  config-file-path: dstest1_pgie_config.yml
+## Inference using nvinferserver:
+#primary-gie:
+#  plugin-type: 1
+#  config-file-path: dstest1_pgie_nvinferserver_config.txt

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -186,7 +186,6 @@ int main(int argc, char *argv[])
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *tiler = NULL, *nvof = NULL,
                *nvofvisual = NULL, *of_queue = NULL, *ofvisual_queue = NULL;
-    GstElement *transform = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     guint i, num_sources;
@@ -275,21 +274,18 @@ int main(int argc, char *argv[])
 
     /* Finally render the osd output */
     if (prop.integrated) {
-        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
-
-        if (!transform) {
-            g_printerr("nvegltransform element could not be created. Exiting.\n");
-            return -1;
-        }
+        sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
+    } else {
+        sink = gst_element_factory_make("nveglglessink", "nvelgglessink");
     }
-    sink = gst_element_factory_make("nveglglessink", "nvelgglessink");
 
     if (!nvof || !nvofvisual || !tiler || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    g_object_set(G_OBJECT(streammux), "batch-size", num_sources, "sync-inputs", TRUE, NULL);
+    g_object_set(G_OBJECT(streammux), "batch-size", num_sources, "sync-inputs", TRUE, "live-source",
+                 1, NULL);
 
     if (!use_new_mux) {
         g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
@@ -313,24 +309,13 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    if (prop.integrated) {
-        gst_bin_add_many(GST_BIN(pipeline), nvof, of_queue, nvofvisual, ofvisual_queue, tiler,
-                         transform, sink, NULL);
+    gst_bin_add_many(GST_BIN(pipeline), nvof, of_queue, nvofvisual, ofvisual_queue, tiler, sink,
+                     NULL);
 
-        if (!gst_element_link_many(streammux, nvof, of_queue, nvofvisual, ofvisual_queue, tiler,
-                                   transform, sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-    } else {
-        gst_bin_add_many(GST_BIN(pipeline), nvof, of_queue, nvofvisual, ofvisual_queue, tiler, sink,
-                         NULL);
-
-        if (!gst_element_link_many(streammux, nvof, of_queue, nvofvisual, ofvisual_queue, tiler,
-                                   sink, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
+    if (!gst_element_link_many(streammux, nvof, of_queue, nvofvisual, ofvisual_queue, tiler, sink,
+                               NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
     }
 
     /* Set the pipeline to "playing" state */

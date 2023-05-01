@@ -57,7 +57,7 @@ class GuardDataFilter : public GuardDataProcess<abiDataFilter> {
 
 public:
     template <typename... Args>
-    GuardDataFilter(Args &&... args) : _Base(std::forward<Args>(args)...)
+    GuardDataFilter(Args &&...args) : _Base(std::forward<Args>(args)...)
     {
     }
     ~GuardDataFilter() = default;

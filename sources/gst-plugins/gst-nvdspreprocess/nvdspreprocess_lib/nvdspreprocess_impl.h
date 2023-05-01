@@ -53,7 +53,10 @@
         move_copy(std::move(o)); \
         return *this;            \
     }                            \
-    Cls(Cls &&o) { move_copy(std::move(o)); }
+    Cls(Cls &&o)                 \
+    {                            \
+        move_copy(std::move(o)); \
+    }
 
 /** helper check safe string in C */
 inline const char *safeStr(const std::string &str)

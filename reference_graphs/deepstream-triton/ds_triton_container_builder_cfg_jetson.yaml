@@ -24,7 +24,7 @@ apt_deps:
 - rsync
 
 local_copy_files:
-- src: "/opt/nvidia/graph-composer/graph_composer-2.0.1_arm64.deb"
+- src: "/opt/nvidia/graph-composer/graph_composer-2.5.0_arm64.deb"
   dst: "/tmp/"
 
 - src: "deepstream-triton.parameters.container.yaml"
@@ -37,7 +37,7 @@ local_copy_files:
   dst: "/workspace/deepstream-triton/model-repo/ssd_inception_v2_coco_2018_01_28/"
 
 custom_runs:
- - "apt install -y /tmp/graph_composer-2.0.1_arm64.deb && rm -rf /tmp/graph_composer-2.0.1_arm64.deb"
+ - "apt install -y /tmp/graph_composer-2.5.0_arm64.deb && rm -rf /tmp/graph_composer-2.5.0_arm64.deb"
 
 http_archives:
 - url: http://download.tensorflow.org/models/object_detection/ssd_inception_v2_coco_2018_01_28.tar.gz

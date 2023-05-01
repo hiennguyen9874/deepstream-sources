@@ -132,9 +132,15 @@ public:
         return 0;
     }
 
-    void terminate() noexcept override { CHECK(cublasDestroy(mCublas)); }
+    void terminate() noexcept override
+    {
+        CHECK(cublasDestroy(mCublas));
+    }
 
-    size_t getWorkspaceSize(int) const noexcept override { return 0; }
+    size_t getWorkspaceSize(int) const noexcept override
+    {
+        return 0;
+    }
 
     int enqueue(int batchSize,
                 void const *const *inputs,
@@ -214,11 +220,20 @@ public:
     {
         return (type == DataType::kFLOAT && format == PluginFormat::kLINEAR);
     }
-    const char *getPluginType() const noexcept override { return "FlattenConcat_TRT"; }
+    const char *getPluginType() const noexcept override
+    {
+        return "FlattenConcat_TRT";
+    }
 
-    const char *getPluginVersion() const noexcept override { return "1"; }
+    const char *getPluginVersion() const noexcept override
+    {
+        return "1";
+    }
 
-    void destroy() noexcept override { delete this; }
+    void destroy() noexcept override
+    {
+        delete this;
+    }
 
     IPluginV2 *clone() const noexcept override
     {
@@ -231,7 +246,10 @@ public:
         mNamespace = libNamespace;
     }
 
-    const char *getPluginNamespace() const noexcept override { return mNamespace.c_str(); }
+    const char *getPluginNamespace() const noexcept override
+    {
+        return mNamespace.c_str();
+    }
 
 private:
     template <typename T>

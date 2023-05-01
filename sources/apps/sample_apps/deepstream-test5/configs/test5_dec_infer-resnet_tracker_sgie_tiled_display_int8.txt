@@ -95,6 +95,7 @@ type=6
 msg-conv-config=dstest5_msgconv_sample_config.txt
 #(0): PAYLOAD_DEEPSTREAM - Deepstream schema payload
 #(1): PAYLOAD_DEEPSTREAM_MINIMAL - Deepstream schema payload minimal
+#(2): PAYLOAD_DEEPSTREAM_PROTOBUF - Deepstream schema protobuf encoded payload
 #(256): PAYLOAD_RESERVED - Reserved type
 #(257): PAYLOAD_CUSTOM   - Custom schema payload
 msg-conv-payload-type=0
@@ -134,6 +135,7 @@ enable=0
 msg-conv-config=dstest5_msgconv_sample_config.txt
 #(0): PAYLOAD_DEEPSTREAM - Deepstream schema payload
 #(1): PAYLOAD_DEEPSTREAM_MINIMAL - Deepstream schema payload minimal
+#(2): PAYLOAD_DEEPSTREAM_PROTOBUF - Deepstream schema protobuf payload
 #(256): PAYLOAD_RESERVED - Reserved type
 #(257): PAYLOAD_CUSTOM   - Custom schema payload
 msg-conv-payload-type=0
@@ -212,15 +214,16 @@ config-file=../../../../../samples/configs/deepstream-app/config_infer_primary.t
 
 [tracker]
 enable=1
-# For NvDCF and DeepSORT tracker, tracker-width and tracker-height must be a multiple of 32, respectively
+# For NvDCF and NvDeepSORT tracker, tracker-width and tracker-height must be a multiple of 32, respectively
 tracker-width=640
 tracker-height=384
 ll-lib-file=/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
 # ll-config-file required to set different tracker types
 # ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_IOU.yml
+# ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_NvSORT.yml
 ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml
 # ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_NvDCF_accuracy.yml
-# ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_DeepSORT.yml
+# ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_NvDeepSORT.yml
 gpu-id=0
 enable-batch-process=1
 enable-past-frame=1

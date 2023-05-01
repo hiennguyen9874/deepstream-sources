@@ -73,10 +73,14 @@ typedef struct _NvDsObjEncUsrArgs {
     int objNum;
     /** Image quality value */
     int quality;
+    /** Variable for frame/object encoding.
+     * 1: Encodes the entire frame.
+     * 0: Encodes object of specified resolution. */
+    bool isFrame;
 } NvDsObjEncUsrArgs;
 
 /** Create context and return a handle to NvObjEncCtx */
-NvDsObjEncCtxHandle nvds_obj_enc_create_context(void);
+NvDsObjEncCtxHandle nvds_obj_enc_create_context(int);
 
 /** Enqueue an object crop for JPEG encode.
  * This is a non-blocking call and user should call nvds_obj_enc_finish()
