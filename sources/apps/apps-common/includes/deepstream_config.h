@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -63,6 +63,7 @@
 #define NVDS_ELEM_STREAM_DEMUX "nvstreamdemux"
 #define NVDS_ELEM_TILER "nvmultistreamtiler"
 #define NVDS_ELEM_OSD "nvdsosd"
+#define NVDS_ELEM_SEGVISUAL "nvsegvisual"
 #define NVDS_ELEM_DSANALYTICS_ELEMENT "nvdsanalytics"
 #define NVDS_ELEM_DSEXAMPLE_ELEMENT "dsexample"
 

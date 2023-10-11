@@ -37,13 +37,14 @@
 #if __GNUC__ >= 8
 #pragma GCC diagnostic ignored "-Wclass-memaccess"
 #endif
+#ifdef WITH_OPENCV
 #include "opencv2/imgproc/imgproc.hpp"
+#endif
 #pragma GCC diagnostic pop
 
 #include "gstnvdsmeta.h"
 #include "nvdsmeta_schema.h"
 
-using namespace cv;
 using namespace std;
 
 #define MAX_DISPLAY_LEN 64
@@ -93,6 +94,7 @@ GOptionEntry entries[] = {
     {"no-display", 0, 0, G_OPTION_ARG_NONE, &display_off, "Disable display", NULL},
     {NULL}};
 
+#ifdef WITH_OPENCV
 static void resizeMask(float *src,
                        int original_width,
                        int original_height,
@@ -144,7 +146,7 @@ static void resizeMask(float *src,
         }
     }
 }
-
+#endif
 static void generate_ts_rfc3339(char *buf, int buf_size)
 {
     time_t tloc;
@@ -279,6 +281,7 @@ static void meta_free_func(gpointer data, gpointer user_data)
     user_meta->user_meta_data = NULL;
 }
 
+#ifdef WITH_OPENCV
 static GList *generate_mask_polygon(float *mask,
                                     int mask_width,
                                     int mask_height,
@@ -292,7 +295,7 @@ static GList *generate_mask_polygon(float *mask,
 
     resizeMask(mask, mask_width, mask_height, dst, threshold);
 
-    findContours(dst, contours, RETR_TREE, CHAIN_APPROX_SIMPLE);
+    findContours(dst, contours, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
 
     for (size_t i = 0; i < contours.size(); i++) {
         GArray *polygon;
@@ -309,6 +312,7 @@ static GList *generate_mask_polygon(float *mask,
     }
     return mask_list;
 }
+#endif
 
 static void generate_vehicle_meta(gpointer data, NvDsObjectMeta *obj_params)
 {
@@ -321,10 +325,12 @@ static void generate_vehicle_meta(gpointer data, NvDsObjectMeta *obj_params)
     obj->license = g_strdup("XX1234");
     obj->region = g_strdup("CA");
 
+#ifdef WITH_OPENCV
     obj->mask =
         generate_mask_polygon(obj_params->mask_params.data, obj_params->mask_params.width,
                               obj_params->mask_params.height, obj_params->rect_params.width,
                               obj_params->rect_params.height, obj_params->mask_params.threshold);
+#endif
 }
 
 static void generate_person_meta(gpointer data, NvDsObjectMeta *obj_params)
@@ -336,10 +342,12 @@ static void generate_person_meta(gpointer data, NvDsObjectMeta *obj_params)
     obj->gender = g_strdup("male");
     obj->apparel = g_strdup("formal");
 
+#ifdef WITH_OPENCV
     obj->mask =
         generate_mask_polygon(obj_params->mask_params.data, obj_params->mask_params.width,
                               obj_params->mask_params.height, obj_params->rect_params.width,
                               obj_params->rect_params.height, obj_params->mask_params.threshold);
+#endif
 }
 
 static void generate_event_msg_meta(gpointer data, gint class_id, NvDsObjectMeta *obj_params)

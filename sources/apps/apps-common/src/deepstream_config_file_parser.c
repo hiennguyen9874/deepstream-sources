@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -84,7 +84,10 @@ GST_DEBUG_CATEGORY(APP_CFG_PARSER_CAT);
 #define CONFIG_GROUP_STREAMMUX_MAX_LATENCY "max-latency"
 #define CONFIG_GROUP_STREAMMUX_ASYNC_PROCESS "async-process"
 #define CONFIG_GROUP_STREAMMUX_DROP_PIPELINE_EOS "drop-pipeline-eos"
-
+#define CONFIG_GROUP_STREAMMUX_NUM_SURFACES_PER_FRAME "num-surfaces-per-frame"
+#define CONFIG_GROUP_SEGVISUAL_WIDTH "width"
+#define CONFIG_GROUP_SEGVISUAL_HEIGHT "height"
+#define CONFIG_GROUP_SEGVISUAL_BATCH_SIZE "batch-size"
 #define CONFIG_GROUP_OSD_MODE "process-mode"
 #define CONFIG_GROUP_OSD_BORDER_WIDTH "border-width"
 #define CONFIG_GROUP_OSD_BORDER_COLOR "border-color"
@@ -105,6 +108,7 @@ GST_DEBUG_CATEGORY(APP_CFG_PARSER_CAT);
 #define CONFIG_GROUP_DEWARPER_CONFIG_FILE "config-file"
 #define CONFIG_GROUP_DEWARPER_SOURCE_ID "source-id"
 #define CONFIG_GROUP_DEWARPER_NUM_SURFACES_PER_FRAME "num-surfaces-per-frame"
+#define CONFIG_GROUP_DEWARPER_NUM_OUTPUT_BUFFERS "num-output-buffers"
 
 #define CONFIG_GROUP_PREPROCESS_CONFIG_FILE "config-file"
 
@@ -134,14 +138,13 @@ GST_DEBUG_CATEGORY(APP_CFG_PARSER_CAT);
 #define CONFIG_GROUP_TRACKER_SURFACE_TYPE "tracker-surface-type"
 #define CONFIG_GROUP_TRACKER_LL_CONFIG_FILE "ll-config-file"
 #define CONFIG_GROUP_TRACKER_LL_LIB_FILE "ll-lib-file"
-#define CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS "enable-batch-process"
-#define CONFIG_GROUP_TRACKER_ENABLE_PAST_FRAME "enable-past-frame"
 #define CONFIG_GROUP_TRACKER_TRACKING_SURFACE_TYPE "tracking-surface-type"
 #define CONFIG_GROUP_TRACKER_DISPLAY_TRACKING_ID "display-tracking-id"
 #define CONFIG_GROUP_TRACKER_TRACKING_ID_RESET_MODE "tracking-id-reset-mode"
 #define CONFIG_GROUP_TRACKER_INPUT_TENSOR_META "input-tensor-meta"
 #define CONFIG_GROUP_TRACKER_TENSOR_META_GIE_ID "tensor-meta-gie-id"
 #define CONFIG_GROUP_TRACKER_COMPUTE_HW "compute-hw"
+#define CONFIG_GROUP_TRACKER_USER_META_POOL_SIZE "user-meta-pool-size"
 
 #define CONFIG_GROUP_SINK_TYPE "type"
 #define CONFIG_GROUP_SINK_WIDTH "width"
@@ -156,6 +159,7 @@ GST_DEBUG_CATEGORY(APP_CFG_PARSER_CAT);
 #define CONFIG_GROUP_SINK_IFRAMEINTERVAL "iframeinterval"
 #define CONFIG_GROUP_SINK_COPY_META "copy-meta"
 #define CONFIG_GROUP_SINK_OUTPUT_IO_MODE "output-io-mode"
+#define CONFIG_GROUP_SINK_SW_PRESET "sw-preset"
 #define CONFIG_GROUP_SINK_OUTPUT_FILE "output-file"
 #define CONFIG_GROUP_SINK_SOURCE_ID "source-id"
 #define CONFIG_GROUP_SINK_RTSP_PORT "rtsp-port"
@@ -232,6 +236,10 @@ GST_DEBUG_CATEGORY(APP_CFG_PARSER_CAT);
 
 #define N_DECODE_SURFACES 16
 #define N_EXTRA_SURFACES 1
+
+#define SEG_OUTPUT_WIDTH 1280
+#define SEG_OUTPUT_HEIGHT 720
+
 gchar *get_absolute_file_path(gchar *cfg_file_path, gchar *file_path)
 {
     gchar abs_cfg_path[PATH_MAX + 1];
@@ -706,6 +714,11 @@ gboolean parse_streammux(NvDsStreammuxConfig *config, GKeyFile *key_file, gchar 
             config->no_pipeline_eos = g_key_file_get_boolean(
                 key_file, CONFIG_GROUP_STREAMMUX, CONFIG_GROUP_STREAMMUX_DROP_PIPELINE_EOS, &error);
             CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_STREAMMUX_NUM_SURFACES_PER_FRAME)) {
+            config->num_surface_per_frame =
+                g_key_file_get_integer(key_file, CONFIG_GROUP_STREAMMUX,
+                                       CONFIG_GROUP_STREAMMUX_NUM_SURFACES_PER_FRAME, &error);
+            CHECK_ERROR(error);
         } else {
             NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_STREAMMUX);
         }
@@ -809,6 +822,66 @@ gboolean parse_dsexample(NvDsDsExampleConfig *config, GKeyFile *key_file)
             CHECK_ERROR(error);
         } else {
             NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_DSEXAMPLE);
+        }
+    }
+
+    ret = TRUE;
+done:
+    if (error) {
+        g_error_free(error);
+    }
+    if (keys) {
+        g_strfreev(keys);
+    }
+    if (!ret) {
+        NVGSTDS_ERR_MSG_V("%s failed", __func__);
+    }
+    return ret;
+}
+
+gboolean parse_segvisual(NvDsSegVisualConfig *config, GKeyFile *key_file)
+{
+    gboolean ret = FALSE;
+    gchar **keys = NULL;
+    gchar **key = NULL;
+    GError *error = NULL;
+
+    /** Default values */
+    config->height = SEG_OUTPUT_HEIGHT;
+    config->width = SEG_OUTPUT_WIDTH;
+    config->gpu_id = 0;
+    config->max_batch_size = 1;
+    config->nvbuf_memory_type = 0;
+
+    keys = g_key_file_get_keys(key_file, CONFIG_GROUP_SEGVISUAL, NULL, &error);
+    CHECK_ERROR(error);
+    for (key = keys; *key; key++) {
+        if (!g_strcmp0(*key, CONFIG_GROUP_ENABLE)) {
+            config->enable = g_key_file_get_integer(key_file, CONFIG_GROUP_SEGVISUAL,
+                                                    CONFIG_GROUP_ENABLE, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SEGVISUAL_WIDTH)) {
+            config->width = g_key_file_get_integer(key_file, CONFIG_GROUP_SEGVISUAL,
+                                                   CONFIG_GROUP_SEGVISUAL_WIDTH, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SEGVISUAL_HEIGHT)) {
+            config->height = g_key_file_get_integer(key_file, CONFIG_GROUP_SEGVISUAL,
+                                                    CONFIG_GROUP_SEGVISUAL_HEIGHT, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SEGVISUAL_BATCH_SIZE)) {
+            config->max_batch_size = g_key_file_get_integer(
+                key_file, CONFIG_GROUP_SEGVISUAL, CONFIG_GROUP_SEGVISUAL_BATCH_SIZE, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_NVBUF_MEMORY_TYPE)) {
+            config->nvbuf_memory_type = g_key_file_get_integer(key_file, CONFIG_GROUP_SEGVISUAL,
+                                                               CONFIG_NVBUF_MEMORY_TYPE, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GPU_ID)) {
+            config->gpu_id =
+                g_key_file_get_integer(key_file, CONFIG_GROUP_SEGVISUAL, CONFIG_GPU_ID, &error);
+            CHECK_ERROR(error);
+        } else {
+            NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_SEGVISUAL);
         }
     }
 
@@ -966,43 +1039,54 @@ done:
     return ret;
 }
 
-gboolean parse_dewarper(NvDsDewarperConfig *config, GKeyFile *key_file, gchar *cfg_file_path)
+gboolean parse_dewarper(NvDsDewarperConfig *config,
+                        GKeyFile *key_file,
+                        gchar *cfg_file_path,
+                        gchar *dewarper)
 {
     gboolean ret = FALSE;
     gchar **keys = NULL;
     gchar **key = NULL;
     GError *error = NULL;
+    // gchar *dewarper = g_strdup_printf("dewarper%d", config->source_id);
 
-    keys = g_key_file_get_keys(key_file, CONFIG_GROUP_DEWARPER, NULL, &error);
+    keys = g_key_file_get_keys(key_file, dewarper, NULL, &error);
     CHECK_ERROR(error);
     for (key = keys; *key; key++) {
         if (!g_strcmp0(*key, CONFIG_GROUP_ENABLE)) {
-            config->enable = g_key_file_get_integer(key_file, CONFIG_GROUP_DEWARPER,
-                                                    CONFIG_GROUP_ENABLE, &error);
+            config->enable =
+                g_key_file_get_integer(key_file, dewarper, CONFIG_GROUP_ENABLE, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GPU_ID)) {
-            config->gpu_id =
-                g_key_file_get_integer(key_file, CONFIG_GROUP_DEWARPER, CONFIG_GPU_ID, &error);
+            config->gpu_id = g_key_file_get_integer(key_file, dewarper, CONFIG_GPU_ID, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_DEWARPER_CONFIG_FILE)) {
             config->config_file = get_absolute_file_path(
-                cfg_file_path, g_key_file_get_string(key_file, CONFIG_GROUP_DEWARPER,
+                cfg_file_path, g_key_file_get_string(key_file, dewarper,
                                                      CONFIG_GROUP_DEWARPER_CONFIG_FILE, &error));
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_NVBUF_MEMORY_TYPE)) {
-            config->nvbuf_memory_type = g_key_file_get_integer(key_file, CONFIG_GROUP_DEWARPER,
-                                                               CONFIG_NVBUF_MEMORY_TYPE, &error);
+            config->nvbuf_memory_type =
+                g_key_file_get_integer(key_file, dewarper, CONFIG_NVBUF_MEMORY_TYPE, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_DEWARPER_NUM_SURFACES_PER_FRAME)) {
-            config->num_surfaces_per_frame =
-                g_key_file_get_integer(key_file, CONFIG_GROUP_DEWARPER,
-                                       CONFIG_GROUP_DEWARPER_NUM_SURFACES_PER_FRAME, &error);
+            config->num_surfaces_per_frame = g_key_file_get_integer(
+                key_file, dewarper, CONFIG_GROUP_DEWARPER_NUM_SURFACES_PER_FRAME, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_DEWARPER_SOURCE_ID)) {
+            guint source_id =
+                g_key_file_get_integer(key_file, dewarper, CONFIG_GROUP_DEWARPER_SOURCE_ID, &error);
+            config->source_id = source_id;
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_DEWARPER_NUM_OUTPUT_BUFFERS)) {
+            config->num_out_buffers = g_key_file_get_integer(
+                key_file, dewarper, CONFIG_GROUP_DEWARPER_NUM_OUTPUT_BUFFERS, &error);
             CHECK_ERROR(error);
         } else {
-            NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_DEWARPER);
+            NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, dewarper);
         }
     }
-
+    // g_free(dewarper);
     ret = TRUE;
 done:
     if (error) {
@@ -1291,13 +1375,12 @@ gboolean parse_tracker(NvDsTrackerConfig *config, GKeyFile *key_file, gchar *cfg
     keys = g_key_file_get_keys(key_file, CONFIG_GROUP_TRACKER, NULL, &error);
     CHECK_ERROR(error);
 
-    config->enable_batch_process = TRUE;
     config->display_tracking_id = TRUE;
-    config->enable_past_frame = FALSE;
     config->tracking_id_reset_mode = 0;
     config->input_tensor_meta = FALSE;
     config->input_tensor_gie_id = 0;
     config->compute_hw = 0;
+    config->user_meta_pool_size = 16;
 
     for (key = keys; *key; key++) {
         if (!g_strcmp0(*key, CONFIG_GROUP_ENABLE)) {
@@ -1330,14 +1413,6 @@ gboolean parse_tracker(NvDsTrackerConfig *config, GKeyFile *key_file, gchar *cfg
                 cfg_file_path, g_key_file_get_string(key_file, CONFIG_GROUP_TRACKER,
                                                      CONFIG_GROUP_TRACKER_LL_LIB_FILE, &error));
             CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS)) {
-            config->enable_batch_process = g_key_file_get_integer(
-                key_file, CONFIG_GROUP_TRACKER, CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS, &error);
-            CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_TRACKER_ENABLE_PAST_FRAME)) {
-            config->enable_past_frame = g_key_file_get_integer(
-                key_file, CONFIG_GROUP_TRACKER, CONFIG_GROUP_TRACKER_ENABLE_PAST_FRAME, &error);
-            CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_TRACKER_TRACKING_SURFACE_TYPE)) {
             config->tracking_surface_type = g_key_file_get_integer(
                 key_file, CONFIG_GROUP_TRACKER, CONFIG_GROUP_TRACKER_TRACKING_SURFACE_TYPE, &error);
@@ -1362,6 +1437,10 @@ gboolean parse_tracker(NvDsTrackerConfig *config, GKeyFile *key_file, gchar *cfg
         } else if (!g_strcmp0(*key, CONFIG_GROUP_TRACKER_COMPUTE_HW)) {
             config->compute_hw = g_key_file_get_integer(key_file, CONFIG_GROUP_TRACKER,
                                                         CONFIG_GROUP_TRACKER_COMPUTE_HW, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_TRACKER_USER_META_POOL_SIZE)) {
+            config->user_meta_pool_size = g_key_file_get_integer(
+                key_file, CONFIG_GROUP_TRACKER, CONFIG_GROUP_TRACKER_USER_META_POOL_SIZE, &error);
             CHECK_ERROR(error);
         } else {
             NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_TRACKER);
@@ -1459,6 +1538,10 @@ gboolean parse_sink(NvDsSinkSubBinConfig *config,
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_OUTPUT_IO_MODE)) {
             config->encoder_config.output_io_mode = (NvDsEncOutputIOMode)g_key_file_get_integer(
                 key_file, group, CONFIG_GROUP_SINK_OUTPUT_IO_MODE, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_SW_PRESET)) {
+            config->encoder_config.sw_preset =
+                g_key_file_get_integer(key_file, group, CONFIG_GROUP_SINK_SW_PRESET, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SINK_BITRATE)) {
             config->encoder_config.bitrate =

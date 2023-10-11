@@ -65,6 +65,7 @@ sink1:
   bitrate: 2000000
   #H264 Profile - 0=Baseline 2=Main 4=High
   #H265 Profile - 0=Main 1=Main10
+  # set profile only for hw encoder, sw encoder selects profile based on sw-preset
   profile: 0
   output-file: out.mp4
   source-id: 0
@@ -81,6 +82,7 @@ sink2:
   bitrate: 4000000
   #H264 Profile - 0=Baseline 2=Main 4=High
   #H265 Profile - 0=Main 1=Main10
+  # set profile only for hw encoder, sw encoder selects profile based on sw-preset
   profile: 0
   # set below properties in case of RTSPStreaming
   rtsp-port: 8554

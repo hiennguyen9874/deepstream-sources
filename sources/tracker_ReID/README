@@ -1,0 +1,108 @@
+################################################################################
+# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+
+This sample shows how to prepare a re-identification (ReID) model for multi-object tracking
+like NvDCF_accuracy or NvDeepSORT on dGPU and Jetson. Users can choose one from
+below three options and then follow the "Run DeepStream tracker" step.
+Option 1 downloads a ready-to-use NVIDIA TAO model with minimum steps to setup.
+ `config_tracker_NvDCF_accuracy.yml` and `config_tracker_NvDeepSORT.yml` in
+`samples/configs/deepstream-app` support option 1 by default.
+
+WARNING: UFF model has been deprecated by TensorRT. Switching to ONNX or NVIDIA
+TAO model is recommended.
+
+Option 1: Use NVIDIA pretrained TAO ReID model
+https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/reidentificationnet
+- Command to run:
+   $ mkdir ../../samples/models/Tracker/
+   $ wget 'https://api.ngc.nvidia.com/v2/models/nvidia/tao/reidentificationnet/versions/deployable_v1.0/files/resnet50_market1501.etlt' -P ../../samples/models/Tracker/
+--------------------------------------------------------------------------------
+Option 2 (deprecated): Use the UFF ReID model in public DeepSORT implementation
+- Visit public DeepSORT GitHub repo https://github.com/nwojke/deep_sort
+  In section "Installation", there is a link to the pre-trained re-identification
+  model. Download the model file `networks/mars-small128.pb` and place it under
+  the current directory `sources/tracker_ReID/`.
+- Generate UFF model from TensorFlow frozen graph. The generation process can be
+  done on both dGPU and Jetson; or the UFF model can be generated on dGPU first
+  and copied to Jetson.
+  1. Package uff-converter-tf and graphsurgeon-tf should be already installed with
+     TensorRT.
+  2. Install PyYAML and tensorflow (tested with 2.11.0):
+     For dGPU:
+       $ pip3 install tensorflow==2.11.0 PyYAML
+     For Jetson, refer to
+     https://docs.nvidia.com/deeplearning/frameworks/install-tf-jetson-platform/index.html
+  3. Update below parameters in tracker config file `ReID` session (keep `reidType` unchanged):
+  # [Reid Network Info]
+  batchSize: 100
+  workspaceSize: 1000
+  reidFeatureSize: 128
+  reidHistorySize: 100
+  inferDims: [128, 64, 3]
+  networkMode: 0
+  # [Input Preprocessing]
+  inputOrder: 1
+  colorFormat: 0
+  offsets: [0.0, 0.0, 0.0]
+  netScaleFactor: 1.0000
+  keepAspc: 1
+  # [Paths and Names]
+  inputBlobName: "images"
+  outputBlobName: "features"
+  uffFile: "/opt/nvidia/deepstream/deepstream/samples/models/Tracker/mars-small128.uff"
+  modelEngineFile: "/opt/nvidia/deepstream/deepstream/samples/models/Tracker/mars-small128.uff_b100_gpu0_fp32.engine"
+
+  4. Run provided script to convert pb model into uff file. The default location is
+     `/opt/nvidia/deepstream/deepstream/samples/models/Tracker/mars-small128.uff`
+     $ python3 convert.py
+     (Run below command on Jetson: $ PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python python3 convert.py)
+- (Optional) Above steps setup the model with fp32/16 precision. To maximize the
+  performance, int8 precision inference can be enabled with a calibration file.
+  1. Find a list of image patches for TensorRT calibration. They should have the same
+  size as network input and provide a representative set of input data. For the official
+  model, they should be single person crops with 128x64 size. Save them under
+  `source/tracker_ReID/data/`.
+  2. Install dependencies: need to install libpython3-dev if not.
+     $ sudo apt install libpython3-dev
+     $ pip3 install numpy pycuda Pillow
+  3. Update network mode in tracker config file (using batch size=100 for example)
+  networkMode: 2
+  modelEngineFile: "/opt/nvidia/deepstream/deepstream/samples/models/Tracker/mars-small128.uff_b100_gpu0_int8.engine"
+  calibrationTableFile: "/opt/nvidia/deepstream/deepstream/samples/models/Tracker/calibration.cache"
+  4. Run provided script to generate calibration table for int8 inference.
+     $ python3 calibrate.py
+--------------------------------------------------------------------------------
+Option 3: Use custom UFF (deprecated) or ONNX model
+- Convert the custom model to UFF or ONNX.
+- Manually modify below parameters in tracker config file based on the custom model architecture.
+  reidFeatureSize: 128
+  inferDims: [128, 64, 3]
+  networkMode: 0
+  inputOrder: 1
+  colorFormat: 0
+  offsets: [0.0, 0.0, 0.0]
+  netScaleFactor: 1.0000
+  addFeatureNormalization: 1
+- UFF model must add below parameters.
+  inputBlobName: "change-to-input-layer-name"
+  outputBlobName: "change-to-output-layer-name"
+  uffFile: "change-to-model-name.uff"
+- ONNX model must add below parameters.
+  onnxFile: "change-to-model-name.onnx"
+--------------------------------------------------------------------------------
+Run DeepStream tracker:
+- Enter `samples/configs/deepstream-app/`. In deepstream-app config, change
+  [tracker] config to use NvDCF_accuracy or NvDeepSORT:
+  ll-config-file=config_tracker_NvDCF_accuracy.yml
+  or
+  ll-config-file=config_tracker_NvDeepSORT.yml
+- Run deepstream-app
+  deepstream-app -c <deepstream-app-config.txt>

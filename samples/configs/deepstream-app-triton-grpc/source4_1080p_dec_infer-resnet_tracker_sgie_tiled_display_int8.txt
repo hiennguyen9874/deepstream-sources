@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021-2023 NVIDIA Corporation.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -76,6 +76,7 @@ sync=0
 bitrate=2000000
 #H264 Profile - 0=Baseline 2=Main 4=High
 #H265 Profile - 0=Main 1=Main10
+# set profile only for hw encoder, sw encoder selects profile based on sw-preset
 profile=0
 output-file=out.mp4
 source-id=0
@@ -93,6 +94,7 @@ sync=0
 bitrate=400000
 #H264 Profile - 0=Baseline 2=Main 4=High
 #H265 Profile - 0=Main 1=Main10
+# set profile only for hw encoder, sw encoder selects profile based on sw-preset
 profile=0
 # set below properties in case of RTSPStreaming
 rtsp-port=8554
@@ -155,14 +157,16 @@ config-file=config_infer_plan_engine_primary.txt
 [tracker]
 enable=1
 # For NvDCF and NvDeepSORT tracker, tracker-width and tracker-height must be a multiple of 32, respectively
-tracker-width=640
-tracker-height=384
+tracker-width=960
+tracker-height=544
 ll-lib-file=/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
 # ll-config-file required to set different tracker types
-ll-config-file=config_tracker_NvDCF_perf.yml
+# ll-config-file=../deepstream-app/config_tracker_IOU.yml
+# ll-config-file=../deepstream-app/config_tracker_NvSORT.yml
+ll-config-file=../deepstream-app/config_tracker_NvDCF_perf.yml
+# ll-config-file=../deepstream-app/config_tracker_NvDCF_accuracy.yml
+# ll-config-file=../deepstream-app/config_tracker_NvDeepSORT.yml
 gpu-id=0
-enable-batch-process=1
-enable-past-frame=1
 display-tracking-id=1
 
 [secondary-gie0]

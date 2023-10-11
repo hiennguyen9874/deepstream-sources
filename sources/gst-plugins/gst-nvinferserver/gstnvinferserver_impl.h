@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -347,6 +347,10 @@ public:
     bool canSupportGpu(int gpuId) const;
     NvDsInferStatus lastError() const;
     const ic::PluginControl &config() const { return m_PluginConfig; }
+    void updateInterval(guint interval)
+    {
+        m_PluginConfig.mutable_input_control()->set_interval(interval);
+    }
 
 private:
     /**

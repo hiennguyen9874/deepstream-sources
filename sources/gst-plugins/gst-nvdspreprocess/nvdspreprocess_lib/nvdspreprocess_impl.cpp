@@ -39,7 +39,7 @@
 /** enable to debug transformation in/out files
  *  with DEBUG_TENSOR in plugin enabled
  */
-//#define DEBUG_LIB
+// #define DEBUG_LIB
 
 /** This file contains the preprocessing for network requirements.
  * It does mean subtraction and normalization of input pixels

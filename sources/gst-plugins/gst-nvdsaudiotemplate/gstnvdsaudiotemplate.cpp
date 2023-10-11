@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -144,8 +144,11 @@ static GstCaps *gst_nvdsaudiotemplate_fixate_caps(GstBaseTransform *btrans,
                                                   GstCaps *othercaps)
 {
     GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
+    GstCaps *outcaps = NULL;
 
-    return nvdsaudiotemplate->algo_ctx->GetCompatibleCaps(direction, caps, othercaps);
+    outcaps = nvdsaudiotemplate->algo_ctx->GetCompatibleCaps(direction, caps, othercaps);
+    gst_caps_set_simple(outcaps, "gpu-id", G_TYPE_INT, nvdsaudiotemplate->gpu_id, NULL);
+    return outcaps;
 }
 
 static GstCaps *gst_nvdsaudiotemplate_transform_caps(GstBaseTransform *trans,
@@ -652,7 +655,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_audiotemplate,
                   DESCRIPTION,
                   dsaudiotemplate_plugin_init,
-                  "6.2",
+                  "6.3",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

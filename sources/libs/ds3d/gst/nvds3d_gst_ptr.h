@@ -15,7 +15,7 @@
 
 #include <ds3d/common/hpp/dataloader.hpp>
 #include <ds3d/common/hpp/datamap.hpp>
-//#include <ds3d/common/hpp/datamap.hpp>
+// #include <ds3d/common/hpp/datamap.hpp>
 
 #include <gst/gst.h>
 #include <gst/gstminiobject.h>
@@ -152,7 +152,7 @@ class ElePtr : public GstObjPtr<GstElement> {
 public:
     ElePtr(GstElement *ele, bool takeOwner = true)
         : GstObjPtr<GstElement>(ele,
-                                (GST_ELEMENT_NAME(ele) ? GST_ELEMENT_NAME(ele) : ""),
+                                ((ele && GST_ELEMENT_NAME(ele)) ? GST_ELEMENT_NAME(ele) : ""),
                                 takeOwner)
     {
     }
@@ -175,6 +175,16 @@ public:
                              "link element %s to %s failed", name().c_str(), next.name().c_str());
         return next;
     }
+
+    ElePtr &link(ElePtr &next, std::string &sinkPadName)
+    {
+        auto srcPad = gst_element_get_static_pad(get(), "src");
+        auto sinkPad = gst_element_get_request_pad(next.get(), sinkPadName.c_str());
+        DS3D_THROW_ERROR_FMT(gst_pad_link(srcPad, sinkPad) == GST_PAD_LINK_OK, ErrCode::kGst,
+                             "link element %s[%s] to %s[%s] failed", name().c_str(), "src",
+                             next.name().c_str(), sinkPadName.c_str());
+        return next;
+    }
 };
 
 inline ElePtr elementMake(const std::string &factoryName, const std::string &name = "")
@@ -186,6 +196,106 @@ inline ElePtr elementMake(const std::string &factoryName, const std::string &nam
     DS_ASSERT(ele);
     return ptr;
 }
+
+class BinPtr : public ElePtr {
+public:
+    template <typename... Args>
+    BinPtr(Args &&...args) : ElePtr(std::forward<Args>(args)...)
+    {
+    }
+    ~BinPtr() = default;
+
+    BinPtr &pushBack(const ElePtr &element)
+    {
+        DS3D_THROW_ERROR_FMT(gst_bin_add(GST_BIN(get()), element.copy()), ErrCode::kGst,
+                             "add element: %s to bin: %s failed", element.name().c_str(),
+                             name().c_str());
+        _list.push_back(element);
+        return *this;
+    }
+
+    BinPtr &pushFront(const ElePtr &element)
+    {
+        DS3D_THROW_ERROR_FMT(gst_bin_add(GST_BIN(get()), element.copy()), ErrCode::kGst,
+                             "add element: %s to bin: %s failed", element.name().c_str(),
+                             name().c_str());
+        _list.push_front(element);
+        return *this;
+    }
+
+    ElePtr addSrcQueue(bool link = true, const ElePtr &back = nullptr)
+    {
+        ElePtr lastEle = back;
+        std::string lastEleName;
+        if (back) {
+            lastEleName = back.name();
+        } else if (!_list.empty()) {
+            lastEle = _list.back();
+            lastEleName = lastEle.name();
+        }
+        gst::ElePtr q(gst_element_factory_make("queue", (lastEleName + "_src_queue").c_str()));
+        DS_ASSERT(q);
+        pushBack(q);
+
+        if (lastEle && link) {
+            lastEle.link(q);
+        }
+        return q;
+    }
+
+    ElePtr addSinkQueue(bool link = true, const ElePtr &front = nullptr)
+    {
+        ElePtr firstEle = front;
+        std::string firstEleName;
+        if (front) {
+            firstEleName = front.name();
+        } else if (!_list.empty()) {
+            firstEle = _list.front();
+            firstEleName = firstEle.name();
+        }
+        gst::ElePtr q(gst_element_factory_make("queue", (firstEleName + "_sink_queue").c_str()));
+        DS_ASSERT(q);
+        pushFront(q);
+
+        if (firstEle && link) {
+            q.link(firstEle);
+        }
+        return q;
+    }
+
+    ErrCode addGhostSinkPad(const ElePtr &sinkEle = nullptr)
+    {
+        const char *padName = "sink";
+        ElePtr element = sinkEle;
+        if (!sinkEle && !_list.empty()) {
+            element = _list.front();
+        }
+        DS3D_FAILED_RETURN(element, ErrCode::kGst, "No sink element found in bin");
+        gst::PadPtr sinkPad = element.staticPad(padName);
+        DS_ASSERT(sinkPad);
+        DS3D_FAILED_RETURN(gst_element_add_pad(get(), gst_ghost_pad_new(padName, sinkPad.get())),
+                           ErrCode::kGst, "Failed to add ghost sink pad into bin");
+        return ErrCode::kGood;
+    }
+
+    ErrCode addGhostSrcPad(const ElePtr &srcEle = nullptr)
+    {
+        const char *padName = "src";
+        ElePtr element = srcEle;
+        if (!srcEle && !_list.empty()) {
+            element = _list.back();
+        }
+        DS3D_FAILED_RETURN(element, ErrCode::kGst, "No src element found in bin");
+        gst::PadPtr srcPad = element.staticPad(padName);
+        DS_ASSERT(srcPad);
+        DS3D_FAILED_RETURN(gst_element_add_pad(get(), gst_ghost_pad_new(padName, srcPad.get())),
+                           ErrCode::kGst, "Failed to add ghost src pad into bin");
+        return ErrCode::kGood;
+    }
+
+private:
+    std::deque<ElePtr> _list;
+};
 
 } // namespace gst
 } // namespace ds3d

@@ -82,5 +82,5 @@ gst_properties:
   async: False
   drop: False
 config_body:
-  frames_save_path: ../datas/
+  frames_save_path: ../data/
   input_datamap_key: DS3D::Lidar3DBboxRawData

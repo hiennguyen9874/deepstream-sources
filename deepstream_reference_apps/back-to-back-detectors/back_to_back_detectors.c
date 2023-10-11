@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,14 @@
  * When set to 1, it will act as secondary(operates on primary detected objects). */
 #define SECOND_DETECTOR_IS_SECONDARY 1
 
+#define NVINFER_PLUGIN "nvinfer"
+#define NVINFERSERVER_PLUGIN "nvinferserver"
+
+#define INFER_PGIE_CONFIG_FILE "primary_detector_config.txt"
+#define INFER_SGIE_CONFIG_FILE "secondary_detector_config.txt"
+#define INFERSERVER_PGIE_CONFIG_FILE "inferserver/primary_detector_config.txt"
+#define INFERSERVER_SGIE_CONFIG_FILE "inferserver/secondary_detector_config.txt"
+
 /* The muxer output resolution must be set if the input streams will be of
  * different resolution. The muxer will scale all the input frames to this
  * resolution. */
@@ -61,7 +69,6 @@ static GstPadProbeReturn nvvidconv_sink_pad_buffer_probe(GstPad *pad,
     guint vehicle_count = 0;
     guint person_count = 0;
     guint face_count = 0;
-    guint lp_count = 0;
     NvDsMetaList *l_frame = NULL;
     NvDsMetaList *l_obj = NULL;
     NvDsDisplayMeta *display_meta = NULL;
@@ -91,13 +98,6 @@ static GstPadProbeReturn nvvidconv_sink_pad_buffer_probe(GstPad *pad,
                         g_print("Face found for parent object %p (type=%s)\n", obj_meta->parent,
                                 pgie_classes_str[obj_meta->parent->class_id]);
                 }
-                if (obj_meta->class_id == SGIE_CLASS_ID_LP) {
-                    lp_count++;
-                    /* Print this info only when operating in secondary model. */
-                    if (SECOND_DETECTOR_IS_SECONDARY)
-                        g_print("License plate found for parent object %p (type=%s)\n",
-                                obj_meta->parent, pgie_classes_str[obj_meta->parent->class_id]);
-                }
             }
         }
         display_meta = nvds_acquire_display_meta_from_pool(batch_meta);
@@ -109,8 +109,6 @@ static GstPadProbeReturn nvvidconv_sink_pad_buffer_probe(GstPad *pad,
                            vehicle_count);
         offset +=
             snprintf(txt_params->display_text + offset, MAX_DISPLAY_LEN, "Face = %d ", face_count);
-        offset += snprintf(txt_params->display_text + offset, MAX_DISPLAY_LEN,
-                           "License Plate = %d ", lp_count);
 
         /* Now set the offsets where the string should appear */
         txt_params->x_offset = 10;
@@ -136,8 +134,8 @@ static GstPadProbeReturn nvvidconv_sink_pad_buffer_probe(GstPad *pad,
 
     g_print(
         "Frame Number = %d Vehicle Count = %d Person Count = %d"
-        " Face Count = %d License Plate Count = %d\n",
-        frame_number, vehicle_count, person_count, face_count, lp_count);
+        " Face Count = %d\n",
+        frame_number, vehicle_count, person_count, face_count);
     frame_number++;
     return GST_PAD_PROBE_OK;
 }
@@ -168,6 +166,12 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
     return TRUE;
 }
 
+static void usage(const char *bin)
+{
+    g_printerr("Usage: %s <h264_elementary_stream>\n", bin);
+    g_printerr("For nvinferserver, Usage: %s -t inferserver <h264_elementary_stream>\n", bin);
+}
+
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
@@ -177,6 +181,9 @@ int main(int argc, char *argv[])
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *nvvidconv_sink_pad = NULL;
+    gboolean is_nvinfer_server = FALSE;
+    gchar *input_stream = NULL;
+    const char *infer_plugin = NVINFER_PLUGIN;
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -184,9 +191,23 @@ int main(int argc, char *argv[])
     cudaGetDeviceProperties(&prop, current_device);
 
     /* Check input arguments */
-    if (argc != 2) {
-        g_printerr("Usage: %s <H264 filename>\n", argv[0]);
+    if (argc < 2) {
+        usage(argv[0]);
         return -1;
+    }
+
+    if (argc >= 2 && !strcmp("-t", argv[1])) {
+        if (!strcmp("inferserver", argv[2])) {
+            is_nvinfer_server = TRUE;
+        } else {
+            usage(argv[0]);
+            return -1;
+        }
+        g_print("Using nvinferserver as the inference plugin\n");
+    }
+
+    if (is_nvinfer_server) {
+        infer_plugin = NVINFERSERVER_PLUGIN;
     }
 
     /* Standard GStreamer initialization */
@@ -216,9 +237,9 @@ int main(int argc, char *argv[])
     }
 
     /* Create two nvinfer instances for the two back-to-back detectors */
-    primary_detector = gst_element_factory_make("nvinfer", "primary-nvinference-engine1");
+    primary_detector = gst_element_factory_make(infer_plugin, "primary-nvinference-engine1");
 
-    secondary_detector = gst_element_factory_make("nvinfer", "primary-nvinference-engine2");
+    secondary_detector = gst_element_factory_make(infer_plugin, "primary-nvinference-engine2");
 
     /* Use convertor to convert from NV12 to RGBA as required by nvosd */
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
@@ -240,7 +261,13 @@ int main(int argc, char *argv[])
     }
 
     /* we set the input filename to the source element */
-    g_object_set(G_OBJECT(source), "location", argv[1], NULL);
+    if (is_nvinfer_server) {
+        input_stream = argv[3];
+        g_object_set(G_OBJECT(source), "location", argv[3], NULL);
+    } else {
+        input_stream = argv[1];
+        g_object_set(G_OBJECT(source), "location", argv[1], NULL);
+    }
 
     g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
                  "batch-size", 1, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
@@ -249,12 +276,23 @@ int main(int argc, char *argv[])
      * the same detector model twice but making them act as vehicle-only and
      * person-only detectors by adjusting the bbox confidence thresholds in the
      * two seperate config files. */
-    g_object_set(G_OBJECT(primary_detector), "config-file-path", "primary_detector_config.txt",
-                 "unique-id", PRIMARY_DETECTOR_UID, NULL);
+    if (is_nvinfer_server) {
+        g_object_set(G_OBJECT(primary_detector), "config-file-path", INFERSERVER_PGIE_CONFIG_FILE,
+                     "unique-id", PRIMARY_DETECTOR_UID, NULL);
+    } else {
+        g_object_set(G_OBJECT(primary_detector), "config-file-path", INFER_PGIE_CONFIG_FILE,
+                     "unique-id", PRIMARY_DETECTOR_UID, NULL);
+    }
 
-    g_object_set(G_OBJECT(secondary_detector), "config-file-path", "secondary_detector_config.txt",
-                 "unique-id", SECONDARY_DETECTOR_UID, "process-mode",
-                 SECOND_DETECTOR_IS_SECONDARY ? 2 : 1, NULL);
+    if (is_nvinfer_server) {
+        g_object_set(G_OBJECT(secondary_detector), "config-file-path", INFERSERVER_SGIE_CONFIG_FILE,
+                     "unique-id", SECONDARY_DETECTOR_UID, "process-mode",
+                     SECOND_DETECTOR_IS_SECONDARY ? 2 : 1, NULL);
+    } else {
+        g_object_set(G_OBJECT(secondary_detector), "config-file-path", INFER_SGIE_CONFIG_FILE,
+                     "unique-id", SECONDARY_DETECTOR_UID, "process-mode",
+                     SECOND_DETECTOR_IS_SECONDARY ? 2 : 1, NULL);
+    }
 
     /* we add a message handler */
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
@@ -292,7 +330,7 @@ int main(int argc, char *argv[])
 
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder ->
-     * nvinfer -> nvvidconv -> nvosd -> video-renderer */
+     * pgie -> nvvidconv -> nvosd -> video-renderer */
 
     if (!gst_element_link_many(source, h264parser, decoder, NULL)) {
         g_printerr("Elements could not be linked: 1. Exiting.\n");
@@ -316,7 +354,7 @@ int main(int argc, char *argv[])
                           nvvidconv_sink_pad_buffer_probe, NULL, NULL);
 
     /* Set the pipeline to "playing" state */
-    g_print("Now playing: %s\n", argv[1]);
+    g_print("Now playing: %s\n", input_stream);
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 /**
@@ -39,23 +41,37 @@ extern "C" {
 
 #define FLAG(name) GST_EVENT_TYPE_##name
 
-/** Defines supported types of custom events. */
+/** Defines supported types of custom events.
+ *  STICKY and STICKY_MULTI flags are used to ensure that events are not
+ *  dropped in case of leaky queue. */
 typedef enum {
     /** Specifies a custom event to indicate Pad Added. */
-    GST_NVEVENT_PAD_ADDED = GST_EVENT_MAKE_TYPE(400, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    GST_NVEVENT_PAD_ADDED = GST_EVENT_MAKE_TYPE(
+        400,
+        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
     /** Specifies a custom event to indicate Pad Deleted. */
-    GST_NVEVENT_PAD_DELETED = GST_EVENT_MAKE_TYPE(401, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    GST_NVEVENT_PAD_DELETED = GST_EVENT_MAKE_TYPE(
+        401,
+        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
     /** Specifies a custom event to indicate EOS of a particular stream
      in a batch. */
-    GST_NVEVENT_STREAM_EOS = GST_EVENT_MAKE_TYPE(402, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    GST_NVEVENT_STREAM_EOS = GST_EVENT_MAKE_TYPE(
+        402,
+        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
     /** Specifies a custom event to indicate a stream segment. */
-    GST_NVEVENT_STREAM_SEGMENT = GST_EVENT_MAKE_TYPE(403, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    GST_NVEVENT_STREAM_SEGMENT = GST_EVENT_MAKE_TYPE(
+        403,
+        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
     /** Specifies a custom event to indicate reset of a particular stream
      in a batch. */
-    GST_NVEVENT_STREAM_RESET = GST_EVENT_MAKE_TYPE(404, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    GST_NVEVENT_STREAM_RESET = GST_EVENT_MAKE_TYPE(
+        404,
+        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
     /** Specifies a custom event to indicate start of a particular stream
      in a batch. */
-    GST_NVEVENT_STREAM_START = GST_EVENT_MAKE_TYPE(405, FLAG(DOWNSTREAM) | FLAG(SERIALIZED))
+    GST_NVEVENT_STREAM_START =
+        GST_EVENT_MAKE_TYPE(405,
+                            FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI))
 } GstNvEventType;
 #undef FLAG
 

@@ -74,8 +74,6 @@ gie-unique-id=1
 network-type=2
 output-blob-names=conv2d_19/Sigmoid
 segmentation-threshold=0.5
-#parse-bbox-func-name=NvDsInferParseCustomSSD
-#custom-lib-path=nvdsinfer_custom_impl_ssd/libnvdsinfer_custom_impl_ssd.so
 #scaling-filter=0
 #scaling-compute-hw=0
 

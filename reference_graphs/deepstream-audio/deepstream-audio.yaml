@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -12,25 +12,25 @@
 dependencies:
   - extension: NvDsBaseExt
     uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
-    version: 1.2.0
+    version: 1.4.0
   - extension: NvDsInferenceExt
     uuid: 0b02963e-c24e-4c13-ace0-c4cdf36c7c71
-    version: 1.1.0
+    version: 1.3.0
   - extension: NvDsInferenceUtilsExt
     uuid: 27856a43-5ad4-4d8e-be36-0ec2cf9bbb58
-    version: 1.1.1
+    version: 1.3.0
   - extension: NvDsSourceExt
     uuid: a632d022-3425-4848-9074-e6483ef74366
-    version: 1.1.1
+    version: 1.3.0
   - extension: NvDsMuxDemuxExt
     uuid: 89b8398c-5820-4051-835c-a91f2d49766b
-    version: 1.1.0
+    version: 1.3.0
   - extension: NvDsOutputSinkExt
     uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
-    version: 1.1.0
+    version: 1.3.0
   - extension: NvDsSampleModelsExt
     uuid: 909dc1ea-c654-44c1-97a3-0b8fec12141a
-    version: 1.1.0
+    version: 1.3.0
 ---
 components:
   - name: multiple_source_input

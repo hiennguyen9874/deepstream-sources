@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -32,7 +32,7 @@ CC:= g++
 
 TARGET_DEVICE = $(shell g++ -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.2
+NVDS_VERSION:=6.3
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
@@ -52,9 +52,15 @@ CFLAGS+= $(shell pkg-config --cflags $(PKGS))
 
 LIBS:= $(shell pkg-config --libs $(PKGS))
 
-LIBS+= -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart -lnvdsgst_helper -lnvdsgst_customhelper -lm \
-		-L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvds_yml_parser -lssl \
+LIBS+= -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart -lnvdsgst_helper -lnvdsgst_customhelper -lnvds_rest_server -lm \
+		-L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvds_yml_parser \
 		-lcuda -Wl,-rpath,$(LIB_INSTALL_DIR) -lnvds_rest_server
+
+ifeq ($(TARGET_DEVICE),aarch64)
+   LIBS+= -L/usr/lib/aarch64-linux-gnu/tegra/ -lgstnvcustomhelper
+else
+   LIBS+= -L$(LIB_INSTALL_DIR) -lgstnvcustomhelper
+endif
 
 all: $(APP)
 

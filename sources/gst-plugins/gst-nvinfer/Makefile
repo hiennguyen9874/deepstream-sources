@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -19,9 +19,9 @@ SRCS:= gstnvinfer.cpp  gstnvinfer_allocator.cpp gstnvinfer_property_parser.cpp \
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_infer.so
 
-NVDS_VERSION:=6.2
+NVDS_VERSION:=6.3
 
-CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"6.2.0\" \
+CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"6.3.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes \
 	 -I ../gst-nvdspreprocess/include \

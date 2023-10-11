@@ -1,6 +1,6 @@
 ###############################################################################
 #
-# Copyright (c) 2020-2022 NVIDIA CORPORATION.  All Rights Reserved.
+# Copyright (c) 2020-2023 NVIDIA CORPORATION.  All Rights Reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -14,7 +14,7 @@ CC:= g++
 
 PKGS:= glib-2.0 gobject-2.0 json-glib-1.0 uuid
 
-NVDS_VERSION:=6.2
+NVDS_VERSION:=6.3
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 

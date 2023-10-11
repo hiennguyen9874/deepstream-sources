@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 /**
@@ -69,6 +70,23 @@ public:
         return m_BufPtrs[batchIdx];
     }
 
+    /**
+     * @brief Get the offset from start of the memory allocation to the
+     *        buffer pointer. Needed for sharing CUDA memory with Triton
+     *        server.
+     */
+    size_t getBufOffset(uint32_t batchIdx) const override
+    {
+        assert(batchIdx < getBatchSize());
+        if (batchIdx >= getBatchSize())
+            return (size_t)-1;
+        if (m_Surf->isContiguous) {
+            return (char *)m_BufPtrs[batchIdx] - (char *)m_BufPtrs[0];
+        } else {
+            return 0;
+        }
+    }
+
     uint32_t getReservedSize() { return m_ReservedSize; }
     NvBufSurface *getBufSurface() { return m_Surf; }
     InferMediaFormat getColorFormat() const override { return m_ColorFormat; }
@@ -120,6 +138,24 @@ public:
         if (batchIdx >= m_BufSurface.numFilled)
             return nullptr;
         return m_BufSurface.surfaceList[batchIdx].dataPtr;
+    }
+
+    /**
+     * @brief Get the offset from start of the memory allocation to the
+     *        buffer pointer. Needed for sharing CUDA memory with Triton
+     *        server.
+     */
+    size_t getBufOffset(uint32_t batchIdx) const override
+    {
+        assert(batchIdx < m_BufSurface.numFilled);
+        if (batchIdx >= m_BufSurface.numFilled)
+            return (size_t)-1;
+        if (m_BufSurface.isContiguous) {
+            return (char *)m_BufSurface.surfaceList[batchIdx].dataPtr -
+                   (char *)m_BufSurface.surfaceList[0].dataPtr;
+        } else {
+            return 0;
+        }
     }
 
     void append(const NvBufSurfaceParams &params, const NvBufSurfTransformRect &crop)

@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -34,9 +34,9 @@ SRCS:= gstnvdspostprocess.cpp
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_postprocess.so
 
-NVDS_VERSION:=6.2
+NVDS_VERSION:=6.3
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.2.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes -I ./includes  -I /opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/sources/includes \
 	 -std=c++17 -Wall -Werror

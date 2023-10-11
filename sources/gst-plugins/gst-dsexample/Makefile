@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -41,13 +41,13 @@ endif
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_dsexample.so
 
-NVDS_VERSION:=6.2
+NVDS_VERSION:=6.3
 
 DEP:=dsexample_lib/libdsexample.a
 DEP_FILES:=$(wildcard dsexample_lib/dsexample_lib.* )
 DEP_FILES-=$(DEP)
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.2.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes
 

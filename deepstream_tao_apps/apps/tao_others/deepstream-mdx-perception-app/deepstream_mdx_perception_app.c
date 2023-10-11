@@ -92,7 +92,7 @@ typedef enum {
  * see in-code documentation and usage of
  * schema_fill_sample_sgie_vehicle_metadata()
  */
-//#define GENERATE_DUMMY_META_EXT
+// #define GENERATE_DUMMY_META_EXT
 
 /** Following class-ID's
  * used for demonstration code

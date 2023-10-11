@@ -39,7 +39,7 @@ struct BufferPoolConfig {
 
 class DSCustomLibraryBase : public IDSCustomLibrary {
 public:
-    DSCustomLibraryBase();
+    explicit DSCustomLibraryBase(GstBaseTransform *btrans = nullptr);
 
     /* Set Init Parameters */
     virtual bool SetInitParams(DSCustom_CreateParams *params);
@@ -92,9 +92,8 @@ public:
     GstCaps *m_outCaps;
 };
 
-DSCustomLibraryBase::DSCustomLibraryBase()
+DSCustomLibraryBase::DSCustomLibraryBase(GstBaseTransform *btrans) : m_element(btrans)
 {
-    m_element = NULL;
     m_inCaps = NULL;
     m_outCaps = NULL;
     m_gpuId = 0;

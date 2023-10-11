@@ -200,8 +200,12 @@ message ClassificationParams {
 
 /** Deepstream segmentation settings */
 message SegmentationParams {
-  /** reserved field */
+  /** Segmentation threshold */
   float threshold = 1;
+  /** Number of classes detected by the segmentation network. */
+  int32 num_segmentation_classes = 2;
+  /** Custom function for parsing segmentation output */
+  string custom_parse_segmentation_func = 3;
 }
 
 /** Other Network settings, need application to do postprocessing */

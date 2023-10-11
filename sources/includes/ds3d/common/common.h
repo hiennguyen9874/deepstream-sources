@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -15,6 +15,7 @@
 
 #include <ds3d/common/defines.h>
 #include <inttypes.h>
+#include <math.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -59,6 +60,8 @@ enum class ErrCode : int {
     kState = -14,
     kGL = -15,
     kLockWakeup = -16,
+    kCuda = -17,
+    kIncompatible = -18,
     kUnknown = -255,
 };
 
@@ -81,6 +84,11 @@ static constexpr const char *kDepth2ColorExtrinsics = DS3D_KEY_NAME("Depth2Color
 // structure bool
 static constexpr const char *kColorDepthAligned = DS3D_KEY_NAME("ColorDepthAligned");
 
+// get from FrameGuard, N x 3
+static constexpr const char *kTextureVertexKey = DS3D_KEY_NAME("TextureVertexKey");
+// get from FrameGuard, N x 2
+static constexpr const char *kTextureCoordinateKey = DS3D_KEY_NAME("TextureCoordKey");
+
 // structure bool
 static constexpr const char *kEOS = DS3D_KEY_NAME("EndOfStream");
 // get from FrameGuard
@@ -93,8 +101,34 @@ static constexpr const char *kLidarXYZI = DS3D_KEY_NAME("LidarXYZI");
 static constexpr const char *kLidarInferenceParas = DS3D_KEY_NAME("LidarInferenceParas");
 // get from FrameGuard
 static constexpr const char *kLidarRefDataMap = DS3D_KEY_NAME("LidarRefDataMap");
-// get from FrameGuard
+/// get array of Lidar3DBbox from FrameGuard [N, sizeof(Lidar3DBbox)]
 static constexpr const char *kLidar3DBboxRawData = DS3D_KEY_NAME("Lidar3DBboxRawData");
+
+static constexpr const char *kLidarAlignedXYZI = DS3D_KEY_NAME("LidarAlignedXYZIKey");
+static constexpr const char *kCamIntrinsicParm = DS3D_KEY_NAME("CameraIntrinsicParm");
+static constexpr const char *kCamIntrinsicMat = DS3D_KEY_NAME("CameraIntrinsicMatrix");
+static constexpr const char *kLidarToCamExtrinsicMat =
+    DS3D_KEY_NAME("LidarToCameraExtrinsicMatrix");
+
+// VideoBridge2dInput for video/x-raw(memory:NVMM)
+static constexpr const char *kVideoBridge2dData = DS3D_KEY_NAME("VideoBridge2dInput");
+// GstBuffer for video/x-raw(memory:NVMM)
+static constexpr const char *kGstBuffer = DS3D_KEY_NAME("GstBuffer");
+// NvBufSurface for video/x-raw(memory:NVMM)
+static constexpr const char *kNvBufSurface = DS3D_KEY_NAME("NvBufSurface");
+// NvDsBatchMeta for video/x-raw(memory:NVMM) buffer gst meta == batch meta
+static constexpr const char *kNvDsBatchMeta = DS3D_KEY_NAME("NvDsBatchMeta");
+// first frame, set by source
+static constexpr const char *kFirstSourceFrame = DS3D_KEY_NAME("FirstSourceFrame");
+// source id
+static constexpr const char *kSourceId = DS3D_KEY_NAME("SourceId");
+
+/// get array of Object2DBbox from FrameGuard [N, sizeof(Object2DBbox)]
+static constexpr const char *kObject2DBboxKey = DS3D_KEY_NAME("Object2DBboxKey");
+
+/// get array of FusedDetection from FrameGuard [N, sizeof(FusedDetection)]
+static constexpr const char *kFusedDetectionKey = DS3D_KEY_NAME("FusedDetectionKey");
+
 // default caps for input and ouptut
 static constexpr const char *kDefaultDs3dCaps = "ds3d/datamap";
 

@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -33,9 +33,9 @@ SRCS:= gstnvdsaudiotemplate.cpp
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_audiotemplate.so
 
-NVDS_VERSION:=6.2
+NVDS_VERSION:=6.3
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.2.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes -I ./common \
 	 -std=c++17 -Wall -Werror

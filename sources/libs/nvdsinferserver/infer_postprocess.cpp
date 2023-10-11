@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <cassert>
@@ -28,6 +29,10 @@
 #include "infer_postprocess.h"
 #include "infer_utils.h"
 #include "nvdsinfer_dbscan.h"
+
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
 
 static const bool ATHR_ENABLED = true;
 static const float ATHR_THRESHOLD = 60.0;
@@ -119,7 +124,7 @@ SharedBatchArray Postprocessor::requestCudaOutBufs(const SharedBatchArray &inBuf
         outDesc.memType = outMem->type();
         outDesc.devId = outMem->devId();
         SharedBatchBuf outBuf(
-            new RefBatchBuffer(outMem->ptr(), expectBytes, outDesc, in->getBatchSize()),
+            new RefBatchBuffer(outMem->ptr(), 0, expectBytes, outDesc, in->getBatchSize()),
             [outMem](RefBatchBuffer *ptr) {
                 assert(ptr);
                 delete ptr;
@@ -448,10 +453,30 @@ SegmentPostprocessor::SegmentPostprocessor(int uid, const ic::SegmentationParams
 {
     m_Config.CopyFrom(params);
     m_SegmentationThreshold = params.threshold();
+    m_NumSegmentationClasses = params.num_segmentation_classes();
 }
 
 NvDsInferStatus SegmentPostprocessor::allocateResource(const std::vector<int> &devIds)
 {
+    if (!m_Config.custom_parse_segmentation_func().empty()) {
+        if (!m_CustomLibHandle) {
+            InferError(
+                "Semantic segmentation custom func:%s defined but"
+                " no custom_lib specified",
+                safeStr(m_Config.custom_parse_segmentation_func()));
+            return NVDSINFER_CONFIG_FAILED;
+        }
+        m_CustomSemSegmentationParseFunc =
+            m_CustomLibHandle->symbol<NvDsInferSemSegmentationParseCustomFunc>(
+                m_Config.custom_parse_segmentation_func());
+        if (!m_CustomSemSegmentationParseFunc) {
+            InferError(
+                "Failed to init sememantic segmentation postprocessor"
+                "because dlsym failed to get func %s pointer",
+                safeStr(m_Config.custom_parse_segmentation_func()));
+            return NVDSINFER_CUSTOM_LIB_FAILED;
+        }
+    }
     RETURN_NVINFER_ERROR(Postprocessor::allocateResource(devIds),
                          "failed to allocate segmentation processing resource");
 
@@ -1062,45 +1087,87 @@ NvDsInferStatus ClassifyPostprocessor::fillClassificationOutput(
     return NVDSINFER_SUCCESS;
 }
 
-NvDsInferStatus SegmentPostprocessor::fillSegmentationOutput(
-    const std::vector<NvDsInferLayerInfo> &outputLayers,
-    NvDsInferSegmentationOutput &output)
+bool SegmentPostprocessor::parseSemanticSegmentationOutput(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    float segmentationThreshold,
+    unsigned int numClasses,
+    int *classificationMap,
+    float *&classProbabilityMap)
 {
-    NvDsInferDimsCHW outputDimsCHW;
-    getDimsCHWFromDims(outputDimsCHW, outputLayers[0].inferDims);
+    assert(classificationMap);
 
-    for (auto const &layer : outputLayers) {
+    for (auto const &layer : outputLayersInfo) {
         if (layer.dataType != FLOAT) {
             InferError(
-                "Default segment parsing function support datatype"
+                "Default segment parsing function supports datatype"
                 "FP32 only but received output tensor: %s with datatype: %s",
                 safeStr(layer.layerName),
                 safeStr(dataType2Str(static_cast<InferDataType>(layer.dataType))));
-            return NVDSINFER_OUTPUT_PARSING_FAILED;
+            return false;
         }
     }
 
-    output.width = outputDimsCHW.w;
-    output.height = outputDimsCHW.h;
-    output.classes = outputDimsCHW.c;
+    NvDsInferDimsCHW outputDimsCHW;
+    getDimsCHWFromDims(outputDimsCHW, outputLayersInfo[0].inferDims);
 
-    output.class_map = new int[output.width * output.height];
-    output.class_probability_map = (float *)outputLayers[0].buffer;
+    if (numClasses != outputDimsCHW.c) {
+        InferError(
+            "Configured number for classes %u differs from"
+            " number of channels in output %u",
+            numClasses, outputDimsCHW.c);
+        return false;
+    }
 
-    for (unsigned int y = 0; y < output.height; y++) {
-        for (unsigned int x = 0; x < output.width; x++) {
+    classProbabilityMap = (float *)outputLayersInfo[0].buffer;
+
+    for (unsigned int y = 0; y < networkInfo.height; y++) {
+        for (unsigned int x = 0; x < networkInfo.width; x++) {
             float max_prob = -1;
-            int &cls = output.class_map[y * output.width + x] = -1;
-            for (unsigned int c = 0; c < output.classes; c++) {
-                float prob = output.class_probability_map[c * output.width * output.height +
-                                                          y * output.width + x];
-                if (prob > max_prob && prob > m_SegmentationThreshold) {
+            int &cls = classificationMap[y * networkInfo.width + x] = -1;
+            for (unsigned int c = 0; c < numClasses; c++) {
+                float prob = classProbabilityMap[c * networkInfo.width * networkInfo.height +
+                                                 y * networkInfo.width + x];
+                if (prob > max_prob && prob > segmentationThreshold) {
                     cls = c;
                     max_prob = prob;
                 }
             }
         }
     }
+    return true;
+}
+
+NvDsInferStatus SegmentPostprocessor::fillSegmentationOutput(
+    const std::vector<NvDsInferLayerInfo> &outputLayers,
+    NvDsInferSegmentationOutput &output)
+{
+    output.width = m_NetworkInfo.width;
+    output.height = m_NetworkInfo.height;
+    output.classes = m_NumSegmentationClasses;
+    output.class_map = new int[output.width * output.height];
+    output.class_probability_map = nullptr;
+
+    /* Call custom parsing function if specified otherwise use the one
+     * written along with this implementation. */
+    if (m_CustomSemSegmentationParseFunc) {
+        if (!m_CustomSemSegmentationParseFunc(outputLayers, m_NetworkInfo, m_SegmentationThreshold,
+                                              m_NumSegmentationClasses, output.class_map,
+                                              output.class_probability_map)) {
+            InferError(
+                "Failed to parse semantic segmentation output using "
+                "custom parse function");
+            return NVDSINFER_CUSTOM_LIB_FAILED;
+        }
+    } else {
+        if (!parseSemanticSegmentationOutput(outputLayers, m_NetworkInfo, m_SegmentationThreshold,
+                                             m_NumSegmentationClasses, output.class_map,
+                                             output.class_probability_map)) {
+            InferError("Failed to parse semantic segmentation output.");
+            return NVDSINFER_OUTPUT_PARSING_FAILED;
+        }
+    }
+
     return NVDSINFER_SUCCESS;
 }
 

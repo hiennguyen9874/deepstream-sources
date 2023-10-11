@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -46,7 +46,7 @@ inline int check_box2d(const Lidar3DBbox box, const float2 p)
     float rot_x = (p.x - center_x) * angle_cos + (p.y - center_y) * (-angle_sin);
     float rot_y = (p.x - center_x) * angle_sin + (p.y - center_y) * angle_cos;
 
-    return (fabs(rot_x) < box.length / 2 + MARGIN && fabs(rot_y) < box.width / 2 + MARGIN);
+    return (fabs(rot_x) < box.dx / 2 + MARGIN && fabs(rot_y) < box.dy / 2 + MARGIN);
 }
 
 bool intersection(const float2 p1, const float2 p0, const float2 q1, const float2 q0, float2 &ans)
@@ -95,8 +95,8 @@ inline void rotate_around_center(const float2 &center,
 inline float box_overlap(const Lidar3DBbox &box_a, const Lidar3DBbox &box_b)
 {
     float a_angle = box_a.yaw, b_angle = box_b.yaw;
-    float a_dx_half = box_a.length / 2, b_dx_half = box_b.length / 2, a_dy_half = box_a.width / 2,
-          b_dy_half = box_b.width / 2;
+    float a_dx_half = box_a.dx / 2, b_dx_half = box_b.dx / 2, a_dy_half = box_a.dy / 2,
+          b_dy_half = box_b.dy / 2;
     float a_x1 = box_a.centerX - a_dx_half, a_y1 = box_a.centerY - a_dy_half;
     float a_x2 = box_a.centerX + a_dx_half, a_y2 = box_a.centerY + a_dy_half;
     float b_x1 = box_b.centerX - b_dx_half, b_y1 = box_b.centerY - b_dy_half;
@@ -201,8 +201,8 @@ int ParseCustomBatchedNMS(std::vector<Lidar3DBbox> bndboxes,
             if (suppressed[j] == 1) {
                 continue;
             }
-            float sa = bndboxes[i].length * bndboxes[i].width;
-            float sb = bndboxes[j].length * bndboxes[j].width;
+            float sa = bndboxes[i].dx * bndboxes[i].dy;
+            float sb = bndboxes[j].dx * bndboxes[j].dy;
             float s_overlap = box_overlap(bndboxes[i], bndboxes[j]);
             float iou = s_overlap / fmaxf(sa + sb - s_overlap, ThresHold);
 

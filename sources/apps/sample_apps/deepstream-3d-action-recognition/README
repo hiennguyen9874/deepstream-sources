@@ -30,6 +30,7 @@ You must have the following development packages installed
 To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
+On x86 : sudo apt-get install -y cuda-compat-12-1
 
 To prepare Triton inference environment, Please follow instructions in
 `samples/configs/deepstream-app-triton/README`.
@@ -76,7 +77,8 @@ custom_sequence_preprocess/libnvds_custom_sequence_preprocess.so:
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
+               export LD_LIBRARY_PATH=/usr/local/cuda/compat:$LD_LIBRARY_PATH (Required for data center GPUs only)
 
   $ cd custom_sequence_preprocess
   $ sudo make install (sudo not required in case of docker containers)

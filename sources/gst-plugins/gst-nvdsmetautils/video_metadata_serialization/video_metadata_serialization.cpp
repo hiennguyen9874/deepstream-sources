@@ -471,8 +471,14 @@ void deserialize_data(GstBuffer *buf)
         }
     }
 
-    bMetaList = (NvDsUserMetaList *)batch_meta->batch_user_meta_list;
-    user_meta = (NvDsUserMeta *)bMetaList->data;
+    NvDsUserMetaList *uMetaList = NULL;
+    for (uMetaList = batch_meta->batch_user_meta_list; uMetaList != NULL;
+         uMetaList = uMetaList->next) {
+        user_meta = (NvDsUserMeta *)uMetaList->data;
+        if (user_meta->base_meta.meta_type == NVDS_USER_CUSTOM_META) {
+            break;
+        }
+    }
     if (user_meta->base_meta.meta_type == NVDS_USER_CUSTOM_META) {
         metadata = (NVDS_CUSTOM_PAYLOAD *)user_meta->user_meta_data;
 
@@ -608,7 +614,7 @@ void deserialize_data(GstBuffer *buf)
                 obj_meta->text_params.text_bg_clr.blue = bgcp.blue();
                 obj_meta->text_params.text_bg_clr.alpha = bgcp.alpha();
 
-                strncpy(obj_meta->obj_label, objectmeta.obj_label().c_str(), MAX_LABEL_SIZE);
+                strncpy(obj_meta->obj_label, objectmeta.obj_label().c_str(), MAX_LABEL_SIZE - 1);
 
                 for (j = 0; j < MAX_USER_FIELDS; j++) {
                     obj_meta->misc_obj_info[j] = objectmeta.misc_obj_info(j);
@@ -641,7 +647,7 @@ void deserialize_data(GstBuffer *buf)
                         nvdslabelinfometa->result_class_id = nvdsli.result_class_id();
 
                         strncpy(nvdslabelinfometa->result_label, nvdsli.result_label().c_str(),
-                                MAX_LABEL_SIZE);
+                                MAX_LABEL_SIZE - 1);
 
                         l_labelinfometa = l_labelinfometa->next;
                     }
@@ -792,5 +798,7 @@ void deserialize_data(GstBuffer *buf)
 
             frame_count++;
         }
+    } else {
+        printf("metadata type is not NVDS_USER_CUSTOM_META\n");
     }
 }

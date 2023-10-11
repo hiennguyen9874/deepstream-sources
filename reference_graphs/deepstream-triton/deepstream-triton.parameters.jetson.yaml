@@ -28,7 +28,7 @@ components:
   - name: triton
     parameters:
       batch-size: 1
-      config-file-path: /opt/nvidia/deepstream/deepstream-6.2/samples/configs/deepstream-app-triton/config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.txt
+      config-file-path: /opt/nvidia/deepstream/deepstream-6.3/samples/configs/deepstream-app-triton/config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.txt
 name: triton
 ---
 components:

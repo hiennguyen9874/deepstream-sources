@@ -53,7 +53,7 @@ static bool nvds_msg2p_parse_sensor(void *privData, GKeyFile *key_file, gchar *g
     gchar **key = NULL;
     GError *error = NULL;
     NvDsPayloadPriv *privObj = NULL;
-    NvDsSensorObject sensorObj;
+    NvDsSensorObject sensorObj = {{0}};
     gint sensorId;
     gchar *keyVal;
 
@@ -154,7 +154,7 @@ static bool nvds_msg2p_parse_place(void *privData, GKeyFile *key_file, gchar *gr
     gchar **key = NULL;
     GError *error = NULL;
     NvDsPayloadPriv *privObj = NULL;
-    NvDsPlaceObject placeObj;
+    NvDsPlaceObject placeObj = {{0}};
     gint placeId;
     gchar *keyVal;
 
@@ -367,7 +367,7 @@ static bool nvds_msg2p_parse_sensor_yaml(void *privData,
     bool ret = false;
     bool isEnabled = false;
     NvDsPayloadPriv *privObj = NULL;
-    NvDsSensorObject sensorObj;
+    NvDsSensorObject sensorObj = {{0}};
     gint sensorId;
 
     YAML::Node configyml = YAML::LoadFile(cfg_file_path);
@@ -443,7 +443,7 @@ static bool nvds_msg2p_parse_place_yaml(void *privData, gchar *cfg_file_path, st
     bool ret = false;
     bool isEnabled = false;
     NvDsPayloadPriv *privObj = NULL;
-    NvDsPlaceObject placeObj;
+    NvDsPlaceObject placeObj = {{0}};
     gint placeId;
 
     YAML::Node configyml = YAML::LoadFile(cfg_file_path);
@@ -670,8 +670,7 @@ bool nvds_msg2p_parse_yaml(void *privData, const gchar *file)
     std::string sensor_str = "sensor";
     std::string place_str = "place";
     std::string analytics_str = "analytics";
-    gchar *cfg_file = (gchar *)malloc(sizeof(gchar *));
-    cfg_file = (gchar *)file;
+    gchar *cfg_file = (gchar *)file;
 
     for (YAML::const_iterator itr = configyml.begin(); itr != configyml.end(); ++itr) {
         std::string paramKey = itr->first.as<std::string>();
@@ -736,6 +735,10 @@ done:
 
     if (cfgFile)
         g_key_file_free(cfgFile);
+
+    if (error) {
+        g_error_free(error);
+    }
 
     return retVal;
 }

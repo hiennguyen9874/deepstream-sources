@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -965,6 +965,8 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
             NVGSTDS_ERR_MSG_V("Could not create element 'nvvidconv_elem'");
             goto done;
         }
+        g_object_set(G_OBJECT(bin->nvvidconv), "gpu-id", config->gpu_id, "nvbuf-memory-type",
+                     config->nvbuf_memory_type, NULL);
         if (config->video_format) {
             caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, config->video_format,
                                        NULL);
@@ -1245,6 +1247,8 @@ static gboolean create_uridecode_src_bin(NvDsSourceConfig *config, NvDsSrcBin *b
         goto done;
     }
 
+    g_object_set(G_OBJECT(bin->nvvidconv), "gpu-id", config->gpu_id, "nvbuf-memory-type",
+                 config->nvbuf_memory_type, NULL);
     if (config->video_format) {
         caps =
             gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, config->video_format, NULL);
@@ -1467,11 +1471,6 @@ gboolean create_multi_source_bin(guint num_sub_bins,
             NVGSTDS_ERR_MSG_V("source %d cannot be linked to mux's sink pad %p\n", i,
                               bin->streammux);
             goto done;
-        }
-
-        if (configs->dewarper_config.enable) {
-            g_object_set(G_OBJECT(bin->sub_bins[i].dewarper_bin.nvdewarper), "source-id",
-                         configs[i].source_id, NULL);
         }
 
         bin->num_bins++;

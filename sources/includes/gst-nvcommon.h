@@ -1,6 +1,6 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2020 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
  * property and proprietary rights in and to this material, related
@@ -31,10 +31,30 @@ extern "C" {
 #define CHECK_DEFAULT_MEM(memType1, memType2)                                \
     ((memType1 == NVBUF_MEM_DEFAULT && memType2 == NVBUF_MEM_CUDA_DEVICE) || \
      (memType1 == NVBUF_MEM_CUDA_DEVICE && memType2 == NVBUF_MEM_DEFAULT))
+
+#define GET_DEFAULT_MEM_TYPE(mem_type)    \
+    {                                     \
+        mem_type = NVBUF_MEM_CUDA_DEVICE; \
+    }
+
 #else
+
 #define CHECK_DEFAULT_MEM(memType1, memType2)                                  \
     ((memType1 == NVBUF_MEM_DEFAULT && memType2 == NVBUF_MEM_SURFACE_ARRAY) || \
      (memType1 == NVBUF_MEM_SURFACE_ARRAY && memType2 == NVBUF_MEM_DEFAULT))
+
+#define GET_DEFAULT_MEM_TYPE(mem_type)                  \
+    {                                                   \
+        int current_device = -1;                        \
+        cudaGetDevice(&current_device);                 \
+        struct cudaDeviceProp prop;                     \
+        cudaGetDeviceProperties(&prop, current_device); \
+        if (prop.integrated)                            \
+            mem_type = NVBUF_MEM_SURFACE_ARRAY;         \
+        else                                            \
+            mem_type = NVBUF_MEM_CUDA_DEVICE;           \
+    }
+
 #endif
 
 #define CHECK_NVDS_MEMORY_AND_GPUID(object, surface)                                             \
@@ -68,6 +88,9 @@ GType gst_compute_hw_get_type(void);
 
 #define GST_TYPE_INTERPOLATION_METHOD (gst_video_interpolation_method_get_type())
 GType gst_video_interpolation_method_get_type(void);
+
+const char *gst_nvbuf_memory_get_name(int mem_type);
+int gst_nvbuf_memory_get_value(const char *mem_type_string);
 
 #define PROP_NVDS_GPU_ID_INSTALL(gobject_class)                                          \
     do {                                                                                 \

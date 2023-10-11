@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -77,6 +77,8 @@ void attachDetectionMetadata(NvDsFrameMeta *frameMeta,
                              uint32_t offsetTop,
                              uint32_t roiLeft,
                              uint32_t roiTop,
+                             uint32_t roiWidth,
+                             uint32_t roiHeight,
                              uint32_t frameWidth,
                              uint32_t frameHeight,
                              uint32_t uniqueId,
@@ -115,6 +117,25 @@ void attachDetectionMetadata(NvDsFrameMeta *frameMeta,
         obj.top = (obj.top - offsetTop) / scaleY + roiTop;
         obj.width /= scaleX;
         obj.height /= scaleY;
+
+        /** Clipping the object bounding-box which lies outside the roi
+         * specified by nvdspreprosess plugin. */
+        if (config.infer_config().clip_object_outside_roi()) {
+            if (obj.left + obj.width >= roiLeft + roiWidth) {
+                obj.width = roiLeft + roiWidth - obj.left;
+            }
+            if (obj.top + obj.height >= roiTop + roiHeight) {
+                obj.height = roiTop + roiHeight - obj.top;
+            }
+            if (obj.left < roiLeft) {
+                obj.left = roiLeft;
+                obj.width = obj.width - roiLeft + obj.left;
+            }
+            if (obj.top < roiTop) {
+                obj.top = roiTop;
+                obj.height = obj.height - roiTop + obj.top;
+            }
+        }
 
         /* Check if the scaled box co-ordinates meet the detection filter
          * criteria. Skip the box if it does not. */
@@ -298,6 +319,10 @@ void attachClassificationMetadata(NvDsObjectMeta *objMeta,
     }
     if (roiMeta) {
         nvds_add_classifier_meta_to_roi(roiMeta, classifier_meta);
+        /* if object is roi itself */
+        if (objMeta) {
+            nvds_add_classifier_meta_to_object(objMeta, classifier_meta);
+        }
     } else if (objMeta) {
         nvds_add_classifier_meta_to_object(objMeta, classifier_meta);
     }
@@ -482,6 +507,10 @@ void attachTensorOutputMeta(NvDsObjectMeta *objMeta,
 
     if (roiMeta) {
         nvds_add_user_meta_to_roi(roiMeta, user_meta);
+        /* if object is roi itself */
+        if (objMeta) {
+            nvds_add_user_meta_to_obj(objMeta, user_meta);
+        }
     } else if (objMeta) {
         nvds_add_user_meta_to_obj(objMeta, user_meta);
     } else {

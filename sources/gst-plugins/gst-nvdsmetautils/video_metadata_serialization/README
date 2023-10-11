@@ -65,7 +65,7 @@ NvDsObjectmeta and reconstructs the metadata into NvDsBatchMeta.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
   $ sudo make
 
 ===============================================================================

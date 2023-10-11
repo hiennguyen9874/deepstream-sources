@@ -68,7 +68,7 @@ Gst-NvDsMetaUtils library that utilizes these libraries.
 3. To compile:
 ===============================================================================
 
-  $ Set CUDA_VER to 11.8 for x86.
+  $ Set CUDA_VER to 12.1 for x86.
   $ sudo make (sudo not required in case of docker containers)
 
 Note, the nvdsgst_ucx plugin is not supported on Jetson.

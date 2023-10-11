@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -388,7 +388,7 @@ NvDsInferStatus TrtServerResponse::parseOutputData(const TrtServerRequest *req)
                                  safeStr(dataType2Str(bufDesc.dataType)),
                                  safeStr(dims2Str(bufDesc.dims)));
         } else {
-            SharedRefBatchBuf refBuf(new RefBatchBuffer((void *)base, bytes, bufDesc, batchSize),
+            SharedRefBatchBuf refBuf(new RefBatchBuffer((void *)base, 0, bytes, bufDesc, batchSize),
                                      [priv = m_Data](RefBatchBuffer *buf) mutable {
                                          priv.reset();
                                          delete buf;
@@ -1029,21 +1029,19 @@ NvDsInferStatus TrtISServer::inferAsync(SharedRequest request,
     std::unique_ptr<SharedRequest> reqUserPtr = std::make_unique<SharedRequest>(request);
 
     RETURN_NVINFER_ERROR(
-        request->setRequestComplete(TrtServerRequest::RequestOnRelease, reqUserPtr.get()),
+        request->setRequestComplete(TrtServerRequest::RequestOnRelease, reqUserPtr.release()),
         "Triton inferAsync failed to set request completeCB.");
 
     std::unique_ptr<InferUserData> userData(new InferUserData(request, done, this));
 
     RETURN_NVINFER_ERROR(
-        request->setResponseComplete(resAllocator, TrtISServer::InferComplete, userData.get()),
+        request->setResponseComplete(resAllocator, TrtISServer::InferComplete, userData.release()),
         "Triton inferAsync failed to set response completeCB.");
 
     RETURN_TRTIS_ERROR(
         TRITONSERVER_ServerInferAsync(m_Impl.get(), request->ptr(), nullptr /*trace*/),
         "Triton inferAsync API call failed");
 
-    reqUserPtr.release();
-    userData.release();
     return NVDSINFER_SUCCESS;
 }
 

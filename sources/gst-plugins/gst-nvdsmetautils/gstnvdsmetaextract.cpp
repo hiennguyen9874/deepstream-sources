@@ -109,7 +109,7 @@ static gboolean gst_nvdsmetaextract_set_caps(GstBaseTransform *trans,
                                              GstCaps *outcaps)
 {
     Gstnvdsmetaextract *nvmetaextract = GST_NVDSMETAEXTRACT(trans);
-    GstVideoInfo video_info;
+    GstVideoInfo video_info = {{0}};
 
     GST_DEBUG_OBJECT(nvmetaextract, "set_caps");
 

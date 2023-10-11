@@ -586,6 +586,15 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
             init_params->dlaCore = g_key_file_get_integer(key_file, CONFIG_GROUP_PROPERTY,
                                                           CONFIG_GROUP_INFER_USE_DLA_CORE, &error);
             CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_AUTO_INCREASE_MEMORY)) {
+            init_params->autoIncMem = g_key_file_get_integer(
+                key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_AUTO_INCREASE_MEMORY, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_MAX_GPU_MEMORY_PERCENTAGE)) {
+            init_params->maxGPUMemPer =
+                g_key_file_get_integer(key_file, CONFIG_GROUP_PROPERTY,
+                                       CONFIG_GROUP_INFER_MAX_GPU_MEMORY_PERCENTAGE, &error);
+            CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_TENSOR_META_POOL_SIZE)) {
             init_params->outputBufferPoolSize = g_key_file_get_integer(
                 key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_TENSOR_META_POOL_SIZE, &error);
@@ -1173,6 +1182,7 @@ gboolean gst_nvinfer_parse_config_file(GstNvInfer *nvinfer,
         color_params.have_border_color = TRUE;
         color_params.border_color = (NvOSD_ColorParams){1, 0, 0, 1};
         color_params.have_bg_color = FALSE;
+        color_params.bg_color = {0};
 
         /* Parse the parameters for "all" classes if the group has been specified. */
         if (g_key_file_has_group(cfg_file, CONFIG_GROUP_INFER_CLASS_ATTRS_PREFIX "all")) {

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -92,6 +92,21 @@ public:
 
     void setBufId(uint64_t id) { m_BufId = id; }
     uint64_t bufId() const { return m_BufId; }
+
+    /**
+     * @brief Get the offset from start of the memory allocation to the
+     *        buffer pointer. Needed for sharing CUDA memory with Triton
+     *        server.
+     */
+    size_t getBufOffset(uint32_t batchIdx) const override
+    {
+        assert(getBufPtr(0) && getBufPtr(batchIdx));
+        if (getBufPtr(0) == nullptr || getBufPtr(batchIdx) == nullptr) {
+            return (size_t)-1;
+        } else {
+            return (uint8_t *)getBufPtr(batchIdx) - (uint8_t *)getBufPtr(0);
+        }
+    }
 
 private:
     InferBufferDescription m_Desc{InferMemType::kNone, 0, InferDataType::kNone, {0}};
@@ -193,10 +208,11 @@ extern void normalizeDims(InferDims &dims);
 class RefBatchBuffer : public BaseBatchBuffer {
 public:
     RefBatchBuffer(void *bufBase,
+                   size_t offset,
                    size_t bufBytes,
                    const InferBufferDescription &desc,
                    uint32_t batchSize)
-        : BaseBatchBuffer(batchSize), m_BufBase(bufBase), m_BufBytes(bufBytes)
+        : BaseBatchBuffer(batchSize), m_BufBase(bufBase), m_BufBytes(bufBytes), m_BufOffset(offset)
     {
         setBufDesc(desc);
         normalizeDims(mutableBufDesc().dims);
@@ -212,9 +228,27 @@ public:
     uint64_t getTotalBytes() const final { return m_BufBytes; }
     void *basePtr() { return m_BufBase; }
 
+    /**
+     * @brief Get the offset from start of the memory allocation to the
+     *        buffer pointer. Needed for sharing CUDA memory with Triton
+     *        server.
+     */
+    size_t getBufOffset(uint32_t batchIdx) const override
+    {
+        assert(batchIdx == 0 || batchIdx < getBatchSize());
+        const InferBufferDescription &desc = getBufDesc();
+        assert(batchIdx <= 0 || desc.dataType != InferDataType::kString);
+        batchIdx = std::max(batchIdx, 0U);
+        return m_BufOffset + desc.elementSize * desc.dims.numElements * batchIdx;
+    }
+
 private:
     mutable void *m_BufBase = nullptr;
     size_t m_BufBytes = 0;
+    /**
+     * @brief Offset of the buffer from the start of the memory allocation.
+     */
+    size_t m_BufOffset = 0;
 };
 
 class WrapCBatchBuffer : IBatchBuffer {

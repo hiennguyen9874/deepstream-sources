@@ -33,6 +33,8 @@
 #include "gst-nvmessage.h"
 #endif
 
+#define MEMORY_FEATURES "memory:NVMM"
+
 /* The muxer output resolution must be set if the input streams will be of
  * different resolution. The muxer will scale all the input frames to this
  * resolution. */
@@ -223,16 +225,44 @@ int main(int argc, char *argv[])
     gst_bin_add(GST_BIN(pipeline), streammux);
 
     for (i = 0; i < num_sources; i++) {
-        GstPad *sinkpad, *srcpad;
+        GstPad *sinkpad, *srcpad, *sinkpad1, *srcpad1;
         gchar pad_name[16] = {};
-        GstElement *source_bin = create_source_bin(i, argv[i + 1]);
+        GstElement *source_bin = create_source_bin(i, argv[i + 1]), *caps_filter = NULL,
+                   *nvvideoconvert = NULL, *queue = NULL;
 
-        if (!source_bin) {
+        /* create queue element */
+        queue = gst_element_factory_make("queue", NULL);
+        if (!queue) {
+            g_printerr("Failed to create queue element after srcbin. Exiting.\n");
+            return -1;
+        }
+
+        /* create nvvideoconvert element */
+        nvvideoconvert = gst_element_factory_make("nvvideoconvert", NULL);
+        if (!nvvideoconvert) {
+            g_printerr("Failed to create nvvideoconvert element. Exiting.\n");
+            return -1;
+        }
+
+        caps_filter = gst_element_factory_make("capsfilter", NULL);
+        if (!caps_filter) {
+            g_printerr("Failed to create capsfilter element. Exiting.\n");
+            return -1;
+        }
+
+        GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "NV12", "width",
+                                            G_TYPE_INT, MUXER_OUTPUT_WIDTH, "height", G_TYPE_INT,
+                                            MUXER_OUTPUT_HEIGHT, NULL);
+        GstCapsFeatures *feature = gst_caps_features_new(MEMORY_FEATURES, NULL);
+        gst_caps_set_features(caps, 0, feature);
+        g_object_set(G_OBJECT(caps_filter), "caps", caps, NULL);
+
+        if (!source_bin || !nvvideoconvert || !caps_filter) {
             g_printerr("Failed to create source bin. Exiting.\n");
             return -1;
         }
 
-        gst_bin_add(GST_BIN(pipeline), source_bin);
+        gst_bin_add_many(GST_BIN(pipeline), source_bin, queue, nvvideoconvert, caps_filter, NULL);
 
         g_snprintf(pad_name, 15, "sink_%u", i);
         sinkpad = gst_element_get_request_pad(streammux, pad_name);
@@ -241,7 +271,7 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        srcpad = gst_element_get_static_pad(source_bin, "src");
+        srcpad = gst_element_get_static_pad(caps_filter, "src");
         if (!srcpad) {
             g_printerr("Failed to get src pad of source bin. Exiting.\n");
             return -1;
@@ -252,8 +282,32 @@ int main(int argc, char *argv[])
             return -1;
         }
 
+        sinkpad1 = gst_element_get_static_pad(queue, "sink");
+        if (!sinkpad) {
+            g_printerr("Streammux request sink pad failed. Exiting.\n");
+            return -1;
+        }
+
+        srcpad1 = gst_element_get_static_pad(source_bin, "src");
+        if (!srcpad) {
+            g_printerr("Failed to get src pad of source bin. Exiting.\n");
+            return -1;
+        }
+
+        if (gst_pad_link(srcpad1, sinkpad1) != GST_PAD_LINK_OK) {
+            g_printerr("Failed to link source bin to stream muxer. Exiting.\n");
+            return -1;
+        }
+
+        if (!gst_element_link_many(queue, nvvideoconvert, caps_filter, NULL)) {
+            g_printerr("Elements could not be linked. Exiting.\n");
+            return -1;
+        }
+
         gst_object_unref(srcpad);
         gst_object_unref(sinkpad);
+        gst_object_unref(srcpad1);
+        gst_object_unref(sinkpad1);
     }
 
     /* Use nvtiler to composite the batched frames into a 2D tiled array based
@@ -284,8 +338,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    g_object_set(G_OBJECT(streammux), "batch-size", num_sources, "sync-inputs", TRUE, "live-source",
-                 1, NULL);
+    g_object_set(G_OBJECT(streammux), "batch-size", num_sources, "live-source", 1, NULL);
 
     if (!use_new_mux) {
         g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",

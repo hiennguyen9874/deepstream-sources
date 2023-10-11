@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -118,7 +118,9 @@ typedef enum {
     /** Specifies a transform to set the flip method. */
     NVBUFSURF_TRANSFORM_FLIP = 1 << 3,
     /** Specifies a transform to normalize output. */
-    NVBUFSURF_TRANSFORM_NORMALIZE = 1 << 4
+    NVBUFSURF_TRANSFORM_NORMALIZE = 1 << 4,
+    /** Specifies a transform to allow odd crop. */
+    NVBUFSURF_TRANSFORM_ALLOW_ODD_CROP = 1 << 5
 
 } NvBufSurfTransform_Transform_Flag;
 
@@ -534,6 +536,14 @@ NvBufSurfTransform_Error NvBufSurfTransformSyncObjWait(NvBufSurfTransformSyncObj
  *
  */
 NvBufSurfTransform_Error NvBufSurfTransformSyncObjDestroy(NvBufSurfTransformSyncObj_t *sync_obj);
+
+/**
+ * \brief Sets the default transform session as the current session for all upcoming transforms.
+ *
+ * @return  An \ref NvBufSurfTransform_Error value indicating
+ *  success or failure.
+ */
+NvBufSurfTransform_Error NvBufSurfTransformSetDefaultSession(void);
 
 /** @} */
 #ifdef __cplusplus

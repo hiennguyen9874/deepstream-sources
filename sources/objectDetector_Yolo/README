@@ -54,6 +54,7 @@ Pre-requisites:
   config_infer_primary_yolo[...].txt.
     int8-calib-file=yolo[...]-calibration.table.trt7.1+
 - Other INT8 precision calibration table need to be calibrated by user.
+- On x86 : sudo apt-get install -y cuda-compat-12-1
 
 Note:
 - There is a quality regression of masks in yolov3-tiny.cfg, please see comments
@@ -69,7 +70,8 @@ Compile the custom library:
 
   # Export correct CUDA version as per the platform
   For Jetson:  $ export CUDA_VER=11.4
-  For x86:     $ export CUDA_VER=11.8
+  For x86:     $ export CUDA_VER=12.1
+               $ export LD_LIBRARY_PATH=/usr/local/cuda/compat:$LD_LIBRARY_PATH (Required for data center GPUs only)
 
   $ sudo -E make -C nvdsinfer_custom_impl_Yolo
 

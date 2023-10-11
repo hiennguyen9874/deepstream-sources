@@ -228,13 +228,6 @@ bool SampleAlgorithm::HandleEvent(GstEvent *event)
         // g_print("Sink message event on nvdsaudiotemplate - custom lib.\n");
         gst_event_parse_sink_message(event, &msg);
         gst_nvmessage_parse_stream_eos(msg, &source_id);
-        m_processLock.lock();
-        m_stop = true;
-        m_processCV.notify_all();
-        m_processLock.unlock();
-        while (outputthread_stopped == false) {
-            g_usleep(1000);
-        }
     }
 
     if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_PAD_ADDED) {

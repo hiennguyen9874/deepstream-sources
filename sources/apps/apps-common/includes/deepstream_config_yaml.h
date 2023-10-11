@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -42,6 +42,7 @@ extern "C" {
 #include "deepstream_image_save.h"
 #include "deepstream_osd.h"
 #include "deepstream_preprocess.h"
+#include "deepstream_segvisual.h"
 #include "deepstream_sinks.h"
 #include "deepstream_sources.h"
 #include "deepstream_streammux.h"
@@ -61,6 +62,8 @@ gboolean parse_streammux_yaml(NvDsStreammuxConfig *config, gchar *cfg_file_path)
 gboolean parse_tiled_display_yaml(NvDsTiledDisplayConfig *config, gchar *cfg_file_path);
 
 gboolean parse_osd_yaml(NvDsOSDConfig *config, gchar *cfg_file_path);
+
+gboolean parse_segvisual_yaml(NvDsSegVisualConfig *config, gchar *cfg_file_path);
 
 gboolean parse_image_save_yaml(NvDsImageSave *config, gchar *cfg_file_path);
 

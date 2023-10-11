@@ -65,6 +65,7 @@ sync=1
 bitrate=2000000
 #H264 Profile - 0=Baseline 2=Main 4=High
 #H265 Profile - 0=Main 1=Main10
+# set profile only for hw encoder, sw encoder selects profile based on sw-preset
 profile=0
 output-file=out_source0.mp4
 source-id=0
@@ -84,6 +85,7 @@ sync=1
 bitrate=2000000
 #H264 Profile - 0=Baseline 2=Main 4=High
 #H265 Profile - 0=Main 1=Main10
+# set profile only for hw encoder, sw encoder selects profile based on sw-preset
 profile=0
 output-file=out_source1.mp4
 source-id=1
@@ -100,6 +102,7 @@ source-id=1
 #bitrate=4000000
 #H264 Profile - 0=Baseline 2=Main 4=High
 #H265 Profile - 0=Main 1=Main10
+# set profile only for hw encoder, sw encoder selects profile based on sw-preset
 #profile=0
 # set below properties in case of RTSPStreaming
 #rtsp-port=8554

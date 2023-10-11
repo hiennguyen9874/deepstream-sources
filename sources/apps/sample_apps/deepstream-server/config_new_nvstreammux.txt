@@ -1,0 +1,17 @@
+# Copyright (c) 2023 NVIDIA Corporation.  All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+
+[property]
+algorithm-type=1
+adaptive-batching=1
+max-fps-control=0
+overall-max-fps-n=30
+overall-max-fps-d=1
+overall-min-fps-n=5
+overall-min-fps-d=1
+max-same-source-frames=1

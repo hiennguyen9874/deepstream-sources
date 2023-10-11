@@ -19,7 +19,7 @@
 1. Prerequisites:
 ===============================================================================
 
-A. DeepStream SDK v6.2 release or later.
+A. DeepStream SDK v6.3 release or later.
 B. NVIDIA Riva SDK v2.0.0 release or later.
 C. Riva ASR and TTS service:
    The Riva ASR, TTS services should be started externally.
@@ -88,7 +88,7 @@ deprecated in future versions.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
       For Jetson, CUDA_VER=11.4
   $ sudo make (sudo not required in case of docker containers)
 

@@ -38,8 +38,8 @@ NOTE: This sample is supported only for x86.
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.2
-- Graph-Composer 2.5.0
+- DeepStreamSDK 6.3
+- Graph-Composer 3.0.0
 
 Some additional pre-requisites are required. Please refer to
 https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvdsucx.html#requirements

@@ -201,7 +201,6 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 #define CONFIG_GROUP_TRACKER_HEIGHT "tracker-height"
 #define CONFIG_GROUP_TRACKER_LL_CONFIG_FILE "ll-config-file"
 #define CONFIG_GROUP_TRACKER_LL_LIB_FILE "ll-lib-file"
-#define CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS "enable-batch-process"
 #define CONFIG_GPU_ID "gpu-id"
 
 static gchar *get_absolute_file_path(gchar *cfg_file_path, gchar *file_path)
@@ -280,11 +279,6 @@ static gboolean set_tracker_properties(GstElement *nvtracker)
                                       CONFIG_GROUP_TRACKER_LL_LIB_FILE, &error));
             CHECK_ERROR(error);
             g_object_set(G_OBJECT(nvtracker), "ll-lib-file", ll_lib_file, NULL);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS)) {
-            gboolean enable_batch_process = g_key_file_get_integer(
-                key_file, CONFIG_GROUP_TRACKER, CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS, &error);
-            CHECK_ERROR(error);
-            g_object_set(G_OBJECT(nvtracker), "enable_batch_process", enable_batch_process, NULL);
         } else {
             g_printerr("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_TRACKER);
         }

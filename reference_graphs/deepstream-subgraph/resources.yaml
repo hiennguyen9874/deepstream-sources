@@ -11,4 +11,4 @@
 
 files:
   - src: inference_subgraph.yaml
-    target: /opt/nvidia/deepstream/deepstream-6.2/reference_graphs/deepstream-subgraph/inference_subgraph.yaml
+    target: /opt/nvidia/deepstream/deepstream-6.3/reference_graphs/deepstream-subgraph/inference_subgraph.yaml

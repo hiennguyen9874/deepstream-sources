@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -37,14 +37,14 @@ SRCS:= gstnvvideotestsrc.cpp \
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_videotestsrc.so
 
-NVDS_VERSION:=6.2
+NVDS_VERSION:=6.3
 
-CFLAGS+= -fPIC -DHAVE_CONFIG_H -std=c++17 -Wall -Werror -DDS_VERSION=\"6.2.0\" \
+CFLAGS+= -fPIC -DHAVE_CONFIG_H -std=c++17 -Wall -Werror -DDS_VERSION=\"6.3.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I include \
 	 -I ../../includes
 
-NVCC_CFLAGS+= -DHAVE_CONFIG_H -std=c++17 -DDS_VERSION=\"6.2.0\" \
+NVCC_CFLAGS+= -DHAVE_CONFIG_H -std=c++17 -DDS_VERSION=\"6.3.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I include \
 	 -I ../../includes \

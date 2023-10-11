@@ -32,7 +32,10 @@
 #if __GNUC__ >= 8
 #pragma GCC diagnostic ignored "-Wclass-memaccess"
 #endif
+
+#ifdef WITH_OPENCV
 #include <opencv2/objdetect/objdetect.hpp>
+#endif
 #pragma GCC diagnostic pop
 
 #include "gstnvdsinfer.h"
@@ -191,9 +194,10 @@ static GstPadProbeReturn pgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *inf
     NvDsInferParseDetectionParams detectionParams;
     detectionParams.numClassesConfigured = 4;
     detectionParams.perClassPreclusterThreshold = {0.2, 0.2, 0.2, 0.2};
+#ifdef WITH_OPENCV
     static float groupThreshold = 1;
     static float groupEps = 0.2;
-
+#endif
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(GST_BUFFER(info->data));
 
     /* Iterate each frame metadata in batch */
@@ -232,7 +236,7 @@ static GstPadProbeReturn pgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *inf
             }
 #endif
             NvDsInferParseCustomResnet(outputLayersInfo, networkInfo, detectionParams, objectList);
-
+#ifdef WITH_OPENCV
             /* Seperate detection rectangles per class for grouping. */
             std::vector<std::vector<cv::Rect>> objectListClasses(PGIE_DETECTED_CLASS_NUM);
             for (auto &obj : objectList) {
@@ -287,6 +291,7 @@ static GstPadProbeReturn pgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *inf
                     nvds_add_obj_meta_to_frame(frame_meta, obj_meta, NULL);
                 }
             }
+#endif
         }
     }
     use_device_mem = 1 - use_device_mem;
@@ -428,9 +433,11 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 
 static void usage(const char *bin)
 {
-    g_printerr("Usage: %s [-t infer-type]<elementary H264 file 1> ... <elementary H264 file n>\n",
-               bin);
-    g_printerr("     -t infer-type: select form [infer, inferserver], infer by default\n");
+    g_printerr("Usage: %s <H264 filename1> [H264 filename2] ...[H264 filenameN]\n", bin);
+    g_printerr(
+        "For nvinferserver, Usage: %s -t inferserver <H264 filename1> [H264 filename2] ...[H264 "
+        "filenameN]\n",
+        bin);
 }
 
 int main(int argc, char *argv[])
@@ -450,42 +457,33 @@ int main(int argc, char *argv[])
     GstBus *bus = NULL;
     guint bus_watch_id = 0;
     GstPad *osd_sink_pad = NULL, *queue_src_pad = NULL, *tiler_sink_pad = NULL;
-    guint i = 0;
+    guint i = 0, num_sources = 0;
     std::vector<std::string> files;
     gboolean is_nvinfer_server = FALSE;
     const char *infer_plugin = NVINFER_PLUGIN;
 
-    /* Parse infer type and file names */
-    for (gint k = 1; k < argc;) {
-        if (!strcmp("-t", argv[k])) {
-            if (k + 1 >= argc) {
-                usage(argv[0]);
-                return -1;
-            }
-            if (!strcmp("infer", argv[k + 1])) {
-                is_nvinfer_server = false;
-            } else if (!strcmp("inferserver", argv[k + 1])) {
-                is_nvinfer_server = true;
-            } else {
-                usage(argv[0]);
-                return -1;
-            }
-            k += 2;
-        } else {
-            files.emplace_back(argv[k]);
-            ++k;
-        }
-    }
-    /* Check input files */
-    if (files.empty()) {
+    /* Check input arguments */
+    if (argc < 2) {
         usage(argv[0]);
         return -1;
     }
-    guint num_sources = files.size();
-    if (is_nvinfer_server) {
-        infer_plugin = NVINFERSERVER_PLUGIN;
+
+    if (argc >= 2 && !strcmp("-t", argv[1])) {
+        if (!strcmp("inferserver", argv[2])) {
+            is_nvinfer_server = TRUE;
+        } else {
+            usage(argv[0]);
+            return -1;
+        }
+        g_print("Using nvinferserver as the inference plugin\n");
     }
 
+    if (is_nvinfer_server) {
+        infer_plugin = NVINFERSERVER_PLUGIN;
+        num_sources = argc - 3;
+    } else {
+        num_sources = argc - 1;
+    }
     nvds_version(&nvds_lib_major_version, &nvds_lib_minor_version);
 
     /* Standard GStreamer initialization */
@@ -493,7 +491,6 @@ int main(int argc, char *argv[])
     loop = g_main_loop_new(NULL, FALSE);
 
     /* Create gstreamer elements */
-
     /* Create Pipeline element that will be a container of other elements */
     pipeline = gst_pipeline_new("dstensor-pipeline");
 
@@ -638,7 +635,11 @@ int main(int argc, char *argv[])
             return -1;
         }
         /* Set the input filename to the source element */
-        g_object_set(G_OBJECT(source), "location", files[i].c_str(), NULL);
+        if (is_nvinfer_server) {
+            g_object_set(G_OBJECT(source), "location", argv[i + 3], NULL);
+        } else {
+            g_object_set(G_OBJECT(source), "location", argv[i + 1], NULL);
+        }
     }
 
     if (!gst_element_link_many(streammux, pgie, queue, sgie1, queue5, sgie2, queue6, sgie3, queue2,

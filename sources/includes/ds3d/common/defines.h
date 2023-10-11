@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -85,6 +85,16 @@
         snprintf(__smsg, sizeof(__smsg) - 1, fmt, ##__VA_ARGS__); \
         throwError(code, __smsg);                                 \
     }
+
+#define DS3D_CHECK_CUDA_ERROR(err, action, fmt, ...)                                  \
+    do {                                                                              \
+        cudaError_t errnum = (err);                                                   \
+        if (errnum != cudaSuccess) {                                                  \
+            LOG_ERROR(fmt ", cuda err_no:%d, err_str:%s", ##__VA_ARGS__, (int)errnum, \
+                      cudaGetErrorName(errnum));                                      \
+            action;                                                                   \
+        }                                                                             \
+    } while (0)
 
 #define DS3D_UNUSED(a) (void)(a)
 

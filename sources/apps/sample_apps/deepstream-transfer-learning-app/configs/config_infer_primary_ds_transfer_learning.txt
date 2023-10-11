@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -76,7 +76,7 @@ gie-unique-id=1
 output-blob-names=conv2d_bbox;conv2d_cov/Sigmoid
 force-implicit-batch-dim=1
 #parse-bbox-func-name=NvDsInferParseCustomResnet
-#custom-lib-path=/path/to/libnvdsparsebbox.so
+#custom-lib-path=/path/to/this/directory/libnvds_infercustomparser.so
 ## 1=DBSCAN, 2=NMS, 3= DBSCAN+NMS Hybrid, 4 = None(No clustering)
 cluster-mode=1
 #scaling-filter=0

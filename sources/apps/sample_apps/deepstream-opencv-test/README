@@ -31,6 +31,15 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
+This example can be configured to use either the nvinfer or the nvinferserver
+element for inference.
+If nvinferserver is selected, the Triton Inference Server is used for inference
+processing. In this case, the example needs to be run inside the
+DeepStream-Triton docker container  for dGPU platforms. For Jetson platforms,
+this example can be executed on target device directly or inside DeepStream L4T
+Triton container. Please refer samples/configs/deepstream-app-triton/README for
+the steps to download the container image and setup model repository.
+
 ===============================================================================
 2. Purpose:
 ===============================================================================
@@ -48,7 +57,7 @@ can be used as input.
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
   $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
@@ -62,12 +71,17 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
 e.g.
   $ ./deepstream-opencv-test file:///home/nvidia/video1.mp4
 
+Use option "-t inferserver" to select nvinferserver as the inference plugin
+  $ ./deepstream-opencv-test -t inferserver <uri>
+e.g.
+  $ ./deepstream-opencv-test -t inferserver file:///home/nvidia/video1.mp4
+
 Refer to the deepstream-test1 sample documentation of single-stream inference,
 bounding-box overlay, and rendering.
 
 This sample accepts any type of stream as a input. dsexample plugin has been
 added to show image processing using opencv. dsexample gaussian blurs the detected
-objects from nvinfer while processing in full-frame=0 mode.
+objects from nvinfer/nvinferserver while processing in full-frame=0 mode.
 
 Since, dsexample plugin requires RGB input for blurring with opencv, nvvideoconvert
 has been used before it to convert the NV12 format to RGBA input format for dsexample.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -73,7 +73,7 @@ gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "Roadsign"};
  */
 #define SMART_REC_DEFAULT_DURATION 10
 
-/* Time at which it recording is started
+/* Time at which the recording is started
  */
 #define START_TIME 2
 
@@ -87,9 +87,10 @@ gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "Roadsign"};
 #define SMART_REC_INTERVAL 7
 
 static gboolean bbox_enabled = TRUE;
-static gint enc_type = 0;  // Default: Hardware encoder
-static gint sink_type = 2; // Default: Eglsink
-static guint sr_mode = 0;  // Default: Audio + Video
+static gint enc_type = 0;   // Default: Hardware encoder
+static gint sink_type = 2;  // Default: Eglsink
+static guint sr_mode = 0;   // Default: Audio + Video
+static guint pgie_type = 0; // Default: Nvinfer
 
 GOptionEntry entries[] = {
     {"bbox-enable", 'e', 0, G_OPTION_ARG_INT, &bbox_enabled,
@@ -112,6 +113,11 @@ GOptionEntry entries[] = {
      "SR mode: 0 = Audio + Video, \
        1 = Video only, \
        2 = Audio only",
+     NULL},
+    {"pgie-type", 'p', 0, G_OPTION_ARG_INT, &pgie_type,
+     "PGIE type: 0 = Nvinfer, \
+       1 = Nvinferserver, \
+       Default: Nvinfer",
      NULL},
     {NULL},
 };
@@ -336,8 +342,12 @@ int main(int argc, char *argv[])
 
     streammux = gst_element_factory_make("nvstreammux", "stream-muxer");
 
-    /* Use nvinfer to infer on batched frame. */
-    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    /* Use nvinfer or nvinferserver to infer on batched frame. */
+    if (pgie_type == 0) {
+        pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    } else if (pgie_type == 1) {
+        pgie = gst_element_factory_make("nvinferserver", "primary-nvinference-engine");
+    }
 
     /* Use queue to connect to the sink after tee_post_osd element */
     queue_pre_sink = gst_element_factory_make("queue", "queue-pre-sink");
@@ -347,6 +357,9 @@ int main(int argc, char *argv[])
 
     /* Use convertor to convert from RGBA to CAPS filter data format */
     nvvidconv2 = gst_element_factory_make("nvvideoconvert", "nvvideo-converter2");
+
+    g_object_set(G_OBJECT(nvvidconv), "output-buffers", 5, NULL);
+    g_object_set(G_OBJECT(nvvidconv2), "output-buffers", 5, NULL);
 
     /* Create OSD to draw on the converted RGBA buffer */
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
@@ -372,6 +385,7 @@ int main(int argc, char *argv[])
     }
 
     g_object_set(G_OBJECT(streammux), "live-source", 1, NULL);
+    g_object_set(G_OBJECT(streammux), "buffer-pool-size", 5, NULL);
 
     caps = gst_caps_from_string("video/x-raw(memory:NVMM), format=(string)I420");
     cap_filter = gst_element_factory_make("capsfilter", "src_cap_filter_nvvidconv");
@@ -390,7 +404,12 @@ int main(int argc, char *argv[])
                  "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
     /* Configure the nvinfer element using the nvinfer config file. */
-    g_object_set(G_OBJECT(pgie), "config-file-path", "dstestsr_pgie_config.txt", NULL);
+    if (pgie_type == 1) {
+        g_object_set(G_OBJECT(pgie), "config-file-path", "dstestsr_pgie_nvinferserver_config.txt",
+                     NULL);
+    } else {
+        g_object_set(G_OBJECT(pgie), "config-file-path", "dstestsr_pgie_config.yml", NULL);
+    }
 
     /* Override the batch-size set in the config file with the number of sources. */
     g_object_get(G_OBJECT(pgie), "batch-size", &pgie_batch_size, NULL);
@@ -411,7 +430,7 @@ int main(int argc, char *argv[])
     gst_object_unref(bus);
 
     /* Set up the pipeline
-     * rtsp-source-> h264-depay -> tee-> queue -> decoder ->nvstreammux -> nvinfer -> nvvidconv ->
+     * rtsp-source-> h264-depay -> tee-> queue -> decoder ->nvstreammux -> pgie -> nvvidconv ->
      * nvosd -> nvvidconv -> caps_filter -> tee -> queue -> video-renderer
      *                                                                                                                                     |->
      * queue -> encoder -> parser -> recordbin
@@ -496,6 +515,7 @@ int main(int argc, char *argv[])
             encoder_post_osd = gst_element_factory_make("x264enc", "encoder-post-osd");
 
             nvvidconv3 = gst_element_factory_make("nvvideoconvert", "nvvidconv3");
+            g_object_set(G_OBJECT(nvvidconv3), "output-buffers", 5, NULL);
             gst_bin_add_many(GST_BIN(pipeline), swenc_caps, nvvidconv3, NULL);
         }
 

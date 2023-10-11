@@ -220,7 +220,7 @@ void deserialize_data(GstBuffer *buf)
             frame_meta->format = NVBUF_AUDIO_INVALID_FORMAT;
             frame_meta->layout = NVBUF_AUDIO_INVALID_LAYOUT;
             frame_meta->bInferDone = frame_meta->class_id = frame_meta->confidence = 0;
-            frame_meta->class_label[MAX_LABEL_SIZE] = {};
+            frame_meta->class_label[MAX_LABEL_SIZE - 1] = {};
         }
     }
 

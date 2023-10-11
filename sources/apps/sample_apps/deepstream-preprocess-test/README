@@ -31,6 +31,14 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
+This example can be configured to use either the nvinfer or the nvinferserver
+element for inference.
+If nvinferserver is selected, the Triton Inference Server is used for inference
+processing. In this case, the example needs to be run inside the
+DeepStream-Triton docker container  for dGPU platforms. For Jetson platforms,
+this example can be executed on target device directly or inside DeepStream L4T
+Triton container. Please refer samples/configs/deepstream-app-triton/README for
+the steps to download the container image and setup model repository.
 ===============================================================================
 2. Purpose:
 ===============================================================================
@@ -55,7 +63,7 @@ how to:
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
 
   $ cd /opt/nvidia/deepstream/deepstream/sources/gst-plugins/gst-nvdspreprocess
   $ sudo make && sudo make install (sudo not required in case of docker containers)
@@ -72,10 +80,16 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
 4. Usage:
 ===============================================================================
 
-  $ ./deepstream-preprocess-test <nvdspreprocess-config-file> <nvinfer-config-file> [uri1] [uri2] ... [uriN]
+  $ ./deepstream-preprocess-test <nvdspreprocess-config-file> <pgie-config-file> [uri1] [uri2] ... [uriN]
 e.g.
   $ ./deepstream-preprocess-test config_preprocess.txt config_infer.txt file:///video1.mp4 file:///video2.mp4
   $ ./deepstream-preprocess-test config_preprocess.txt config_infer.txt rtsp://127.0.0.1/video1 rtsp://127.0.0.1/video2
+
+Use option "-t inferserver" to select nvinferserver as the inference plugin
+  $ ./deepstream-preprocess-test -t inferserver <nvdspreprocess-config-file> <pgie-config-file> [uri1] [uri2] ... [uriN]
+e.g.
+  $ ./deepstream-preprocess-test -t inferserver config_preprocess.txt config_inferserver.txt file:///video1.mp4 file:///video2.mp4
+  $ ./deepstream-preprocess-test -t inferserver config_preprocess.txt config_inferserver.txt rtsp://127.0.0.1/video1 rtsp://127.0.0.1/video2
 
 NOTE:
 1. For optimal performance, set nvdspreprocess batch-size (network-input-shape[0]) in config file same as
@@ -98,11 +112,13 @@ tensor for inferencing, which is attached as user meta at batch level. User can
 provide custom preprocessing library having custom per group transformation
 functions and custom tensor preparation function.
 
-Then, "nvinfer" uses the preprocessed raw tensor from meta data for batched
-inferencing. The batched buffer is composited into a 2D tile array using
-"nvmultistreamtiler."
+This sample creates instance of either "nvinfer" or "nvinferserver" element
+for inference. The "nvinfer" element uses TensorRT API to infer
+on frames/objects. The "nvinferserver" element uses the Triton Inference
+Server to infer on frames/objects.
+The batched buffer is composited into a 2D tile array using "nvmultistreamtiler."
 
 The rest of the pipeline is similar to the deepstream-test3 sample.
 
 NOTE: To reuse engine files generated in previous runs, update the
-model-engine-file parameter in the nvinfer config file to an existing engine file
+model-engine-file parameter in the pgie config file to an existing engine file

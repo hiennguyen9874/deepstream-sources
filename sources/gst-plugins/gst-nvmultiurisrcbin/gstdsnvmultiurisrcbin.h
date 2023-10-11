@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -61,6 +61,7 @@ enum {
     MULTIURIBIN_PROP_LATENCY,
     MULTIURIBIN_PROP_SOURCE_ID,
     MULTIURIBIN_PROP_UDP_BUFFER_SIZE,
+    MULTIURIBIN_PROP_DISABLE_PASSTHROUGH,
 
     // nvstreammux props:
 
@@ -83,7 +84,7 @@ enum {
     PROP_FRAME_DURATION,
     PROP_ASYNC_PROCESS,
     PROP_NO_PIPELINE_EOS,
-
+    PROP_CONFIG_FILE_PATH,
     MULTIURIBIN_PROP_LAST
 };
 

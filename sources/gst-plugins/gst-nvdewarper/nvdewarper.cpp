@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -40,6 +40,8 @@
 
 #include "cudaEGL.h"
 #endif
+
+#define USE_CUDA_STREAM
 
 /* Dewarper #defines */
 #ifndef M_PI
@@ -235,6 +237,7 @@ static cudaError Dewarp_Buffer(const Gstnvdewarper *nvdewarper,
     /* Test measurement with 10 iterations */
 #ifdef USE_CUDA_STREAM
     warper.warp(nvdewarper->stream, srcTex, dstBuffer, cuDstRowBytes);
+    cudaErr = cudaStreamSynchronize(nvdewarper->stream);
 #else
     warper.warp(0, srcTex, dstBuffer, cuDstRowBytes);
     cudaErr = cudaDeviceSynchronize();

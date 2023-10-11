@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,48 +31,36 @@
 
 #include <iostream>
 
+#include "gst-nvdscustommessage.h"
 #include "gst-nvevent.h"
 #include "gst-nvmessage.h"
 #include "gstnvdsmeta.h"
-#include "nvds_rest_server.h"
 #include "nvds_yml_parser.h"
+#include "rest_server_callbacks.h"
 
 #define MAX_DISPLAY_LEN 64
 
 #define PGIE_CLASS_ID_VEHICLE 0
 #define PGIE_CLASS_ID_PERSON 2
 
-/* By default, OSD process-mode is set to CPU_MODE. To change mode, set as:
- * 1: GPU mode (for Tesla only)
- * 2: HW mode (For Jetson only)
- */
-#define OSD_PROCESS_MODE 0
-
-/* By default, OSD will not display text. To display text, change this to 1 */
-#define OSD_DISPLAY_TEXT 0
-
-/* The muxer output resolution must be set if the input streams will be of
- * different resolution. The muxer will scale all the input frames to this
- * resolution. */
-#define MUXER_OUTPUT_WIDTH 1920
-#define MUXER_OUTPUT_HEIGHT 1080
-
-/* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
- * based on the fastest source's framerate. */
-#define MUXER_BATCH_TIMEOUT_USEC 33333
-
-#define MAX_BATCH_SIZE 8
-
-#define TILED_OUTPUT_WIDTH 1280
-#define TILED_OUTPUT_HEIGHT 720
-
 /* NVIDIA Decoder source pad memory feature. This feature signifies that source
  * pads having this capability will push GstBuffers containing cuda buffers. */
 #define GST_CAPS_FEATURES_NVMM "memory:NVMM"
 
+/* Check for parsing error. */
+#define RETURN_ON_PARSER_ERROR(parse_expr)                    \
+    if (NVDS_YAML_PARSER_SUCCESS != parse_expr) {             \
+        g_printerr("Error in parsing configuration file.\n"); \
+        return -1;                                            \
+    }
+
 gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "RoadSign"};
 
 static gboolean PERF_MODE = FALSE;
+
+GstPadProbeReturn pad_probe_event_on_fakesink(GstPad *pad,
+                                              GstPadProbeInfo *info,
+                                              gpointer user_data);
 
 /* tiler_sink_pad_buffer_probe  will extract metadata received on OSD sink pad
  * and update params for drawing rectangle, object information etc. */
@@ -108,40 +96,61 @@ static GstPadProbeReturn tiler_src_pad_buffer_probe(GstPad *pad,
         }
 // Enable below #if to see frame count and object information
 #if 0
-           g_print ("Frame Number = %d Number of objects = %d "
-             "Vehicle Count = %d Person Count = %d\n",
-             frame_meta->frame_num, num_rects, vehicle_count, person_count);
+    g_print ("Frame Number = %d Number of objects = %d "
+        "Vehicle Count = %d Person Count = %d\n",
+        frame_meta->frame_num, num_rects, vehicle_count, person_count);
 #endif
 
 #if 0
-        display_meta = nvds_acquire_display_meta_from_pool(batch_meta);
-        NvOSD_TextParams *txt_params  = &display_meta->text_params;
-        txt_params->display_text = g_malloc0 (MAX_DISPLAY_LEN);
-        offset = snprintf(txt_params->display_text, MAX_DISPLAY_LEN, "Person = %d ", person_count);
-        offset = snprintf(txt_params->display_text + offset , MAX_DISPLAY_LEN, "Vehicle = %d ", vehicle_count);
+    display_meta = nvds_acquire_display_meta_from_pool (batch_meta);
+    NvOSD_TextParams *txt_params = &display_meta->text_params;
+    txt_params->display_text = g_malloc0 (MAX_DISPLAY_LEN);
+    offset =
+        snprintf (txt_params->display_text, MAX_DISPLAY_LEN, "Person = %d ",
+        person_count);
+    offset =
+        snprintf (txt_params->display_text + offset, MAX_DISPLAY_LEN,
+        "Vehicle = %d ", vehicle_count);
 
-        /* Now set the offsets where the string should appear */
-        txt_params->x_offset = 10;
-        txt_params->y_offset = 12;
+    /* Now set the offsets where the string should appear */
+    txt_params->x_offset = 10;
+    txt_params->y_offset = 12;
 
-        /* Font , font-color and font-size */
-        txt_params->font_params.font_name = "Serif";
-        txt_params->font_params.font_size = 10;
-        txt_params->font_params.font_color.red = 1.0;
-        txt_params->font_params.font_color.green = 1.0;
-        txt_params->font_params.font_color.blue = 1.0;
-        txt_params->font_params.font_color.alpha = 1.0;
+    /* Font , font-color and font-size */
+    txt_params->font_params.font_name = "Serif";
+    txt_params->font_params.font_size = 10;
+    txt_params->font_params.font_color.red = 1.0;
+    txt_params->font_params.font_color.green = 1.0;
+    txt_params->font_params.font_color.blue = 1.0;
+    txt_params->font_params.font_color.alpha = 1.0;
 
-        /* Text background color */
-        txt_params->set_bg_clr = 1;
-        txt_params->text_bg_clr.red = 0.0;
-        txt_params->text_bg_clr.green = 0.0;
-        txt_params->text_bg_clr.blue = 0.0;
-        txt_params->text_bg_clr.alpha = 1.0;
+    /* Text background color */
+    txt_params->set_bg_clr = 1;
+    txt_params->text_bg_clr.red = 0.0;
+    txt_params->text_bg_clr.green = 0.0;
+    txt_params->text_bg_clr.blue = 0.0;
+    txt_params->text_bg_clr.alpha = 1.0;
 
-        nvds_add_display_meta_to_frame(frame_meta, display_meta);
+    nvds_add_display_meta_to_frame (frame_meta, display_meta);
 #endif
     }
+    return GST_PAD_PROBE_OK;
+}
+
+GstPadProbeReturn pad_probe_event_on_fakesink(GstPad *pad,
+                                              GstPadProbeInfo *info,
+                                              gpointer user_data)
+{
+    GstEvent *event = (GstEvent *)info->data;
+
+    if (event) {
+        if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_STREAM_EOS) {
+            guint source_id = 0;
+            gst_nvevent_parse_stream_eos(event, &source_id);
+            g_print("Received event EOS for source id %d \n", source_id);
+        }
+    }
+
     return GST_PAD_PROBE_OK;
 }
 
@@ -183,6 +192,14 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
                 g_print("Got EOS from stream %d\n", stream_id);
             }
         }
+        if (gst_nvmessage_is_force_pipeline_eos(msg)) {
+            gboolean app_quit;
+            if (gst_nvmessage_parse_force_pipeline_eos(msg, &app_quit)) {
+                if (app_quit)
+                    g_main_loop_quit(loop);
+            }
+        }
+
         break;
     }
     default:
@@ -193,18 +210,68 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 
 int main(int argc, char *argv[])
 {
-    GMainLoop *loop = NULL;
-    GstElement *pipeline = NULL, *multiuribin = NULL, *sink = NULL, *pgie = NULL, *queue1, *queue2,
-               *queue3, *queue4, *queue5, *nvvidconv = NULL, *tiler = NULL, *nvdslogger = NULL,
-               *preprocess = NULL, *nvosd = NULL;
+    AppCtx appctx = {0};
+    appctx.sourceIdCounter = 0;
+    g_mutex_init(&appctx.bincreator_lock);
 
+    GMainLoop *loop = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *tiler_src_pad = NULL;
+    gboolean yaml_config = FALSE;
+    NvDsGieType pgie_type = NVDS_GIE_PLUGIN_INFER;
+    GstPad *sink_pad = NULL;
+
+    gboolean rest_server_within_multiurisrcbin = FALSE;
+    nvds_parse_check_rest_server_with_app(argv[1], "rest-server",
+                                          &rest_server_within_multiurisrcbin);
+
+    if (!rest_server_within_multiurisrcbin) {
+        nvds_parse_server_appctx(argv[1], "server-app-ctx", &appctx);
+
+        NvDsServerCallbacks server_cb = {};
+        /* Set REST Server callbacks */
+        g_print("Setting rest server callbacks \n");
+        server_cb.stream_cb = [&appctx](NvDsStreamInfo *stream_info, void *ctx) {
+            s_stream_callback_impl(stream_info, (void *)&appctx);
+        };
+        server_cb.roi_cb = [&appctx](NvDsRoiInfo *roi_info, void *ctx) {
+            s_roi_callback_impl(roi_info, (void *)&appctx);
+        };
+        server_cb.dec_cb = [&appctx](NvDsDecInfo *dec_info, void *ctx) {
+            s_dec_callback_impl(dec_info, (void *)&appctx);
+        };
+        server_cb.infer_cb = [&appctx](NvDsInferInfo *infer_info, void *ctx) {
+            s_infer_callback_impl(infer_info, (void *)&appctx);
+        };
+        server_cb.inferserver_cb = [&appctx](NvDsInferServerInfo *inferserver_info, void *ctx) {
+            s_inferserver_callback_impl(inferserver_info, (void *)&appctx);
+        };
+        server_cb.conv_cb = [&appctx](NvDsConvInfo *conv_info, void *ctx) {
+            s_conv_callback_impl(conv_info, (void *)&appctx);
+        };
+        server_cb.enc_cb = [&appctx](NvDsEncInfo *enc_info, void *ctx) {
+            s_enc_callback_impl(enc_info, (void *)&appctx);
+        };
+        server_cb.mux_cb = [&appctx](NvDsMuxInfo *mux_info, void *ctx) {
+            s_mux_callback_impl(mux_info, (void *)&appctx);
+        };
+        server_cb.osd_cb = [&appctx](NvDsOsdInfo *osd_info, void *ctx) {
+            s_osd_callback_impl(osd_info, (void *)&appctx);
+        };
+        server_cb.appinstance_cb = [&appctx](NvDsAppInstanceInfo *appinstance_info, void *ctx) {
+            s_appinstance_callback_impl(appinstance_info, (void *)&appctx);
+        };
+
+        appctx.server_conf.ip = appctx.httpIp;
+        appctx.server_conf.port = appctx.httpPort;
+        g_print("Calling nvds_rest_server_start from the server app \n");
+        appctx.restServer = (void *)nvds_rest_server_start(&appctx.server_conf, &server_cb);
+    }
 
     guint tiler_rows, tiler_columns;
-    PERF_MODE =
-        g_getenv("NVDS_TEST3_PERF_MODE") && !g_strcmp0(g_getenv("NVDS_TEST3_PERF_MODE"), "1");
+    PERF_MODE = g_getenv("NVDS_SERVER_APP_PERF_MODE") &&
+                !g_strcmp0(g_getenv("NVDS_SERVER_APP_PERF_MODE"), "1");
 
     gchar *nvdspreprocess_config_file = (gchar *)"config_preprocess.txt";
 
@@ -223,112 +290,261 @@ int main(int argc, char *argv[])
     gst_init(&argc, &argv);
     loop = g_main_loop_new(NULL, FALSE);
 
+    /* Parse inference plugin type */
+    yaml_config = (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml"));
+
+    if (yaml_config) {
+        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&pgie_type, argv[1], "primary-gie"));
+    }
+
     /* Create gstreamer elements */
     /* Create Pipeline element that will form a connection of other elements */
-    pipeline = gst_pipeline_new("dsserver-pipeline");
-
-    /* Create nvmultiurisrcbin instance to use REST server feature. */
-    multiuribin = gst_element_factory_make("nvmultiurisrcbin", "multiuribin");
-
-    if (!pipeline || !multiuribin) {
-        g_printerr("One element could not be created. Exiting.\n");
+    appctx.pipeline = gst_pipeline_new("dsserver-pipeline");
+    if (!appctx.pipeline) {
+        g_printerr("dsserver-pipeline element could not be created. Exiting.\n");
         return -1;
     }
 
-    gst_bin_add(GST_BIN(pipeline), multiuribin);
+    if (appctx.restServer) {
+        /* Create nvmultiurisrcbin instance using helper APIs to use REST server feature. */
+        g_print("Calling nvmultiurisrcbincreator API \n");
 
-    GList *src_list = NULL;
-    nvds_parse_source_list(&src_list, argv[1], "source-list");
+        /* NOTE: Use "app/quit" REST API to exit the app when no_pipeline_eos is set to TRUE.
+                 If no_pipeline_eos is set to FALSE then EOS is handled normally to exit app */
+        /* Create/Add the nvmultiurisrcbincreator instance */
+        appctx.nvmultiurisrcbinCreator =
+            gst_nvmultiurisrcbincreator_init(0, NVDS_MULTIURISRCBIN_MODE_VIDEO, &appctx.muxConfig);
+        if (!appctx.nvmultiurisrcbinCreator) {
+            g_printerr("gst_nvmultiurisrcbincreator_init failed. Exiting.\n");
+            return -1;
+        }
 
-    gchar *uri = (char *)(src_list)->data;
-
-    g_object_set(G_OBJECT(multiuribin), "port", "9000", NULL);
-    g_object_set(G_OBJECT(multiuribin), "uri-list", uri, NULL);
-    g_object_set(G_OBJECT(multiuribin), "live-source", 1, "width", MUXER_OUTPUT_WIDTH, "height",
-                 MUXER_OUTPUT_HEIGHT, "max-batch-size", MAX_BATCH_SIZE, "batched-push-timeout",
-                 MUXER_BATCH_TIMEOUT_USEC, NULL);
-
-    g_list_free(src_list);
-
-    preprocess = gst_element_factory_make("nvdspreprocess", "preprocess-plugin");
-
-    g_object_set(G_OBJECT(preprocess), "config-file", nvdspreprocess_config_file, NULL);
-    /* Use nvinfer to infer on batched frame. */
-    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
-
-    /* Add queue elements between every two elements */
-    queue1 = gst_element_factory_make("queue", "queue1");
-    queue2 = gst_element_factory_make("queue", "queue2");
-    queue3 = gst_element_factory_make("queue", "queue3");
-    queue4 = gst_element_factory_make("queue", "queue4");
-    queue5 = gst_element_factory_make("queue", "queue5");
-
-    /* Use nvdslogger for perf measurement. */
-    nvdslogger = gst_element_factory_make("nvdslogger", "nvdslogger");
-
-    g_object_set(G_OBJECT(nvdslogger), "fps-measurement-interval-sec", 1, NULL);
-
-    /* Use nvtiler to composite the batched frames into a 2D tiled array based
-     * on the source of the frames. */
-    tiler = gst_element_factory_make("nvmultistreamtiler", "nvtiler");
-
-    /* Use convertor to convert from NV12 to RGBA as required by nvosd */
-    nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
-
-    /* Create OSD to draw on the converted RGBA buffer */
-    nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
-
-    if (PERF_MODE) {
-        sink = gst_element_factory_make("fakesink", "nvvideo-renderer");
+        GstDsNvUriSrcConfig sourceConfig;
+        memset(&sourceConfig, 0, sizeof(GstDsNvUriSrcConfig));
+        sourceConfig.sensorId = NULL;
+        sourceConfig.uri = appctx.uri_list;
+        sourceConfig.source_id = 0;
+        sourceConfig.disable_passthrough = TRUE;
+        if (!gst_nvmultiurisrcbincreator_add_source(appctx.nvmultiurisrcbinCreator,
+                                                    &sourceConfig)) {
+            g_printerr("gst_nvmultiurisrcbincreator_add_source failed. Exiting.\n");
+            return -1;
+        }
     } else {
-        /* Finally render the osd output */
-        if (prop.integrated) {
-            sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
-        } else {
-            sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+        /* Create nvmultiurisrcbin instance to use REST server feature. */
+        g_print("Calling gst_element_factory_make for nvmultiurisrcbin \n");
+        appctx.multiuribin = gst_element_factory_make("nvmultiurisrcbin", "multiuribin");
+        if (!appctx.multiuribin) {
+            g_printerr("One element multiuribin could not be created. Exiting.\n");
+            return -1;
+        }
+        nvds_parse_multiurisrcbin(appctx.multiuribin, argv[1], "multiurisrcbin");
+    }
+
+    NvDsYamlCodecStatus codec_status;
+    nvds_parse_codec_status(argv[1], "encoder", &codec_status);
+
+    gboolean enc_enable = codec_status.enable;
+
+    if (enc_enable) {
+        appctx.nvvidconv2 = gst_element_factory_make("nvvideoconvert", "nvvideo-converter-2");
+        if (codec_status.codec_type == 1) {
+            appctx.encoder = gst_element_factory_make("nvv4l2h264enc", "nvv4l2h264encoder");
+            appctx.parser = gst_element_factory_make("h264parse", "h264parse");
+        } else if (codec_status.codec_type == 2) {
+            appctx.encoder = gst_element_factory_make("nvv4l2h265enc", "nvv4l2h265encoder");
+            appctx.parser = gst_element_factory_make("h265parse", "h265parse");
+        } else if (codec_status.codec_type > 2 || codec_status.codec_type < 1) {
+            g_printerr(
+                "Invalid codec type used in the config file. Use  codec =1 H264, codec = 2 H265 in "
+                "the config \n");
+            return -1;
+        }
+
+        appctx.queue_post_encoder = gst_element_factory_make("queue", "queue-post-encoder");
+
+        if (!appctx.nvvidconv2 || !appctx.encoder || !appctx.parser || !appctx.queue_post_encoder) {
+            g_printerr("One element could not be created in encoder path. Exiting.\n");
+            return -1;
         }
     }
 
-    if (!preprocess || !pgie || !nvdslogger || !tiler || !nvvidconv || !nvosd || !sink) {
+    if (appctx.restServer) {
+        gst_bin_add_many(GST_BIN(appctx.pipeline),
+                         gst_nvmultiurisrcbincreator_get_bin(appctx.nvmultiurisrcbinCreator), NULL);
+    } else {
+        gst_bin_add_many(GST_BIN(appctx.pipeline), appctx.multiuribin, NULL);
+    }
+
+    appctx.preprocess = gst_element_factory_make("nvdspreprocess", "preprocess-plugin");
+
+    g_object_set(G_OBJECT(appctx.preprocess), "config-file", nvdspreprocess_config_file, NULL);
+
+    /* Use nvinfer or nvinferserver to infer on batched frame. */
+    if (pgie_type == NVDS_GIE_PLUGIN_INFER_SERVER) {
+        appctx.pgie = gst_element_factory_make("nvinferserver", "primary-nvinference-engine");
+    } else {
+        appctx.pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    }
+
+    /* Add queue elements between every two elements */
+    appctx.queue1 = gst_element_factory_make("queue", "queue1");
+    appctx.queue2 = gst_element_factory_make("queue", "queue2");
+    appctx.queue3 = gst_element_factory_make("queue", "queue3");
+    appctx.queue4 = gst_element_factory_make("queue", "queue4");
+    appctx.queue5 = gst_element_factory_make("queue", "queue5");
+
+    /* Use nvdslogger for perf measurement. */
+
+    appctx.nvdslogger = gst_element_factory_make("nvdslogger", "nvdslogger");
+    g_object_set(G_OBJECT(appctx.nvdslogger), "fps-measurement-interval-sec", 1, NULL);
+
+    /* Use nvtiler to composite the batched frames into a 2D tiled array based
+     * on the source of the frames. */
+    appctx.tiler = gst_element_factory_make("nvmultistreamtiler", "nvtiler");
+
+    /* Use convertor to convert from NV12 to RGBA as required by nvosd */
+    appctx.nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
+
+    /* Create OSD to draw on the converted RGBA buffer */
+    appctx.nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
+
+    if (PERF_MODE) {
+        g_print("PERF_MODE Enabled\n");
+        appctx.sink = gst_element_factory_make("fakesink", "nvvideo-renderer");
+    } else {
+        /* Finally render the osd output */
+        if (prop.integrated) {
+            appctx.sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
+        } else {
+            if (!enc_enable) {
+                appctx.sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+            } else {
+                appctx.sink = gst_element_factory_make("filesink", "file-sink");
+                if (codec_status.codec_type == 1) {
+                    g_object_set(G_OBJECT(appctx.sink), "location", "out.h264", NULL);
+                    g_object_set(G_OBJECT(appctx.sink), "sync", 1, NULL);
+                } else if (codec_status.codec_type == 2) {
+                    g_object_set(G_OBJECT(appctx.sink), "sync", 1, NULL);
+                }
+            }
+        }
+    }
+
+    if (!appctx.preprocess || !appctx.pgie || !appctx.nvdslogger || !appctx.tiler ||
+        !appctx.nvvidconv || !appctx.nvosd || !appctx.sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    g_object_set(G_OBJECT(pgie), "config-file-path", "dsserver_pgie_config.yml", NULL);
+    g_object_set(G_OBJECT(appctx.pgie), "config-file-path", "dsserver_pgie_config.txt", NULL);
 
-    g_object_set(G_OBJECT(pgie), "batch-size", MAX_BATCH_SIZE, NULL);
+    if (yaml_config) {
+        /* Set all the necessary properties of the inference element */
+        RETURN_ON_PARSER_ERROR(nvds_parse_gie(appctx.pgie, argv[1], "primary-gie"));
+    }
+    guint multiurisrcbin_max_bs = 0;
+    if (appctx.restServer) {
+        multiurisrcbin_max_bs = appctx.muxConfig.maxBatchSize;
+    } else {
+        g_object_get(appctx.multiuribin, "max-batch-size", &multiurisrcbin_max_bs, NULL);
+    }
+    g_object_set(G_OBJECT(appctx.pgie), "batch-size", multiurisrcbin_max_bs, NULL);
 
-    nvds_parse_osd(nvosd, argv[1], "osd");
+    nvds_parse_osd(appctx.nvosd, argv[1], "osd");
 
-    tiler_rows = (guint)sqrt(MAX_BATCH_SIZE);
-    tiler_columns = (guint)ceil(1.0 * MAX_BATCH_SIZE / tiler_rows);
-    g_object_set(G_OBJECT(tiler), "rows", tiler_rows, "columns", tiler_columns, NULL);
+    tiler_rows = (guint)sqrt(multiurisrcbin_max_bs);
+    tiler_columns = (guint)ceil(1.0 * multiurisrcbin_max_bs / tiler_rows);
+    g_object_set(G_OBJECT(appctx.tiler), "rows", tiler_rows, "columns", tiler_columns, NULL);
 
-    nvds_parse_tiler(tiler, argv[1], "tiler");
-    nvds_parse_egl_sink(sink, argv[1], "sink");
+    nvds_parse_tiler(appctx.tiler, argv[1], "tiler");
+    if (!enc_enable) {
+        if (prop.integrated) {
+            nvds_parse_3d_sink(appctx.sink, argv[1], "sink");
+        } else {
+            if (PERF_MODE) {
+                nvds_parse_fake_sink(appctx.sink, argv[1], "sink");
+            } else {
+                nvds_parse_egl_sink(appctx.sink, argv[1], "sink");
+            }
+        }
+    }
 
     /* we add a message handler */
-    bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
+    bus = gst_pipeline_get_bus(GST_PIPELINE(appctx.pipeline));
     bus_watch_id = gst_bus_add_watch(bus, bus_call, loop);
     gst_object_unref(bus);
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    gst_bin_add_many(GST_BIN(pipeline), queue1, preprocess, pgie, queue2, nvdslogger, tiler, queue3,
-                     nvvidconv, queue4, nvosd, queue5, sink, NULL);
+    if (PERF_MODE) {
+        gst_bin_add_many(GST_BIN(appctx.pipeline), appctx.queue1, appctx.nvdslogger, appctx.queue5,
+                         appctx.sink, NULL);
+    } else {
+        gst_bin_add_many(GST_BIN(appctx.pipeline), appctx.queue1, appctx.preprocess, appctx.pgie,
+                         appctx.queue2, appctx.nvdslogger, appctx.tiler, appctx.queue3,
+                         appctx.nvvidconv, appctx.queue4, appctx.nvosd, appctx.queue5, appctx.sink,
+                         NULL);
+        if (enc_enable) {
+            gst_bin_add_many(GST_BIN(appctx.pipeline), appctx.nvvidconv2, appctx.encoder,
+                             appctx.parser, appctx.queue_post_encoder, NULL);
+        }
+    }
     /* we link the elements together
-     * nvmultiurisrcbin -> nvinfer -> nvdslogger -> nvtiler -> nvvidconv -> nvosd
+     * nvmultiurisrcbin -> pgie -> nvdslogger -> nvtiler -> nvvidconv -> nvosd
      * -> video-renderer */
-    if (!gst_element_link_many(multiuribin, queue1, preprocess, pgie, queue2, nvdslogger, tiler,
-                               queue3, nvvidconv, queue4, nvosd, queue5, sink, NULL)) {
-        g_printerr("Elements could not be linked. Exiting.\n");
-        return -1;
+    if (appctx.restServer) {
+        if (PERF_MODE) {
+            if (!gst_element_link_many(
+                    gst_nvmultiurisrcbincreator_get_bin(appctx.nvmultiurisrcbinCreator),
+                    appctx.queue1, appctx.nvdslogger, appctx.queue5, NULL)) {
+                g_printerr(
+                    "Elements multiSourceBin, nvdslogger, queue5 could not be linked. Exiting.\n");
+                return -1;
+            }
+        } else {
+            if (!gst_element_link_many(
+                    gst_nvmultiurisrcbincreator_get_bin(appctx.nvmultiurisrcbinCreator),
+                    appctx.queue1, appctx.preprocess, appctx.pgie, appctx.queue2, appctx.nvdslogger,
+                    appctx.tiler, appctx.queue3, appctx.nvvidconv, appctx.queue4, appctx.nvosd,
+                    appctx.queue5, NULL)) {
+                g_printerr("Elements could not be linked. Exiting.\n");
+                return -1;
+            }
+        }
+    } else {
+        if (PERF_MODE) {
+            if (!gst_element_link_many(appctx.multiuribin, appctx.queue1, appctx.nvdslogger,
+                                       appctx.queue5, NULL)) {
+                g_printerr(
+                    "Elements multiSourceBin, nvdslogger, queue5 could not be linked. Exiting.\n");
+                return -1;
+            }
+        } else {
+            if (!gst_element_link_many(appctx.multiuribin, appctx.queue1, appctx.preprocess,
+                                       appctx.pgie, appctx.queue2, appctx.nvdslogger, appctx.tiler,
+                                       appctx.queue3, appctx.nvvidconv, appctx.queue4, appctx.nvosd,
+                                       appctx.queue5, NULL)) {
+                g_printerr("Elements could not be linked. Exiting.\n");
+                return -1;
+            }
+        }
+    }
+
+    if (!enc_enable) {
+        if (!gst_element_link_many(appctx.queue5, appctx.sink, NULL)) {
+            g_printerr("queue5->sink Elements could not be linked. Exiting.\n");
+            return -1;
+        }
+    } else {
+        gst_element_link_many(appctx.queue5, appctx.nvvidconv2, appctx.encoder,
+                              appctx.queue_post_encoder, appctx.parser, appctx.sink, NULL);
     }
 
     /* Lets add probe to get informed of the meta data generated, we add probe to
      * the sink pad of the osd element, since by that time, the buffer would have
      * had got all the metadata. */
-    tiler_src_pad = gst_element_get_static_pad(pgie, "src");
+    tiler_src_pad = gst_element_get_static_pad(appctx.tiler, "src");
     if (!tiler_src_pad)
         g_print("Unable to get src pad\n");
     else
@@ -336,10 +552,17 @@ int main(int argc, char *argv[])
                           NULL, NULL);
     gst_object_unref(tiler_src_pad);
 
+    if (PERF_MODE) {
+        sink_pad = gst_element_get_static_pad(appctx.sink, "sink");
+
+        gst_pad_add_probe(sink_pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
+                          pad_probe_event_on_fakesink, (void *)&appctx, NULL);
+        gst_object_unref(sink_pad);
+    }
     /* Set the pipeline to "playing" state */
     g_print("Using file: %s\n", argv[1]);
 
-    gst_element_set_state(pipeline, GST_STATE_PLAYING);
+    gst_element_set_state(appctx.pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */
     g_print("Running...\n");
@@ -348,11 +571,27 @@ int main(int argc, char *argv[])
 
     /* Out of the main loop, clean up nicely */
     g_print("Returned, stopping playback\n");
-    gst_element_set_state(pipeline, GST_STATE_NULL);
+    gst_element_set_state(appctx.pipeline, GST_STATE_NULL);
+    if (appctx.restServer) {
+        g_print("Calling gst_nvmultiurisrcbincreator_deinit\n");
+        gst_nvmultiurisrcbincreator_deinit(appctx.nvmultiurisrcbinCreator);
+    }
     g_print("Deleting pipeline\n");
-    gst_object_unref(GST_OBJECT(pipeline));
+    gst_object_unref(GST_OBJECT(appctx.pipeline));
     g_source_remove(bus_watch_id);
     g_main_loop_unref(loop);
+
+    if (appctx.restServer) {
+        g_print("Stoping REST server\n");
+        nvds_rest_server_stop((NvDsRestServer *)appctx.restServer);
+        appctx.restServer = NULL;
+        if (appctx.httpIp) {
+            g_free(appctx.httpIp);
+        }
+        if (appctx.httpPort) {
+            g_free(appctx.httpPort);
+        }
+    }
 
     return 0;
 }

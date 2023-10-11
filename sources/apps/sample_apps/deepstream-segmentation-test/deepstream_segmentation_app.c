@@ -201,8 +201,10 @@ static GstElement *create_source_bin(guint index, gchar *uri)
 
 static void usage(const char *bin)
 {
-    g_printerr("Usage: %s [-t infer-type] config_file <file1> [file2] ... [fileN] \n", bin);
-    g_printerr("     -t infer-type: select from [infer, inferserver], infer by default\n");
+    g_printerr("Usage: %s config_file <file1> [file2] ... [fileN]\n", bin);
+    g_printerr(
+        "For nvinferserver, Usage: %s -t inferserver config_file <file1> [file2] ... [fileN]\n",
+        bin);
 }
 
 int main(int argc, char *argv[])
@@ -216,7 +218,6 @@ int main(int argc, char *argv[])
     guint i, num_sources = 0;
     guint tiler_rows, tiler_columns;
     guint pgie_batch_size;
-    GList *files = NULL;
     gboolean is_nvinfer_server = FALSE;
     gchar *infer_config_file = NULL;
 
@@ -231,35 +232,22 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /* Parse infer type and file names */
-    for (gint k = 1; k < argc;) {
-        if (!strcmp("-t", argv[k])) {
-            if (k + 1 >= argc) {
-                usage(argv[0]);
-                return -1;
-            }
-            if (!strcmp("infer", argv[k + 1])) {
-                is_nvinfer_server = FALSE;
-            } else if (!strcmp("inferserver", argv[k + 1])) {
-                is_nvinfer_server = TRUE;
-            } else {
-                usage(argv[0]);
-                return -1;
-            }
-            k += 2;
-        } else if (!infer_config_file) {
-            infer_config_file = argv[k];
-            k++;
+    if (argc >= 3 && !strcmp("-t", argv[1])) {
+        if (!strcmp("inferserver", argv[2])) {
+            is_nvinfer_server = TRUE;
         } else {
-            files = g_list_append(files, argv[k]);
-            num_sources++;
-            k++;
+            usage(argv[0]);
+            return -1;
         }
+        g_print("Using nvinferserver as the inference plugin\n");
     }
 
-    if (num_sources == 0) {
-        usage(argv[0]);
-        return -1;
+    if (is_nvinfer_server) {
+        num_sources = argc - 4;
+        infer_config_file = argv[3];
+    } else {
+        num_sources = argc - 2;
+        infer_config_file = argv[1];
     }
 
     /* Standard GStreamer initialization */
@@ -281,8 +269,14 @@ int main(int argc, char *argv[])
 
     for (i = 0; i < num_sources; i++) {
         GstPad *sinkpad, *srcpad;
+        GstElement *source_bin;
         gchar pad_name[16] = {};
-        GstElement *source_bin = create_source_bin(i, (char *)g_list_nth_data(files, i));
+
+        if (is_nvinfer_server) {
+            source_bin = create_source_bin(i, argv[i + 4]);
+        } else {
+            source_bin = create_source_bin(i, argv[i + 2]);
+        }
 
         if (!source_bin) {
             g_printerr("Failed to create source bin. Exiting.\n");
@@ -392,11 +386,7 @@ int main(int argc, char *argv[])
     gst_object_unref(seg_src_pad);
 
     /* Set the pipeline to "playing" state */
-    g_print("Now playing:");
-    for (i = 0; i < num_sources; i++) {
-        g_print(" %s,", (char *)g_list_nth_data(files, i));
-    }
-    g_print("\n");
+    g_print("Now playing...\n");
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

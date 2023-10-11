@@ -20,10 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifndef __GST_NVDS_SEI_META_H__
 #define __GST_NVDS_SEI_META_H__
 
@@ -41,10 +37,7 @@ typedef struct _GstVideoSEIMeta {
     void *sei_metadata_ptr;
 } GstVideoSEIMeta;
 
-GType gst_video_sei_meta_api_get_type(void);
-const GstMetaInfo *gst_video_sei_meta_get_info(void);
+GType gst_video_sei_meta_api_get_type(void) asm("gst_video_sei_meta_api_get_type");
+const GstMetaInfo *gst_video_sei_meta_get_info(void) asm("gst_video_sei_meta_get_info");
 
 #endif /*__GST_NVDS_SEI_META_H__*/
-#ifdef __cplusplus
-}
-#endif

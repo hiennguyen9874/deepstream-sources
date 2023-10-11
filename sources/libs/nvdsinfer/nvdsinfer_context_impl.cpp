@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -24,6 +24,8 @@
 #include <memory>
 #include <sstream>
 
+#include "cuda.h"
+#include "cuda_runtime_api.h"
 #include "nvdsinfer_conversion.h"
 #include "nvdsinfer_func_utils.h"
 #include "nvdsinfer_model_builder.h"
@@ -830,8 +832,7 @@ NvDsInferStatus OtherPostprocessor::initResource(const NvDsInferContextInitParam
 }
 
 /* Default constructor. */
-NvDsInferContextImpl::NvDsInferContextImpl()
-    : INvDsInferContext(), m_Batches(NVDSINFER_MIN_OUTPUT_BUFFERPOOL_SIZE)
+NvDsInferContextImpl::NvDsInferContextImpl() : INvDsInferContext(), m_Batches(0)
 {
 }
 
@@ -1009,7 +1010,8 @@ NvDsInferStatus NvDsInferContextImpl::initialize(NvDsInferContextInitParams &ini
     m_MaxBatchSize = initParams.maxBatchSize;
     m_GpuID = initParams.gpuID;
     m_OutputBufferPoolSize = initParams.outputBufferPoolSize;
-    m_Batches.resize(m_OutputBufferPoolSize);
+    m_AutoIncMem = initParams.autoIncMem;
+    m_MaxGPUMem = initParams.maxGPUMemPer;
 
     uint32_t uniqueID = initParams.uniqueID;
     m_LoggingFunc = [this, userCtx, logFunc, uniqueID](NvDsInferLogLevel level, const char *msg) {
@@ -1053,6 +1055,18 @@ NvDsInferStatus NvDsInferContextImpl::initialize(NvDsInferContextInitParams &ini
         printError("Batch-size (%d) more than maximum allowed batch-size (%d)",
                    initParams.maxBatchSize, NVDSINFER_MAX_BATCH_SIZE);
         return NVDSINFER_CONFIG_FAILED;
+    }
+
+    if (m_MaxGPUMem <= 0) {
+        printf("WARNING: Max GPU memory (%f) is less than or equal to 0, falling back to 99\n",
+               initParams.maxGPUMemPer);
+        m_MaxGPUMem = 99.0;
+    }
+
+    if (m_MaxGPUMem > 100) {
+        printf("WARNING: Max GPU memory (%f) cannot be greater than 100, setting to 100\n",
+               initParams.maxGPUMemPer);
+        m_MaxGPUMem = 100.0;
     }
 
     if (initParams.uffDimsCHW.c != 0 || initParams.uffDimsCHW.h != 0 ||
@@ -1152,6 +1166,96 @@ void NvDsInferContextImpl::getNetworkInfo(NvDsInferNetworkInfo &networkInfo)
     networkInfo = m_NetworkInfo;
 }
 
+/* Allocate/re-size the batch vector (bufferpool) according to the inferences
+ * made by the gie. "numBuffers" should ideally be a low number to avoid
+ * allocation of extra cuda memory.
+ */
+NvDsInferStatus NvDsInferContextImpl::resizeOutputBufferpool(uint32_t numBuffers)
+{
+    /* Check to see the amount of utilized memory */
+    size_t free, total;
+    cudaSetDevice(m_GpuID);
+    int id;
+    cudaGetDevice(&id);
+    cudaMemGetInfo(&free, &total);
+
+    std::unique_lock<std::mutex> lock(m_BatchesMutex);
+
+    int buffer_pool_size = m_Batches.size();
+
+    if (buffer_pool_size) {
+        if (free <= (1 - m_MaxGPUMem / 100) * total) {
+            printf(
+                "Warning: Not increasing the pool size as CUDA memory is already at %f "
+                "utilisation\n",
+                m_MaxGPUMem);
+            return NVDSINFER_MEM_ERROR;
+        }
+    }
+
+    m_Batches.resize(buffer_pool_size + numBuffers);
+
+    /* Initialize the batch vector, allocate host memory for the layers,
+     * add all the free indexes to the free queue. */
+    for (size_t iB = buffer_pool_size; iB < m_Batches.size(); iB++) {
+        m_Batches[iB] = std::make_shared<NvDsInferBatch>();
+        NvDsInferBatch &batch = *m_Batches[iB];
+
+        /* Resize the host buffers vector to the number of bound layers. */
+        batch.m_HostBuffers.resize(m_AllLayerInfo.size());
+        batch.m_DeviceBuffers.assign(m_AllLayerInfo.size(), nullptr);
+
+        for (unsigned int jL = 0; jL < m_AllLayerInfo.size(); jL++) {
+            const NvDsInferBatchDimsLayerInfo &layerInfo = m_AllLayerInfo[jL];
+            const NvDsInferDims &bindingDims = layerInfo.inferDims;
+            assert(bindingDims.numElements > 0);
+            size_t size =
+                m_MaxBatchSize * bindingDims.numElements * getElementSize(layerInfo.dataType);
+
+            if (layerInfo.isInput) {
+                /* Reuse input binding buffer pointers. */
+                batch.m_DeviceBuffers[jL] = m_BindingBuffers[jL];
+            } else {
+                /* Allocate device memory for output layers here. */
+                auto outputBuf = std::make_unique<CudaDeviceBuffer>(size);
+                if (!outputBuf || !outputBuf->ptr()) {
+                    printError(
+                        "Failed to allocate cuda output buffer during context "
+                        "initialization");
+                    return NVDSINFER_CUDA_ERROR;
+                }
+                batch.m_DeviceBuffers[jL] = outputBuf->ptr();
+                batch.m_OutputDeviceBuffers.emplace_back(std::move(outputBuf));
+            }
+
+            /* Allocate host memory for input layers only if application
+             * needs access to the input layer contents. */
+            if (layerInfo.isInput && !m_Postprocessor->needInputCopy())
+                continue;
+
+            auto hostBuf = std::make_unique<CudaHostBuffer>(size);
+            if (!hostBuf || !hostBuf->ptr()) {
+                printError(
+                    "Failed to allocate cuda host buffer during context "
+                    "initialization");
+                return NVDSINFER_CUDA_ERROR;
+            }
+            batch.m_HostBuffers[jL] = std::move(hostBuf);
+        }
+
+        batch.m_OutputCopyDoneEvent =
+            std::make_unique<CudaEvent>(cudaEventDisableTiming | cudaEventBlockingSync);
+        if (!batch.m_OutputCopyDoneEvent || !batch.m_OutputCopyDoneEvent->ptr()) {
+            printError("Failed to create cuda event");
+            return NVDSINFER_CUDA_ERROR;
+        }
+
+        /* Add all the indexes to the free queue initially. */
+        m_FreeBatchQueue.push(&batch);
+    }
+    return NVDSINFER_SUCCESS;
+}
+
 /* Allocate binding buffers for all bound layers on the device memory. The size
  * of the buffers allocated is calculated from the dimensions of the layers, the
  * data type of the layer and the max batch size of the infer cuda engine.
@@ -1232,61 +1336,10 @@ NvDsInferStatus NvDsInferContextImpl::allocateBuffers()
         m_InputDeviceBuffers.emplace_back(std::move(inputBuf));
     }
 
-    /* Initialize the batch vector, allocate host memory for the layers,
-     * add all the free indexes to the free queue. */
-    for (size_t iB = 0; iB < m_Batches.size(); iB++) {
-        NvDsInferBatch &batch = m_Batches[iB];
-        /* Resize the host buffers vector to the number of bound layers. */
-        batch.m_HostBuffers.resize(m_AllLayerInfo.size());
-        batch.m_DeviceBuffers.assign(m_AllLayerInfo.size(), nullptr);
-
-        for (unsigned int jL = 0; jL < m_AllLayerInfo.size(); jL++) {
-            const NvDsInferBatchDimsLayerInfo &layerInfo = m_AllLayerInfo[jL];
-            const NvDsInferDims &bindingDims = layerInfo.inferDims;
-            assert(bindingDims.numElements > 0);
-            size_t size =
-                m_MaxBatchSize * bindingDims.numElements * getElementSize(layerInfo.dataType);
-
-            if (layerInfo.isInput) {
-                /* Reuse input binding buffer pointers. */
-                batch.m_DeviceBuffers[jL] = m_BindingBuffers[jL];
-            } else {
-                /* Allocate device memory for output layers here. */
-                auto outputBuf = std::make_unique<CudaDeviceBuffer>(size);
-                if (!outputBuf || !outputBuf->ptr()) {
-                    printError(
-                        "Failed to allocate cuda output buffer during context "
-                        "initialization");
-                    return NVDSINFER_CUDA_ERROR;
-                }
-                batch.m_DeviceBuffers[jL] = outputBuf->ptr();
-                batch.m_OutputDeviceBuffers.emplace_back(std::move(outputBuf));
-            }
-
-            /* Allocate host memory for input layers only if application
-             * needs access to the input layer contents. */
-            if (layerInfo.isInput && !m_Postprocessor->needInputCopy())
-                continue;
-
-            auto hostBuf = std::make_unique<CudaHostBuffer>(size);
-            if (!hostBuf || !hostBuf->ptr()) {
-                printError(
-                    "Failed to allocate cuda host buffer during context "
-                    "initialization");
-                return NVDSINFER_CUDA_ERROR;
-            }
-            batch.m_HostBuffers[jL] = std::move(hostBuf);
-        }
-
-        batch.m_OutputCopyDoneEvent =
-            std::make_unique<CudaEvent>(cudaEventDisableTiming | cudaEventBlockingSync);
-        if (!batch.m_OutputCopyDoneEvent || !batch.m_OutputCopyDoneEvent->ptr()) {
-            printError("Failed to create cuda event");
-            return NVDSINFER_CUDA_ERROR;
-        }
-
-        /* Add all the indexes to the free queue initially. */
-        m_FreeBatchQueue.push(&batch);
+    NvDsInferStatus status = resizeOutputBufferpool(m_OutputBufferPoolSize);
+    if (status != NVDSINFER_SUCCESS) {
+        printError("Failed to allocate output bufferpool\n");
+        return status;
     }
 
     return NVDSINFER_SUCCESS;
@@ -1360,8 +1413,9 @@ NvDsInferStatus NvDsInferContextImpl::initNonImageInputLayers()
         /* Application has requested access to the bound buffer contents. Copy
          * the contents to all sets of host buffers. */
         if (m_Postprocessor->needInputCopy()) {
+            std::unique_lock<std::mutex> lock(m_BatchesMutex);
             for (size_t j = 0; j < m_Batches.size(); j++) {
-                auto &buf = m_Batches[j].m_HostBuffers[inputLayers[i].bindingIndex];
+                auto &buf = m_Batches[j]->m_HostBuffers[inputLayers[i].bindingIndex];
                 assert(buf && buf->bytes() >= initBuffers[i].size());
                 memcpy(buf->ptr(), initBuffers[i].data(), initBuffers[i].size());
             }
@@ -1440,8 +1494,18 @@ NvDsInferStatus NvDsInferContextImpl::queueInputBatch(NvDsInferContextBatchInput
         if (batch)
             m_FreeBatchQueue.push(batch);
     };
+
+    if (m_FreeBatchQueue.isEmpty() && m_AutoIncMem) {
+        NvDsInferStatus status = resizeOutputBufferpool(6);
+        if (status != NVDSINFER_SUCCESS) {
+            printError("Dropping the batch as output bufferpool resize failed\n");
+            return status;
+        }
+    }
+
     std::unique_ptr<NvDsInferBatch, decltype(recyleFunc)> safeRecyleBatch(m_FreeBatchQueue.pop(),
                                                                           recyleFunc);
+
     assert(safeRecyleBatch);
     safeRecyleBatch->m_BatchSize = batchSize;
 
@@ -1491,6 +1555,15 @@ NvDsInferStatus NvDsInferContextImpl::queueInputBatchPreprocessed(
         if (batch)
             m_FreeBatchQueue.push(batch);
     };
+
+    if (m_FreeBatchQueue.isEmpty() && m_AutoIncMem) {
+        NvDsInferStatus status = resizeOutputBufferpool(6);
+        if (status != NVDSINFER_SUCCESS) {
+            printError("Dropping the batch as output bufferpool resize failed\n");
+            return status;
+        }
+    }
+
     std::unique_ptr<NvDsInferBatch, decltype(recyleFunc)> safeRecyleBatch(m_FreeBatchQueue.pop(),
                                                                           recyleFunc);
     assert(safeRecyleBatch);
@@ -1588,9 +1661,13 @@ void NvDsInferContextImpl::releaseBatchOutput(NvDsInferContextBatchOutput &batch
 {
     NvDsInferBatch *batch = (NvDsInferBatch *)batchOutput.priv;
 
+    std::unique_lock<std::mutex> lock(m_BatchesMutex);
+
     /* Check for a valid id */
     if (std::find_if(m_Batches.begin(), m_Batches.end(),
-                     [batch](const NvDsInferBatch &b) { return &b == batch; }) == m_Batches.end()) {
+                     [batch](const std::shared_ptr<NvDsInferBatch> b) {
+                         return b.get() == batch;
+                     }) == m_Batches.end()) {
         printWarning("Tried to release an unknown outputBatchID");
         return;
     }
@@ -1826,20 +1903,22 @@ NvDsInferContextImpl::~NvDsInferContextImpl()
 
     bool warn = false;
 
+    std::unique_lock<std::mutex> lock(m_BatchesMutex);
+
     for (auto &batch : m_Batches) {
-        if (!batch.m_BuffersWithContext && !warn) {
+        if (!batch->m_BuffersWithContext && !warn) {
             warn = true;
             printWarning(
                 "Not all output batches released back to the context "
                 "before destroy. Memory associated with the outputs will "
                 "no longer be valid.");
         }
-        if (batch.m_OutputCopyDoneEvent) {
-            cudaEventSynchronize(*batch.m_OutputCopyDoneEvent);
-            batch.m_OutputCopyDoneEvent.reset();
+        if (batch->m_OutputCopyDoneEvent) {
+            cudaEventSynchronize(*batch->m_OutputCopyDoneEvent);
+            batch->m_OutputCopyDoneEvent.reset();
         }
-        batch.m_OutputDeviceBuffers.clear();
-        batch.m_HostBuffers.clear();
+        batch->m_OutputDeviceBuffers.clear();
+        batch->m_HostBuffers.clear();
     }
     m_Batches.clear();
     m_InputDeviceBuffers.clear();
@@ -1901,6 +1980,8 @@ void NvDsInferContext_ResetInitParams(NvDsInferContextInitParams *initParams)
     initParams->networkScaleFactor = 1.0;
     initParams->networkType = NvDsInferNetworkType_Detector;
     initParams->outputBufferPoolSize = NVDSINFER_MIN_OUTPUT_BUFFERPOOL_SIZE;
+    initParams->autoIncMem = 1;
+    initParams->maxGPUMemPer = 99.0;
 }
 
 const char *NvDsInferContext_GetStatusName(NvDsInferStatus status)

@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,7 +25,7 @@
 
 #include "infer_custom_process.h"
 #include "nvdsinfer.h"
-//#include "infer_options.h"
+// #include "infer_options.h"
 #include <cuda_runtime_api.h>
 #include <ds3d/common/common.h>
 #include <ds3d/common/impl/impl_frames.h>
@@ -62,10 +62,10 @@ namespace dsis = nvdsinferserver;
 extern "C" dsis::IInferCustomProcessor *CreateInferServerCustomProcess(const char *config,
                                                                        uint32_t configLen);
 
-static const std::vector<vec4b> kClassColors = {
-    {{255, 255, 0, 255}}, // yellow
-    {{255, 0, 0, 255}},   // red
-    {{0, 0, 255, 255}},   // blue
+static const std::vector<vec4f> kClassColors = {
+    {{1.0f, 1.0f, 0, 1.0f}}, // yellow
+    {{1.0f, 0, 0, 1.0f}},    // red
+    {{0, 0, 1.0f, 1.0f}},    // blue
 };
 
 class NvInferServerCustomProcess : public dsis::IInferCustomProcessor {
@@ -136,8 +136,8 @@ public:
 
         for (size_t i = 0; i < nmsPred.size(); i++) {
             LOG_INFO("%s, %f, %f, %f, %f, %f, %f, %f, %f\n", _classLabels[nmsPred[i].cid].c_str(),
-                     nmsPred[i].centerX, nmsPred[i].centerY, nmsPred[i].centerZ, nmsPred[i].length,
-                     nmsPred[i].width, nmsPred[i].height, nmsPred[i].yaw, nmsPred[i].score);
+                     nmsPred[i].centerX, nmsPred[i].centerY, nmsPred[i].centerZ, nmsPred[i].dx,
+                     nmsPred[i].dy, nmsPred[i].dz, nmsPred[i].yaw, nmsPred[i].score);
             uint32_t strLen = _classLabels[nmsPred[i].cid].size();
             strLen = std::min<uint32_t>(strLen, DS3D_MAX_LABEL_SIZE - 1);
             strncpy(nmsPred[i].labels, _classLabels[nmsPred[i].cid].c_str(), strLen);

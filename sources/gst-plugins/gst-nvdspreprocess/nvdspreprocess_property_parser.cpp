@@ -485,7 +485,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
     gsize src_list_len = 0;
     gsize class_list_len = 0;
     gint num_roi_per_stream = 0;
-    GstNvDsPreProcessGroup *preprocess_group;
+    GstNvDsPreProcessGroup *preprocess_group = nullptr;
     guint num_units = 0;
     guint same_roi_for_all_srcs = 0;
 
@@ -635,8 +635,9 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
             nvdspreprocess->property_set.process_on_all_objects = TRUE;
         } else if (!strncmp(*key, NVDSPREPROCESS_GROUP_ROI_PARAMS_SRC,
                             sizeof(NVDSPREPROCESS_GROUP_ROI_PARAMS_SRC) - 1) &&
-                   (preprocess_group->process_on_roi ||
-                    !preprocess_group->process_on_all_objects)) {
+                   ((nvdspreprocess->process_on_frame && preprocess_group->process_on_roi) ||
+                    (!nvdspreprocess->process_on_frame &&
+                     !preprocess_group->process_on_all_objects))) {
             EXTRACT_STREAM_ID(key);
             roi_list = g_key_file_get_integer_list(key_file, group, *key, &roi_list_len, &error);
             if (roi_list == nullptr) {
@@ -658,7 +659,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
                       source_index, num_roi_per_stream, roi_list_len);
 
             for (guint i = 0; i < roi_list_len; i = i + 4) {
-                NvDsRoiMeta roi_info;
+                NvDsRoiMeta roi_info = {{0}};
 
                 roi_info.roi.left = roi_list[i];
                 roi_info.roi.top = roi_list[i + 1];
@@ -690,13 +691,14 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
             nvdspreprocess->property_set.roi_params_src = TRUE;
             g_free(roi_list);
             roi_list = nullptr;
-        } else if (!strncmp(*key, NVDSPREPROCESS_GROUP_ROI_PARAMS_SRC,
-                            sizeof(NVDSPREPROCESS_GROUP_ROI_PARAMS_SRC) - 1) &&
-                   !preprocess_group->process_on_roi) {
-            EXTRACT_STREAM_ID(key);
+        }
+    }
+
+    if ((nvdspreprocess->process_on_frame && !preprocess_group->process_on_roi) ||
+        (!nvdspreprocess->process_on_frame && preprocess_group->process_on_all_objects)) {
+        for (auto &source_index : preprocess_group->src_ids) {
             GstNvDsPreProcessFrame preprocess_frame;
-            NvDsRoiMeta roi_info;
-            roi_info.roi = {0};
+            NvDsRoiMeta roi_info = {{0}};
             preprocess_frame.roi_vector.push_back(roi_info);
             sum_total_rois++;
             num_units++;
@@ -705,7 +707,6 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
             if (preprocess_group->src_ids[0] == -1) {
                 preprocess_group->replicated_src_id = source_index;
             }
-
             nvdspreprocess->src_to_group_map->emplace(source_index, group_id);
         }
     }
@@ -754,7 +755,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
     }
 
     ret = TRUE;
-
+    preprocess_group = nullptr;
 done:
     return ret;
 }

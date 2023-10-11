@@ -1,5 +1,6 @@
 ################################################################################
-# Copyright (c) 2020 NVIDIA Corporation.  All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -13,7 +14,7 @@
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
 # THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -21,7 +22,8 @@
 ################################################################################
 
 This document describes the procedure to generate plan engine files and run
-Triton Inference Server samples on TensorRT, Tensorflow, ONNX, Pytorch models.
+Triton Inference Server samples with TensorRT, Tensorflow, ONNX, Pytorch, and
+models from NVIDIA TAO Toolkit.
 
 --------------------------------------------------------------------------------
 Prepare Deepstream Triton Docker Container (Only for X86)
@@ -32,7 +34,7 @@ https://ngc.nvidia.com.
 
 1. Pull docker container
    $ docker pull nvcr.io/nvidia/deepstream:[version]-triton
-   [version] means deepstream version numbers e.g. 6.2
+   [version] means deepstream version numbers e.g. 6.3
 
 2. Allow external applications to connect to the host's X display:
    $ xhost +
@@ -84,7 +86,21 @@ Preparing TensorRT, Tensorflow, ONNX models
 1. Go to samples directory and run the following command.
    $ ./prepare_ds_triton_model_repo.sh
    All the sample models should be downloaded/generated into
-   samples/triton-model-repo directory.
+   samples/triton_model_repo directory.
+
+--------------------------------------------------------------------------------
+Preparing TAO models
+--------------------------------------------------------------------------------
+1. This step is needed to use the models from NVIDIA TAO toolkit, such as
+   PeopleNet Transformer.
+   Go to samples directory and run the following command.
+   $ ./prepare_ds_triton_tao_model_repo.sh
+   This script downloads the TAO models (.etlt) from the NGC repository and uses
+   the tao-convertor utility to generate the corresponding TRT engine file into
+   the samples/triton_tao_model_repo directory.
+
+NOTE: Run with commands with "sudo -E" or root if there are file permission
+      issues.
 
 --------------------------------------------------------------------------------
 Running the Triton Inference Server samples
@@ -98,36 +114,43 @@ Running the Triton Inference Server samples
    a. source30_1080p_dec_infer-resnet_tiled_display_int8.txt (30 Decode + Infer)
    b. source4_1080p_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt
       (4 Decode + Infer + SGIE + Tracker)
-   c. source1_primary_classifier.txt (Single source + full frame classification)
+   c. source4_1080p_dec_preprocess_infer-resnet_tracker_sgie_tiled_display_int8.txt
+      (4 Decode + Preprocess + Infer + SGIE + Tracker)
+   d. source1_primary_classifier.txt (Single source + full frame classification)
       NOTE: Other classification models can be used by changing the nvinferserver
             config file in the [*-gie] group of application config file.
-   d. source1_primary_detector.txt (Single source + object detection using ssd)
-   e. source1_primary_classifier_nano.txt (Single source + full frame classification)
+   e. source1_primary_detector.txt (Single source + object detection using ssd)
+   f. source1_primary_classifier_nano.txt (Single source + full frame classification)
       NOTE: Classification config file for Nano since memory might not be enough for
             other models. Tune a larger 'tf_gpu_memory_fraction' value for other
             platforms.
-   f. source1_primary_detector_nano.txt (Single source + object detection using ssd)
+   g. source1_primary_detector_nano.txt (Single source + object detection using ssd)
+   h. source1_primary_detector_peoplenet_transformer.txt (Single source + object
+      detection using PeopleNet Transformer model)
       NOTE: Detection config file for Nano since memory might not be enough for
             other models. Tune a larger 'tf_gpu_memory_fraction' value for other
             platforms.
    On certain platforms, model inference might not be in realtime and frames get
    dropped, in that case, edit source...txt file and update 'sync=0' in [sink..] group.
 4. Configuration files for "nvinferserver" element in `configs/deepstream-app-triton/`
-   a. config_infer_plan_engine_primary.txt (Primary Object Detector)
-   b. config_infer_secondary_plan_engine_carcolor.txt (Secondary Car Color Classifier)
-   c. config_infer_secondary_plan_engine_carmake.txt (Secondary Car Make Classifier)
-   d. config_infer_secondary_plan_engine_vehicletypes.txt (Secondary Vehicle Type Classifier)
-   e. config_infer_primary_classifier_densenet_onnx.txt (DenseNet-121 v1.2 classifier)
-   f. config_infer_primary_classifier_inception_graphdef_postprocessInTriton.txt
+   a. config_infer_plan_engine_preprocess.txt (Primary Preprocessor Object Detector)
+   b. config_infer_plan_engine_primary.txt (Primary Object Detector)
+   c. config_infer_secondary_plan_engine_carcolor.txt (Secondary Car Color Classifier)
+   d. config_infer_secondary_plan_engine_carmake.txt (Secondary Car Make Classifier)
+   e. config_infer_secondary_plan_engine_vehicletypes.txt (Secondary Vehicle Type Classifier)
+   f. config_infer_primary_classifier_densenet_onnx.txt (DenseNet-121 v1.2 classifier)
+   g. config_infer_primary_classifier_inception_graphdef_postprocessInTriton.txt
       (Tensorflow Inception v3 classifier - Post processing in Triton)
-   g. config_infer_primary_classifier_inception_graphdef_postprocessInDS.txt
+   h. config_infer_primary_classifier_inception_graphdef_postprocessInDS.txt
       (Tensorflow Inception v3 classifier - Post processing in DeepStream)
-   h. config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.txt
+   i. config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.txt
       (TensorFlow SSD Inception V2 Object Detector)
-   i. config_infer_primary_classifier_mobilenet_v1_graphdef.txt
+   j. config_infer_primary_classifier_mobilenet_v1_graphdef.txt
       (Tensorflow Mobilenet v1 classifier for Nano - Post processing in Triton)
-   j. config_infer_primary_detector_ssd_mobilenet_v1_coco_2018_01_28.txt
+   k. config_infer_primary_detector_ssd_mobilenet_v1_coco_2018_01_28.txt
       (TensorFlow SSD Mobilenet V1 Object Detector for Nano)
+   l. config_infer_primary_detector_peoplenet_transformer_tao.txt
+      (TAO PeopleNet Transformer V1 Object Detection - Custom bounding box parsing)
 
 --------------------------------------------------------------------------------
 Notes:

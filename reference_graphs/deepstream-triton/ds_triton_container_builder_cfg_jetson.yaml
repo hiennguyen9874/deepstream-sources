@@ -1,6 +1,6 @@
 %YAML 1.2
 ################################################################################
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -22,9 +22,11 @@ apt_deps:
 - unzip
 - ffmpeg
 - rsync
+- libyaml-cpp-dev
+- python3-yaml
 
 local_copy_files:
-- src: "/opt/nvidia/graph-composer/graph_composer-2.5.0_arm64.deb"
+- src: "/opt/nvidia/graph-composer/graph_composer-3.0.0_arm64.deb"
   dst: "/tmp/"
 
 - src: "deepstream-triton.parameters.container.yaml"
@@ -37,7 +39,7 @@ local_copy_files:
   dst: "/workspace/deepstream-triton/model-repo/ssd_inception_v2_coco_2018_01_28/"
 
 custom_runs:
- - "apt install -y /tmp/graph_composer-2.5.0_arm64.deb && rm -rf /tmp/graph_composer-2.5.0_arm64.deb"
+ - "apt install -y /tmp/graph_composer-3.0.0_arm64.deb && rm -rf /tmp/graph_composer-3.0.0_arm64.deb"
 
 http_archives:
 - url: http://download.tensorflow.org/models/object_detection/ssd_inception_v2_coco_2018_01_28.tar.gz

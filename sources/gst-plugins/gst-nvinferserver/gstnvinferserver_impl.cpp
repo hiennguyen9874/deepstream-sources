@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -83,6 +83,10 @@ struct InferFrame {
     uint32_t roiLeft = 0;
     /** Top pixel coordinate of the ROI in the parent frame. */
     uint32_t roiTop = 0;
+    /** Width of the ROI in the parent frame. */
+    uint32_t roiWidth = 0;
+    /** Height of the ROI in the parent frame. */
+    uint32_t roiHeight = 0;
     /** Width of the frames in the input batch buffer. */
     uint32_t frameWidth = 0;
     /** Height of the frames in the input batch buffer. */
@@ -785,10 +789,13 @@ NvDsInferStatus GstNvInferServerImpl::processInputTensor(NvDsBatchMeta *batchMet
     assert(inputTensorFromMeta());
     bool isFirstDimBatch =
         m_PluginConfig.infer_config().input_tensor_from_meta().is_first_dim_batch();
-    uint32_t batchSize = 0;
-    // for multi tensors
-    std::vector<SharedBatchBuf> roiTensors;
-    std::vector<std::vector<InferFrame>> roiFrameList;
+
+    typedef struct {
+        guint batchSize = 0;
+        std::vector<SharedBatchBuf> roiTensors;
+        std::vector<std::vector<InferFrame>> roiFrameList;
+    } TensorInputBatch;
+    std::unordered_map<guint, TensorInputBatch> tensorMetaMap;
 
     for (NvDsMetaList *l_user = batchMeta->batch_user_meta_list; l_user != NULL;
          l_user = l_user->next) {
@@ -798,6 +805,7 @@ NvDsInferStatus GstNvInferServerImpl::processInputTensor(NvDsBatchMeta *batchMet
         }
         GstNvDsPreProcessBatchMeta *preprocMeta =
             (GstNvDsPreProcessBatchMeta *)user_meta->user_meta_data;
+
         const auto &uids = preprocMeta->target_unique_ids;
         if (std::find(uids.begin(), uids.end(), (uint64_t)uniqueId()) == uids.end()) {
             continue;
@@ -807,17 +815,21 @@ NvDsInferStatus GstNvInferServerImpl::processInputTensor(NvDsBatchMeta *batchMet
         if (!tensorMeta || tensorMeta->tensor_shape.empty()) {
             continue;
         }
+
+        guint metaId = preprocMeta->tensor_meta->meta_id;
+
         if (isFirstDimBatch) {
-            if (!batchSize) {
-                batchSize = tensorMeta->tensor_shape[0];
+            if (!tensorMetaMap[metaId].batchSize) {
+                tensorMetaMap[metaId].batchSize = tensorMeta->tensor_shape[0];
             }
-            if ((int)batchSize != tensorMeta->tensor_shape[0]) {
-                GST_ELEMENT_ERROR(m_GstPlugin, STREAM, FAILED,
-                                  ("Mismatch in input tensor batch sizes %d vs %d, "
-                                   "if input-tensors are non-batched, update config with\n"
-                                   "\tinput_tensor_from_meta { is_first_dim_batch: false }",
-                                   (int)batchSize, tensorMeta->tensor_shape[0]),
-                                  (nullptr));
+            if ((int)tensorMetaMap[metaId].batchSize != tensorMeta->tensor_shape[0]) {
+                GST_ELEMENT_ERROR(
+                    m_GstPlugin, STREAM, FAILED,
+                    ("Mismatch in input tensor batch sizes %d vs %d, "
+                     "if input-tensors are non-batched, update config with\n"
+                     "\tinput_tensor_from_meta { is_first_dim_batch: false }",
+                     (int)tensorMetaMap[metaId].batchSize, tensorMeta->tensor_shape[0]),
+                    (nullptr));
                 return NVDSINFER_INVALID_PARAMS;
             }
         }
@@ -836,7 +848,9 @@ NvDsInferStatus GstNvInferServerImpl::processInputTensor(NvDsBatchMeta *batchMet
             frame.offsetTop = roi.offset_top;
             frame.roiLeft = roi.roi.left;
             frame.roiTop = roi.roi.top;
-            frame.objMeta = nullptr;
+            frame.roiWidth = roi.roi.width;
+            frame.roiHeight = roi.roi.height;
+            frame.objMeta = roi.object_meta;
             frame.surfParams = &inSurf->surfaceList[roi.frame_meta->batch_id];
             frame.roiMeta = &roi;
             frame.frameMeta = roi.frame_meta;
@@ -844,7 +858,7 @@ NvDsInferStatus GstNvInferServerImpl::processInputTensor(NvDsBatchMeta *batchMet
             frame.batchIdx = iBatch++;
             frames.emplace_back(frame);
         }
-        roiFrameList.emplace_back(frames);
+        tensorMetaMap[metaId].roiFrameList.emplace_back(frames);
 
         InferDataType dt = fromDSType(tensorMeta->data_type);
         InferDims tDims;
@@ -864,61 +878,76 @@ NvDsInferStatus GstNvInferServerImpl::processInputTensor(NvDsBatchMeta *batchMet
             isInput : true,
         };
 
-        SharedRefBatchBuf tensor(new RefBatchBuffer(
-            tensorMeta->raw_tensor_buffer, tensorMeta->buffer_size, tensorDesc, batchSize));
-        roiTensors.emplace_back(tensor);
-    }
-
-    if (roiFrameList.empty() || roiTensors.empty()) {
-        return NVDSINFER_SUCCESS;
-    }
-
-    /* Find first ROI frames as primary frames. */
-    auto roiIter =
-        std::find_if(roiFrameList.begin(), roiFrameList.end(), [](auto &f) { return !f.empty(); });
-
-    if (roiIter == roiFrameList.end()) {
-        GST_ELEMENT_ERROR(m_GstPlugin, STREAM, FAILED,
-                          ("There is no ROI frame for input tensors to inference, check "
-                           "preprocMeta->roi_vector"),
-                          (nullptr));
-        return NVDSINFER_INVALID_PARAMS;
+        SharedRefBatchBuf tensor(new RefBatchBuffer(tensorMeta->raw_tensor_buffer, 0,
+                                                    tensorMeta->buffer_size, tensorDesc,
+                                                    tensorMetaMap[metaId].batchSize));
+        tensorMetaMap[metaId].roiTensors.emplace_back(tensor);
     }
 
     NvDsInferStatus status = NVDSINFER_SUCCESS;
-    if (isFirstDimBatch && maxBatchSize() > 0) {
-        assert(roiIter->size() == batchSize);
-        for (uint32_t batchIdx = 0; batchIdx < batchSize; batchIdx += maxBatchSize()) {
-            uint32_t batches = std::min<uint32_t>(batchSize - batchIdx, maxBatchSize());
+    // for each batch in tensorMetaMap
+    for (auto &it : tensorMetaMap) {
+        auto &tensorInputBatch = it.second;
+
+        if (tensorInputBatch.roiFrameList.empty() || tensorInputBatch.roiTensors.empty()) {
+            return NVDSINFER_SUCCESS;
+        }
+
+        /* Find first ROI frames as primary frames. */
+        auto roiIter =
+            std::find_if(tensorInputBatch.roiFrameList.begin(), tensorInputBatch.roiFrameList.end(),
+                         [](auto &f) { return !f.empty(); });
+
+        if (roiIter == tensorInputBatch.roiFrameList.end()) {
+            GST_ELEMENT_ERROR(m_GstPlugin, STREAM, FAILED,
+                              ("There is no ROI frame for input tensors to inference, check "
+                               "preprocMeta->roi_vector"),
+                              (nullptr));
+            return NVDSINFER_INVALID_PARAMS;
+        }
+
+        if (isFirstDimBatch && maxBatchSize() > 0) {
+            assert(roiIter->size() == tensorInputBatch.batchSize);
+            for (uint32_t batchIdx = 0; batchIdx < tensorInputBatch.batchSize;
+                 batchIdx += maxBatchSize()) {
+                uint32_t batches =
+                    std::min<uint32_t>(tensorInputBatch.batchSize - batchIdx, maxBatchSize());
+                SharedRequest reqBuf(new RequestBuffer);
+                reqBuf->seqId = seqId;
+                reqBuf->gstBuf = gstBuf;
+                reqBuf->batchMeta = batchMeta;
+                reqBuf->inSurf = inSurf;
+                reqBuf->frames.insert(reqBuf->frames.begin(), roiIter->begin() + batchIdx,
+                                      roiIter->begin() + (batchIdx + batches));
+                std::vector<SharedBatchBuf> tensors;
+                for (auto &t : tensorInputBatch.roiTensors) {
+                    const auto &desc = t->getBufDesc();
+                    size_t batchBytes = dimsSize(desc.dims) * getElementSize(desc.dataType);
+                    size_t bufOffset = t->getBufOffset(0);
+                    if (bufOffset == (size_t)-1) {
+                        return NVDSINFER_MEM_ERROR;
+                    }
+                    tensors.emplace_back(new RefBatchBuffer(
+                        (void *)((uint8_t *)t->getBufPtr(0) + batchBytes * batchIdx),
+                        bufOffset + batchBytes * batchIdx /* offset from start of allocation */,
+                        batchBytes * batches, desc, batches));
+                }
+                status = batchInference(std::move(reqBuf), std::move(tensors));
+                if (status != NVDSINFER_SUCCESS) {
+                    break;
+                }
+            }
+        } else {
             SharedRequest reqBuf(new RequestBuffer);
             reqBuf->seqId = seqId;
             reqBuf->gstBuf = gstBuf;
             reqBuf->batchMeta = batchMeta;
             reqBuf->inSurf = inSurf;
-            reqBuf->frames.insert(reqBuf->frames.begin(), roiIter->begin() + batchIdx,
-                                  roiIter->begin() + (batchIdx + batches));
-            std::vector<SharedBatchBuf> tensors;
-            for (auto &t : roiTensors) {
-                const auto &desc = t->getBufDesc();
-                size_t batchBytes = dimsSize(desc.dims) * getElementSize(desc.dataType);
-                tensors.emplace_back(
-                    new RefBatchBuffer((void *)((uint8_t *)t->getBufPtr(0) + batchBytes * batchIdx),
-                                       batchBytes * batches, desc, batches));
-            }
-            status = batchInference(std::move(reqBuf), std::move(tensors));
-            if (status != NVDSINFER_SUCCESS) {
-                break;
-            }
+            reqBuf->frames = *roiIter;
+            status = batchInference(std::move(reqBuf), std::move(tensorInputBatch.roiTensors));
         }
-    } else {
-        SharedRequest reqBuf(new RequestBuffer);
-        reqBuf->seqId = seqId;
-        reqBuf->gstBuf = gstBuf;
-        reqBuf->batchMeta = batchMeta;
-        reqBuf->inSurf = inSurf;
-        reqBuf->frames = *roiIter;
-        status = batchInference(std::move(reqBuf), std::move(roiTensors));
     }
+
     if (status != NVDSINFER_SUCCESS) {
         GST_ELEMENT_ERROR(m_GstPlugin, LIBRARY, FAILED,
                           ("Failed to batch inference for input meta tensors"), (nullptr));
@@ -1333,8 +1362,8 @@ NvDsInferStatus GstNvInferServerImpl::attachBatchDetection(RequestBuffer *req,
         assert(detection);
         attachDetectionMetadata(frame.frameMeta, frame.objMeta, *detection, frame.scaleRatioX,
                                 frame.scaleRatioY, frame.offsetLeft, frame.offsetTop, frame.roiLeft,
-                                frame.roiTop, frame.frameWidth, frame.frameHeight, uniqueId(),
-                                config());
+                                frame.roiTop, frame.roiWidth, frame.roiHeight, frame.frameWidth,
+                                frame.frameHeight, uniqueId(), config());
     }
     return NVDSINFER_SUCCESS;
 }

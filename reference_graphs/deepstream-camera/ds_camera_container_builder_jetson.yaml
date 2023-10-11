@@ -1,6 +1,6 @@
 %YAML 1.2
 ################################################################################
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -16,16 +16,18 @@ base_image: auto
 stage_model: clean_stage
 
 local_copy_files:
-  - src: "/opt/nvidia/graph-composer/graph_composer-2.5.0_arm64.deb"
+  - src: "/opt/nvidia/graph-composer/graph_composer-3.0.0_arm64.deb"
     dst: "/tmp/"
   - src: "v4l2-usb-camera.parameters.yaml"
     dst: "/workspace/deepstream-camera/" # ends with '/' is folder
 
 apt_deps:
   - rsync
+  - libyaml-cpp-dev
+  - python3-yaml
 
 custom_runs:
-  - "apt install -y /tmp/graph_composer-2.5.0_arm64.deb && rm -rf /tmp/graph_composer-2.5.0_arm64.deb"
+  - "apt install -y /tmp/graph_composer-3.0.0_arm64.deb && rm -rf /tmp/graph_composer-3.0.0_arm64.deb"
 
 work_folder: /workspace/deepstream-camera/
 

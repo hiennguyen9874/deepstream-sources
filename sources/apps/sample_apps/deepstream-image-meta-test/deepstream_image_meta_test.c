@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -52,6 +52,12 @@
 
 #define TILED_OUTPUT_WIDTH 1920
 #define TILED_OUTPUT_HEIGHT 1080
+
+#define NVINFER_PLUGIN "nvinfer"
+#define NVINFERSERVER_PLUGIN "nvinferserver"
+
+#define PGIE_CONFIG_FILE "ds_image_meta_pgie_config.txt"
+#define PGIE_NVINFERSERVER_CONFIG_FILE "ds_image_meta_pgie_nvinferserver_config.txt"
 
 /* NVIDIA Decoder source pad memory feature. This feature signifies that source
  * pads having this capability will push GstBuffers containing cuda buffers. */
@@ -412,6 +418,13 @@ static GstElement *create_source_bin(guint index, gchar *uri, guint *gpu_id)
     return bin;
 }
 
+static void usage(const char *bin)
+{
+    g_printerr("Usage: %s <gpu_id> <uri1> [uri2] ... [uriN] \n", bin);
+    g_printerr("For nvinferserver, Usage: %s -t inferserver <gpu_id> <uri1> [uri2] ... [uriN]\n",
+               bin);
+}
+
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
@@ -425,22 +438,43 @@ int main(int argc, char *argv[])
     guint tiler_rows, tiler_columns;
     guint pgie_batch_size;
     guint gpu_id = 0;
+    gboolean is_nvinfer_server = FALSE;
 
     struct cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, gpu_id);
 
     /* Check input arguments */
     if (argc < 3) {
-        g_printerr("Usage: %s <gpu_id> <uri1> [uri2] ... [uriN] \n", argv[0]);
+        usage(argv[0]);
         return -1;
     }
+
+    if (argc >= 3 && !strcmp("-t", argv[1])) {
+        if (!strcmp("inferserver", argv[2])) {
+            is_nvinfer_server = TRUE;
+        } else {
+            usage(argv[0]);
+            return -1;
+        }
+        g_print("Using nvinferserver as the inference plugin\n");
+    }
+
     /* Check if gpuID is provided for multiple streams */
-    if ((argc >= 3) && (!(isdigit(*argv[1])))) {
-        g_printerr("Usage: %s <gpu_id> <uri1> [uri2] ... [uriN] \n", argv[0]);
-        return -1;
+    if (is_nvinfer_server) {
+        if ((argc >= 5) && (!(isdigit(*argv[3])))) {
+            usage(argv[0]);
+            return -1;
+        }
+        gpu_id = atoi(argv[3]);
+        num_sources = argc - 4;
+    } else {
+        if ((argc >= 3) && (!(isdigit(*argv[1])))) {
+            usage(argv[0]);
+            return -1;
+        }
+        gpu_id = atoi(argv[1]);
+        num_sources = argc - 2;
     }
-    num_sources = argc - 2;
-    gpu_id = atoi(argv[1]);
 
     /* Standard GStreamer initialization */
     gst_init(&argc, &argv);
@@ -461,8 +495,13 @@ int main(int argc, char *argv[])
 
     for (i = 0; i < num_sources; i++) {
         GstPad *sinkpad, *srcpad;
+        GstElement *source_bin;
         gchar pad_name[16] = {};
-        GstElement *source_bin = create_source_bin(i, argv[i + 2], &gpu_id);
+        if (is_nvinfer_server) {
+            source_bin = create_source_bin(i, argv[i + 4], &gpu_id);
+        } else {
+            source_bin = create_source_bin(i, argv[i + 2], &gpu_id);
+        }
 
         if (!source_bin) {
             g_printerr("Failed to create source bin. Exiting.\n");
@@ -493,8 +532,9 @@ int main(int argc, char *argv[])
         gst_object_unref(sinkpad);
     }
 
-    /* Use nvinfer to infer on batched frame. */
-    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    /* Use nvinfer or nvinferserver to infer on batched frame. */
+    pgie = gst_element_factory_make(is_nvinfer_server ? NVINFERSERVER_PLUGIN : NVINFER_PLUGIN,
+                                    "primary-nvinference-engine");
 
     /* Use nvtiler to composite the batched frames into a 2D tiled array based
      * on the source of the frames. */
@@ -522,9 +562,13 @@ int main(int argc, char *argv[])
                  "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC,
                  "gpu-id", gpu_id, NULL);
 
-    /* Configure the nvinfer element using the nvinfer config file. */
-    g_object_set(G_OBJECT(pgie), "config-file-path", "ds_image_meta_pgie_config.txt", "gpu-id",
-                 gpu_id, NULL);
+    /* Configure the pgie element using the nvinfer config file. */
+    if (is_nvinfer_server) {
+        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_NVINFERSERVER_CONFIG_FILE, "gpu-id",
+                     gpu_id, NULL);
+    } else {
+        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, "gpu-id", gpu_id, NULL);
+    }
 
     /* Override the batch-size set in the config file with the number of sources. */
     g_object_get(G_OBJECT(pgie), "batch-size", &pgie_batch_size, NULL);
@@ -553,7 +597,7 @@ int main(int argc, char *argv[])
     /* we add all elements into the pipeline */
     gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, nvvidconv, nvosd, sink, NULL);
     /* we link the elements together
-     * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+     * nvstreammux -> pgie -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
     if (!gst_element_link_many(streammux, pgie, tiler, nvvidconv, nvosd, sink, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
@@ -589,11 +633,7 @@ int main(int argc, char *argv[])
     gst_object_unref(osd_sink_pad);
 
     /* Set the pipeline to "playing" state */
-    g_print("Now playing:");
-    for (i = 0; i < num_sources; i++) {
-        g_print(" %s,", argv[i + 2]);
-    }
-    g_print("\n");
+    g_print("Now playing...\n");
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

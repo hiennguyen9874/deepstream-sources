@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "infer_utils.h"
@@ -168,8 +169,14 @@ NvDsInferNetworkInfo dims2ImageInfo(const InferDims &dims, InferTensorOrder orde
         order = InferTensorOrder::kLinear;
     }
 
-    assert(dims.numDims >= 3);
+    assert(dims.numDims > 0);
     assert(!hasWildcard(dims));
+    if (dims.numDims == 2) {
+        return NvDsInferNetworkInfo{(uint32_t)dims.d[1], (uint32_t)dims.d[0], 1};
+    }
+    if (dims.numDims == 1) {
+        return NvDsInferNetworkInfo{(uint32_t)dims.d[0], 1, 1};
+    }
     int offset = std::max<int>(dims.numDims - 3, 0);
     if (InferTensorOrder::kLinear == order) {
         return NvDsInferNetworkInfo{(uint32_t)dims.d[offset + 2], (uint32_t)dims.d[offset + 1],
@@ -479,7 +486,12 @@ SharedBatchBuf ReshapeBuf(const SharedBatchBuf &in,
         bytes = getElementSize(desc.dataType) * dimsSize(outFullDims);
         assert(bytes > 0);
     }
-    SharedRefBatchBuf ret(new RefBatchBuffer(in->getBufPtr(0), bytes, desc, batch),
+    size_t bufOffset = in->getBufOffset(0);
+    if (bufOffset == (size_t)-1) {
+        InferError("ReshapBuf failed, invalid buffer offset.");
+        return nullptr;
+    }
+    SharedRefBatchBuf ret(new RefBatchBuffer(in->getBufPtr(0), bufOffset, bytes, desc, batch),
                           [priv = in](RefBatchBuffer *ptr) mutable {
                               priv.reset();
                               delete ptr;
@@ -596,7 +608,7 @@ SharedIBatchBuffer NvDsInferServerWrapBuf(void *buf,
         return nullptr;
     }
 
-    SharedRefBatchBuf ret(new RefBatchBuffer(buf, bufBytes, desc, batchSize),
+    SharedRefBatchBuf ret(new RefBatchBuffer(buf, 0, bufBytes, desc, batchSize),
                           [ff = std::move(freeFunc)](RefBatchBuffer *ptr) {
                               assert(ptr);
                               void *base = ptr->basePtr();
@@ -646,7 +658,7 @@ SharedIBatchBuffer NvDsInferServerCreateStrBuf(const std::vector<std::string> &s
     };
     void *data = &((*inputStr)[0]);
     uint32_t dataBytes = inputStr->size();
-    SharedRefBatchBuf outBuf(new RefBatchBuffer((void *)data, dataBytes, desc, batchSize),
+    SharedRefBatchBuf outBuf(new RefBatchBuffer((void *)data, 0, dataBytes, desc, batchSize),
                              [strOwner = std::move(inputStr)](RefBatchBuffer *ref) mutable {
                                  delete ref;
                                  strOwner.reset();

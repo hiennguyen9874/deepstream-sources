@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -81,6 +81,13 @@ static gboolean parse_app_yaml(NvDsConfig *config, gchar *cfg_file_path)
             std::strncpy(str, temp.c_str(), 1024);
             config->kitti_track_dir_path = (char *)malloc(sizeof(char) * 1024);
             get_absolute_file_path_yaml(cfg_file_path, str, config->kitti_track_dir_path);
+            g_free(str);
+        } else if (paramKey == "reid-track-output-dir") {
+            std::string temp = itr->second.as<std::string>();
+            char *str = (char *)malloc(sizeof(char) * 1024);
+            std::strncpy(str, temp.c_str(), 1024);
+            config->reid_track_dir_path = (char *)malloc(sizeof(char) * 1024);
+            get_absolute_file_path_yaml(cfg_file_path, str, config->reid_track_dir_path);
             g_free(str);
         } else {
             cout << "Unknown key " << paramKey << " for group application" << endl;
@@ -172,6 +179,8 @@ gboolean parse_config_file_yaml(NvDsConfig *config, gchar *cfg_file_path)
             parse_err = !parse_streammux_yaml(&config->streammux_config, cfg_file_path);
         } else if (paramKey == "osd") {
             parse_err = !parse_osd_yaml(&config->osd_config, cfg_file_path);
+        } else if (paramKey == "segvisual") {
+            parse_err = !parse_segvisual_yaml(&config->segvisual_config, cfg_file_path);
         } else if (paramKey == "pre-process") {
             parse_err = !parse_preprocess_yaml(&config->preprocess_config, cfg_file_path);
         } else if (paramKey == "primary-gie") {

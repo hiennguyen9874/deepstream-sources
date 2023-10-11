@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,7 +36,7 @@ bool nvds_rest_stream_parse(const Json::Value &in, NvDsStreamInfo *stream_info)
         if (root_val == "key") {
             stream_info->key = in.get("key", EMPTY_STRING).asString().c_str();
         }
-        if (root_val == "value") {
+        if (root_val == "value" || root_val == "event") {
             for (Json::ValueConstIterator it_sr = sub_root_val.begin(); it_sr != sub_root_val.end();
                  ++it_sr) {
                 if (it_sr.key().asString() == "metadata") {
@@ -57,6 +57,20 @@ bool nvds_rest_stream_parse(const Json::Value &in, NvDsStreamInfo *stream_info)
                         sub_root_val.get("camera_url", EMPTY_STRING).asString().c_str();
                     stream_info->value_change =
                         sub_root_val.get("change", EMPTY_STRING).asString().c_str();
+                    if (stream_info->value_camera_url == "") {
+                        stream_info->stream_log = "Camera url empty";
+                        stream_info->status =
+                            stream_info->value_change.find("add") != std::string::npos
+                                ? STREAM_ADD_FAIL
+                                : STREAM_REMOVE_FAIL;
+                    }
+                    if (stream_info->value_camera_id == "") {
+                        stream_info->stream_log = "Camera id empty";
+                        stream_info->status =
+                            stream_info->value_change.find("add") != std::string::npos
+                                ? STREAM_ADD_FAIL
+                                : STREAM_REMOVE_FAIL;
+                    }
                 }
             }
         }

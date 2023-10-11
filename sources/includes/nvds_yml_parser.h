@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -56,6 +56,15 @@ typedef enum NvDsYamlParserStatus {
     NVDS_YAML_PARSER_ERROR
 } NvDsYamlParserStatus;
 
+/**
+ * Enum for codec type for the API call on a encoder.
+ */
+typedef struct NvDsYamlCodecStatus {
+    /** Type codec=1 h264, codec=2 h265 */
+    guint codec_type;
+    /** Enable status */
+    gboolean enable;
+} NvDsYamlCodecStatus;
 /**
  * Enum for specifying the inference plugin type.
  */
@@ -322,6 +331,83 @@ NvDsYamlParserStatus nvds_parse_file_sink(GstElement *element,
 NvDsYamlParserStatus nvds_parse_fake_sink(GstElement *element,
                                           gchar *cfg_file_path,
                                           const char *group);
+
+/**
+ * Parses codec type and enable status values specified in a YAML configuration file.
+ *
+ * @param[in]  cfg_file_path The YAML config file used by an application.
+ * @param[in]  group Group in the YAML config file to be parsed.
+ *             The Group contains codec type parameter, based on which h264 or h265 encoder is used.
+ * @return codec type and enable status of encoder as pair for the API call.
+ */
+NvDsYamlParserStatus nvds_parse_codec_status(gchar *cfg_file_path,
+                                             const char *group,
+                                             NvDsYamlCodecStatus *codec_status);
+
+/**
+ * Set properties of a nvv4l2h264enc element from values specified in a YAML configuration file.
+ *
+ * @param[in]  element GStreamer element on which properties are to be set.
+ * @param[in]  cfg_file_path The YAML config file used by an application.
+ * @param[in]  group Group in the YAML config file to be parsed and
+ *             corresponding properties set on the nvv4l2h264enc element.
+ * @return Yaml parsing status for the API call.
+ */
+NvDsYamlParserStatus nvds_parse_nvv4l2h264enc(GstElement *element,
+                                              gchar *cfg_file_path,
+                                              const char *group);
+
+/**
+ * Set properties of a nvv4l2h265enc element from values specified in a YAML configuration file.
+ *
+ * @param[in]  element GStreamer element on which properties are to be set.
+ * @param[in]  cfg_file_path The YAML config file used by an application.
+ * @param[in]  group Group in the YAML config file to be parsed and
+ *             corresponding properties set on the nvv4l2h265enc element.
+ * @return Yaml parsing status for the API call.
+ */
+NvDsYamlParserStatus nvds_parse_nvv4l2h265enc(GstElement *element,
+                                              gchar *cfg_file_path,
+                                              const char *group);
+
+/**
+ * Set properties of a nvmultiurisrcbin element from values specified in a YAML configuration file.
+ *
+ * @param[in]  element GStreamer element on which properties are to be set.
+ * @param[in]  cfg_file_path The YAML config file used by an application.
+ * @param[in]  group Group in the YAML config file to be parsed and
+ *             corresponding properties set on the nvv4l2h265enc element.
+ * @return Yaml parsing status for the API call.
+ */
+NvDsYamlParserStatus nvds_parse_multiurisrcbin(GstElement *element,
+                                               gchar *cfg_file_path,
+                                               const char *group);
+
+/**
+ * Set properties of a nvdsxfer element from values specified in a YAML configuration file.
+ *
+ * @param[in]  element GStreamer element on which properties are to be set.
+ * @param[in]  cfg_file_path The YAML config file used by an application.
+ * @param[in]  group Group in the YAML config file to be parsed and
+ *             corresponding properties set on the nvdsxfer element.
+ * @return Yaml parsing status for the API call.
+ */
+NvDsYamlParserStatus nvds_parse_nvxfer(GstElement *element,
+                                       gchar *cfg_file_path,
+                                       const char *group);
+
+/**
+ * Parses nvdsxfer plugin position values specified in a YAML configuration file.
+ *
+ * @param[in]  cfg_file_path The YAML config file used by an application.
+ * @param[in]  group Group in the YAML config file to be parsed and
+ *             corresponding properties set on the nvdsxfer element.
+ * @param[out]  position Pointer to variable holding position value.
+ * @return Yaml parsing status for the API call.
+ */
+NvDsYamlParserStatus nvds_parse_nvxfer_position(gchar *cfg_file_path,
+                                                const char *group,
+                                                guint *position);
 
 #ifdef __cplusplus
 }

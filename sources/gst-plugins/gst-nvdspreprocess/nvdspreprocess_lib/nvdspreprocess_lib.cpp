@@ -178,14 +178,14 @@ NvDsPreProcessStatus CustomAsyncTransformation(NvBufSurface *in_surf,
 
 CustomCtx *initLib(CustomInitParams initparams)
 {
-    CustomCtx *ctx = new CustomCtx;
+    auto ctx = std::make_unique<CustomCtx>();
     NvDsPreProcessStatus status;
 
     ctx->custom_mean_norm_params.pixel_normalization_factor =
         std::stof(initparams.user_configs[NVDSPREPROCESS_USER_CONFIGS_PIXEL_NORMALIZATION_FACTOR]);
 
     if (!initparams.user_configs[NVDSPREPROCESS_USER_CONFIGS_MEAN_FILE].empty()) {
-        gchar *abs_path = new gchar[_PATH_MAX];
+        char abs_path[_PATH_MAX] = {0};
         if (!get_absolute_file_path(
                 initparams.config_file_path,
                 initparams.user_configs[NVDSPREPROCESS_USER_CONFIGS_MEAN_FILE].c_str(), abs_path)) {
@@ -196,7 +196,6 @@ CustomCtx *initLib(CustomInitParams initparams)
             ctx->custom_mean_norm_params.meanImageFilePath.clear();
         }
         ctx->custom_mean_norm_params.meanImageFilePath.append(abs_path);
-        delete abs_path;
     }
 
     std::string offsets_str = initparams.user_configs[NVDSPREPROCESS_USER_CONFIGS_OFFSETS];
@@ -228,7 +227,7 @@ CustomCtx *initLib(CustomInitParams initparams)
 
     ctx->initParams = initparams;
 
-    return ctx;
+    return ctx.release();
 }
 
 void deInitLib(CustomCtx *ctx)

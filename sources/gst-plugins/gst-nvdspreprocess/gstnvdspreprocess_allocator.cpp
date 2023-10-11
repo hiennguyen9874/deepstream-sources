@@ -112,6 +112,7 @@ static GstMemory *gst_nvdspreprocess_allocator_alloc(GstAllocator *allocator,
         if (cudaReturn != cudaSuccess) {
             GST_ERROR("failed to allocate cuda malloc for tensor with error %s",
                       cudaGetErrorName(cudaReturn));
+            delete nvmem;
             return nullptr;
         }
 

@@ -31,6 +31,14 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
+This example can be configured to use either the nvinfer or the nvinferserver
+element for inference.
+If nvinferserver is selected, the Triton Inference Server is used for inference
+processing. In this case, the example needs to be run inside the
+DeepStream-Triton docker container  for dGPU platforms. For Jetson platforms,
+this example can be executed on target device directly or inside DeepStream L4T
+Triton container. Please refer samples/configs/deepstream-app-triton/README for
+the steps to download the container image and setup model repository.
 ===============================================================================
 2. Purpose:
 ===============================================================================
@@ -47,7 +55,7 @@ input.
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
   $ sudo make (sudo not required in case of docker containers)
 
 
@@ -61,6 +69,11 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
   $ ./deepstream-image-decode-app <file1> [file2] ... [fileN]
 e.g.
   $ ./deepstream-image-decode-app file1_mjpeg.mp4 file2_mjpeg.mp4
+
+Use option "-t inferserver" to select nvinferserver as the inference plugin
+  $ ./deepstream-image-decode-app -t inferserver <file1> [file2] ... [fileN]
+e.g.
+  $ ./deepstream-image-decode-app -t inferserver file1_mjpeg.mp4 file2_mjpeg.mp4
 
 This sample builds on top of the deepstream-test1 sample to demonstrate how to:
 
@@ -76,9 +89,12 @@ single-stream inference, bounding-box overlay, and rendering.
 
 This sample accepts one or more MJPEG streams as input. It creates
 a source bin for each input and connects the bins to an instance of the
-"nvstreammux" element, which forms the batch of frames. The batch of
-frames is fed to "nvinfer" for batched inferencing. The batched buffer is
-composited into a 2D tile array using "nvmultistreamtiler." The rest of the
+"nvstreammux" element, which forms the batch of frames.
+This sample creates instance of either "nvinfer" or "nvinferserver" element
+for inference. The "nvinfer" element uses TensorRT API to infer
+on frames/objects. The "nvinferserver" element uses the Triton Inference
+Server to infer on frames/objects.
+The batched buffer is composited into a 2D tile array using "nvmultistreamtiler." The rest of the
 pipeline is similar to the deepstream-test1 sample.
 
 The "width" and "height" properties must be set on the stream-muxer to set the

@@ -45,11 +45,6 @@ gboolean create_tracking_bin(NvDsTrackerConfig *config, NvDsTrackerBin *bin)
                  config->height, "gpu-id", config->gpu_id, "ll-config-file", config->ll_config_file,
                  "ll-lib-file", config->ll_lib_file, NULL);
 
-    g_object_set(G_OBJECT(bin->tracker), "enable-batch-process", config->enable_batch_process,
-                 NULL);
-
-    g_object_set(G_OBJECT(bin->tracker), "enable-past-frame", config->enable_past_frame, NULL);
-
     g_object_set(G_OBJECT(bin->tracker), "display-tracking-id", config->display_tracking_id, NULL);
 
     g_object_set(G_OBJECT(bin->tracker), "tracking-id-reset-mode", config->tracking_id_reset_mode,
@@ -63,6 +58,8 @@ gboolean create_tracking_bin(NvDsTrackerConfig *config, NvDsTrackerBin *bin)
     g_object_set(G_OBJECT(bin->tracker), "tensor-meta-gie-id", config->input_tensor_gie_id, NULL);
 
     g_object_set(G_OBJECT(bin->tracker), "compute-hw", config->compute_hw, NULL);
+
+    g_object_set(G_OBJECT(bin->tracker), "user-meta-pool-size", config->user_meta_pool_size, NULL);
 
     gst_bin_add_many(GST_BIN(bin->bin), bin->tracker, NULL);
 

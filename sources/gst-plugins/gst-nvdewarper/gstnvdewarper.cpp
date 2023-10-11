@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -72,7 +72,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvdewarper_debug);
 #define PACKAGE_NAME "GStreamer nVidia Dewarper Plugin"
 #define PACKAGE_URL "http://nvidia.com/"
 
-//#define MEASURE_TIME
+// #define MEASURE_TIME
 #ifdef MEASURE_TIME
 #include <stdio.h>
 #include <sys/time.h>
@@ -296,11 +296,13 @@ static GstCaps *gst_nvdewarper_fixate_caps(GstBaseTransform *trans,
 
     guint out_width, out_height;
 
+    othercaps = gst_caps_truncate(othercaps);
     othercaps = gst_caps_make_writable(othercaps);
 
-    GST_DEBUG_OBJECT(
-        trans, "trying to fixate othercaps %" GST_PTR_FORMAT " based on caps %" GST_PTR_FORMAT,
-        othercaps, caps);
+    GST_DEBUG_OBJECT(trans,
+                     "trying to fixate othercaps %" GST_PTR_FORMAT " based on caps %" GST_PTR_FORMAT
+                     " current direction is %s",
+                     othercaps, caps, (direction == GST_PAD_SINK) ? "sink" : "src");
 
     ins = gst_caps_get_structure(caps, 0);
     outs = gst_caps_get_structure(othercaps, 0);
@@ -423,6 +425,46 @@ static GstCaps *gst_nvdewarper_fixate_caps(GstBaseTransform *trans,
                 gst_structure_fixate_field_nearest_int(outs, "height", height);
             }
         }
+    }
+    if (direction == GST_PAD_SINK) {
+        GstCaps *peer_caps = gst_pad_peer_query_caps(GST_BASE_TRANSFORM_SRC_PAD(trans), NULL);
+        GstStructure *peer_structure;
+        const gchar *out_mem_type_string = NULL;
+        int n = gst_caps_get_size(peer_caps);
+        bool peer_has_gpu_id = false;
+        if (n > 0) {
+            peer_caps = gst_caps_truncate(peer_caps);
+            GST_DEBUG_OBJECT(trans, "peer caps %" GST_PTR_FORMAT, peer_caps);
+            peer_structure = gst_caps_get_structure(peer_caps, 0);
+            out_mem_type_string = gst_structure_get_string(peer_structure, "nvbuf-memory-type");
+            peer_has_gpu_id = gst_structure_has_field(peer_structure, "gpu-id");
+        }
+
+        if (!out_mem_type_string) {
+            int mem_type = nvdewarper->cuda_mem_type;
+            if (mem_type == NVBUF_MEM_DEFAULT)
+                GET_DEFAULT_MEM_TYPE(mem_type);
+            g_assert(mem_type != NVBUF_MEM_DEFAULT);
+            gst_structure_set(outs, "nvbuf-memory-type", G_TYPE_STRING,
+                              gst_nvbuf_memory_get_name(mem_type), NULL);
+        } else {
+            nvdewarper->cuda_mem_type =
+                (NvBufSurfaceMemType)gst_nvbuf_memory_get_value(out_mem_type_string);
+            if (nvdewarper->cuda_mem_type <= NVBUF_MEM_DEFAULT)
+                GST_ERROR_OBJECT(trans, "Incorrect nvbuf-memory-type set on src pad!!");
+            GST_WARNING_OBJECT(trans,
+                               "nvbuf-memory-type property is set based on SRC caps. Property "
+                               "config setting (if any) is overridden!!");
+            gst_structure_set(outs, "nvbuf-memory-type", G_TYPE_STRING, out_mem_type_string, NULL);
+        }
+        if (peer_has_gpu_id) {
+            gst_structure_get_int(peer_structure, "gpu-id", (int *)&nvdewarper->gpu_id);
+            GST_WARNING_OBJECT(trans,
+                               "gpu-id property is set based on SRC caps. Property config setting "
+                               "(if any) is overridden!!");
+        }
+        gst_structure_set(outs, "gpu-id", G_TYPE_INT, nvdewarper->gpu_id, NULL);
+        gst_caps_unref(peer_caps);
     }
 
     GST_DEBUG_OBJECT(trans, "fixated othercaps to %" GST_PTR_FORMAT, othercaps);
@@ -694,6 +736,10 @@ static gboolean gst_nvdewarper_set_caps(GstBaseTransform *trans, GstCaps *incaps
             GST_DEBUG(" Output buffer pool (%p) successfully created with %d buffers",
                       nvdewarper->pool, nvdewarper->num_batch_buffers);
         }
+    }
+    if (!nvdewarper->aisle_calibrationfile_set || !nvdewarper->spot_calibrationfile_set) {
+        // Non-CVS Case
+        gst_nvdewarper_allocate_projection_buffers(nvdewarper);
     }
 
     gst_base_transform_set_passthrough(trans, FALSE);
@@ -1262,10 +1308,6 @@ static void gst_nvdewarper_set_property(GObject *object,
                     nvdewarper->config_file);
             abort();
         }
-        if (!nvdewarper->aisle_calibrationfile_set || !nvdewarper->spot_calibrationfile_set) {
-            // Non-CVS Case
-            gst_nvdewarper_allocate_projection_buffers(nvdewarper);
-        }
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1336,7 +1378,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dewarper,
                   PACKAGE_DESCRIPTION,
                   nvdewarper_init,
-                  "6.2",
+                  "6.3",
                   PACKAGE_LICENSE,
                   PACKAGE_NAME,
                   PACKAGE_URL)

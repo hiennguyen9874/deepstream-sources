@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -183,6 +183,11 @@ public:
         T ret = std::move(*m_Queue.begin());
         m_Queue.erase(m_Queue.begin());
         return ret;
+    }
+    bool isEmpty()
+    {
+        std::unique_lock<std::mutex> lock(m_Mutex);
+        return m_Queue.empty();
     }
     void clear()
     {

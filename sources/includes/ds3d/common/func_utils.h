@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -15,6 +15,7 @@
 
 #include <ds3d/common/abi_frame.h>
 #include <ds3d/common/common.h>
+#include <ds3d/common/idatatype.h>
 
 #include <algorithm>
 
@@ -32,20 +33,26 @@ inline bool isNotBad(ErrCode c)
     return c >= ErrCode::kGood;
 }
 
+inline bool isCpuMem(MemType t)
+{
+    return t == MemType::kCpu || t == MemType::kCpuPinned;
+}
+
 inline const char *ErrCodeStr(ErrCode code)
 {
     static const std::unordered_map<ErrCode, const char *> kCodeTable = {
 #define __DS3D_ERR_STR_DEF(code) {ErrCode::code, #code}
-        __DS3D_ERR_STR_DEF(kGood),       __DS3D_ERR_STR_DEF(kByPass),
-        __DS3D_ERR_STR_DEF(kLoadLib),    __DS3D_ERR_STR_DEF(kMem),
-        __DS3D_ERR_STR_DEF(kParam),      __DS3D_ERR_STR_DEF(kNotFound),
-        __DS3D_ERR_STR_DEF(kTimeOut),    __DS3D_ERR_STR_DEF(kTypeId),
-        __DS3D_ERR_STR_DEF(kNvDsMeta),   __DS3D_ERR_STR_DEF(kUnsupported),
-        __DS3D_ERR_STR_DEF(kUnknown),    __DS3D_ERR_STR_DEF(kConfig),
-        __DS3D_ERR_STR_DEF(kRealSense),  __DS3D_ERR_STR_DEF(kNullPtr),
-        __DS3D_ERR_STR_DEF(kOutOfRange), __DS3D_ERR_STR_DEF(kGst),
-        __DS3D_ERR_STR_DEF(kState),      __DS3D_ERR_STR_DEF(kGL),
-        __DS3D_ERR_STR_DEF(kLockWakeup),
+        __DS3D_ERR_STR_DEF(kGood),         __DS3D_ERR_STR_DEF(kByPass),
+        __DS3D_ERR_STR_DEF(kLoadLib),      __DS3D_ERR_STR_DEF(kMem),
+        __DS3D_ERR_STR_DEF(kParam),        __DS3D_ERR_STR_DEF(kNotFound),
+        __DS3D_ERR_STR_DEF(kTimeOut),      __DS3D_ERR_STR_DEF(kTypeId),
+        __DS3D_ERR_STR_DEF(kNvDsMeta),     __DS3D_ERR_STR_DEF(kUnsupported),
+        __DS3D_ERR_STR_DEF(kUnknown),      __DS3D_ERR_STR_DEF(kConfig),
+        __DS3D_ERR_STR_DEF(kRealSense),    __DS3D_ERR_STR_DEF(kNullPtr),
+        __DS3D_ERR_STR_DEF(kOutOfRange),   __DS3D_ERR_STR_DEF(kGst),
+        __DS3D_ERR_STR_DEF(kState),        __DS3D_ERR_STR_DEF(kGL),
+        __DS3D_ERR_STR_DEF(kLockWakeup),   __DS3D_ERR_STR_DEF(kCuda),
+        __DS3D_ERR_STR_DEF(kIncompatible),
 #undef __DS3D_ERR_STR_DEF
     };
     auto iter = kCodeTable.find(code);
@@ -71,8 +78,9 @@ inline ErrCode CatchError(F f, Args... args)
     {
         code = f(std::forward<Args>(args)...);
     }
-    DS3D_CATCH_ERROR(Exception, e.code(), "Catch Gst error")
-    DS3D_CATCH_ANY(ErrCode::kGst, "Catch Gst error")
+    DS3D_CATCH_ERROR(Exception, e.code(), "Catch ds3d error")
+    DS3D_CATCH_ERROR(std::exception, ErrCode::kUnknown, "Catch std exception")
+    DS3D_CATCH_ANY(ErrCode::kUnknown, "Catch unknown error")
     return code;
 }
 
@@ -82,8 +90,9 @@ inline ErrCode CatchVoidCall(std::function<void()> f)
     {
         f();
     }
-    DS3D_CATCH_ERROR(Exception, e.code(), "Catch Gst error")
-    DS3D_CATCH_ANY(ErrCode::kGst, "Catch Gst error")
+    DS3D_CATCH_ERROR(Exception, e.code(), "Catch ds3d error")
+    DS3D_CATCH_ERROR(std::exception, ErrCode::kUnknown, "Catch std exception")
+    DS3D_CATCH_ANY(ErrCode::kUnknown, "Catch unknown error")
     return ErrCode::kGood;
 }
 
@@ -199,6 +208,24 @@ void array2Vec3(Data *from, vec3<Data> &to)
     for (int i = 0; i < 3; ++i) {
         to.data[i] = from[i];
     }
+}
+
+inline bool isNear(float a, float b)
+{
+    if (fabs(a - b) <= std::numeric_limits<float>::epsilon())
+        return true;
+    return false;
+}
+
+inline TransformMatrix getIntrinsicMat(IntrinsicsParam &param)
+{
+    TransformMatrix mat = {{
+        {{param.fx, 0.0f, 0.0f, 0.0f}},
+        {{0.0f, param.fy, 0.0f, 0.0f}},
+        {{param.centerX, param.centerY, 1.0f, 0.0f}},
+        {{0.0f, 0.0f, 0.0f, 1.0f}},
+    }};
+    return mat;
 }
 
 } // namespace ds3d

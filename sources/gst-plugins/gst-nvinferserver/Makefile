@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -13,7 +13,7 @@ TRITON_GRPC_CLIENT ?= /opt/tritonclient
 PROTOBUF_BIN_DIR ?= /opt/proto/bin
 
 LIB := libnvdsgst_inferserver.so
-NVDS_VERSION := 6.2
+NVDS_VERSION := 6.3
 
 CUDA_VER ?=
 ifeq ($(CUDA_VER),)
@@ -44,7 +44,7 @@ CFLAGS+= \
     -DNDEBUG \
     -fPIC \
     -std=c++14 \
-    -DDS_VERSION=\"6.2.0\" \
+    -DDS_VERSION=\"6.3.0\" \
     -DFOR_PRIVATE \
     $(NULL)
 
@@ -84,6 +84,7 @@ LIBS := \
     -ldl \
     -lpthread \
     -Wl,-rpath,$(LIB_INSTALL_DIR) \
+    -lnvdsgst_customhelper \
     $(NULL)
 
 OBJS := $(SRCS:.cpp=.o)

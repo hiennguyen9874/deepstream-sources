@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,13 +25,13 @@ CC:= g++
 
 PKGS:= glib-2.0 gobject-2.0 json-glib-1.0 uuid gstreamer-1.0
 
-NVDS_VERSION:=6.2
+NVDS_VERSION:=6.3
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 
 CFLAGS:= -Wall -std=c++11 -shared -fPIC
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.2\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.3\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../../includes
 

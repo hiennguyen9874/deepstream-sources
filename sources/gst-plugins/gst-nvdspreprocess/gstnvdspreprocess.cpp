@@ -37,7 +37,7 @@
 #include <thread>
 #include <unordered_map>
 
-#include "gst-nvcustomevent.h"
+#include "gst-nvdscustomevent.h"
 #include "gstnvdspreprocess_allocator.h"
 #include "nvdspreprocess_property_parser.h"
 
@@ -48,7 +48,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvdspreprocess_debug);
 /** compile makefile WITH_OPENCV:=1
  * and enable this to write transformed ROIs to files
  */
-//#define DUMP_ROIS
+// #define DUMP_ROIS
 
 #ifdef DUMP_ROIS
 #include "opencv2/imgcodecs.hpp"
@@ -59,7 +59,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvdspreprocess_debug);
  * enable to debug tensor prepared by this plugin
  * and dump it in .bin files
  */
-//#define DEBUG_TENSOR
+// #define DEBUG_TENSOR
 
 /* Enum to identify properties */
 enum {
@@ -1174,9 +1174,9 @@ static gboolean batch_transformation(NvBufSurface *in_surf,
 
 static gboolean gst_nvdspreprocess_sink_event(GstBaseTransform *trans, GstEvent *event)
 {
-    if ((GstNvCustomEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_ROI_UPDATE) {
-        GstNvDsPreProcess *nvdspreprocess = GST_NVDSPREPROCESS(trans);
+    GstNvDsPreProcess *nvdspreprocess = GST_NVDSPREPROCESS(trans);
 
+    if ((GstNvDsCustomEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_ROI_UPDATE) {
         gchar *stream_id = NULL;
         guint roi_count = 0;
         RoiDimension *roi_dim;
@@ -1212,6 +1212,25 @@ static gboolean gst_nvdspreprocess_sink_event(GstBaseTransform *trans, GstEvent 
         g_free(stream_id); // free the stream_id post usage.
         g_free(roi_dim);   // free the roi_dim post usage.
     }
+
+    /* Serialize events. Wait for pending buffers to be processed and pushed downstream*/
+    if (GST_EVENT_IS_SERIALIZED(event)) {
+        NvDsPreProcessBatch *batch = new NvDsPreProcessBatch;
+        batch->event_marker = TRUE;
+
+        /* Push the event marker batch in the preprocessing queue. */
+        g_mutex_lock(&nvdspreprocess->preprocess_lock);
+        g_queue_push_tail(nvdspreprocess->preprocess_queue, batch);
+        g_cond_broadcast(&nvdspreprocess->preprocess_cond);
+
+        /* Wait for all the remaining batches in the preprocessing queue including
+         * the event marker to be processed. */
+        while (!g_queue_is_empty(nvdspreprocess->preprocess_queue)) {
+            g_cond_wait(&nvdspreprocess->preprocess_cond, &nvdspreprocess->preprocess_lock);
+        }
+        g_mutex_unlock(&nvdspreprocess->preprocess_lock);
+    }
+
     /* Call the sink event handler of the base class. */
     return GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(trans, event);
 }
@@ -1948,7 +1967,7 @@ static GstFlowReturn gst_nvdspreprocess_on_objects(GstNvDsPreProcess *nvdsprepro
                                          roi_meta.roi.height);
                     }
 
-                    if (preprocess_group->draw_roi && !preprocess_group->process_on_all_objects) {
+                    if (preprocess_group->draw_roi) {
                         /* drawing roi rectangle*/
                         NvDsDisplayMeta *display_meta =
                             nvds_acquire_display_meta_from_pool(batch_meta);
@@ -2460,7 +2479,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_preprocess,
                   DESCRIPTION,
                   nvdspreprocess_plugin_init,
-                  "6.2",
+                  "6.3",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

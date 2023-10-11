@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -43,13 +43,14 @@ extern "C" {
 #include "deepstream_primary_gie.h"
 #include "deepstream_secondary_gie.h"
 #include "deepstream_secondary_preprocess.h"
+#include "deepstream_segvisual.h"
 #include "deepstream_sinks.h"
 #include "deepstream_sources.h"
 #include "deepstream_streammux.h"
 #include "deepstream_tiled_display.h"
 #include "deepstream_tracker.h"
-#include "gst-nvcommonconfig.h"
-#include "gst-nvcustommessage.h"
+#include "gst-nvdscommonconfig.h"
+#include "gst-nvdscustommessage.h"
 
 typedef struct _AppCtx AppCtx;
 
@@ -73,6 +74,7 @@ typedef struct {
     NvDsPreProcessBin preprocess_bin;
     NvDsPrimaryGieBin primary_gie_bin;
     NvDsOSDBin osd_bin;
+    NvDsSegVisualBin segvisual_bin;
     NvDsSecondaryGieBin secondary_gie_bin;
     NvDsSecondaryPreProcessBin secondary_preprocess_bin;
     NvDsTrackerBin tracker_bin;
@@ -113,12 +115,14 @@ typedef struct {
     guint sgie_batch_size;
     gchar *bbox_dir_path;
     gchar *kitti_track_dir_path;
+    gchar *reid_track_dir_path;
 
     gchar **uri_list;
     gchar **sensor_id_list;
     NvDsSourceConfig multi_source_config[MAX_SOURCE_BINS];
     NvDsStreammuxConfig streammux_config;
     NvDsOSDConfig osd_config;
+    NvDsSegVisualConfig segvisual_config;
     NvDsPreProcessConfig preprocess_config;
     NvDsPreProcessConfig secondary_preprocess_sub_bin_config[MAX_SECONDARY_PREPROCESS_BINS];
     NvDsGieConfig primary_gie_config;

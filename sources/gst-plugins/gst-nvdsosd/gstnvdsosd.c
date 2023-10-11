@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2016-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2016-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -21,6 +21,7 @@
 #include <gst/video/video.h>
 #include <stdio.h>
 
+#include "gst-nvdscustomevent.h"
 #include "nvbufsurface.h"
 #include "nvtx3/nvToolsExt.h"
 
@@ -72,7 +73,7 @@ static GstStaticPadTemplate nvdsosd_src_factory = GST_STATIC_PAD_TEMPLATE(
 /* Default values for properties */
 #define DEFAULT_FONT_SIZE 12
 #define DEFAULT_FONT "Serif"
-#define GST_NV_OSD_DEFAULT_PROCESS_MODE MODE_CPU
+#define GST_NV_OSD_DEFAULT_PROCESS_MODE MODE_GPU
 #define MAX_FONT_SIZE 60
 #define DEFAULT_BORDER_WIDTH 4
 
@@ -115,6 +116,31 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
 static gboolean gst_nvds_osd_start(GstBaseTransform *btrans);
 static gboolean gst_nvds_osd_stop(GstBaseTransform *btrans);
 static gboolean gst_nvds_osd_parse_color(GstNvDsOsd *nvdsosd, guint clock_color);
+static gboolean gst_nvdsosd_sink_event(GstBaseTransform *trans, GstEvent *event);
+
+static gboolean gst_nvdsosd_sink_event(GstBaseTransform *trans, GstEvent *event)
+{
+    GstNvDsOsd *nvdsosd = GST_NVDSOSD(trans);
+
+    if ((GstNvDsCustomEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_OSD_PROCESS_MODE_UPDATE) {
+        gchar *stream_id = NULL;
+        guint process_mode = 0;
+
+        gst_nvevent_parse_osd_process_mode_update(event, &stream_id, &process_mode);
+
+        nvdsosd->nvdsosd_mode = process_mode == 0 ? MODE_CPU : MODE_GPU;
+
+        int flag_integrated = -1;
+        cudaDeviceGetAttribute(&flag_integrated, cudaDevAttrIntegrated, nvdsosd->gpu_id);
+        if (!flag_integrated && nvdsosd->nvdsosd_mode > MODE_GPU) {
+            g_print("WARN !! Invalid mode selected, Falling back to GPU\n");
+            nvdsosd->nvdsosd_mode = MODE_GPU;
+        }
+    }
+
+    /* Call the sink event handler of the base class. */
+    return GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(trans, event);
+}
 
 static GstCaps *gst_nvds_osd_transform_caps(GstBaseTransform *trans,
                                             GstPadDirection direction,
@@ -321,8 +347,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
         if (rect_cnt == MAX_OSD_ELEMS) {
             nvdsosd->frame_rect_params->num_rects = rect_cnt;
             nvdsosd->frame_rect_params->rect_params_list = nvdsosd->rect_params;
-            nvdsosd->frame_rect_params->buf_ptr = &surface->surfaceList[0];
+            /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_rect_params->surf' instead */
+            nvdsosd->frame_rect_params->buf_ptr = NULL;
             nvdsosd->frame_rect_params->mode = nvdsosd->nvdsosd_mode;
+            nvdsosd->frame_rect_params->surf = surface;
             if (nvll_osd_draw_rectangles(nvdsosd->nvdsosd_context, nvdsosd->frame_rect_params) ==
                 -1) {
                 GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw rectangles"), NULL);
@@ -338,8 +366,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
                 nvdsosd->frame_mask_params->num_segments = segment_cnt;
                 nvdsosd->frame_mask_params->rect_params_list = nvdsosd->mask_rect_params;
                 nvdsosd->frame_mask_params->mask_params_list = nvdsosd->mask_params;
-                nvdsosd->frame_mask_params->buf_ptr = &surface->surfaceList[0];
+                /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_mask_params->surf' instead */
+                nvdsosd->frame_mask_params->buf_ptr = NULL;
                 nvdsosd->frame_mask_params->mode = nvdsosd->nvdsosd_mode;
+                nvdsosd->frame_mask_params->surf = surface;
                 if (nvll_osd_draw_segment_masks(nvdsosd->nvdsosd_context,
                                                 nvdsosd->frame_mask_params) == -1) {
                     GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw rectangles"),
@@ -354,8 +384,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
         if (text_cnt == MAX_OSD_ELEMS) {
             nvdsosd->frame_text_params->num_strings = text_cnt;
             nvdsosd->frame_text_params->text_params_list = nvdsosd->text_params;
-            nvdsosd->frame_text_params->buf_ptr = &surface->surfaceList[0];
+            /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_text_params->surf' instead */
+            nvdsosd->frame_text_params->buf_ptr = NULL;
             nvdsosd->frame_text_params->mode = nvdsosd->nvdsosd_mode;
+            nvdsosd->frame_rect_params->surf = surface;
             if (nvll_osd_put_text(nvdsosd->nvdsosd_context, nvdsosd->frame_text_params) == -1) {
                 GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw text"), NULL);
                 return GST_FLOW_ERROR;
@@ -381,8 +413,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
             if (rect_cnt == MAX_OSD_ELEMS) {
                 nvdsosd->frame_rect_params->num_rects = rect_cnt;
                 nvdsosd->frame_rect_params->rect_params_list = nvdsosd->rect_params;
-                nvdsosd->frame_rect_params->buf_ptr = &surface->surfaceList[0];
+                /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_rect_params->surf' instead */
+                nvdsosd->frame_rect_params->buf_ptr = NULL;
                 nvdsosd->frame_rect_params->mode = nvdsosd->nvdsosd_mode;
+                nvdsosd->frame_rect_params->surf = surface;
                 if (nvll_osd_draw_rectangles(nvdsosd->nvdsosd_context,
                                              nvdsosd->frame_rect_params) == -1) {
                     GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw rectangles"),
@@ -399,8 +433,11 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
                 if (text_cnt == MAX_OSD_ELEMS) {
                     nvdsosd->frame_text_params->num_strings = text_cnt;
                     nvdsosd->frame_text_params->text_params_list = nvdsosd->text_params;
-                    nvdsosd->frame_text_params->buf_ptr = &surface->surfaceList[0];
+                    /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_text_params->surf' instead
+                     */
+                    nvdsosd->frame_text_params->buf_ptr = NULL;
                     nvdsosd->frame_text_params->mode = nvdsosd->nvdsosd_mode;
+                    nvdsosd->frame_text_params->surf = surface;
                     if (nvll_osd_put_text(nvdsosd->nvdsosd_context, nvdsosd->frame_text_params) ==
                         -1) {
                         GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw text"), NULL);
@@ -416,8 +453,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
             if (line_cnt == MAX_OSD_ELEMS) {
                 nvdsosd->frame_line_params->num_lines = line_cnt;
                 nvdsosd->frame_line_params->line_params_list = nvdsosd->line_params;
-                nvdsosd->frame_line_params->buf_ptr = &surface->surfaceList[0];
+                /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_line_params->surf' instead */
+                nvdsosd->frame_line_params->buf_ptr = NULL;
                 nvdsosd->frame_line_params->mode = nvdsosd->nvdsosd_mode;
+                nvdsosd->frame_line_params->surf = surface;
                 if (nvll_osd_draw_lines(nvdsosd->nvdsosd_context, nvdsosd->frame_line_params) ==
                     -1) {
                     GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw lines"), NULL);
@@ -432,8 +471,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
             if (arrow_cnt == MAX_OSD_ELEMS) {
                 nvdsosd->frame_arrow_params->num_arrows = arrow_cnt;
                 nvdsosd->frame_arrow_params->arrow_params_list = nvdsosd->arrow_params;
-                nvdsosd->frame_arrow_params->buf_ptr = &surface->surfaceList[0];
+                /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_arrow_params->surf' instead */
+                nvdsosd->frame_arrow_params->buf_ptr = NULL;
                 nvdsosd->frame_arrow_params->mode = nvdsosd->nvdsosd_mode;
+                nvdsosd->frame_arrow_params->surf = surface;
                 if (nvll_osd_draw_arrows(nvdsosd->nvdsosd_context, nvdsosd->frame_arrow_params) ==
                     -1) {
                     GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw arrows"), NULL);
@@ -448,8 +489,11 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
             if (circle_cnt == MAX_OSD_ELEMS) {
                 nvdsosd->frame_circle_params->num_circles = circle_cnt;
                 nvdsosd->frame_circle_params->circle_params_list = nvdsosd->circle_params;
-                nvdsosd->frame_circle_params->buf_ptr = &surface->surfaceList[0];
+                /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_circle_params->surf' instead
+                 */
+                nvdsosd->frame_circle_params->buf_ptr = NULL;
                 nvdsosd->frame_circle_params->mode = nvdsosd->nvdsosd_mode;
+                nvdsosd->frame_circle_params->surf = surface;
                 if (nvll_osd_draw_circles(nvdsosd->nvdsosd_context, nvdsosd->frame_circle_params) ==
                     -1) {
                     GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw circles"), NULL);
@@ -470,8 +514,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
     if (rect_cnt != 0 && nvdsosd->draw_bbox) {
         nvdsosd->frame_rect_params->num_rects = nvdsosd->num_rect;
         nvdsosd->frame_rect_params->rect_params_list = nvdsosd->rect_params;
-        nvdsosd->frame_rect_params->buf_ptr = &surface->surfaceList[0];
+        /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_rect_params->surf' instead */
+        nvdsosd->frame_rect_params->buf_ptr = NULL;
         nvdsosd->frame_rect_params->mode = nvdsosd->nvdsosd_mode;
+        nvdsosd->frame_rect_params->surf = surface;
         if (nvll_osd_draw_rectangles(nvdsosd->nvdsosd_context, nvdsosd->frame_rect_params) == -1) {
             GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw rectangles"), NULL);
             return GST_FLOW_ERROR;
@@ -482,8 +528,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
         nvdsosd->frame_mask_params->num_segments = nvdsosd->num_segments;
         nvdsosd->frame_mask_params->rect_params_list = nvdsosd->mask_rect_params;
         nvdsosd->frame_mask_params->mask_params_list = nvdsosd->mask_params;
-        nvdsosd->frame_mask_params->buf_ptr = &surface->surfaceList[0];
+        /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_mask_params->surf' instead */
+        nvdsosd->frame_mask_params->buf_ptr = NULL;
         nvdsosd->frame_mask_params->mode = nvdsosd->nvdsosd_mode;
+        nvdsosd->frame_mask_params->surf = surface;
         if (nvll_osd_draw_segment_masks(nvdsosd->nvdsosd_context, nvdsosd->frame_mask_params) ==
             -1) {
             GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw segment masks"), NULL);
@@ -494,8 +542,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
     if ((nvdsosd->show_clock || text_cnt) && nvdsosd->draw_text) {
         nvdsosd->frame_text_params->num_strings = nvdsosd->num_strings;
         nvdsosd->frame_text_params->text_params_list = nvdsosd->text_params;
-        nvdsosd->frame_text_params->buf_ptr = &surface->surfaceList[0];
+        /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_text_params->surf' instead */
+        nvdsosd->frame_text_params->buf_ptr = NULL;
         nvdsosd->frame_text_params->mode = nvdsosd->nvdsosd_mode;
+        nvdsosd->frame_text_params->surf = surface;
         if (nvll_osd_put_text(nvdsosd->nvdsosd_context, nvdsosd->frame_text_params) == -1) {
             GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw text"), NULL);
             return GST_FLOW_ERROR;
@@ -505,8 +555,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
     if (line_cnt != 0) {
         nvdsosd->frame_line_params->num_lines = nvdsosd->num_lines;
         nvdsosd->frame_line_params->line_params_list = nvdsosd->line_params;
-        nvdsosd->frame_line_params->buf_ptr = &surface->surfaceList[0];
+        /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_line_params->surf' instead */
+        nvdsosd->frame_line_params->buf_ptr = NULL;
         nvdsosd->frame_line_params->mode = nvdsosd->nvdsosd_mode;
+        nvdsosd->frame_line_params->surf = surface;
         if (nvll_osd_draw_lines(nvdsosd->nvdsosd_context, nvdsosd->frame_line_params) == -1) {
             GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw lines"), NULL);
             return GST_FLOW_ERROR;
@@ -516,8 +568,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
     if (arrow_cnt != 0) {
         nvdsosd->frame_arrow_params->num_arrows = nvdsosd->num_arrows;
         nvdsosd->frame_arrow_params->arrow_params_list = nvdsosd->arrow_params;
-        nvdsosd->frame_arrow_params->buf_ptr = &surface->surfaceList[0];
+        /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_arrow_params->surf' instead */
+        nvdsosd->frame_arrow_params->buf_ptr = NULL;
         nvdsosd->frame_arrow_params->mode = nvdsosd->nvdsosd_mode;
+        nvdsosd->frame_arrow_params->surf = surface;
         if (nvll_osd_draw_arrows(nvdsosd->nvdsosd_context, nvdsosd->frame_arrow_params) == -1) {
             GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw arrows"), NULL);
             return GST_FLOW_ERROR;
@@ -527,8 +581,10 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
     if (circle_cnt != 0) {
         nvdsosd->frame_circle_params->num_circles = nvdsosd->num_circles;
         nvdsosd->frame_circle_params->circle_params_list = nvdsosd->circle_params;
-        nvdsosd->frame_circle_params->buf_ptr = &surface->surfaceList[0];
+        /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_circle_params->surf' instead */
+        nvdsosd->frame_circle_params->buf_ptr = NULL;
         nvdsosd->frame_circle_params->mode = nvdsosd->nvdsosd_mode;
+        nvdsosd->frame_circle_params->surf = surface;
         if (nvll_osd_draw_circles(nvdsosd->nvdsosd_context, nvdsosd->frame_circle_params) == -1) {
             GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to draw circles"), NULL);
             return GST_FLOW_ERROR;
@@ -536,7 +592,7 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
     }
 
     if (nvdsosd->nvdsosd_mode == MODE_GPU) {
-        if (nvll_osd_apply(nvdsosd->nvdsosd_context, &surface->surfaceList[0]) == -1) {
+        if (nvll_osd_apply(nvdsosd->nvdsosd_context, NULL, surface) == -1) {
             GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED,
                               ("Unable to draw shapes onto video frame by GPU"), NULL);
             return GST_FLOW_ERROR;
@@ -598,6 +654,7 @@ static void gst_nvds_osd_class_init(GstNvDsOsdClass *klass)
     base_transform_class->stop = GST_DEBUG_FUNCPTR(gst_nvds_osd_stop);
     base_transform_class->set_caps = GST_DEBUG_FUNCPTR(gst_nvds_osd_set_caps);
     base_transform_class->transform_caps = GST_DEBUG_FUNCPTR(gst_nvds_osd_transform_caps);
+    base_transform_class->sink_event = GST_DEBUG_FUNCPTR(gst_nvdsosd_sink_event);
 
     gobject_class->set_property = gst_nvds_osd_set_property;
     gobject_class->get_property = gst_nvds_osd_get_property;
@@ -854,7 +911,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_osd,
                   PACKAGE_DESCRIPTION,
                   nvdsosd_init,
-                  "6.2",
+                  "6.3",
                   PACKAGE_LICENSE,
                   PACKAGE_NAME,
                   PACKAGE_URL)

@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2019-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
 # NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -15,8 +15,8 @@ Refer to the DeepStream SDK documentation for the description of the
 
 Dependencies:
 - Triton Inference Server library (/opt/tritonserver/lib/libtritonserver.so)
-- Triton gRPC client library v22.07
-- Google Protobuf compiler v3.8.0 
+- Triton gRPC client library v23.02
+- Google Protobuf compiler v3.19.4 
 - Half - Half precision floating point C++ library v2.1.0 
 
 Please ensure that the above dependencies are installed and update corresponding
@@ -29,6 +29,10 @@ HALF_PRECISION_LIB ?= /opt/half
 --------------------------------------------------------------------------------
 Compiling and installing the plugin:
 Export or set in Makefile the appropriate CUDA_VER
+On x86, run below commands before compilation:
+    sudo apt-get install -y cuda-compat-12-1
+    export LD_LIBRARY_PATH=/usr/local/cuda/compat:$LD_LIBRARY_PATH (Required for data center GPUs only)
+
 Run make and sudo make install
 
 NOTE: To compile the sources, run make with "sudo" or root permission.

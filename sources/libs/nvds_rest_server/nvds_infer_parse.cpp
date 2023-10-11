@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,8 +20,6 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#include <iostream>
-
 #include "nvds_parse.h"
 #include "nvds_rest_server.h"
 
@@ -36,7 +34,15 @@ bool nvds_rest_infer_parse(const Json::Value &in, NvDsInferInfo *infer_info)
         const Json::Value sub_root_val = in[root_val]; // object values of root_key
 
         infer_info->stream_id = sub_root_val.get("stream_id", EMPTY_STRING).asString().c_str();
-        infer_info->interval = sub_root_val.get("interval", 0).asUInt();
+
+        if (infer_info->infer_flag == INFER_INTERVAL) {
+            infer_info->interval = sub_root_val.get("interval", 0).asUInt();
+            if (infer_info->interval < 0 || infer_info->interval > INT_MAX) {
+                infer_info->infer_log =
+                    "interval value not parsed correctly, Unsigned Integer. Range: 0 - 2147483647 ";
+                infer_info->status = INFER_INTERVAL_UPDATE_FAIL;
+            }
+        }
     }
 
     return true;

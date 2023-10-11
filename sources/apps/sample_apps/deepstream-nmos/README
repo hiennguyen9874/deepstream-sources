@@ -65,7 +65,7 @@ This application has three modes of operations -
 
 $ Set CUDA_VER in the MakeFile as per platform.
     For Jetson, CUDA_VER=11.4
-    For x86, CUDA_VER=11.8
+    For x86, CUDA_VER=12.1
 $ sudo make (sudo not required in case of docker containers)
 
 ===============================================================================

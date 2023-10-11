@@ -78,6 +78,35 @@ public:
         DS_ASSERT(ptr());
         return ptr()->clear_i();
     }
+    inline ErrCode copy(GuardDataMap input,
+                        DataMapPolicy policy = DataMapPolicy::kCopyPolicyNone,
+                        char *policyData = nullptr)
+    {
+        DS_ASSERT(ptr());
+        DS_ASSERT(input.ptr());
+        return ptr()->copy_i(input.ptr(), policy, policyData);
+    }
+    inline ErrCode copy(GuardDataMap input,
+                        const KeyName key,
+                        DataMapPolicy policy = DataMapPolicy::kCopyPolicyNone,
+                        char *policyData = nullptr)
+    {
+        DS_ASSERT(ptr());
+        DS_ASSERT(input.ptr());
+        return ptr()->copy_i(input.ptr(), key.empty() ? nullptr : key.c_str(), policy, policyData);
+    }
+
+    inline int32_t getSize()
+    {
+        DS_ASSERT(ptr());
+        return ptr()->getSize_i();
+    }
+
+    void printDebug() const
+    {
+        DS_ASSERT(ptr());
+        ptr()->printDebug_i();
+    }
 };
 
 template <class T>

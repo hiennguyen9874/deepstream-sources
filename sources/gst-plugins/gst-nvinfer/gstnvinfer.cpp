@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -25,7 +25,7 @@
 #include <thread>
 #include <vector>
 
-#include "gst-nvcustomevent.h"
+#include "gst-nvdscustomevent.h"
 #include "gst-nvevent.h"
 #include "gstnvdsmeta.h"
 #include "gstnvinfer_allocator.h"
@@ -500,6 +500,8 @@ static void gst_nvinfer_set_property(GObject *object,
         while (str.peek() != EOF) {
             gint class_id;
             str >> class_id;
+            if (class_id < 0)
+                continue;
             class_ids.push_back(class_id);
             max_class_id = MAX(max_class_id, class_id);
             str.get();
@@ -778,7 +780,7 @@ static gboolean gst_nvinfer_sink_event(GstBaseTransform *trans, GstEvent *event)
             result->second.object_history_map.clear();
     }
 
-    if ((GstNvCustomEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_INFER_INTERVAL_UPDATE) {
+    if ((GstNvDsCustomEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_INFER_INTERVAL_UPDATE) {
         gchar *stream_id = NULL;
 
         g_mutex_lock(&nvinfer->process_lock);
@@ -861,6 +863,14 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
     if (nvinfer->output_tensor_meta || IS_SEGMENTATION_INSTANCE(nvinfer))
         init_params->outputBufferPoolSize = std::max<uint>(init_params->outputBufferPoolSize,
                                                            NVDSINFER_CTX_OUT_POOL_SIZE_FLOW_META);
+
+    if (nvinfer->output_tensor_meta || init_params->autoIncMem == 0) {
+        GST_ELEMENT_WARNING(nvinfer, LIBRARY, SETTINGS,
+                            ("NvInfer output-tensor-meta is enabled but init_params auto "
+                             "increase memory (auto-inc-mem) is disabled. The bufferpool "
+                             "will not be automatically resized."),
+                            (nullptr));
+    }
 
     /* Create the NvDsInferContext instance. */
     status = createNvDsInferContext(&infer_context, *init_params, nvinfer, gst_nvinfer_logger);
@@ -958,12 +968,11 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
         gst_buffer_pool_config_set_allocator(config_ptr.get(), allocator_ptr.get(),
                                              &allocation_params);
 
-        if (!gst_buffer_pool_set_config(pool_ptr.get(), config_ptr.get())) {
+        if (!gst_buffer_pool_set_config(pool_ptr.get(), config_ptr.release())) {
             GST_ELEMENT_ERROR(nvinfer, RESOURCE, FAILED, ("Failed to set config on buffer pool"),
                               (nullptr));
             return FALSE;
         }
-        config_ptr.release();
 
         /* Start the buffer pool and allocate all internal buffers. */
         if (!gst_buffer_pool_set_active(pool_ptr.get(), TRUE)) {
@@ -1002,7 +1011,8 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
     nvinfer->transform_params.src_rect = new NvBufSurfTransformRect[nvinfer->max_batch_size];
     nvinfer->transform_params.dst_rect = new NvBufSurfTransformRect[nvinfer->max_batch_size];
     nvinfer->transform_params.transform_flag =
-        NVBUFSURF_TRANSFORM_FILTER | NVBUFSURF_TRANSFORM_CROP_SRC | NVBUFSURF_TRANSFORM_CROP_DST;
+        NVBUFSURF_TRANSFORM_FILTER | NVBUFSURF_TRANSFORM_CROP_SRC | NVBUFSURF_TRANSFORM_CROP_DST |
+        NVBUFSURF_TRANSFORM_FLIP | NVBUFSURF_TRANSFORM_ALLOW_ODD_CROP;
     nvinfer->transform_params.transform_flip = NvBufSurfTransform_None;
 
     /* Initialize the object history map for source 0. */
@@ -1356,6 +1366,12 @@ static gpointer gst_nvinfer_input_queue_loop(gpointer data)
 
         locker.lock();
 
+        if (status == NVDSINFER_MEM_ERROR) {
+            delete batch;
+            batch = NULL;
+            continue;
+        }
+
         if (status != NVDSINFER_SUCCESS) {
             GST_ELEMENT_ERROR(nvinfer, STREAM, FAILED,
                               ("Failed to queue input batch for inferencing"), (nullptr));
@@ -1378,6 +1394,14 @@ static gboolean convert_batch_and_push_to_input_thread(GstNvInfer *nvinfer,
 {
     NvBufSurfTransform_Error err = NvBufSurfTransformError_Success;
     std::string nvtx_str;
+    cudaError_t cudaReturn;
+
+    cudaReturn = cudaSetDevice(nvinfer->gpu_id);
+    if (cudaReturn != cudaSuccess) {
+        GST_ELEMENT_ERROR(nvinfer, RESOURCE, FAILED,
+                          ("Failed to set cuda device %d", nvinfer->gpu_id),
+                          ("cudaSetDevice failed with error %s", cudaGetErrorName(cudaReturn)));
+    }
 
     /* Set the transform session parameters for the conversions executed in this
      * thread. */
@@ -1525,13 +1549,12 @@ static GstFlowReturn gst_nvinfer_process_full_frame(GstNvInfer *nvinfer,
         /* Submit batch if the batch size has reached max_batch_size or
          * if this is the last frame in the input batched buffer. */
         if (batch->frames.size() == nvinfer->max_batch_size || i == num_filled - 1) {
-            if (!convert_batch_and_push_to_input_thread(nvinfer, batch.get(), memory)) {
+            if (!convert_batch_and_push_to_input_thread(nvinfer, batch.release(), memory)) {
                 return GST_FLOW_ERROR;
             }
 
             /* Batch submitted. Set batch to nullptr so that a new GstNvInferBatch
              * structure can be allocated if required. */
-            batch.release();
             conv_gst_buf = nullptr;
             nvinfer->tmp_surf.numFilled = 0;
         }
@@ -1833,12 +1856,11 @@ static GstFlowReturn gst_nvinfer_process_objects(GstNvInfer *nvinfer,
 
             /* Submit batch if the batch size has reached max_batch_size. */
             if (batch->frames.size() == nvinfer->max_batch_size) {
-                if (!convert_batch_and_push_to_input_thread(nvinfer, batch.get(), memory)) {
+                if (!convert_batch_and_push_to_input_thread(nvinfer, batch.release(), memory)) {
                     return GST_FLOW_ERROR;
                 }
                 /* Batch submitted. Set batch to nullptr so that a new GstNvInferBatch
                  * structure can be allocated if required. */
-                batch.release();
                 conv_gst_buf = nullptr;
                 nvinfer->tmp_surf.numFilled = 0;
             }
@@ -1853,11 +1875,10 @@ static GstFlowReturn gst_nvinfer_process_objects(GstNvInfer *nvinfer,
         if (batch->frames.size() == 0)
             gst_buffer_unref(batch->conv_buf);
 
-        if (!convert_batch_and_push_to_input_thread(nvinfer, batch.get(), memory)) {
+        if (!convert_batch_and_push_to_input_thread(nvinfer, batch.release(), memory)) {
             return GST_FLOW_ERROR;
         }
         conv_gst_buf = nullptr;
-        batch.release();
         nvinfer->tmp_surf.numFilled = 0;
     }
 
@@ -2019,6 +2040,13 @@ static GstFlowReturn gst_nvinfer_process_tensor_input(GstNvInfer *nvinfer,
 
                 NvDsInferStatus status =
                     DS_NVINFER_IMPL(nvinfer)->m_InferCtx->queueInputBatchPreprocessed(input_batch);
+
+                if (status == NVDSINFER_MEM_ERROR) {
+                    GstNvInferBatch *raw_batch_ptr = tensor_input_batch.batch.release();
+                    delete raw_batch_ptr;
+                    raw_batch_ptr = NULL;
+                    continue;
+                }
 
                 if (status != NVDSINFER_SUCCESS) {
                     GST_ELEMENT_ERROR(nvinfer, STREAM, FAILED,
@@ -2465,7 +2493,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_infer,
                   DESCRIPTION,
                   nvinfer_plugin_init,
-                  "6.2",
+                  "6.3",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

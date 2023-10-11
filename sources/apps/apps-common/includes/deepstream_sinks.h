@@ -73,6 +73,7 @@ typedef struct {
     guint iframeinterval;
     guint copy_meta;
     NvDsEncOutputIOMode output_io_mode;
+    gint sw_preset;
 } NvDsSinkEncoderConfig;
 
 typedef struct {

@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
 # NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -11,7 +11,7 @@
 ################################################################################
 
 LIB:=libnvds_infer_server.so
-NVDS_VERSION := 6.2
+NVDS_VERSION := 6.3
 LIB_INSTALL_DIR ?= /opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 TRITON_SERVER_STUB ?= build/nvdsinferserver
 
@@ -34,7 +34,6 @@ SRCS :=   \
      nvdsinferserver_config.pb.cc \
      nvdsinferserver_plugin.pb.cc \
      nvdsinferserver_common.pb.cc \
-     model_config.pb.cc \
      infer_base_backend.cpp \
      infer_base_context.cpp \
      infer_proto_utils.cpp \
@@ -98,9 +97,9 @@ endif
 
 LIBS := \
     -L$(TRITON_SERVER_STUB) \
-    -L$(TRITON_GRPC_CLIENT)/lib/ \
-    -l:libprotobuf.a \
+    -L$(TRITON_GRPC_CLIENT)/lib \
     -l:libgrpcclient_static.a \
+    -l:libprotobuf.a \
     -l:libgrpc++.a \
     -l:libgrpc.a \
     -l:libgpr.a \
@@ -115,6 +114,51 @@ LIBS := \
     -lnvds_meta \
     -lnvds_inferlogger \
     -lnvds_inferutils \
+    -l:libabsl_bad_optional_access.a \
+    -l:libabsl_bad_variant_access.a \
+    -l:libabsl_cordz_info.a \
+    -l:libabsl_cord.a \
+    -l:libabsl_cordz_functions.a \
+    -l:libabsl_cordz_handle.a \
+    -l:libabsl_cordz_sample_token.a \
+    -l:libabsl_cord_internal.a \
+    -l:libabsl_exponential_biased.a \
+    -l:libabsl_hash.a \
+    -l:libabsl_city.a \
+    -l:libabsl_low_level_hash.a \
+    -l:libabsl_random_distributions.a \
+    -l:libabsl_random_internal_randen.a \
+    -l:libabsl_random_internal_randen_hwaes_impl.a \
+    -l:libabsl_random_internal_randen_hwaes.a \
+    -l:libabsl_random_internal_platform.a \
+    -l:libabsl_random_internal_pool_urbg.a \
+    -l:libabsl_random_internal_randen_slow.a \
+    -l:libabsl_random_internal_seed_material.a \
+    -l:libabsl_random_seed_gen_exception.a \
+    -l:libabsl_random_seed_sequences.a \
+    -l:libabsl_raw_hash_set.a \
+    -l:libabsl_raw_logging_internal.a \
+    -l:libabsl_scoped_set_env.a \
+    -l:libabsl_spinlock_wait.a \
+    -l:libabsl_stacktrace.a \
+    -l:libabsl_status.a \
+    -l:libabsl_statusor.a \
+    -l:libabsl_strerror.a \
+    -l:libabsl_str_format_internal.a \
+    -l:libabsl_strings.a \
+    -l:libabsl_strings_internal.a \
+    -l:libabsl_synchronization.a \
+    -l:libabsl_symbolize.a \
+    -l:libabsl_throw_delegate.a \
+    -l:libabsl_time.a \
+    -l:libabsl_time_zone.a \
+    -l:libabsl_malloc_internal.a \
+    -l:libabsl_int128.a \
+    -l:libabsl_demangle_internal.a \
+    -l:libabsl_debugging_internal.a \
+    -l:libabsl_base.a \
+    -l:libupb.a \
+    -l:libre2.a \
     -ldl \
     -pthread \
     -lz \

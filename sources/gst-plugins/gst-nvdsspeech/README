@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
 # NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -57,8 +57,11 @@ available in the riva_asr_grpc_conf.yml file as below:
    use_riva_pts: true
    enable_text_pts: true
 
+Update the model name in the "riva_model" group as per the ASR model deployed using the Riva ASR service:
+   model_name: <ASR_Model>
+
    $ gst-launch-1.0 -v -e uridecodebin \
      uri=file:///opt/nvidia/deepstream/deepstream/sources/apps/audio_apps/deepstream_asr_app/streams/1272-135031-0000.wav ! audioresample ! \
-     nvdsasr customlib-name=libnvds_riva_asr_grpc.so create-speech-ctx-func=create_riva_asr_grpc_ctx config-file=riva_asr_grpc_jasper_conf.yml ! \
+     nvdsasr customlib-name=/opt/nvidia/deepstream/deepstream/lib/libnvds_riva_asr_grpc.so create-speech-ctx-func=create_riva_asr_grpc_ctx config-file=/opt/nvidia/deepstream/deepstream/sources/apps/audio_apps/deepstream_asr_tts_app/riva_asr_grpc_conf.yml ! \
      txt. videotestsrc pattern=black ! \
      textoverlay name=txt shaded-background=yes ! autovideosink

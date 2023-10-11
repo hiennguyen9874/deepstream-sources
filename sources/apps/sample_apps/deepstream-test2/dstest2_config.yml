@@ -30,8 +30,8 @@ streammux:
   height: 1080
 
 tracker:
-  tracker-width: 640
-  tracker-height: 384
+  tracker-width: 960
+  tracker-height: 544
   gpu-id: 0
   ll-lib-file: /opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
   # ll-config-file required to set different tracker types
@@ -40,7 +40,6 @@ tracker:
   ll-config-file: ../../../../samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml
   # ll-config-file: ../../../../samples/configs/deepstream-app/config_tracker_NvDCF_accuracy.yml
   # ll-config-file: ../../../../samples/configs/deepstream-app/config_tracker_NvDeepSORT.yml
-  enable-batch-process: 1
 
 # Inference using nvinfer:
 primary-gie:

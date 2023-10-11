@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -31,9 +31,9 @@ SRCS:= gstnvdewarper.cpp nvdewarper.cpp nvdewarper_property_parser.cpp
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_dewarper.so
 
-NVDS_VERSION:=6.2
+NVDS_VERSION:=6.3
 
-CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"6.2.0\" \
+CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"6.3.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes \
 	 -DNDEBUG

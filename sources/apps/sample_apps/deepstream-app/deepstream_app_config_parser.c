@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,6 +29,7 @@
 #define CONFIG_GROUP_APP_PERF_MEASUREMENT_INTERVAL "perf-measurement-interval-sec"
 #define CONFIG_GROUP_APP_GIE_OUTPUT_DIR "gie-kitti-output-dir"
 #define CONFIG_GROUP_APP_GIE_TRACK_OUTPUT_DIR "kitti-track-output-dir"
+#define CONFIG_GROUP_APP_REID_TRACK_OUTPUT_DIR "reid-track-output-dir"
 
 #define CONFIG_GROUP_TESTS "tests"
 #define CONFIG_GROUP_TESTS_FILE_LOOP "file-loop"
@@ -245,6 +246,12 @@ static gboolean parse_app(NvDsConfig *config, GKeyFile *key_file, gchar *cfg_fil
                 g_key_file_get_string(key_file, CONFIG_GROUP_APP,
                                       CONFIG_GROUP_APP_GIE_TRACK_OUTPUT_DIR, &error));
             CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_APP_REID_TRACK_OUTPUT_DIR)) {
+            config->reid_track_dir_path = get_absolute_file_path(
+                cfg_file_path,
+                g_key_file_get_string(key_file, CONFIG_GROUP_APP,
+                                      CONFIG_GROUP_APP_REID_TRACK_OUTPUT_DIR, &error));
+            CHECK_ERROR(error);
         } else {
             NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_APP);
         }
@@ -272,6 +279,7 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
     gchar **groups = NULL;
     gchar **group;
     guint i, j;
+    guint num_dewarper_source = 0;
 
     config->source_list_enabled = FALSE;
     config->source_attr_all_parsed = FALSE;
@@ -373,6 +381,10 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
             parse_err = !parse_osd(&config->osd_config, cfg_file);
         }
 
+        if (!g_strcmp0(*group, CONFIG_GROUP_SEGVISUAL)) {
+            parse_err = !parse_segvisual(&config->segvisual_config, cfg_file);
+        }
+
         if (!g_strcmp0(*group, CONFIG_GROUP_PREPROCESS)) {
             parse_err =
                 !parse_preprocess(&config->preprocess_config, cfg_file, *group, cfg_file_path);
@@ -471,6 +483,32 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
 
         if (!g_strcmp0(*group, CONFIG_GROUP_TESTS)) {
             parse_err = !parse_tests(config, cfg_file);
+        }
+
+        if (!strncmp(*group, CONFIG_GROUP_DEWARPER, strlen(*group) - 1)) {
+            guint source_id = 0;
+            {
+                gchar *source_id_start_ptr = *group + strlen(CONFIG_GROUP_DEWARPER);
+                gchar *source_id_end_ptr = NULL;
+                source_id = g_ascii_strtoull(source_id_start_ptr, &source_id_end_ptr, 10);
+                if (source_id_start_ptr == source_id_end_ptr || *source_id_end_ptr != '\0') {
+                    NVGSTDS_ERR_MSG_V(
+                        "dewarper group \"[%s]\" is not in the form \"[dewarper<%%d>]\"", *group);
+                    ret = FALSE;
+                    goto done;
+                }
+            }
+            parse_err = !parse_dewarper(&config->multi_source_config[source_id].dewarper_config,
+                                        cfg_file, cfg_file_path, *group);
+            if (config->multi_source_config[source_id].dewarper_config.enable)
+                num_dewarper_source++;
+            if (num_dewarper_source > config->num_source_sub_bins) {
+                NVGSTDS_ERR_MSG_V(
+                    "Dewarper max numbers %u should be less than number of sources %u",
+                    num_dewarper_source, config->num_source_sub_bins);
+                ret = FALSE;
+                goto done;
+            }
         }
 
         if (parse_err) {

@@ -31,6 +31,15 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
+This example can be configured to use either the nvinfer or the nvinferserver
+element for inference.
+If nvinferserver is selected, the Triton Inference Server is used for inference
+processing. In this case, the example needs to be run inside the
+DeepStream-Triton docker container  for dGPU platforms. For Jetson platforms,
+this example can be executed on target device directly or inside DeepStream L4T
+Triton container. Please refer samples/configs/deepstream-app-triton/README for
+the steps to download the container image and setup model repository.
+
 ===============================================================================
 2. Purpose:
 ===============================================================================
@@ -47,28 +56,33 @@ elements in the pipeline and extract meaningful insights from a video stream.
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
   $ sudo make (sudo not required in case of docker containers)
 
 ===============================================================================
 4. Usage:
 ===============================================================================
 
-  $ ./deepstream-gst-metadata-test <h264_elementary_stream>
+  $ ./deepstream-gst-metadata-app <h264_elementary_stream>
+    ./deepstream-gst-metadata-app /opt/nvidia/deepstream/deepstream/samples/streams/sample_720p.h264
+
+Use option "-t inferserver" to select nvinferserver as the inference plugin
+  $ ./deepstream-gst-metadata-app -t inferserver <h264_elementary_stream>
+  $ ./deepstream-gst-metadata-app -t inferserver /opt/nvidia/deepstream/deepstream/samples/streams/sample_720p.h264
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
 
-This sample creates instance of "nvinfer" element. Instance of
-the "nvinfer" uses TensorRT API to execute inferencing on a model. Using a
-correct configuration for a nvinfer element instance is therefore very
+This sample creates instance of "nvinfer" or "nvinferserver" element. Instance of
+the "nvinfer" or "nvinferserver" uses TensorRT API to execute inferencing on a model.
+Using a correct configuration for a nvinfer/nvinferserver element instance is therefore very
 important as considerable behaviors of the instance are parameterized
 through these configs.
 
 For reference, here are the config files used for this sample :
 1. The 4-class detector (referred to as pgie in this sample) uses
-    dstest1_pgie_config.txt
+    dsmeta_pgie_config.txt or dsmeta_pgie_nvinferserver_config.txt
 
-In this sample, one instance of "nvinfer" referred as the pgie, is created.
+In this sample, one instance of "nvinfer" or "nvinferserver" referred as the pgie, is created.
 This is a 4 class detector and it detects for "Vehicle , RoadSign, TwoWheeler,
 Person".
 

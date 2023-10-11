@@ -32,48 +32,86 @@
 extern "C" {
 #endif
 
+/**
+ * One target in a single past frame
+ */
 typedef struct _NvDsPastFrameObj {
+    /** Frame number. */
     uint32_t frameNum;
+    /** Bounding box. */
     NvOSD_RectParams tBbox;
+    /** Tracking confidence. */
     float confidence;
+    /** Tracking age. */
     uint32_t age;
 } NvDsPastFrameObj;
 
 /**
- * One object in several past frames
+ * One target in several past frames
  */
 typedef struct _NvDsPastFrameObjList {
-    /**< Pointer to past frame info of this object. */
+    /** Pointer to past frame info of this target. */
     NvDsPastFrameObj *list;
-    /**< Number of frames this object appreared in the past. */
+    /** Number of frames this target appreared in the past. */
     uint32_t numObj;
-    /**< Object tracking id. */
+    /** Target tracking id. */
     uint64_t uniqueId;
-    /**< Object class id. */
+    /** Target class id. */
     uint16_t classId;
-    /**< An array of the string describing the object class. */
+    /** An array of the string describing the target class. */
     gchar objLabel[MAX_LABEL_SIZE];
 } NvDsPastFrameObjList;
 
 /**
- * List of objects in each stream
- * */
+ * List of targets in each stream
+ */
 typedef struct _NvDsPastFrameObjStream {
-    NvDsPastFrameObjList *list; /**< Pointer to objects inside this stream. */
-    uint32_t streamID;          /**< Stream id the same as frame_meta->pad_index. */
-    uint64_t surfaceStreamID;   /**< Stream id used inside tracker plugin. */
-    uint32_t numAllocated;      /**< Maximum number of objects allocated. */
-    uint32_t numFilled;         /**< Number of objects in this frame. */
+    /** Pointer to targets inside this stream. */
+    NvDsPastFrameObjList *list;
+    /** Stream id the same as frame_meta->pad_index. */
+    uint32_t streamID;
+    /** Stream id used inside tracker plugin. */
+    uint64_t surfaceStreamID;
+    /** Maximum number of objects allocated. */
+    uint32_t numAllocated;
+    /** Number of objects in this frame. */
+    uint32_t numFilled;
 } NvDsPastFrameObjStream;
 
 /**
- * Batch of lists of buffered objects
+ * Batch of past frame targets in all streams
  */
 typedef struct _NvDsPastFrameObjBatch {
-    NvDsPastFrameObjStream *list; /**< Pointer to array of stream lists. */
-    uint32_t numAllocated;        /**< Number of blocks allocated for the list. */
-    uint32_t numFilled;           /**< Number of filled blocks in the list. */
+    /** Pointer to array of stream lists. */
+    NvDsPastFrameObjStream *list;
+    /** Number of blocks allocated for the list. */
+    uint32_t numAllocated;
+    /** Number of filled blocks in the list. */
+    uint32_t numFilled;
+    /** Pointer to internal buffer pool needed by gst pipelines to return buffers. */
+    void *priv_data;
 } NvDsPastFrameObjBatch;
+
+/**
+ * ReID tensor of the batch.
+ */
+typedef struct _NvDsReidTensorBatch {
+    /** Each target's ReID vector length. */
+    uint32_t featureSize;
+    /** Number of reid vectors in the batch. */
+    uint32_t numFilled;
+    /** ReID vector on CPU. */
+    float *ptr_host;
+    /** ReID vector on GPU. */
+    float *ptr_dev;
+    /** Pointer to internal buffer pool needed by gst pipelines to return buffers.*/
+    void *priv_data;
+} NvDsReidTensorBatch;
+
+/**
+ * Batch of trajectory data in all streams.
+ */
+typedef NvDsPastFrameObjBatch NvDsTrajectoryBatch;
 
 #ifdef __cplusplus
 }

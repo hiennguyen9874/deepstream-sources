@@ -40,14 +40,13 @@ typedef struct {
     guint tracking_surf_type;
     gchar *ll_config_file;
     gchar *ll_lib_file;
-    gboolean enable_batch_process;
-    gboolean enable_past_frame;
     guint tracking_surface_type;
     gboolean display_tracking_id;
     guint tracking_id_reset_mode;
     gboolean input_tensor_meta;
     guint input_tensor_gie_id;
     guint compute_hw;
+    guint user_meta_pool_size;
 } NvDsTrackerConfig;
 
 typedef struct {

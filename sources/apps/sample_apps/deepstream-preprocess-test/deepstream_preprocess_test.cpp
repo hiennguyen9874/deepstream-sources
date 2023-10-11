@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021-2023 , NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -72,6 +72,9 @@
 /* NVIDIA Decoder source pad memory feature. This feature signifies that source
  * pads having this capability will push GstBuffers containing cuda buffers. */
 #define GST_CAPS_FEATURES_NVMM "memory:NVMM"
+
+#define NVINFER_PLUGIN "nvinfer"
+#define NVINFERSERVER_PLUGIN "nvinferserver"
 
 gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "RoadSign"};
 
@@ -467,6 +470,18 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     return bin;
 }
 
+static void usage(const char *bin)
+{
+    g_printerr(
+        "Usage: %s <nvdspreprocess-config-file> <nvinfer-config-file> [uri1] [uri2] ... [uriN]\n",
+        bin);
+    g_printerr(
+        "For nvinferserver, Usage: %s -t inferserver <nvdspreprocess-config-file> "
+        "<nvinferserver-config-file> "
+        "[uri1] [uri2] ... [uriN]\n",
+        bin);
+}
+
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
@@ -477,10 +492,11 @@ int main(int argc, char *argv[])
     guint bus_watch_id;
     GstPad *pgie_src_pad = NULL;
     //  GstPad *pgie_sink_pad = NULL;
-    guint i, num_sources;
+    guint i, num_sources = 0;
     guint tiler_rows, tiler_columns;
+    gboolean is_nvinfer_server = FALSE;
     gchar *nvdspreprocess_config_file = NULL;
-    gchar *nvinfer_config_file = NULL;
+    gchar *infer_config_file = NULL;
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -489,16 +505,29 @@ int main(int argc, char *argv[])
 
     /* Check input arguments */
     if (argc < 4) {
-        g_printerr(
-            "Usage: %s <nvdspreprocess-config-file> <nvinfer-config-file> <uri1> [uri2] ... [uriN] "
-            "\n",
-            argv[0]);
+        usage(argv[0]);
         return -1;
     }
-    num_sources = argc - 3;
 
-    nvdspreprocess_config_file = realpath(argv[1], NULL);
-    nvinfer_config_file = realpath(argv[2], NULL);
+    if (argc >= 4 && !strcmp("-t", argv[1])) {
+        if (!strcmp("inferserver", argv[2])) {
+            is_nvinfer_server = TRUE;
+        } else {
+            usage(argv[0]);
+            return -1;
+        }
+        g_print("Using nvinferserver as the inference plugin\n");
+    }
+
+    if (is_nvinfer_server) {
+        num_sources = argc - 5;
+        nvdspreprocess_config_file = realpath(argv[3], NULL);
+        infer_config_file = realpath(argv[4], NULL);
+    } else {
+        num_sources = argc - 3;
+        nvdspreprocess_config_file = realpath(argv[1], NULL);
+        infer_config_file = realpath(argv[2], NULL);
+    }
 
     // parse_labels_file("resnet50/imagenet1000_labels.txt", m_Labels);
 
@@ -521,8 +550,14 @@ int main(int argc, char *argv[])
 
     for (i = 0; i < num_sources; i++) {
         GstPad *sinkpad, *srcpad;
+        GstElement *source_bin;
         gchar pad_name[16] = {};
-        GstElement *source_bin = create_source_bin(i, argv[i + 3]);
+
+        if (is_nvinfer_server) {
+            source_bin = create_source_bin(i, argv[i + 5]);
+        } else {
+            source_bin = create_source_bin(i, argv[i + 3]);
+        }
 
         if (!source_bin) {
             g_printerr("Failed to create source bin. Exiting.\n");
@@ -557,7 +592,8 @@ int main(int argc, char *argv[])
     preprocess = gst_element_factory_make("nvdspreprocess", "preprocess-plugin");
 
     /* Use nvinfer to infer on batched frame. */
-    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
+    pgie = gst_element_factory_make(is_nvinfer_server ? NVINFERSERVER_PLUGIN : NVINFER_PLUGIN,
+                                    "primary-nvinference-engine");
 
     /* Add queue elements between every two elements */
     queue1 = gst_element_factory_make("queue", "queue1");
@@ -603,7 +639,7 @@ int main(int argc, char *argv[])
     //  NULL);
 
     /* Configure the nvinfer element using the nvinfer config file. */
-    g_object_set(G_OBJECT(pgie), "input-tensor-meta", TRUE, "config-file-path", nvinfer_config_file,
+    g_object_set(G_OBJECT(pgie), "input-tensor-meta", TRUE, "config-file-path", infer_config_file,
                  NULL);
     //      "config-file-path", "ds_preproc_pgie_config.txt", NULL);
     //      "config-file-path", "resnet50/config_infer_primary_resnet50.txt", NULL);
@@ -634,7 +670,7 @@ int main(int argc, char *argv[])
     gst_bin_add_many(GST_BIN(pipeline), queue1, preprocess, queue2, pgie, queue3, tiler, queue4,
                      nvvidconv, queue5, nvosd, queue6, sink, NULL);
     /* we link the elements together
-     * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+     * nvstreammux -> pgie -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
     if (!gst_element_link_many(streammux, queue1, preprocess, queue2, pgie, queue3, tiler, queue4,
                                nvvidconv, queue5, nvosd, queue6, sink, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
@@ -661,11 +697,7 @@ int main(int argc, char *argv[])
     gst_object_unref(pgie_src_pad);
 
     /* Set the pipeline to "playing" state */
-    g_print("Now playing:");
-    for (i = 0; i < num_sources; i++) {
-        g_print(" %s,", argv[i + 3]);
-    }
-    g_print("\n");
+    g_print("Now playing...\n");
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

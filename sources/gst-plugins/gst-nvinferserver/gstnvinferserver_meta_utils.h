@@ -62,6 +62,8 @@ namespace gstnvinferserver {
  *                             parent frame.
  * @param[in]    roiTop           Top pixel coordinate of the input ROI in the parent
  *                             frame.
+ * @param[in]    roiWidth         Width of the ROI in the parent frame.
+ * @param[in]    roiHeight        Height of the ROI in the parent frame.
  * @param[in]    imageWidth       Width of the frames in the input batch buffer.
  * @param[in]    imageHeight      Height of the frames in the input batch buffer.
  * @param[in]    uniqueId         Unique ID of the GIE instance.
@@ -76,6 +78,8 @@ void attachDetectionMetadata(NvDsFrameMeta *frameMeta,
                              uint32_t offsetTop,
                              uint32_t roiLeft,
                              uint32_t roiTop,
+                             uint32_t roiWidth,
+                             uint32_t roiHeight,
                              uint32_t imageWidth,
                              uint32_t imageHeight,
                              uint32_t uniqueId,

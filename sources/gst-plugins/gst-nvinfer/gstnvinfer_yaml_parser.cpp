@@ -472,6 +472,10 @@ static gboolean gst_nvinfer_parse_props_yaml(GstNvInfer *nvinfer,
             init_params->useDLA = itr->second.as<gboolean>();
         } else if (paramKey == "use-dla-core") {
             init_params->dlaCore = itr->second.as<int>();
+        } else if (paramKey == "auto-inc-mem") {
+            init_params->autoIncMem = itr->second.as<int>();
+        } else if (paramKey == "max-gpu-mem-per") {
+            init_params->maxGPUMemPer = itr->second.as<double>();
         } else if (paramKey == "tensor-meta-pool-size") {
             init_params->outputBufferPoolSize = itr->second.as<unsigned int>();
             ;
@@ -880,6 +884,7 @@ gboolean gst_nvinfer_parse_config_file_yaml(GstNvInfer *nvinfer,
         color_params.have_border_color = TRUE;
         color_params.border_color = (NvOSD_ColorParams){1, 0, 0, 1};
         color_params.have_bg_color = FALSE;
+        color_params.bg_color = {0};
 
         /* Parse the parameters for "all" classes if the group has been specified. */
         if (configyml["class-attrs-all"]) {

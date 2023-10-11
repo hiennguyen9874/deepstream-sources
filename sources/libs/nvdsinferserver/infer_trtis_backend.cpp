@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -414,12 +414,17 @@ bool TrtISBackend::debatchingOutput(SharedBatchArray &outputs, SharedBatchArray 
         }
         desc.dims = debatchDims;
 
-        SharedRefBatchBuf refBuf(
-            new RefBatchBuffer((void *)buf->getBufPtr(0), buf->getTotalBytes(), desc, inBatch),
-            [priv = buf](RefBatchBuffer *buf) mutable {
-                delete buf;
-                priv.reset();
-            });
+        size_t bufOffset = buf->getBufOffset(0);
+        if (bufOffset == (size_t)-1) {
+            InferError("Debatching output failed, invalid buffer offset.");
+            return false;
+        }
+        SharedRefBatchBuf refBuf(new RefBatchBuffer((void *)buf->getBufPtr(0), bufOffset,
+                                                    buf->getTotalBytes(), desc, inBatch),
+                                 [priv = buf](RefBatchBuffer *buf) mutable {
+                                     delete buf;
+                                     priv.reset();
+                                 });
         buf = refBuf;
     }
     return true;

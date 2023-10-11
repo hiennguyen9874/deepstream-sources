@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,7 +33,7 @@
 
 #define UNKNOWN_STRING "unknown"
 #define EMPTY_STRING ""
-
+#define stringify(name) #name
 enum NvDsErrorCode {
     NoError = 0,
     CameraUnauthorizedError = 0x1F, // HTTP error code : 403
@@ -84,12 +84,42 @@ NvDsErrorCode handleUpdateROI(const Json::Value &req_info,
                               struct mg_connection *conn,
                               std::function<void(NvDsRoiInfo *roi_ctx, void *ctx)> roi_cb);
 
-NvDsErrorCode handleDecDropFrameInterval(
+NvDsErrorCode handleOsdReq(const Json::Value &req_info,
+                           const Json::Value &in,
+                           Json::Value &response,
+                           struct mg_connection *conn,
+                           std::function<void(NvDsOsdInfo *osd_ctx, void *ctx)> osd_cb);
+
+NvDsErrorCode handleEncReq(const Json::Value &req_info,
+                           const Json::Value &in,
+                           Json::Value &response,
+                           struct mg_connection *conn,
+                           std::function<void(NvDsEncInfo *enc_ctx, void *ctx)> enc_cb);
+
+NvDsErrorCode handleConvReq(const Json::Value &req_info,
+                            const Json::Value &in,
+                            Json::Value &response,
+                            struct mg_connection *conn,
+                            std::function<void(NvDsConvInfo *conv_ctx, void *ctx)> conv_cb);
+
+NvDsErrorCode handleMuxReq(const Json::Value &req_info,
+                           const Json::Value &in,
+                           Json::Value &response,
+                           struct mg_connection *conn,
+                           std::function<void(NvDsMuxInfo *mux_ctx, void *ctx)> mux_cb);
+
+NvDsErrorCode handleAppReq(
     const Json::Value &req_info,
     const Json::Value &in,
     Json::Value &response,
     struct mg_connection *conn,
-    std::function<void(NvDsDecInfo *dec_ctx, void *ctx)> dec_cb);
+    std::function<void(NvDsAppInstanceInfo *appinstance_ctx, void *ctx)> appinstance_cb);
+
+NvDsErrorCode handleDecReq(const Json::Value &req_info,
+                           const Json::Value &in,
+                           Json::Value &response,
+                           struct mg_connection *conn,
+                           std::function<void(NvDsDecInfo *dec_ctx, void *ctx)> dec_cb);
 
 NvDsErrorCode handleAddStream(const Json::Value &req_info,
                               const Json::Value &in,
@@ -104,12 +134,18 @@ NvDsErrorCode handleRemoveStream(
     struct mg_connection *conn,
     std::function<void(NvDsStreamInfo *stream_ctx, void *ctx)> stream_cb);
 
-NvDsErrorCode handleInferInterval(
+NvDsErrorCode handleInferReq(const Json::Value &req_info,
+                             const Json::Value &in,
+                             Json::Value &response,
+                             struct mg_connection *conn,
+                             std::function<void(NvDsInferInfo *infer_ctx, void *ctx)> infer_cb);
+
+NvDsErrorCode handleInferServerReq(
     const Json::Value &req_info,
     const Json::Value &in,
     Json::Value &response,
     struct mg_connection *conn,
-    std::function<void(NvDsInferInfo *infer_ctx, void *ctx)> infer_cb);
+    std::function<void(NvDsInferServerInfo *inferserver_ctx, void *ctx)> inferserver_cb);
 
 std::pair<int, std::string> translateNvDsErrorCodeToCameraHttpErrorCode(NvDsErrorCode code)
 {
@@ -164,8 +200,9 @@ NvDsErrorCode translateCameraHttpErrorCodeToNvDsErrorCode(int code)
 
 bool iequals(const std::string &a, const std::string &b)
 {
-    return std::equal(a.begin(), a.end(), b.begin(), b.end(),
-                      [](char str1, char str2) { return tolower(str1) == tolower(str2); });
+    return std::equal(a.begin(), a.end(), b.begin(), b.end(), [](char str1, char str2) {
+        return std::tolower(str1) == std::tolower(str2);
+    });
 }
 
 int log_message(const struct mg_connection *conn, const char *message)
@@ -354,7 +391,7 @@ NvDsRestServer::NvDsRestServer(const std::vector<std::string> &options)
 NvDsErrorCode VersionInfo(Json::Value &response, struct mg_connection *conn)
 {
     NvDsErrorCode ret = NvDsErrorCode::NoError;
-    response["version"] = "DeepStream-SDK 6.2";
+    response["version"] = "DeepStream-SDK 7.0";
     return ret;
 }
 
@@ -365,10 +402,12 @@ void __attribute__((constructor)) nvds_rest_server_init(void)
 {
     mg_init_library(0);
 }
+
 void __attribute__((destructor)) nvds_rest_server_deinit(void)
 {
     mg_exit_library();
 }
+
 void nvds_rest_server_stop(NvDsRestServer *handler)
 {
     std::cout << "Stopping the server..!! \n";
@@ -378,11 +417,11 @@ void nvds_rest_server_stop(NvDsRestServer *handler)
     }
 }
 
-NvDsErrorCode handleInferInterval(const Json::Value &req_info,
-                                  const Json::Value &in,
-                                  Json::Value &response,
-                                  struct mg_connection *conn,
-                                  std::function<void(NvDsInferInfo *infer_ctx, void *ctx)> infer_cb)
+NvDsErrorCode handleInferReq(const Json::Value &req_info,
+                             const Json::Value &in,
+                             Json::Value &response,
+                             struct mg_connection *conn,
+                             std::function<void(NvDsInferInfo *infer_ctx, void *ctx)> infer_cb)
 {
     NvDsErrorCode ret = NvDsErrorCode::NoError;
     const std::string request_api = req_info.get("url", EMPTY_STRING).asString();
@@ -403,17 +442,24 @@ NvDsErrorCode handleInferInterval(const Json::Value &req_info,
 
         void *custom_ctx;
 
+        if (request_api.find("set-interval") != std::string::npos) {
+            infer_info.infer_flag = INFER_INTERVAL;
+        }
         if (nvds_rest_infer_parse(in, &infer_info) && (infer_cb)) {
             infer_cb(&infer_info, &custom_ctx);
-            if (infer_info.status == INFER_INTERVAL_UPDATE_SUCCESS)
-                res_info.status = "INFER_INTERVAL_UPDATE_SUCCESS";
-            else
-                res_info.status = "INFER_INTERVAL_UPDATE_FAIL";
-        } else {
-            res_info.status = "INFER_INTERVAL_UPDATE_FAIL";
+
+            switch (infer_info.infer_flag) {
+            case INFER_INTERVAL:
+                res_info.status = (infer_info.status == INFER_INTERVAL_UPDATE_SUCCESS)
+                                      ? "INFER_INTERVAL_UPDATE_SUCCESS"
+                                      : "INFER_INTERVAL_UPDATE_FAIL";
+                break;
+            default:
+                break;
+            }
         }
 
-        res_info.reason = "NA";
+        res_info.reason = infer_info.infer_log;
 
         response["status"] = res_info.status;
         response["reason"] = res_info.reason;
@@ -422,12 +468,62 @@ NvDsErrorCode handleInferInterval(const Json::Value &req_info,
     return ret;
 }
 
-NvDsErrorCode handleDecDropFrameInterval(
+NvDsErrorCode handleInferServerReq(
     const Json::Value &req_info,
     const Json::Value &in,
     Json::Value &response,
     struct mg_connection *conn,
-    std::function<void(NvDsDecInfo *dec_ctx, void *ctx)> dec_cb)
+    std::function<void(NvDsInferServerInfo *inferserver_ctx, void *ctx)> inferserver_cb)
+{
+    NvDsErrorCode ret = NvDsErrorCode::NoError;
+    const std::string request_api = req_info.get("url", EMPTY_STRING).asString();
+    const std::string request_method = req_info.get("method", UNKNOWN_STRING).asString();
+    const std::string query_string = req_info.get("query", EMPTY_STRING).asString();
+
+    if (request_api.empty() || request_method == UNKNOWN_STRING) {
+        std::cout << "Malformed HTTP request" << std::endl;
+        return NvDsErrorCode::InvalidParameterError;
+    }
+
+    if (iequals(request_method, "get")) {
+    }
+
+    if (iequals(request_method, "post")) {
+        NvDsInferServerInfo inferserver_info;
+        NvDsResponseInfo res_info;
+
+        void *custom_ctx;
+        if (request_api.find("set-interval") != std::string::npos) {
+            inferserver_info.inferserver_flag = INFERSERVER_INTERVAL;
+        }
+
+        if (nvds_rest_inferserver_parse(in, &inferserver_info) && (inferserver_cb)) {
+            inferserver_cb(&inferserver_info, &custom_ctx);
+            switch (inferserver_info.inferserver_flag) {
+            case INFERSERVER_INTERVAL:
+                res_info.status = (inferserver_info.status == INFERSERVER_INTERVAL_UPDATE_SUCCESS)
+                                      ? "INFERSERVER_INTERVAL_UPDATE_SUCCESS"
+                                      : "INFERSERVER_INTERVAL_UPDATE_FAIL";
+                break;
+            default:
+                break;
+            }
+        }
+
+        res_info.reason = inferserver_info.inferserver_log;
+
+        response["status"] = res_info.status;
+        response["reason"] = res_info.reason;
+    }
+
+    return ret;
+}
+
+NvDsErrorCode handleDecReq(const Json::Value &req_info,
+                           const Json::Value &in,
+                           Json::Value &response,
+                           struct mg_connection *conn,
+                           std::function<void(NvDsDecInfo *dec_ctx, void *ctx)> dec_cb)
 {
     NvDsErrorCode ret = NvDsErrorCode::NoError;
     const std::string request_api = req_info.get("url", EMPTY_STRING).asString();
@@ -447,18 +543,347 @@ NvDsErrorCode handleDecDropFrameInterval(
         NvDsResponseInfo res_info;
 
         void *custom_ctx;
+        if (request_api.find("drop-frame-interval") != std::string::npos) {
+            dec_info.dec_flag = DROP_FRAME_INTERVAL;
+        }
+        if (request_api.find("skip-frames") != std::string::npos) {
+            dec_info.dec_flag = SKIP_FRAMES;
+        }
+        if (request_api.find("low-latency-mode") != std::string::npos) {
+            dec_info.dec_flag = LOW_LATENCY_MODE;
+        }
 
         if (nvds_rest_dec_parse(in, &dec_info) && (dec_cb)) {
             dec_cb(&dec_info, &custom_ctx);
-            if (dec_info.status == DROP_FRAME_INTERVAL_UPDATE_SUCCESS)
-                res_info.status = "DROP_FRAME_INTERVAL_UPDATE_SUCCESS";
-            else
-                res_info.status = "DROP_FRAME_INTERVAL_UPDATE_FAIL";
-        } else {
-            res_info.status = "DROP_FRAME_INTERVAL_UPDATE_FAIL";
+            switch (dec_info.dec_flag) {
+            case DROP_FRAME_INTERVAL:
+                res_info.status = (dec_info.status == DROP_FRAME_INTERVAL_UPDATE_SUCCESS)
+                                      ? "DROP_FRAME_INTERVAL_UPDATE_SUCCESS"
+                                      : "DROP_FRAME_INTERVAL_UPDATE_FAIL";
+                break;
+            case SKIP_FRAMES:
+                res_info.status = (dec_info.status == SKIP_FRAMES_UPDATE_SUCCESS)
+                                      ? "SKIP_FRAMES_UPDATE_SUCCESS"
+                                      : "SKIP_FRAMES_UPDATE_FAIL";
+                break;
+            case LOW_LATENCY_MODE:
+                res_info.status = (dec_info.status == LOW_LATENCY_MODE_UPDATE_SUCCESS)
+                                      ? "LOW_LATENCY_MODE_UPDATE_SUCCESS"
+                                      : "LOW_LATENCY_MODE_UPDATE_FAIL";
+                break;
+            default:
+                break;
+            }
         }
 
-        res_info.reason = "NA";
+        res_info.reason = dec_info.dec_log;
+
+        response["status"] = res_info.status;
+        response["reason"] = res_info.reason;
+    }
+
+    return ret;
+}
+
+NvDsErrorCode handleEncReq(const Json::Value &req_info,
+                           const Json::Value &in,
+                           Json::Value &response,
+                           struct mg_connection *conn,
+                           std::function<void(NvDsEncInfo *enc_ctx, void *ctx)> enc_cb)
+{
+    NvDsErrorCode ret = NvDsErrorCode::NoError;
+    const std::string request_api = req_info.get("url", EMPTY_STRING).asString();
+    const std::string request_method = req_info.get("method", UNKNOWN_STRING).asString();
+    const std::string query_string = req_info.get("query", EMPTY_STRING).asString();
+
+    if (request_api.empty() || request_method == UNKNOWN_STRING) {
+        std::cout << "Malformed HTTP request" << std::endl;
+        return NvDsErrorCode::InvalidParameterError;
+    }
+
+    if (iequals(request_method, "get")) {
+    }
+
+    if (iequals(request_method, "post")) {
+        NvDsEncInfo enc_info;
+        NvDsResponseInfo res_info;
+
+        void *custom_ctx;
+        if (request_api.find("bitrate") != std::string::npos) {
+            enc_info.enc_flag = BITRATE;
+        }
+        if (request_api.find("force-idr") != std::string::npos) {
+            enc_info.enc_flag = FORCE_IDR;
+        }
+        if (request_api.find("force-intra") != std::string::npos) {
+            enc_info.enc_flag = FORCE_INTRA;
+        }
+        if (request_api.find("iframe-interval") != std::string::npos) {
+            enc_info.enc_flag = IFRAME_INTERVAL;
+        }
+        if (nvds_rest_enc_parse(in, &enc_info) && (enc_cb)) {
+            enc_cb(&enc_info, &custom_ctx);
+            switch (enc_info.enc_flag) {
+            case BITRATE:
+                res_info.status = (enc_info.status == BITRATE_UPDATE_SUCCESS)
+                                      ? "BITRATE_UPDATE_SUCCESS"
+                                      : "BITRATE_UPDATE_FAIL";
+                break;
+            case FORCE_IDR:
+                res_info.status = (enc_info.status == FORCE_IDR_UPDATE_SUCCESS)
+                                      ? "FORCE_IDR_UPDATE_SUCCESS"
+                                      : "FORCE_IDR_UPDATE_UPDATE_FAIL";
+                break;
+            case FORCE_INTRA:
+                res_info.status = (enc_info.status == FORCE_INTRA_UPDATE_SUCCESS)
+                                      ? "FORCE_INTRA_UPDATE_SUCCESS"
+                                      : "FORCE_INTRA_UPDATE_FAIL";
+                break;
+            case IFRAME_INTERVAL:
+                res_info.status = (enc_info.status == IFRAME_INTERVAL_UPDATE_SUCCESS)
+                                      ? "IFRAME_INTERVAL_UPDATE_SUCCESS"
+                                      : "IFRAME_INTERVAL_UPDATE_FAIL";
+                break;
+            default:
+                break;
+            }
+        }
+
+        res_info.reason = enc_info.enc_log;
+
+        response["status"] = res_info.status;
+        response["reason"] = res_info.reason;
+    }
+
+    return ret;
+}
+
+NvDsErrorCode handleConvReq(const Json::Value &req_info,
+                            const Json::Value &in,
+                            Json::Value &response,
+                            struct mg_connection *conn,
+                            std::function<void(NvDsConvInfo *conv_ctx, void *ctx)> conv_cb)
+{
+    NvDsErrorCode ret = NvDsErrorCode::NoError;
+    const std::string request_api = req_info.get("url", EMPTY_STRING).asString();
+    const std::string request_method = req_info.get("method", UNKNOWN_STRING).asString();
+    const std::string query_string = req_info.get("query", EMPTY_STRING).asString();
+
+    if (request_api.empty() || request_method == UNKNOWN_STRING) {
+        std::cout << "Malformed HTTP request" << std::endl;
+        return NvDsErrorCode::InvalidParameterError;
+    }
+
+    if (iequals(request_method, "get")) {
+    }
+
+    if (iequals(request_method, "post")) {
+        NvDsConvInfo conv_info;
+        NvDsResponseInfo res_info;
+
+        void *custom_ctx;
+        if (request_api.find("srccrop") != std::string::npos) {
+            conv_info.conv_flag = SRC_CROP;
+        }
+        if (request_api.find("destcrop") != std::string::npos) {
+            conv_info.conv_flag = DEST_CROP;
+        }
+        if (request_api.find("flip-method") != std::string::npos) {
+            conv_info.conv_flag = FLIP_METHOD;
+        }
+        if (request_api.find("interpolation-method") != std::string::npos) {
+            conv_info.conv_flag = INTERPOLATION_METHOD;
+        }
+        if (nvds_rest_conv_parse(in, &conv_info) && (conv_cb)) {
+            conv_cb(&conv_info, &custom_ctx);
+            switch (conv_info.conv_flag) {
+            case SRC_CROP:
+                res_info.status = (conv_info.status == SRC_CROP_UPDATE_SUCCESS)
+                                      ? "SRC_CROP_UPDATE_SUCCESS"
+                                      : "SRC_CROP_UPDATE_FAIL";
+                break;
+            case DEST_CROP:
+                res_info.status = (conv_info.status == DEST_CROP_UPDATE_SUCCESS)
+                                      ? "DEST_CROP_UPDATE_SUCCESS"
+                                      : "DEST_CROP_UPDATE_UPDATE_FAIL";
+                break;
+            case FLIP_METHOD:
+                res_info.status = (conv_info.status == FLIP_METHOD_UPDATE_SUCCESS)
+                                      ? "FLIP_METHOD_UPDATE_SUCCESS"
+                                      : "FLIP_METHOD_UPDATE_FAIL";
+                break;
+            case INTERPOLATION_METHOD:
+                res_info.status = (conv_info.status == INTERPOLATION_METHOD_UPDATE_SUCCESS)
+                                      ? "INTERPOLATION_METHOD_UPDATE_SUCCESS"
+                                      : "INTERPOLATION_METHOD_UPDATE_FAIL";
+                break;
+            default:
+                break;
+            }
+        }
+
+        res_info.reason = conv_info.conv_log;
+
+        response["status"] = res_info.status;
+        response["reason"] = res_info.reason;
+    }
+
+    return ret;
+}
+
+NvDsErrorCode handleMuxReq(const Json::Value &req_info,
+                           const Json::Value &in,
+                           Json::Value &response,
+                           struct mg_connection *conn,
+                           std::function<void(NvDsMuxInfo *mux_ctx, void *ctx)> mux_cb)
+{
+    NvDsErrorCode ret = NvDsErrorCode::NoError;
+    const std::string request_api = req_info.get("url", EMPTY_STRING).asString();
+    const std::string request_method = req_info.get("method", UNKNOWN_STRING).asString();
+    const std::string query_string = req_info.get("query", EMPTY_STRING).asString();
+
+    if (request_api.empty() || request_method == UNKNOWN_STRING) {
+        std::cout << "Malformed HTTP request" << std::endl;
+        return NvDsErrorCode::InvalidParameterError;
+    }
+
+    if (iequals(request_method, "get")) {
+    }
+
+    if (iequals(request_method, "post")) {
+        NvDsMuxInfo mux_info;
+        NvDsResponseInfo res_info;
+
+        if (request_api.find("batched-push-timeout") != std::string::npos) {
+            mux_info.mux_flag = BATCHED_PUSH_TIMEOUT;
+        }
+        if (request_api.find("max-latency") != std::string::npos) {
+            mux_info.mux_flag = MAX_LATENCY;
+        }
+
+        void *custom_ctx;
+        if (nvds_rest_mux_parse(in, &mux_info) && (mux_cb)) {
+            mux_cb(&mux_info, &custom_ctx);
+            switch (mux_info.mux_flag) {
+            case BATCHED_PUSH_TIMEOUT:
+                res_info.status = (mux_info.status == BATCHED_PUSH_TIMEOUT_UPDATE_SUCCESS)
+                                      ? "BATCHED_PUSH_TIMEOUT_UPDATE_SUCCESS"
+                                      : "BATCHED_PUSH_TIMEOUT_UPDATE_FAIL";
+                break;
+            case MAX_LATENCY:
+                res_info.status = (mux_info.status == MAX_LATENCY_UPDATE_SUCCESS)
+                                      ? "MAX_LATENCY_UPDATE_SUCCESS"
+                                      : "MAX_LATENCY_UPDATE_FAIL";
+                break;
+            default:
+                break;
+            }
+        }
+
+        res_info.reason = mux_info.mux_log;
+
+        response["status"] = res_info.status;
+        response["reason"] = res_info.reason;
+    }
+
+    return ret;
+}
+
+NvDsErrorCode handleOsdReq(const Json::Value &req_info,
+                           const Json::Value &in,
+                           Json::Value &response,
+                           struct mg_connection *conn,
+                           std::function<void(NvDsOsdInfo *osd_ctx, void *ctx)> osd_cb)
+{
+    NvDsErrorCode ret = NvDsErrorCode::NoError;
+    const std::string request_api = req_info.get("url", EMPTY_STRING).asString();
+    const std::string request_method = req_info.get("method", UNKNOWN_STRING).asString();
+    const std::string query_string = req_info.get("query", EMPTY_STRING).asString();
+
+    if (request_api.empty() || request_method == UNKNOWN_STRING) {
+        std::cout << "Malformed HTTP request" << std::endl;
+        return NvDsErrorCode::InvalidParameterError;
+    }
+
+    if (iequals(request_method, "get")) {
+    }
+
+    if (iequals(request_method, "post")) {
+        NvDsOsdInfo osd_info;
+        NvDsResponseInfo res_info;
+
+        if (request_api.find("process-mode") != std::string::npos) {
+            osd_info.osd_flag = PROCESS_MODE;
+        }
+
+        void *custom_ctx;
+        if (nvds_rest_osd_parse(in, &osd_info) && (osd_cb)) {
+            osd_cb(&osd_info, &custom_ctx);
+            switch (osd_info.osd_flag) {
+            case PROCESS_MODE:
+                res_info.status = (osd_info.status == PROCESS_MODE_UPDATE_SUCCESS)
+                                      ? "PROCESS_MODE_UPDATE_SUCCESS"
+                                      : "PROCESS_MODE_UPDATE_FAIL";
+                break;
+            default:
+                break;
+            }
+        }
+
+        res_info.reason = osd_info.osd_log;
+
+        response["status"] = res_info.status;
+        response["reason"] = res_info.reason;
+    }
+
+    return ret;
+}
+
+NvDsErrorCode handleAppReq(
+    const Json::Value &req_info,
+    const Json::Value &in,
+    Json::Value &response,
+    struct mg_connection *conn,
+    std::function<void(NvDsAppInstanceInfo *appinstance_ctx, void *ctx)> appinstance_cb)
+{
+    NvDsErrorCode ret = NvDsErrorCode::NoError;
+    const std::string request_api = req_info.get("url", EMPTY_STRING).asString();
+    const std::string request_method = req_info.get("method", UNKNOWN_STRING).asString();
+    const std::string query_string = req_info.get("query", EMPTY_STRING).asString();
+
+    if (request_api.empty() || request_method == UNKNOWN_STRING) {
+        std::cout << "Malformed HTTP request" << std::endl;
+        return NvDsErrorCode::InvalidParameterError;
+    }
+
+    if (iequals(request_method, "get")) {
+    }
+
+    if (iequals(request_method, "post")) {
+        NvDsAppInstanceInfo appinstance_info;
+        NvDsResponseInfo res_info;
+
+        if (request_api.find("quit") != std::string::npos) {
+            appinstance_info.appinstance_flag = QUIT_APP;
+        }
+
+        void *custom_ctx;
+        if (nvds_rest_app_instance_parse(in, &appinstance_info) && (appinstance_cb)) {
+            appinstance_cb(&appinstance_info, &custom_ctx);
+
+            switch (appinstance_info.appinstance_flag) {
+            case QUIT_APP:
+                res_info.status =
+                    (appinstance_info.status == QUIT_SUCCESS) ? "QUIT_SUCCESS" : "QUIT_FAIL";
+                break;
+            default:
+                break;
+            }
+        }
+
+        res_info.reason = appinstance_info.app_log;
+        if (res_info.reason == "")
+            res_info.reason = "NA";
 
         response["status"] = res_info.status;
         response["reason"] = res_info.reason;
@@ -492,17 +917,22 @@ NvDsErrorCode handleUpdateROI(const Json::Value &req_info,
 
         void *custom_ctx;
 
+        if (request_api.find("update") != std::string::npos) {
+            roi_info.roi_flag = ROI_UPDATE;
+        }
         if (nvds_rest_roi_parse(in, &roi_info) && (roi_cb)) {
             roi_cb(&roi_info, &custom_ctx);
-            if (roi_info.status == ROI_UPDATE_SUCCESS)
-                res_info.status = "ROI_UPDATE_SUCCESS";
-            else
-                res_info.status = "ROI_UPDATE_FAIL";
-        } else {
-            res_info.status = "ROI_UPDATE_FAIL";
+            switch (roi_info.roi_flag) {
+            case ROI_UPDATE:
+                res_info.status = (roi_info.status == ROI_UPDATE_SUCCESS) ? "ROI_UPDATE_SUCCESS"
+                                                                          : "ROI_UPDATE_FAIL";
+                break;
+            default:
+                break;
+            }
         }
 
-        res_info.reason = "NA";
+        res_info.reason = roi_info.roi_log;
 
         response["status"] = res_info.status;
         response["reason"] = res_info.reason;
@@ -544,7 +974,7 @@ NvDsErrorCode handleAddStream(const Json::Value &req_info,
         } else {
             res_info.status = "STREAM_ADD_FAIL";
         }
-        res_info.reason = "NA";
+        res_info.reason = stream_info.stream_log;
 
         response["status"] = res_info.status;
         response["reason"] = res_info.reason;
@@ -588,7 +1018,7 @@ NvDsErrorCode handleRemoveStream(
             res_info.status = "STREAM_REMOVE_FAIL";
         }
 
-        res_info.reason = "NA";
+        res_info.reason = stream_info.stream_log;
 
         response["status"] = res_info.status;
         response["reason"] = res_info.reason;
@@ -601,8 +1031,14 @@ NvDsRestServer *nvds_rest_server_start(NvDsServerConfig *server_config,
 {
     auto roi_cb = server_cb->roi_cb;
     auto dec_cb = server_cb->dec_cb;
+    auto enc_cb = server_cb->enc_cb;
     auto stream_cb = server_cb->stream_cb;
     auto infer_cb = server_cb->infer_cb;
+    auto conv_cb = server_cb->conv_cb;
+    auto mux_cb = server_cb->mux_cb;
+    auto inferserver_cb = server_cb->inferserver_cb;
+    auto osd_cb = server_cb->osd_cb;
+    auto appinstance_cb = server_cb->appinstance_cb;
 
     const char *options[] = {"listening_ports", server_config->port.c_str(), 0};
 
@@ -619,17 +1055,7 @@ NvDsRestServer *nvds_rest_server_start(NvDsServerConfig *server_config,
                                      Json::Value &out,
                                      struct mg_connection *conn) { return VersionInfo(out, conn); };
 
-    m_func["/roi/update"] = [roi_cb](const Json::Value &req_info, const Json::Value &in,
-                                     Json::Value &out, struct mg_connection *conn) {
-        return handleUpdateROI(req_info, in, out, conn, roi_cb);
-    };
-
-    m_func["/dec/drop-frame-interval"] = [dec_cb](const Json::Value &req_info,
-                                                  const Json::Value &in, Json::Value &out,
-                                                  struct mg_connection *conn) {
-        return handleDecDropFrameInterval(req_info, in, out, conn, dec_cb);
-    };
-
+    /* Stream Management Specific */
     m_func["/stream/add"] = [stream_cb](const Json::Value &req_info, const Json::Value &in,
                                         Json::Value &out, struct mg_connection *conn) {
         return handleAddStream(req_info, in, out, conn, stream_cb);
@@ -640,9 +1066,103 @@ NvDsRestServer *nvds_rest_server_start(NvDsServerConfig *server_config,
         return handleRemoveStream(req_info, in, out, conn, stream_cb);
     };
 
+    /* Pre-Process Specific */
+    m_func["/roi/update"] = [roi_cb](const Json::Value &req_info, const Json::Value &in,
+                                     Json::Value &out, struct mg_connection *conn) {
+        return handleUpdateROI(req_info, in, out, conn, roi_cb);
+    };
+
+    /* Decoder Specific */
+    m_func["/dec/drop-frame-interval"] = [dec_cb](const Json::Value &req_info,
+                                                  const Json::Value &in, Json::Value &out,
+                                                  struct mg_connection *conn) {
+        return handleDecReq(req_info, in, out, conn, dec_cb);
+    };
+
+    m_func["/dec/skip-frames"] = [dec_cb](const Json::Value &req_info, const Json::Value &in,
+                                          Json::Value &out, struct mg_connection *conn) {
+        return handleDecReq(req_info, in, out, conn, dec_cb);
+    };
+
+    m_func["/dec/low-latency-mode"] = [dec_cb](const Json::Value &req_info, const Json::Value &in,
+                                               Json::Value &out, struct mg_connection *conn) {
+        return handleDecReq(req_info, in, out, conn, dec_cb);
+    };
+
+    /* Encoder Specific */
+    m_func["/enc/bitrate"] = [enc_cb](const Json::Value &req_info, const Json::Value &in,
+                                      Json::Value &out, struct mg_connection *conn) {
+        return handleEncReq(req_info, in, out, conn, enc_cb);
+    };
+
+    m_func["/enc/force-idr"] = [enc_cb](const Json::Value &req_info, const Json::Value &in,
+                                        Json::Value &out, struct mg_connection *conn) {
+        return handleEncReq(req_info, in, out, conn, enc_cb);
+    };
+
+    m_func["/enc/force-intra"] = [enc_cb](const Json::Value &req_info, const Json::Value &in,
+                                          Json::Value &out, struct mg_connection *conn) {
+        return handleEncReq(req_info, in, out, conn, enc_cb);
+    };
+
+    m_func["/enc/iframe-interval"] = [enc_cb](const Json::Value &req_info, const Json::Value &in,
+                                              Json::Value &out, struct mg_connection *conn) {
+        return handleEncReq(req_info, in, out, conn, enc_cb);
+    };
+
+    /* Inference Specific */
     m_func["/infer/set-interval"] = [infer_cb](const Json::Value &req_info, const Json::Value &in,
                                                Json::Value &out, struct mg_connection *conn) {
-        return handleInferInterval(req_info, in, out, conn, infer_cb);
+        return handleInferReq(req_info, in, out, conn, infer_cb);
+    };
+
+    m_func["/inferserver/set-interval"] = [inferserver_cb](const Json::Value &req_info,
+                                                           const Json::Value &in, Json::Value &out,
+                                                           struct mg_connection *conn) {
+        return handleInferServerReq(req_info, in, out, conn, inferserver_cb);
+    };
+
+    /* video convert Specific */
+    m_func["/conv/destcrop"] = [conv_cb](const Json::Value &req_info, const Json::Value &in,
+                                         Json::Value &out, struct mg_connection *conn) {
+        return handleConvReq(req_info, in, out, conn, conv_cb);
+    };
+
+    m_func["/conv/srccrop"] = [conv_cb](const Json::Value &req_info, const Json::Value &in,
+                                        Json::Value &out, struct mg_connection *conn) {
+        return handleConvReq(req_info, in, out, conn, conv_cb);
+    };
+
+    m_func["/conv/interpolation-method"] = [conv_cb](const Json::Value &req_info,
+                                                     const Json::Value &in, Json::Value &out,
+                                                     struct mg_connection *conn) {
+        return handleConvReq(req_info, in, out, conn, conv_cb);
+    };
+
+    m_func["/conv/flip-method"] = [conv_cb](const Json::Value &req_info, const Json::Value &in,
+                                            Json::Value &out, struct mg_connection *conn) {
+        return handleConvReq(req_info, in, out, conn, conv_cb);
+    };
+
+    m_func["/mux/batched-push-timeout"] = [mux_cb](const Json::Value &req_info,
+                                                   const Json::Value &in, Json::Value &out,
+                                                   struct mg_connection *conn) {
+        return handleMuxReq(req_info, in, out, conn, mux_cb);
+    };
+
+    m_func["/mux/max-latency"] = [mux_cb](const Json::Value &req_info, const Json::Value &in,
+                                          Json::Value &out, struct mg_connection *conn) {
+        return handleMuxReq(req_info, in, out, conn, mux_cb);
+    };
+
+    m_func["/osd/process-mode"] = [osd_cb](const Json::Value &req_info, const Json::Value &in,
+                                           Json::Value &out, struct mg_connection *conn) {
+        return handleOsdReq(req_info, in, out, conn, osd_cb);
+    };
+
+    m_func["/app/quit"] = [appinstance_cb](const Json::Value &req_info, const Json::Value &in,
+                                           Json::Value &out, struct mg_connection *conn) {
+        return handleAppReq(req_info, in, out, conn, appinstance_cb);
     };
 
     for (auto it : m_func) {

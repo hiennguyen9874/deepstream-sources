@@ -29,6 +29,6 @@ compute:
   cuda: 11.4
   tensorrt: 8.5.1
   cudnn: 8.6.0
-  deepstream: 6.2
+  deepstream: 6.3
   triton: null
   vpi: 2.1.6

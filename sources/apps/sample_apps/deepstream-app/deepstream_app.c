@@ -423,6 +423,74 @@ static void write_kitti_track_output(AppCtx *appCtx, NvDsBatchMeta *batch_meta)
     }
 }
 
+/**
+ * Function to dump object ReID embeddings to files when the tracker outputs
+ * ReID embeddings into user meta. For this to work, property "reid-track-output-dir"
+ * must be set in configuration file.
+ * Data of different sources and frames is dumped in separate file.
+ */
+static void write_reid_track_output(AppCtx *appCtx, NvDsBatchMeta *batch_meta)
+{
+    if (!appCtx->config.reid_track_dir_path)
+        return;
+
+    gchar reid_file[1024] = {0};
+    FILE *reid_params_dump_file = NULL;
+    /** Find batch reid tensor in batch user meta. */
+    NvDsReidTensorBatch *pReidTensor = NULL;
+    for (NvDsUserMetaList *l_batch_user = batch_meta->batch_user_meta_list; l_batch_user != NULL;
+         l_batch_user = l_batch_user->next) {
+        NvDsUserMeta *user_meta = (NvDsUserMeta *)l_batch_user->data;
+        if (user_meta && user_meta->base_meta.meta_type == NVDS_TRACKER_BATCH_REID_META) {
+            pReidTensor = (NvDsReidTensorBatch *)(user_meta->user_meta_data);
+        }
+    }
+
+    /** Save the reid embedding for each frame. */
+    for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
+         l_frame = l_frame->next) {
+        NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+
+        /** Create dump file name. */
+        guint stream_id = frame_meta->pad_index;
+        g_snprintf(reid_file, sizeof(reid_file) - 1, "%s/%02u_%03u_%06lu.txt",
+                   appCtx->config.reid_track_dir_path, appCtx->index, stream_id,
+                   (gulong)frame_meta->frame_num);
+        reid_params_dump_file = fopen(reid_file, "w");
+        if (!reid_params_dump_file)
+            continue;
+
+        if (!pReidTensor)
+            continue;
+
+        /** Save the reid embedding for each object. */
+        for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next) {
+            NvDsObjectMeta *obj = (NvDsObjectMeta *)l_obj->data;
+            guint64 id = obj->object_id;
+
+            for (NvDsUserMetaList *l_obj_user = obj->obj_user_meta_list; l_obj_user != NULL;
+                 l_obj_user = l_obj_user->next) {
+                /** Find the object's reid embedding index in user meta. */
+                NvDsUserMeta *user_meta = (NvDsUserMeta *)l_obj_user->data;
+                if (user_meta && user_meta->base_meta.meta_type == NVDS_TRACKER_OBJ_REID_META &&
+                    user_meta->user_meta_data) {
+                    gint reidInd = *((int32_t *)(user_meta->user_meta_data));
+                    if (reidInd >= 0 && reidInd < (gint)pReidTensor->numFilled) {
+                        fprintf(reid_params_dump_file, "%lu", id);
+                        for (guint ele_i = 0; ele_i < pReidTensor->featureSize; ele_i++) {
+                            fprintf(
+                                reid_params_dump_file, " %f",
+                                pReidTensor->ptr_host[reidInd * pReidTensor->featureSize + ele_i]);
+                        }
+                        fprintf(reid_params_dump_file, "\n");
+                    }
+                }
+            }
+        }
+        fclose(reid_params_dump_file);
+    }
+}
+
 static gint component_id_compare_func(gconstpointer a, gconstpointer b)
 {
     NvDsClassifierMeta *cmetaa = (NvDsClassifierMeta *)a;
@@ -640,9 +708,9 @@ static GstPadProbeReturn analytics_done_buf_prob(GstPad *pad,
      * Output KITTI labels with tracking ID if configured to do so.
      */
     write_kitti_track_output(appCtx, batch_meta);
-    if (appCtx->config.tracker_config.enable_past_frame) {
-        write_kitti_past_track_output(appCtx, batch_meta);
-    }
+    write_kitti_past_track_output(appCtx, batch_meta);
+    write_reid_track_output(appCtx, batch_meta);
+
     if (appCtx->bbox_generated_post_analytics_cb) {
         appCtx->bbox_generated_post_analytics_cb(appCtx, buf, batch_meta, index);
     }
@@ -869,6 +937,23 @@ static gboolean create_common_elements(NvDsConfig *config,
     gboolean ret = FALSE;
     *sink_elem = *src_elem = NULL;
 
+    if (config->segvisual_config.enable) {
+        if (!create_segvisual_bin(&config->segvisual_config,
+                                  &pipeline->common_elements.segvisual_bin)) {
+            goto done;
+        }
+
+        gst_bin_add(GST_BIN(pipeline->pipeline), pipeline->common_elements.segvisual_bin.bin);
+
+        if (!*src_elem) {
+            *src_elem = pipeline->common_elements.segvisual_bin.bin;
+        }
+        if (*sink_elem) {
+            NVGSTDS_LINK_ELEMENT(pipeline->common_elements.segvisual_bin.bin, *sink_elem);
+        }
+        *sink_elem = pipeline->common_elements.segvisual_bin.bin;
+    }
+
     if (config->primary_gie_config.enable) {
         if (config->num_secondary_gie_sub_bins > 0) {
             /** if using nvmultiurisrcbin, override batch-size config for sgie */
@@ -1013,7 +1098,8 @@ static gboolean create_common_elements(NvDsConfig *config,
                          "payload-type", convConfig->conv_payload_type, "comp-id",
                          convConfig->conv_comp_id, "debug-payload-dir",
                          convConfig->debug_payload_dir, "multiple-payloads",
-                         convConfig->multiple_payloads, NULL);
+                         convConfig->multiple_payloads, "msg2p-newapi",
+                         convConfig->conv_msg2p_new_api, NULL);
 
             gst_bin_add(GST_BIN(pipeline->pipeline), pipeline->common_elements.msg_conv);
 
@@ -1511,6 +1597,18 @@ void destroy_pipeline(AppCtx *appCtx)
         gst_object_unref(appCtx->pipeline.pipeline);
         appCtx->pipeline.pipeline = NULL;
         pause_perf_measurement(&appCtx->perf_struct);
+
+        // for pipeline-recreate, reset rtsp srouce's depay, such as rtph264depay.
+        NvDsSrcParentBin *pbin = &appCtx->pipeline.multi_src_bin;
+        if (pbin) {
+            NvDsSrcBin *src_bin;
+            for (i = 0; i < MAX_SOURCE_BINS; i++) {
+                src_bin = &pbin->sub_bins[i];
+                if (src_bin && src_bin->config && src_bin->config->type == NV_DS_SOURCE_RTSP) {
+                    src_bin->depay = NULL;
+                }
+            }
+        }
     }
 
     if (config->num_message_consumers) {

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -33,6 +33,7 @@
 #include <sstream>
 #include <thread>
 
+#include "gst-nvdscustomevent.h"
 #include "gst-nvevent.h"
 #include "gstnvdsmeta.h"
 #include "gstnvinferserver_impl.h"
@@ -483,6 +484,13 @@ static gboolean gst_nvinfer_server_sink_event(GstBaseTransform *trans, GstEvent 
     if (GST_EVENT_TYPE(event) == GST_EVENT_EOS) {
         impl->resetIntervalCounter();
     }
+    if ((GstNvDsCustomEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_INFER_INTERVAL_UPDATE) {
+        gchar *stream_id = NULL;
+        guint interval = 0;
+
+        gst_nvevent_parse_infer_interval_update(event, &stream_id, &interval);
+        impl->updateInterval(interval);
+    }
 
     /* Call the sink event handler of the base class. */
     return GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(trans, event);
@@ -540,6 +548,7 @@ static gboolean gst_nvinfer_server_stop(GstBaseTransform *btrans)
  * @brief Function to push the input buffer downstream.
  */
 static GstFlowReturn gst_nvinfer_server_push_buffer(GstNvInferServer *nvinferserver,
+                                                    guint64 seqId,
                                                     GstBuffer *inbuf,
                                                     nvtxRangeId_t buf_process_range)
 {
@@ -547,8 +556,7 @@ static GstFlowReturn gst_nvinfer_server_push_buffer(GstNvInferServer *nvinferser
     nvtxDomainRangeEnd(impl->nvtxDomain(), buf_process_range);
     nvds_set_output_system_timestamp(inbuf, GST_ELEMENT_NAME(nvinferserver));
 
-    GST_DEBUG_OBJECT(nvinferserver, "unique_id:%u push buffer:%" PRIu64, impl->uniqueId(),
-                     nvinferserver->current_batch_num);
+    GST_DEBUG_OBJECT(nvinferserver, "unique_id:%u push buffer:%" PRIu64, impl->uniqueId(), seqId);
     GstFlowReturn flow_ret = gst_pad_push(GST_BASE_TRANSFORM_SRC_PAD(nvinferserver), inbuf);
     if (nvinferserver->last_flow_ret != flow_ret) {
         switch (flow_ret) {
@@ -647,16 +655,17 @@ static GstFlowReturn gst_nvinfer_server_submit_input_buffer(GstBaseTransform *bt
     if (status != NVDSINFER_SUCCESS)
         return GST_FLOW_ERROR;
 
+    guint64 seqId = nvinferserver->current_batch_num;
     if (impl->isAsyncMode()) {
-        return gst_nvinfer_server_push_buffer(nvinferserver, inbuf, buf_process_range);
+        return gst_nvinfer_server_push_buffer(nvinferserver, seqId, inbuf, buf_process_range);
     } else {
         /* Queue a push buffer batch. This batch is not inferred. This batch is
          * to signal the input-queue and output thread that there are no more
          * batches belonging to this input buffer and this GstBuffer can be
          * pushed to downstream element once all the previous processing is
          * done. */
-        impl->queueOperation([nvinferserver, inbuf, buf_process_range]() -> void {
-            gst_nvinfer_server_push_buffer(nvinferserver, inbuf, buf_process_range);
+        impl->queueOperation([nvinferserver, seqId, inbuf, buf_process_range]() -> void {
+            gst_nvinfer_server_push_buffer(nvinferserver, seqId, inbuf, buf_process_range);
         });
     }
 
@@ -694,7 +703,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_inferserver,
                   DESCRIPTION,
                   nvinfer_server_plugin_init,
-                  "6.2",
+                  "6.3",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

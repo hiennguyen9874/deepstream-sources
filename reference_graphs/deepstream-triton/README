@@ -21,8 +21,8 @@ point in the underlying pipeline.
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.2
-- Graph-Composer 2.5.0
+- DeepStreamSDK 6.3
+- Graph-Composer 3.0.0
 
 ===============================================================================
 DGPU instructions
@@ -32,8 +32,8 @@ sample uses the NVIDIA Container Builder to build a container for the sample.
 
 Steps:
 * Build the container
-$ container_builder -c ds_triton_container_builder_cfg_dgpu.yaml \
-      -d target_triton_x86_64.yaml
+$ container_builder build -c ds_triton_container_builder_cfg_dgpu.yaml \
+      -d target_triton_x86_64.yaml -wd $(pwd)
 
 * Start the container
 $ docker run -it --rm  -e DISPLAY=:0 -v /tmp/.X11-unix/:/tmp/.X11-unix \
@@ -67,8 +67,8 @@ Steps for running in a container:
 * Building a Jetson container on x86 host
 - In ds_triton_container_builder_cfg_jetson.yaml, change <docker-container-registry>
   to a valid docker registry where containers can be pushed, and then build:
-  $ container_builder -c ds_triton_container_builder_cfg_jetson.yaml \
-        -d target_triton_aarch64.yaml
+  $ container_builder build -c ds_triton_container_builder_cfg_jetson.yaml \
+        -d target_triton_aarch64.yaml -wd $(pwd)
 
 - Push the built image to the docker registry:
   $ docker push <docker-container-registry>:deepstream-triton-jetson

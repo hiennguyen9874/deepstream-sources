@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -238,8 +238,17 @@ private:
     NvDsInferStatus fillSegmentationOutput(const std::vector<NvDsInferLayerInfo> &outputLayers,
                                            NvDsInferSegmentationOutput &output);
 
+    bool parseSemanticSegmentationOutput(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+                                         NvDsInferNetworkInfo const &networkInfo,
+                                         float segmentationThreshold,
+                                         unsigned int numClasses,
+                                         int *classificationMap,
+                                         float *&classProbabilityMap);
+
 private:
     float m_SegmentationThreshold = 0.0f;
+    NvDsInferSemSegmentationParseCustomFunc m_CustomSemSegmentationParseFunc = nullptr;
+    unsigned int m_NumSegmentationClasses = 0;
     ic::SegmentationParams m_Config;
 };
 

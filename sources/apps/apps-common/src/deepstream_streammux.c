@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -79,6 +79,11 @@ gboolean set_streammux_properties(NvDsStreammuxConfig *config, GstElement *eleme
     g_object_set(G_OBJECT(element), "max-latency", config->max_latency, NULL);
     g_object_set(G_OBJECT(element), "frame-num-reset-on-eos", config->frame_num_reset_on_eos, NULL);
     g_object_set(G_OBJECT(element), "drop-pipeline-eos", config->no_pipeline_eos, NULL);
+
+    if (config->num_surface_per_frame > 1) {
+        g_object_set(G_OBJECT(element), "num-surfaces-per-frame", config->num_surface_per_frame,
+                     NULL);
+    }
 
     ret = TRUE;
 

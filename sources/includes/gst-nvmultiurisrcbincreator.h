@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,14 +23,18 @@
 
 #ifndef _GST_NVMULTIURISRCBIN_CREATOR_H_
 #define _GST_NVMULTIURISRCBIN_CREATOR_H_
+#include <gst/gst.h>
+
+#include "gst-nvdscommonconfig.h"
+
+typedef struct NvDsDecInfo NvDsDecInfo;
+typedef struct NvDsMuxInfo NvDsMuxInfo;
+typedef struct NvDsConvInfo NvDsConvInfo;
+typedef struct NvDsAppInstanceInfo NvDsAppInstanceInfo;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
-
-#include "gst-nvcommonconfig.h"
 
 typedef void *NvDst_Handle_NvMultiUriSrcCreator;
 
@@ -46,18 +50,50 @@ typedef enum { NVDS_MULTIURISRCBIN_MODE_VIDEO, NVDS_MULTIURISRCBIN_MODE_AUDIO } 
 gboolean find_source(NvDst_Handle_NvMultiUriSrcCreator apiHandle, guint sourceId);
 
 /**
- * API to set drop-frame-interval value on nvv4l2decoder of nvmultiurisrcbin instance
+ * API to set property value on nvv4l2decoder of nvmultiurisrcbin instance
  *
  * @param[in] apiHandle  The nvmultiurisrcbincreator API handle returned by init
  * @param[in] sourceId sourceId information of the stream
- * @param[in] drop_frame_interval_val dec-frame-interval value to be used to set on the
+ * @param[in] dec_info decoder info structure with property value to be used to set on the
  * nvv4l2decoder
  * @return  TRUE if successful, else FALSE
  */
 gboolean set_nvuribin_dec_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
                                guint sourceId,
-                               guint drop_frame_interval_val);
+                               NvDsDecInfo *dec_info);
 
+/**
+ * API to set property value on nvvideoconvert of nvmultiurisrcbin instance
+ *
+ * @param[in] apiHandle  The nvmultiurisrcbincreator API handle returned by init
+ * @param[in] sourceId sourceId information of the stream
+ * @param[in] conv_info converter info structure with property value to be used to set on the
+ * nvvideoconvert
+ * @return  TRUE if successful, else FALSE
+ */
+gboolean set_nvuribin_conv_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
+                                guint sourceId,
+                                NvDsConvInfo *conv_info);
+
+/**
+ * API to set property value on nvstreammux of nvmultiurisrcbin instance
+ *
+ * @param[in] apiHandle  The nvmultiurisrcbincreator API handle returned by init
+ * @param[in] mux_info info structure with property value to be used to set on the nvstreammux
+ * @return  TRUE if successful, else FALSE
+ */
+gboolean set_nvuribin_mux_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle, NvDsMuxInfo *mux_info);
+
+/**
+ * API to set EOS related properties on nvstreammux of nvmultiurisrcbin instance
+ *
+ * @param[in] apiHandle  The nvmultiurisrcbincreator API handle returned by init
+ * @param[in] appinstance_info info structure with activity to be used to set eos related properties
+ * on the nvstreammux
+ * @return  TRUE if successful, else FALSE
+ */
+gboolean s_force_eos_handle(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
+                            NvDsAppInstanceInfo *appinstance_info);
 /**
  * Initialize the API for nvmultiurisrcbin creation
  * Note: nvmultiurisrcbin is a collection of DeepStream plugins viz:

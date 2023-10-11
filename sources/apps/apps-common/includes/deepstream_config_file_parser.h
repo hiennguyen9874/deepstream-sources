@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -40,6 +40,7 @@ extern "C" {
 #include "deepstream_osd.h"
 #include "deepstream_preprocess.h"
 #include "deepstream_primary_gie.h"
+#include "deepstream_segvisual.h"
 #include "deepstream_sinks.h"
 #include "deepstream_sources.h"
 #include "deepstream_streammux.h"
@@ -62,6 +63,7 @@ extern "C" {
 
 #define CONFIG_GROUP_SOURCE "source"
 #define CONFIG_GROUP_OSD "osd"
+#define CONFIG_GROUP_SEGVISUAL "segvisual"
 #define CONFIG_GROUP_PREPROCESS "pre-process"
 #define CONFIG_GROUP_SECONDARY_PREPROCESS "secondary-pre-process"
 #define CONFIG_GROUP_PRIMARY_GIE "primary-gie"
@@ -134,7 +136,10 @@ gboolean parse_labels_file(NvDsGieConfig *config);
  *
  * @return true if parsed successfully.
  */
-gboolean parse_dewarper(NvDsDewarperConfig *config, GKeyFile *key_file, gchar *cfg_file_path);
+gboolean parse_dewarper(NvDsDewarperConfig *config,
+                        GKeyFile *key_file,
+                        gchar *cfg_file_path,
+                        gchar *group);
 
 /**
  * Function to read properties of source element from configuration file.
@@ -150,6 +155,16 @@ gboolean parse_source(NvDsSourceConfig *config,
                       GKeyFile *key_file,
                       gchar *group,
                       gchar *cfg_file_path);
+
+/**
+ * Function to read properties of NvSegVisual element from configuration file.
+ *
+ * @param[in] config pointer to @ref NvDsSegVisualConfig
+ * @param[in] key_file pointer to file having key value pairs.
+ *
+ * @return true if parsed successfully.
+ */
+gboolean parse_segvisual(NvDsSegVisualConfig *config, GKeyFile *key_file);
 
 /**
  * Function to read properties of OSD element from configuration file.

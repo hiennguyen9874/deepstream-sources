@@ -1,13 +1,15 @@
-/*
- * Copyright (c) 2018-2021 NVIDIA CORPORATION.  All rights reserved.
+/**
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
+
 #include "gstnvmsgbroker.h"
 
 #include <dlfcn.h>
@@ -106,6 +108,7 @@ enum {
     PROP_PROTOCOL_LIBRARY,
     PROP_TOPIC,
     PROP_COMPONENT_ID,
+    PROP_SLEEP_TIME,
     PROP_NEW_API
 };
 #define DEFAULT_USE_NEW_API FALSE
@@ -137,8 +140,7 @@ static gpointer gst_nvmsgbroker_do_work(gpointer data)
         }
 
         self->nvds_msgapi_do_work(self->connHandle);
-        // wait 10ms.
-        g_usleep(10 * 1000);
+        g_usleep(self->sleepTime * 1000);
     }
     return self;
 }
@@ -201,6 +203,12 @@ static void gst_nvmsgbroker_class_init(GstNvMsgBrokerClass *klass)
                                     g_param_spec_boolean("new-api", "Use new libnvds_msgbroker API",
                                                          "Use new libnvds_msgbroker API",
                                                          DEFAULT_USE_NEW_API, G_PARAM_READWRITE));
+
+    g_object_class_install_property(
+        gobject_class, PROP_SLEEP_TIME,
+        g_param_spec_uint("sleep-time", "Sleep time ",
+                          "Sleep time between consecutive do_work calls in millisecond.", 0,
+                          G_MAXUINT, 0, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 static void gst_nvmsgbroker_init(GstNvMsgBroker *self)
@@ -221,6 +229,7 @@ static void gst_nvmsgbroker_init(GstNvMsgBroker *self)
     self->newAPI = DEFAULT_USE_NEW_API;
     self->newConnHandle = NULL;
     self->newLastError = NV_MSGBROKER_API_OK;
+    self->sleepTime = 0;
 
     g_mutex_init(&self->flowLock);
     g_cond_init(&self->flowCond);
@@ -267,6 +276,9 @@ void gst_nvmsgbroker_set_property(GObject *object,
     case PROP_NEW_API:
         self->newAPI = g_value_get_boolean(value);
         break;
+    case PROP_SLEEP_TIME:
+        self->sleepTime = g_value_get_uint(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -300,6 +312,9 @@ void gst_nvmsgbroker_get_property(GObject *object,
         break;
     case PROP_NEW_API:
         g_value_set_boolean(value, self->newAPI);
+        break;
+    case PROP_SLEEP_TIME:
+        g_value_set_uint(value, self->sleepTime);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -714,7 +729,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_msgbroker,
                   "Message broker",
                   plugin_init,
-                  "6.2",
+                  "6.3",
                   "Proprietary",
                   "NvMsgBroker",
                   "http://nvidia.com")

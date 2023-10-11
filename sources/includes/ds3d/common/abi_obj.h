@@ -25,6 +25,15 @@ struct abiRefObj {
     virtual ~abiRefObj() = default;
 };
 
+enum class DataMapPolicy : int {
+    kCopyPolicyNone = 0,
+    /** copy from one datamap to another with
+     * key_string manipulated with %d+key_string+%d
+     * where %d is an integer Id passed with copy_i() @policyData (int32_t*)
+     */
+    kCopyWithIntegerId = 1,
+};
+
 template <class T>
 struct abiRefT : public abiRefObj {
     virtual T *data() const = 0;
@@ -42,6 +51,18 @@ public:
     virtual ErrCode removeBuf_i(const char *key) = 0;
     virtual bool has_i(const char *key) const = 0;
     virtual ErrCode clear_i() = 0;
+    // clone input datamap into this datamap
+    // existing keys' values in this datamap will be updated with values from input
+    virtual ErrCode copy_i(abiDataMap *input, DataMapPolicy policy, char *policyData) = 0;
+    // key provided will be used to selectively copy just that entry from input
+    virtual ErrCode copy_i(abiDataMap *input,
+                           const char *key,
+                           DataMapPolicy policy,
+                           char *policyData) = 0;
+    // list all entries in a datamap
+    virtual int32_t getSize_i() = 0;
+    // print list of keys in the map
+    virtual void printDebug_i() const = 0;
     DS3D_DISABLE_CLASS_COPY(abiDataMap);
 };
 
@@ -57,6 +78,7 @@ struct abiCallBackT : public abiRefObj {
 
 typedef abiCallBackT<ErrCode, const char *> abiErrorCB;
 typedef abiCallBackT<ErrCode, const abiRefDataMap *> abiOnDataCB;
+typedef abiCallBackT<ErrCode, const struct VideoBridge2dInput *> abiOnBridgeDataCB;
 
 } // namespace ds3d
 

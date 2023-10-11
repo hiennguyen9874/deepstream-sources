@@ -681,7 +681,6 @@ void SampleAlgorithm::OutputThread(void)
 {
     GstFlowReturn flow_ret;
     GstBuffer *outBuffer = NULL;
-    NvBufSurface *outSurf = NULL;
     std::unique_lock<std::mutex> lk(m_processLock);
     NvDsBatchMeta *batch_meta = NULL;
     if (hw_caps == true) {
@@ -773,11 +772,12 @@ void SampleAlgorithm::OutputThread(void)
                     transform_params.transform_flag = NVBUFSURF_TRANSFORM_FILTER;
                     transform_params.transform_flip = NvBufSurfTransform_None;
                     transform_params.transform_filter = NvBufSurfTransformInter_Default;
+                    transform_params.src_rect = {0};
+                    transform_params.dst_rect = {0};
 
                     NvBufSurfTransform(in_surf, out_surf, &transform_params);
                 }
 
-                outSurf = out_surf;
                 outBuffer = newGstOutBuf;
 
                 GST_BUFFER_PTS(outBuffer) = GST_BUFFER_PTS(packetInfo.inbuf);
@@ -832,17 +832,8 @@ void SampleAlgorithm::OutputThread(void)
 
         } else {
             // Transform IP case
-            outSurf = in_surf;
             outBuffer = packetInfo.inbuf;
             nvds_set_input_system_timestamp(outBuffer, GST_ELEMENT_NAME(m_element));
-        }
-
-        // Output buffer parameters checking
-        if (hw_caps == true) {
-            if (outSurf->numFilled != 0) {
-                g_assert((guint)m_outVideoInfo.width == outSurf->surfaceList->width);
-                g_assert((guint)m_outVideoInfo.height == outSurf->surfaceList->height);
-            }
         }
 
         nvds_set_output_system_timestamp(outBuffer, GST_ELEMENT_NAME(m_element));

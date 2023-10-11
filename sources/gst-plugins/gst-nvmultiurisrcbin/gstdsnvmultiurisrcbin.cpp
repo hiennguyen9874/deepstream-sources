@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,8 +29,10 @@
 #include <sys/time.h>
 
 #include "gst-nvcommon.h"
-#include "gst-nvcustommessage.h"
+#include "gst-nvcustomevent.h"
+#include "gst-nvdscustommessage.h"
 #include "gst-nvevent.h"
+#include "gst-nvmessage.h"
 #include "gst-nvquery.h"
 #include "nvbufsurface.h"
 #include "nvbufsurftransform.h"
@@ -49,6 +51,7 @@
 #define DEFAULT_RTP_PROTOCOL 0
 #define DEFAULT_LATENCY 100
 #define DEFAULT_FILE_LOOP FALSE
+#define DEFAULT_DISABLE_PASSTHROUGH FALSE
 #define DEFAULT_SMART_RECORD_MODE 0
 #define DEFAULT_SMART_RECORD_PREFIX "Smart_Record"
 #define DEFAULT_SMART_RECORD_CACHE 20
@@ -76,6 +79,7 @@
 #define DEFAULT_BUFFER_POOL_SIZE (4)
 #define MAX_NVBUFFERS 1024
 #define MAX_POOL_BUFFERS (MAX_NVBUFFERS)
+#define DEFAULT_CONFIG_FILE_PATH NULL
 
 #define GST_TYPE_NVDSURI_SKIP_FRAMES (gst_nvdsurisrc_dec_skip_frames())
 #define GST_TYPE_NVDSURI_RTP_PROTOCOL (gst_nvdsurisrc_rtp_protocol())
@@ -85,8 +89,8 @@
 
 #define GST_TYPE_V4L2_VID_CUDADEC_MEM_TYPE (gst_video_cudadec_mem_type())
 #define GST_TYPE_NVMULTIURISRCBIN_MODE (gst_nvmultiurisrcbin_mode())
-#define DEFAULT_CUDADEC_MEM_TYPE (2)
-#define DEFAULT_NVBUF_MEM_TYPE (3)
+#define DEFAULT_CUDADEC_MEM_TYPE (0)
+#define DEFAULT_NVBUF_MEM_TYPE (0)
 
 typedef struct {
     GstDsNvMultiUriBin *ubin;
@@ -293,6 +297,14 @@ static void gst_ds_nvmultiurisrc_bin_class_init(GstDsNvMultiUriBinClass *klass)
         g_param_spec_string(
             "ip-address", "Set REST API HTTP IP Address", "REST API HTTP Endpoint", DEFAULT_HTTP_IP,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
+
+    g_object_class_install_property(
+        gobject_class, MULTIURIBIN_PROP_DISABLE_PASSTHROUGH,
+        g_param_spec_boolean(
+            "disable-passthrough", "disable-passthrough",
+            "Disable passthrough mode at init time, applicable for nvvideoconvert only.",
+            DEFAULT_DISABLE_PASSTHROUGH,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobject_class, MULTIURIBIN_PROP_HTTP_PORT,
@@ -521,7 +533,7 @@ static void gst_ds_nvmultiurisrc_bin_class_init(GstDsNvMultiUriBinClass *klass)
         g_param_spec_uint("max-latency", "maximum lantency",
                           "Additional latency in live mode to allow upstream to take longer to "
                           "produce buffers for the current position (in nanoseconds)",
-                          0, G_MAXUINT, 0 /*200000000*/,
+                          0, G_MAXUINT, 0 /*200000000 */,
                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
@@ -532,6 +544,13 @@ static void gst_ds_nvmultiurisrc_bin_class_init(GstDsNvMultiUriBinClass *klass)
             "\t\t\tIf set to FALSE, ntp timestamp from rtspsrc, if available, will be attached.",
             DEFAULT_ATTACH_SYS_TIME_STAMP,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_CONFIG_FILE_PATH,
+        g_param_spec_string(
+            "config-file-path", "Set config file path",
+            "Configuation file path (applicable for new nvstreammux)", DEFAULT_CONFIG_FILE_PATH,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
 
     PROP_NVBUF_MEMORY_TYPE_INSTALL(gobject_class);
     PROP_COMPUTE_HW_INSTALL(gobject_class);
@@ -704,6 +723,9 @@ static void gst_ds_nvmultiurisrc_bin_set_property(GObject *object,
     case MULTIURIBIN_PROP_SMART_RECORD_DEFAULT_DURATION:
         config->smart_rec_def_duration = g_value_get_uint(value);
         break;
+    case MULTIURIBIN_PROP_DISABLE_PASSTHROUGH:
+        config->disable_passthrough = g_value_get_boolean(value);
+        break;
     case PROP_BATCH_SIZE:
         muxConfig->batch_size = g_value_get_uint(value);
         break;
@@ -727,6 +749,9 @@ static void gst_ds_nvmultiurisrc_bin_set_property(GObject *object,
         break;
     case PROP_ATTACH_SYS_TIME_STAMP:
         muxConfig->attach_sys_ts_as_ntp = g_value_get_boolean(value);
+        break;
+    case PROP_CONFIG_FILE_PATH:
+        muxConfig->config_file_path = g_value_dup_string(value);
         break;
     case PROP_ENABLE_PADDING:
         muxConfig->enable_padding = g_value_get_boolean(value);
@@ -854,7 +879,9 @@ static void gst_ds_nvmultiurisrc_bin_get_property(GObject *object,
     case MULTIURIBIN_PROP_SMART_RECORD_DEFAULT_DURATION:
         g_value_set_uint(value, config->smart_rec_def_duration);
         break;
-
+    case MULTIURIBIN_PROP_DISABLE_PASSTHROUGH:
+        g_value_set_boolean(value, config->disable_passthrough);
+        break;
     case PROP_BATCH_SIZE:
         g_value_set_uint(value, muxConfig->batch_size);
         break;
@@ -881,6 +908,9 @@ static void gst_ds_nvmultiurisrc_bin_get_property(GObject *object,
         break;
     case PROP_ATTACH_SYS_TIME_STAMP:
         g_value_set_boolean(value, muxConfig->attach_sys_ts_as_ntp);
+        break;
+    case PROP_CONFIG_FILE_PATH:
+        g_value_set_string(value, muxConfig->config_file_path);
         break;
     case PROP_COMPUTE_HW:
         g_value_set_enum(value, muxConfig->compute_hw);
@@ -939,6 +969,7 @@ static void gst_ds_nvmultiurisrc_bin_init(GstDsNvMultiUriBin *nvmultiurisrcbin)
     nvmultiurisrcbin->muxConfig->async_process = DEFAULT_ASYNC_PROCESS;
     nvmultiurisrcbin->muxConfig->no_pipeline_eos = DEFAULT_NO_PIPELINE_EOS;
     nvmultiurisrcbin->muxConfig->attach_sys_ts_as_ntp = DEFAULT_ATTACH_SYS_TIME_STAMP;
+    nvmultiurisrcbin->muxConfig->config_file_path = g_strdup(DEFAULT_CONFIG_FILE_PATH);
 
     nvmultiurisrcbin->config->uri = NULL;
     nvmultiurisrcbin->config->num_extra_surfaces = DEFAULT_NUM_EXTRA_SURFACES;
@@ -950,6 +981,7 @@ static void gst_ds_nvmultiurisrc_bin_init(GstDsNvMultiUriBin *nvmultiurisrcbin)
     nvmultiurisrcbin->config->rtp_protocol = (NvDsUriSrcBinRtpProtocol)DEFAULT_RTP_PROTOCOL;
     nvmultiurisrcbin->config->rtsp_reconnect_interval_sec = DEFAULT_RTSP_RECONNECT_INTERVAL;
     nvmultiurisrcbin->config->latency = DEFAULT_LATENCY;
+    nvmultiurisrcbin->config->disable_passthrough = DEFAULT_DISABLE_PASSTHROUGH;
     nvmultiurisrcbin->config->udp_buffer_size = DEFAULT_UDP_BUFFER_SIZE;
     nvmultiurisrcbin->mode = NVDS_MULTIURISRCBIN_MODE_VIDEO;
     nvmultiurisrcbin->uriList = NULL;
@@ -1001,6 +1033,10 @@ static void gst_ds_nvmultiurisrc_bin_finalize(GObject *object)
         g_free(nvmultiurisrcbin->httpPort);
     }
 
+    if (nvmultiurisrcbin->muxConfig->config_file_path) {
+        g_free(nvmultiurisrcbin->muxConfig->config_file_path);
+    }
+
     G_OBJECT_CLASS(parent_class)->finalize(object);
 }
 
@@ -1046,7 +1082,7 @@ static GstStateChangeReturn gst_ds_nvmultiurisrc_bin_change_state(GstElement *el
                 if (i < sensorIdListVLen && nvmultiurisrcbin->sensorIdListV[i]) {
                     nvmultiurisrcbin->config->sensorId = nvmultiurisrcbin->sensorIdListV[i];
                 }
-                nvmultiurisrcbin->config->source_id = nvmultiurisrcbin->sourceIdCounter++;
+                nvmultiurisrcbin->config->source_id = 0;
                 g_mutex_lock(&nvmultiurisrcbin->bin_lock);
                 gboolean ret = gst_nvmultiurisrcbincreator_add_source(
                     nvmultiurisrcbin->nvmultiurisrcbinCreator, nvmultiurisrcbin->config);
@@ -1238,7 +1274,8 @@ static void s_stream_api_impl(NvDsStreamInfo *stream_info, void *ctx)
     g_mutex_lock(&nvmultiurisrcbin->bin_lock);
 
     /** check stream_info->value_change to identify stream add/remove */
-    if (g_strrstr(stream_info->value_change.c_str(), "add")) {
+    if (g_strrstr(stream_info->value_change.c_str(), "add") ||
+        g_strrstr(stream_info->value_change.c_str(), "streaming")) {
         GstDsNvUriSrcConfig **sourceConfigs = NULL;
         guint numSourceConfigs = 0;
         /** Check if we can accomodate more sources */
@@ -1275,7 +1312,7 @@ static void s_stream_api_impl(NvDsStreamInfo *stream_info, void *ctx)
         /** Add the source */
         nvmultiurisrcbin->config->uri = (gchar *)stream_info->value_camera_url.c_str();
         nvmultiurisrcbin->config->sensorId = (gchar *)stream_info->value_camera_id.c_str();
-        nvmultiurisrcbin->config->source_id = nvmultiurisrcbin->sourceIdCounter++;
+        nvmultiurisrcbin->config->source_id = 0;
 
         gboolean ret = gst_nvmultiurisrcbincreator_add_source(
             nvmultiurisrcbin->nvmultiurisrcbinCreator, nvmultiurisrcbin->config);
@@ -1354,11 +1391,29 @@ static void s_roi_api_impl(NvDsRoiInfo *roi_info, void *ctx)
         GstEvent *nvevent = gst_nvevent_new_roi_update((char *)roi_info->stream_id.c_str(),
                                                        roi_info->roi_count, roi_dim);
 
-        if (!gst_pad_push_event((GstPad *)(nvmultiurisrcbin->bin_src_pad), nvevent)) {
-            g_print("[WARN] ROI UPDATE event not pushed downstream.. !! \n");
+        if (!nvevent) {
+            roi_info->roi_log = "nv-roi-update event creation failed";
             roi_info->status = ROI_UPDATE_FAIL;
+        }
+
+        if (!gst_pad_push_event((GstPad *)(nvmultiurisrcbin->bin_src_pad), nvevent)) {
+            switch (roi_info->roi_flag) {
+            case ROI_UPDATE:
+                g_print("[WARN] nv-roi-update event not pushed downstream.. !! \n");
+                roi_info->roi_log = "nv-roi-update event not pushed";
+                roi_info->status = ROI_UPDATE_FAIL;
+                break;
+            default:
+                break;
+            }
         } else {
-            roi_info->status = ROI_UPDATE_SUCCESS;
+            switch (roi_info->roi_flag) {
+            case ROI_UPDATE:
+                roi_info->status = ROI_UPDATE_SUCCESS;
+                break;
+            default:
+                break;
+            }
         }
 
         gst_nvmultiurisrcbincreator_sync_children_states(nvmultiurisrcbin->nvmultiurisrcbinCreator);
@@ -1372,12 +1427,44 @@ static void s_dec_api_impl(NvDsDecInfo *dec_info, void *ctx)
     GstDsNvMultiUriBin *nvmultiurisrcbin = (GstDsNvMultiUriBin *)ctx;
     (void)nvmultiurisrcbin;
     guint sourceId = std::stoi(dec_info->stream_id);
-    if (!set_nvuribin_dec_prop(nvmultiurisrcbin->nvmultiurisrcbinCreator, sourceId,
-                               dec_info->drop_frame_interval)) {
-        g_print("[WARN] drop-frame-interval not set on decoder .. !! \n");
-        dec_info->status = DROP_FRAME_INTERVAL_UPDATE_FAIL;
+
+    if (!set_nvuribin_dec_prop(nvmultiurisrcbin->nvmultiurisrcbinCreator, sourceId, dec_info)) {
+        switch (dec_info->dec_flag) {
+        case DROP_FRAME_INTERVAL:
+            g_print("[WARN] drop-frame-interval not set on decoder .. !! \n");
+            dec_info->status = DROP_FRAME_INTERVAL_UPDATE_FAIL;
+            break;
+        case SKIP_FRAMES:
+            g_print("[WARN] skip-frame not set on decoder .. !! \n");
+            dec_info->status = SKIP_FRAMES_UPDATE_FAIL;
+            break;
+        case LOW_LATENCY_MODE:
+            g_print("[WARN] low-latency-mode not set on decoder .. !! \n");
+            dec_info->status = LOW_LATENCY_MODE_UPDATE_FAIL;
+            break;
+        default:
+            break;
+        }
     } else {
-        dec_info->status = DROP_FRAME_INTERVAL_UPDATE_SUCCESS;
+        switch (dec_info->dec_flag) {
+        case DROP_FRAME_INTERVAL:
+            dec_info->status = dec_info->status != DROP_FRAME_INTERVAL_UPDATE_FAIL
+                                   ? DROP_FRAME_INTERVAL_UPDATE_SUCCESS
+                                   : DROP_FRAME_INTERVAL_UPDATE_FAIL;
+            break;
+        case SKIP_FRAMES:
+            dec_info->status = dec_info->status != SKIP_FRAMES_UPDATE_FAIL
+                                   ? SKIP_FRAMES_UPDATE_SUCCESS
+                                   : SKIP_FRAMES_UPDATE_FAIL;
+            break;
+        case LOW_LATENCY_MODE:
+            dec_info->status = dec_info->status != LOW_LATENCY_MODE_UPDATE_FAIL
+                                   ? LOW_LATENCY_MODE_UPDATE_SUCCESS
+                                   : LOW_LATENCY_MODE_UPDATE_FAIL;
+            break;
+        default:
+            break;
+        }
     }
 
     gst_nvmultiurisrcbincreator_sync_children_states(nvmultiurisrcbin->nvmultiurisrcbinCreator);
@@ -1397,16 +1484,300 @@ static void s_infer_api_impl(NvDsInferInfo *infer_info, void *ctx)
         GstEvent *nvevent = gst_nvevent_infer_interval_update((char *)infer_info->stream_id.c_str(),
                                                               infer_info->interval);
 
+        if (!nvevent) {
+            infer_info->status = INFER_INTERVAL_UPDATE_FAIL;
+            infer_info->infer_log = "nv-infer-interval-update event creation failed";
+        }
+
         if (!gst_pad_push_event((GstPad *)(nvmultiurisrcbin->bin_src_pad), nvevent)) {
             g_print("[WARN] nv-infer-interval-update event not pushed downstream.. !! \n");
             infer_info->status = INFER_INTERVAL_UPDATE_FAIL;
+            infer_info->infer_log = "nv-infer-interval-update event not pushed";
         } else {
-            infer_info->status = INFER_INTERVAL_UPDATE_SUCCESS;
+            if (infer_info->status != INFER_INTERVAL_UPDATE_FAIL)
+                infer_info->status = INFER_INTERVAL_UPDATE_SUCCESS;
         }
 
         gst_nvmultiurisrcbincreator_sync_children_states(nvmultiurisrcbin->nvmultiurisrcbinCreator);
         gst_element_call_async(GST_ELEMENT(nvmultiurisrcbin),
                                (GstElementCallAsyncFunc)gst_bin_sync_children_states, NULL, NULL);
+    }
+}
+
+static void s_inferserver_api_impl(NvDsInferServerInfo *inferserver_info, void *ctx)
+{
+    GstDsNvMultiUriBin *nvmultiurisrcbin = (GstDsNvMultiUriBin *)ctx;
+    (void)nvmultiurisrcbin;
+    guint sourceId = std::stoi(inferserver_info->stream_id);
+
+    if (!find_source(nvmultiurisrcbin->nvmultiurisrcbinCreator, sourceId)) {
+        if (inferserver_info->inferserver_flag == INFERSERVER_INTERVAL)
+            inferserver_info->status = INFERSERVER_INTERVAL_UPDATE_FAIL;
+    } else {
+        GstEvent *nvevent = gst_nvevent_infer_interval_update(
+            (char *)inferserver_info->stream_id.c_str(), inferserver_info->interval);
+        if (!nvevent) {
+            inferserver_info->status = INFERSERVER_INTERVAL_UPDATE_FAIL;
+            inferserver_info->inferserver_log =
+                "nv-infer-interval-update event (inferserver) creation failed";
+        }
+
+        if (!gst_pad_push_event((GstPad *)(nvmultiurisrcbin->bin_src_pad), nvevent)) {
+            g_print(
+                "[WARN] nv-infer-interval-update (inferserver) event not pushed downstream.. !! "
+                "\n");
+            inferserver_info->status = INFERSERVER_INTERVAL_UPDATE_FAIL;
+            inferserver_info->inferserver_log = "nv-infer-interval-update event not pushed";
+        } else {
+            inferserver_info->status = INFERSERVER_INTERVAL_UPDATE_SUCCESS;
+        }
+        gst_nvmultiurisrcbincreator_sync_children_states(nvmultiurisrcbin->nvmultiurisrcbinCreator);
+        gst_element_call_async(GST_ELEMENT(nvmultiurisrcbin),
+                               (GstElementCallAsyncFunc)gst_bin_sync_children_states, NULL, NULL);
+    }
+}
+
+static void s_conv_api_impl(NvDsConvInfo *conv_info, void *ctx)
+{
+    GstDsNvMultiUriBin *nvmultiurisrcbin = (GstDsNvMultiUriBin *)ctx;
+    (void)nvmultiurisrcbin;
+    guint sourceId = std::stoi(conv_info->stream_id);
+
+    if (!set_nvuribin_conv_prop(nvmultiurisrcbin->nvmultiurisrcbinCreator, sourceId, conv_info)) {
+        switch (conv_info->conv_flag) {
+        case SRC_CROP:
+            g_print("[WARN] source-crop update failed .. !! \n");
+            conv_info->conv_log = "source-crop update failed";
+            conv_info->status = SRC_CROP_UPDATE_FAIL;
+            break;
+        case DEST_CROP:
+            g_print("[WARN] source-crop update failed .. !! \n");
+            conv_info->conv_log = "dest-crop update failed";
+            conv_info->status = DEST_CROP_UPDATE_FAIL;
+            break;
+        case FLIP_METHOD:
+            g_print("[WARN] flip-method update failed .. !! \n");
+            conv_info->conv_log = "flip-method update failed";
+            conv_info->status = FLIP_METHOD_UPDATE_FAIL;
+            break;
+        case INTERPOLATION_METHOD:
+            g_print("[WARN] interpolation-method update failed .. !! \n");
+            conv_info->conv_log = "interpolation-method update failed";
+            conv_info->status = INTERPOLATION_METHOD_UPDATE_FAIL;
+            break;
+        default:
+            break;
+        }
+    } else {
+        switch (conv_info->conv_flag) {
+        case SRC_CROP:
+            conv_info->status = conv_info->status != SRC_CROP_UPDATE_FAIL ? SRC_CROP_UPDATE_SUCCESS
+                                                                          : SRC_CROP_UPDATE_FAIL;
+            break;
+        case DEST_CROP:
+            conv_info->status = conv_info->status != SRC_CROP_UPDATE_FAIL ? DEST_CROP_UPDATE_SUCCESS
+                                                                          : DEST_CROP_UPDATE_FAIL;
+            break;
+        case FLIP_METHOD:
+            conv_info->status = conv_info->status != FLIP_METHOD_UPDATE_FAIL
+                                    ? FLIP_METHOD_UPDATE_SUCCESS
+                                    : FLIP_METHOD_UPDATE_FAIL;
+            break;
+        case INTERPOLATION_METHOD:
+            conv_info->status = conv_info->status != INTERPOLATION_METHOD_UPDATE_FAIL
+                                    ? INTERPOLATION_METHOD_UPDATE_SUCCESS
+                                    : INTERPOLATION_METHOD_UPDATE_FAIL;
+            break;
+        default:
+            break;
+        }
+    }
+
+    gst_nvmultiurisrcbincreator_sync_children_states(nvmultiurisrcbin->nvmultiurisrcbinCreator);
+    gst_element_call_async(GST_ELEMENT(nvmultiurisrcbin),
+                           (GstElementCallAsyncFunc)gst_bin_sync_children_states, NULL, NULL);
+}
+
+static void s_mux_api_impl(NvDsMuxInfo *mux_info, void *ctx)
+{
+    GstDsNvMultiUriBin *nvmultiurisrcbin = (GstDsNvMultiUriBin *)ctx;
+    (void)nvmultiurisrcbin;
+
+    if (!set_nvuribin_mux_prop(nvmultiurisrcbin->nvmultiurisrcbinCreator, mux_info)) {
+        switch (mux_info->mux_flag) {
+        case BATCHED_PUSH_TIMEOUT:
+            g_print("[WARN] batched-push-timeout update failed .. !! \n");
+            mux_info->mux_log = "batched-push-timeout value not updated";
+            mux_info->status = BATCHED_PUSH_TIMEOUT_UPDATE_FAIL;
+            break;
+        case MAX_LATENCY:
+            g_print("[WARN] max-latency update failed .. !! \n");
+            mux_info->mux_log = "max-latency value not updated";
+            mux_info->status = MAX_LATENCY_UPDATE_FAIL;
+            break;
+        default:
+            break;
+        }
+    } else {
+        switch (mux_info->mux_flag) {
+        case BATCHED_PUSH_TIMEOUT:
+            mux_info->status = mux_info->status != BATCHED_PUSH_TIMEOUT_UPDATE_FAIL
+                                   ? BATCHED_PUSH_TIMEOUT_UPDATE_SUCCESS
+                                   : BATCHED_PUSH_TIMEOUT_UPDATE_FAIL;
+            break;
+        case MAX_LATENCY:
+            mux_info->status = mux_info->status != MAX_LATENCY_UPDATE_FAIL
+                                   ? MAX_LATENCY_UPDATE_SUCCESS
+                                   : MAX_LATENCY_UPDATE_FAIL;
+            break;
+        default:
+            break;
+        }
+    }
+
+    gst_nvmultiurisrcbincreator_sync_children_states(nvmultiurisrcbin->nvmultiurisrcbinCreator);
+    gst_element_call_async(GST_ELEMENT(nvmultiurisrcbin),
+                           (GstElementCallAsyncFunc)gst_bin_sync_children_states, NULL, NULL);
+}
+
+static void s_enc_api_impl(NvDsEncInfo *enc_info, void *ctx)
+{
+    GstDsNvMultiUriBin *nvmultiurisrcbin = (GstDsNvMultiUriBin *)ctx;
+    (void)nvmultiurisrcbin;
+    guint sourceId = std::stoi(enc_info->stream_id);
+    GstEvent *nvevent = NULL;
+
+    if (!find_source(nvmultiurisrcbin->nvmultiurisrcbinCreator, sourceId)) {
+        switch (enc_info->enc_flag) {
+        case BITRATE:
+            enc_info->enc_log = "Not able to find source id";
+            enc_info->status = BITRATE_UPDATE_FAIL;
+            break;
+        case FORCE_IDR:
+            enc_info->enc_log = "Not able to find source id";
+            enc_info->status = FORCE_IDR_UPDATE_FAIL;
+            break;
+        case FORCE_INTRA:
+            enc_info->enc_log = "Not able to find source id";
+            enc_info->status = FORCE_INTRA_UPDATE_FAIL;
+            break;
+        case IFRAME_INTERVAL:
+            enc_info->enc_log = "Not able to find source id";
+            enc_info->status = IFRAME_INTERVAL_UPDATE_FAIL;
+            break;
+        default:
+            break;
+        }
+    } else {
+        switch (enc_info->enc_flag) {
+        case BITRATE:
+            nvevent = gst_nvevent_enc_bitrate_update((char *)enc_info->stream_id.c_str(),
+                                                     enc_info->bitrate);
+            if (!gst_pad_push_event((GstPad *)(nvmultiurisrcbin->bin_src_pad), nvevent)) {
+                g_print(
+                    "[WARN] nv-enc-bitrate-update event not pushed downstream.bitrate update "
+                    "failed on encoder.. !! \n");
+                enc_info->enc_log = !nvevent ? "nv-enc-bitrate-update event creation failed"
+                                             : "nv-enc-bitrate-update event not pushed";
+                enc_info->status = BITRATE_UPDATE_FAIL;
+            } else {
+                enc_info->status = BITRATE_UPDATE_SUCCESS;
+            }
+            break;
+        case FORCE_IDR:
+            nvevent =
+                gst_nvevent_enc_force_idr((char *)enc_info->stream_id.c_str(), enc_info->force_idr);
+            if (!gst_pad_push_event((GstPad *)(nvmultiurisrcbin->bin_src_pad), nvevent)) {
+                g_print(
+                    "[WARN] nv-enc-force-idr event not pushed downstream.force IDR frame failed on "
+                    "encoder .. !! \n");
+                enc_info->enc_log = !nvevent ? "nv-enc-force-idr event creation failed"
+                                             : "nv-enc-force-idr event not pushed";
+                enc_info->status = FORCE_IDR_UPDATE_FAIL;
+            } else {
+                enc_info->status = FORCE_IDR_UPDATE_SUCCESS;
+            }
+            break;
+        case FORCE_INTRA:
+            nvevent = gst_nvevent_enc_force_intra((char *)enc_info->stream_id.c_str(),
+                                                  enc_info->force_intra);
+            if (!gst_pad_push_event((GstPad *)(nvmultiurisrcbin->bin_src_pad), nvevent)) {
+                g_print(
+                    "[WARN] nv-enc-force-intra event not pushed downstream.force intra frame "
+                    "failed on encoder .. !! \n");
+                enc_info->enc_log = !nvevent ? "nv-enc-force-intra event creation failed"
+                                             : "nv-enc-force-intra event not pushed";
+                enc_info->status = FORCE_INTRA_UPDATE_FAIL;
+            } else {
+                enc_info->status = FORCE_INTRA_UPDATE_SUCCESS;
+            }
+            break;
+        case IFRAME_INTERVAL:
+            nvevent = gst_nvevent_enc_iframeinterval_update((char *)enc_info->stream_id.c_str(),
+                                                            enc_info->iframeinterval);
+            if (!gst_pad_push_event((GstPad *)(nvmultiurisrcbin->bin_src_pad), nvevent)) {
+                g_print(
+                    "[WARN] nv-enc-iframeinterval-update event not pushed downstream.iframe "
+                    "interval update failed on encoder .. !! \n");
+                enc_info->enc_log = !nvevent ? "nv-enc-iframeinterval-update event creation failed"
+                                             : "nv-enc-iframeinterval-update event not pushed";
+                enc_info->status = IFRAME_INTERVAL_UPDATE_FAIL;
+            } else {
+                enc_info->status = IFRAME_INTERVAL_UPDATE_SUCCESS;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+
+    gst_nvmultiurisrcbincreator_sync_children_states(nvmultiurisrcbin->nvmultiurisrcbinCreator);
+    gst_element_call_async(GST_ELEMENT(nvmultiurisrcbin),
+                           (GstElementCallAsyncFunc)gst_bin_sync_children_states, NULL, NULL);
+}
+
+static void s_osd_api_impl(NvDsOsdInfo *osd_info, void *ctx)
+{
+    GstDsNvMultiUriBin *nvmultiurisrcbin = (GstDsNvMultiUriBin *)ctx;
+    (void)nvmultiurisrcbin;
+
+    guint sourceId = std::stoi(osd_info->stream_id);
+
+    if (!find_source(nvmultiurisrcbin->nvmultiurisrcbinCreator, sourceId)) {
+        if (osd_info->osd_flag == PROCESS_MODE)
+            osd_info->status = PROCESS_MODE_UPDATE_FAIL;
+    } else {
+        GstEvent *nvevent = gst_nvevent_osd_process_mode_update((char *)osd_info->stream_id.c_str(),
+                                                                osd_info->process_mode);
+        if (!nvevent) {
+            osd_info->status = PROCESS_MODE_UPDATE_FAIL;
+            osd_info->osd_log = "nv-osd-process-mode-update event creation failed";
+        }
+
+        if (!gst_pad_push_event((GstPad *)(nvmultiurisrcbin->bin_src_pad), nvevent)) {
+            g_print("[WARN] nv-osd-process-mode-update event not pushed downstream.. !! \n");
+            osd_info->status = PROCESS_MODE_UPDATE_FAIL;
+            osd_info->osd_log = "nv-osd-process-mode-update event not pushed";
+        } else {
+            osd_info->status = PROCESS_MODE_UPDATE_SUCCESS;
+        }
+    }
+}
+
+static void s_appinstance_api_impl(NvDsAppInstanceInfo *appinstance_info, void *ctx)
+{
+    GstDsNvMultiUriBin *nvmultiurisrcbin = (GstDsNvMultiUriBin *)ctx;
+    (void)nvmultiurisrcbin;
+
+    if (!s_force_eos_handle(nvmultiurisrcbin->nvmultiurisrcbinCreator, appinstance_info)) {
+        if (appinstance_info->appinstance_flag == QUIT_APP) {
+            appinstance_info->app_log = "Unable to handle force-pipeline-eos nvmultiurisrcbin";
+            appinstance_info->status = QUIT_FAIL;
+        }
+    } else {
+        if (appinstance_info->appinstance_flag == QUIT_APP) {
+            appinstance_info->status = QUIT_SUCCESS;
+        }
     }
 }
 
@@ -1425,6 +1796,28 @@ static void rest_api_server_start(GstDsNvMultiUriBin *nvmultiurisrcbin)
     };
     server_cb.infer_cb = [nvmultiurisrcbin](NvDsInferInfo *infer_info, void *ctx) {
         s_infer_api_impl(infer_info, (void *)nvmultiurisrcbin);
+    };
+    server_cb.inferserver_cb = [nvmultiurisrcbin](NvDsInferServerInfo *inferserver_info,
+                                                  void *ctx) {
+        s_inferserver_api_impl(inferserver_info, (void *)nvmultiurisrcbin);
+    };
+    server_cb.conv_cb = [nvmultiurisrcbin](NvDsConvInfo *conv_info, void *ctx) {
+        s_conv_api_impl(conv_info, (void *)nvmultiurisrcbin);
+    };
+    server_cb.enc_cb = [nvmultiurisrcbin](NvDsEncInfo *enc_info, void *ctx) {
+        s_enc_api_impl(enc_info, (void *)nvmultiurisrcbin);
+    };
+    server_cb.mux_cb = [nvmultiurisrcbin](NvDsMuxInfo *mux_info, void *ctx) {
+        s_mux_api_impl(mux_info, (void *)nvmultiurisrcbin);
+    };
+
+    server_cb.osd_cb = [nvmultiurisrcbin](NvDsOsdInfo *osd_info, void *ctx) {
+        s_osd_api_impl(osd_info, (void *)nvmultiurisrcbin);
+    };
+
+    server_cb.appinstance_cb = [nvmultiurisrcbin](NvDsAppInstanceInfo *appinstance_info,
+                                                  void *ctx) {
+        s_appinstance_api_impl(appinstance_info, (void *)nvmultiurisrcbin);
     };
 
     NvDsServerConfig server_conf = {};
@@ -1458,7 +1851,7 @@ extern "C" gboolean gGstNvMultiUriSrcBinStaticInit();
 gboolean gGstNvMultiUriSrcBinStaticInit()
 {
     return gst_plugin_register_static(GST_VERSION_MAJOR, GST_VERSION_MINOR,
-                                      "nvdsgst_deepstream_bins2", DESCRIPTION, plugin_init_2, "6.2",
+                                      "nvdsgst_deepstream_bins2", DESCRIPTION, plugin_init_2, "6.3",
                                       LICENSE, BINARY_PACKAGE, PACKAGE, URL);
 }
 #endif

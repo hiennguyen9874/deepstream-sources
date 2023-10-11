@@ -113,6 +113,9 @@ static bool save_image(const std::string &path,
                   << "Should be less than " << sizeof(userData.fileNameImg) << " characters.";
         return false;
     }
+    if (obj_meta == NULL) {
+        userData.isFrame = 1;
+    }
     userData.saveImg = TRUE;
     userData.attachUsrMeta = FALSE;
     path.copy(userData.fileNameImg, path.size());
@@ -219,8 +222,6 @@ static void after_pgie_image_meta_save(AppCtx *appCtx,
 
     bool at_least_one_image_saved = false;
 
-    std::vector<std::unique_ptr<NvDsObjectMeta>> dummy_obj_meta_list;
-
     for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != nullptr;
          l_frame = l_frame->next) {
         NvDsFrameMeta *frame_meta = static_cast<NvDsFrameMeta *>(l_frame->data);
@@ -244,7 +245,7 @@ static void after_pgie_image_meta_save(AppCtx *appCtx,
         unsigned obj_counter = 0;
 
         bool at_least_one_confidence_is_within_range = false;
-        /// first loop to check if it is usefull to save metadata for the current frame
+        /// first loop to check if it is useful to save metadata for the current frame
         for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != nullptr;
              l_obj = l_obj->next) {
             NvDsObjectMeta *obj_meta = static_cast<NvDsObjectMeta *>(l_obj->data);
@@ -276,21 +277,11 @@ static void after_pgie_image_meta_save(AppCtx *appCtx,
                 if (data_was_stacked && !full_frame_written &&
                     g_img_meta_consumer.get_save_full_frame_enabled()) {
                     unsigned dummy_counter = 0;
-                    /// Creating a special object meta in order to save a full frame
-                    auto dummy_obj_meta_ptr = std::make_unique<NvDsObjectMeta>();
-
-                    dummy_obj_meta_ptr->rect_params.width =
-                        ip_surf->surfaceList[frame_meta->batch_id].width;
-                    dummy_obj_meta_ptr->rect_params.height =
-                        ip_surf->surfaceList[frame_meta->batch_id].height;
-                    dummy_obj_meta_ptr->rect_params.top = 0;
-                    dummy_obj_meta_ptr->rect_params.left = 0;
 
                     at_least_one_image_saved |=
-                        save_image(img_producer.get_image_full_frame_path_saved(), ip_surf,
-                                   dummy_obj_meta_ptr.get(), frame_meta, dummy_counter);
+                        save_image(img_producer.get_image_full_frame_path_saved(), ip_surf, NULL,
+                                   frame_meta, dummy_counter);
 
-                    dummy_obj_meta_list.push_back(std::move(dummy_obj_meta_ptr));
                     full_frame_written = true;
                 }
                 at_least_one_metadata_saved |= data_was_stacked;

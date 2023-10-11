@@ -382,16 +382,18 @@ static gboolean create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBi
         g_object_set(G_OBJECT(bin->encoder), "copy-meta", TRUE, NULL);
     }
 
-    switch (config->output_io_mode) {
-    case NV_DS_ENCODER_OUTPUT_IO_MODE_MMAP:
-    default:
-        g_object_set(G_OBJECT(bin->encoder), "output-io-mode", NV_DS_ENCODER_OUTPUT_IO_MODE_MMAP,
-                     NULL);
-        break;
-    case NV_DS_ENCODER_OUTPUT_IO_MODE_DMABUF_IMPORT:
-        g_object_set(G_OBJECT(bin->encoder), "output-io-mode",
-                     NV_DS_ENCODER_OUTPUT_IO_MODE_DMABUF_IMPORT, NULL);
-        break;
+    if (config->enc_type == NV_DS_ENCODER_TYPE_HW) {
+        switch (config->output_io_mode) {
+        case NV_DS_ENCODER_OUTPUT_IO_MODE_MMAP:
+        default:
+            g_object_set(G_OBJECT(bin->encoder), "output-io-mode",
+                         NV_DS_ENCODER_OUTPUT_IO_MODE_MMAP, NULL);
+            break;
+        case NV_DS_ENCODER_OUTPUT_IO_MODE_DMABUF_IMPORT:
+            g_object_set(G_OBJECT(bin->encoder), "output-io-mode",
+                         NV_DS_ENCODER_OUTPUT_IO_MODE_DMABUF_IMPORT, NULL);
+            break;
+        }
     }
 
     if (config->enc_type == NV_DS_ENCODER_TYPE_HW) {
@@ -404,6 +406,7 @@ static gboolean create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBi
         else {
             // bitrate is in kbits/sec for software encoder x264enc and x265enc
             g_object_set(G_OBJECT(bin->encoder), "bitrate", bitrate / 1000, NULL);
+            g_object_set(G_OBJECT(bin->encoder), "speed-preset", config->sw_preset, NULL);
         }
     }
 

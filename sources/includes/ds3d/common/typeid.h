@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -34,5 +34,7 @@
 #define DS3D_TYPEID_DEPTH_SCALE 0x20004
 #define DS3D_TYPEID_INTRINSIC_PARM 0x20005
 #define DS3D_TYPEID_EXTRINSIC_PARM 0x20006
+#define DS3D_TYPEID_VIDEOBRIDGE2D_PARM 0x20007
+#define DS3D_TYPEID_TRANSFORM_MATRIX 0x20008
 
 #endif // _DS3D_COMMON_TYPE_ID__H

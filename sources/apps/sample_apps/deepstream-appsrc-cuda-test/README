@@ -34,6 +34,14 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
+This example can be configured to use either the nvinfer or the nvinferserver
+element for inference.
+If nvinferserver is selected, the Triton Inference Server is used for inference
+processing. In this case, the example needs to be run inside the
+DeepStream-Triton docker container. Please refer
+samples/configs/deepstream-app-triton/README for the steps to download the
+container image and setup model repository.
+
 ===============================================================================
 2. Purpose:
 ===============================================================================
@@ -49,7 +57,7 @@ via appsink and used outside deepstream.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
   $ sudo make (sudo not required in case of docker containers)
 
 Note: This application is validated on x86.
@@ -79,6 +87,12 @@ To run the application with raw video stream:
   e.g.
   $ ./deepstream-appsrc-cuda-test /opt/nvidia/deepstream/deepstream/samples/streams/sample_720p.i420 1280 720 30 I420
 
+Use option "-t inferserver" to select nvinferserver as the inference plugin
+  $ ./deepstream-appsrc-cuda-test -t inferserver <Raw video stream (example: YUV)> <width of stream>
+      <height of stream> <expected FPS of stream> <format of stream (example: I420, NV12, RGBA)>
+  e.g.
+  $ ./deepstream-appsrc-cuda-test -t inferserver /opt/nvidia/deepstream/deepstream/samples/streams/sample_720p.i420 1280 720 30 I420
+    
 This sample uses appsrc APIs to push raw video frames copied to GPU memory into the pipeline,
 frames are read from a file into system memory.
 A cuda memory block is created where the raw video frames are copied. NvBufsurface parameters are updated and

@@ -23,8 +23,8 @@ Note: The Argus API is supported only on Jetson
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.2
-- Graph-Composer 2.5.0
+- DeepStreamSDK 6.3
+- Graph-Composer 3.0.0
 
 ================================================================================
 Running the graph
@@ -53,8 +53,8 @@ specific containers. The container builder configuration files have already been
 provided for this sample.
 
 * Building a DGPU container and running on the same host
-  $ container_builder -c ds_camera_container_builder_dgpu.yaml \
-        -d ../common/target_x86_64.yaml
+  $ container_builder build -c ds_camera_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml -wd $(pwd)
   $ xhost +
   $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
         --device /dev/video0 -e DISPLAY=:0 deepstream_camera_dgpu
@@ -63,8 +63,8 @@ provided for this sample.
 * Building a Jetson container on x86 host
 - In ds_camera_container_builder_jetson.yaml, change <docker-container-registry>
   to a valid docker registry where containers can be pushed, and then build:
-  $ container_builder -c ds_camera_container_builder_jetson.yaml \
-        -d ../common/target_aarch64.yaml
+  $ container_builder build -c ds_camera_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml -wd $(pwd)
 
 NOTE: The jetson container builder config uses the v4l2-usb-camera.parameters.yaml
 file for capturing frames using V4L2 API. To use the Argus API, modify the config

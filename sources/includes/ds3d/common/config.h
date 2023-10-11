@@ -26,6 +26,9 @@ enum class ComponentType : int {
     kDataFilter = 2,
     kDataRender = 3,
     kUserApp = 4,
+    kDataBridge = 5,
+    kDataMixer = 6,
+    kGstParseBin = 10,
 };
 
 struct ComponentConfig {
@@ -33,6 +36,9 @@ struct ComponentConfig {
     ComponentType type = ComponentType::kNone;
     std::string gstInCaps;
     std::string gstOutCaps;
+    std::string linkTo;
+    std::string linkFrom;
+    std::string withQueue; // choose from [src, sink]
     std::string customLibPath;
     std::string customCreateFunction;
     std::string configBody;
@@ -48,7 +54,10 @@ inline ComponentType componentType(const std::string &strType)
         {"ds3d::dataloader", ComponentType::kDataLoader},
         {"ds3d::datafilter", ComponentType::kDataFilter},
         {"ds3d::datarender", ComponentType::kDataRender},
+        {"ds3d::databridge", ComponentType::kDataBridge},
+        {"ds3d::datamixer", ComponentType::kDataMixer},
         {"ds3d::userapp", ComponentType::kUserApp},
+        {"ds3d::gstparsebin", ComponentType::kGstParseBin},
     };
     DS_ASSERT(!strType.empty());
     auto tpIt = kTypeMap.find(strType);
@@ -66,8 +75,14 @@ inline const char *componentTypeStr(ComponentType type)
         return "ds3d::datafilter";
     case ComponentType::kDataRender:
         return "ds3d::datarender";
+    case ComponentType::kDataBridge:
+        return "ds3d::databridge";
+    case ComponentType::kDataMixer:
+        return "ds3d::datamixer";
     case ComponentType::kUserApp:
         return "ds3d::userapp";
+    case ComponentType::kGstParseBin:
+        return "ds3d::gstparsebin";
     default:
         return "ds3d::unknown::component";
     }

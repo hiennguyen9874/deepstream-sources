@@ -19,6 +19,7 @@
 #include <gmodule.h>
 #include <gst/gst.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -461,6 +462,22 @@ int main(int argc, char *argv[])
     gboolean sync = TRUE;
     gboolean display = TRUE;
 
+    gboolean enc_hw_support = TRUE;
+
+    if (prop.integrated) {
+        FILE *ptr;
+        char device_name[50];
+        ptr = fopen("/proc/device-tree/model", "r");
+
+        if (ptr) {
+            while (fgets(device_name, 50, ptr) != NULL) {
+                if (strstr(device_name, "Orin") && (strstr(device_name, "Nano")))
+                    enc_hw_support = FALSE;
+            }
+        }
+        fclose(ptr);
+    }
+
     /* Check input arguments */
     if ((argc != 5)) {
         g_printerr("Usage: %s <uri> <run forever> <sink> <sync>\n", argv[0]);
@@ -558,6 +575,9 @@ int main(int argc, char *argv[])
     } else {
         sink = gst_element_factory_make("nvvideoencfilesinkbin", "sink");
         g_object_set(G_OBJECT(sink), "container", 2, "output-file", "test.mkv", NULL);
+        if (!enc_hw_support) {
+            g_object_set(G_OBJECT(sink), "enc-type", 1, NULL);
+        }
     }
 
     if (!pgie || !sgie1 || !sgie2 || !sgie3 || !tiler || !nvvideoconvert || !nvosd || !sink ||

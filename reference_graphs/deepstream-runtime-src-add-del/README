@@ -21,8 +21,8 @@ source or remove source Http request.
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.2
-- Graph-Composer 2.5.0
+- DeepStreamSDK 6.3
+- Graph-Composer 3.0.0
 
 ================================================================================
 Running the graph
@@ -32,7 +32,7 @@ $ /opt/nvidia/graph-composer/execute_graph.sh deepstream-runtime-src-add-del.yam
       parameters.yaml -d ../common/target_x86_64.yaml
 
 $ /opt/nvidia/graph-composer/execute_graph.sh deepstream-runtime-src-add-del-as-a-service.yaml \
-      parameters.yaml -d ../common/target_x86_64.yaml
+      -d ../common/target_x86_64.yaml
 * Using client to add or remove input stream on the same host
   Add stream with id 1:
   $ curl -X POST "http://localhost:8082/AddStream/stream" -d "{\"sensor\":{\"id\": \"1\", \"uri\": \"file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4\"}}"
@@ -52,7 +52,7 @@ On Jetson:
 $ /opt/nvidia/graph-composer/execute_graph.sh deepstream-runtime-src-add-del.yaml \
       parameters.yaml -d ../common/target_aarch64.yaml
 
-NOTE: deepstream-runtime-src-add-del.yaml and deepstream-runtime-src-add-del-as-a-service.yaml 
+NOTE: deepstream-runtime-src-add-del.yaml and deepstream-runtime-src-add-del-as-a-service.yaml
 are the main graph file describing the DeepStream
 graph(pipeline) along with the configuration parameters for the components in the
 graph. parameters.yaml can be used to override these parameter values.
@@ -65,8 +65,8 @@ specific containers. The container builder configuration files have already been
 provided for this sample.
 
 * Building a DGPU container and running on the same host
-  $ container_builder -c ds_runtime_src_add_del_container_builder_dgpu.yaml \
-        -d ../common/target_x86_64.yaml
+  $ container_builder build -c ds_runtime_src_add_del_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml -wd $(pwd)
   $ xhost +
   $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
         -e DISPLAY=:0 deepstream_runtime_src_add_del_dgpu
@@ -75,8 +75,8 @@ provided for this sample.
 * Building a Jetson container on x86 host
 - In ds_runtime_src_add_del_container_builder_jetson.yaml, change <docker-container-registry>
   to a valid docker registry where containers can be pushed, and then build:
-  $ container_builder -c ds_runtime_src_add_del_container_builder_jetson.yaml \
-        -d ../common/target_aarch64.yaml
+  $ container_builder build -c ds_runtime_src_add_del_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml -wd $(pwd)
 
 - Push the built image to the docker registry:
   $ docker push <docker-container-registry>:deepstream-runtime-src-add-del-jetson

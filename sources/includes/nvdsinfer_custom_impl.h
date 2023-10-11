@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2017-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 /**
@@ -299,6 +300,46 @@ typedef bool (*NvDsInferClassiferParseCustomFunc)(
         std::vector<NvDsInferLayerInfo> const &outputLayersInfo,                     \
         NvDsInferNetworkInfo const &networkInfo, float classifierThreshold,          \
         std::vector<NvDsInferAttribute> &attrList, std::string &descString);
+
+/**
+ * Type definition for the custom semantic segmentation output parsing function.
+ *
+ * @param[in]  outputLayersInfo  A vector containing information on the
+ *                               output layers of the model.
+ * @param[in]  networkInfo       Network information.
+ * @param[in]  segmentationThreshold
+ *                               Segmentation confidence threshold.
+ * @param[in]  numClasses        Number of classes in the segmentation output.
+ * @param[out] classificationMap Pointer to interger array of image height *
+ *                               width where the semantic segmentation output
+ *                               index is stored after parsing.
+ * @param[out] classProbabilityMap
+ *                               A reference to a pointer which can be used to
+ *                               point to the probability map of the
+ *                               segmentation output. Can be set to null.
+ */
+typedef bool (*NvDsInferSemSegmentationParseCustomFunc)(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    float segmentationThreshold,
+    unsigned int numClasses,
+    int *classificationMap,
+    float *&classProbabilityMap);
+
+/**
+ * Validates the semantic segmentation custom parser function definition.
+ * Must be called after defining the function.
+ */
+#define CHECK_CUSTOM_SEM_SEGMENTATION_PARSE_FUNC_PROTOTYPE(customParseFunc)                  \
+    static void checkFunc_##customParseFunc(NvDsInferSemSegmentationParseCustomFunc func =   \
+                                                customParseFunc)                             \
+    {                                                                                        \
+        checkFunc_##customParseFunc();                                                       \
+    };                                                                                       \
+    extern "C" bool customParseFunc(std::vector<NvDsInferLayerInfo> const &outputLayersInfo, \
+                                    NvDsInferNetworkInfo const &networkInfo,                 \
+                                    float segmentationThreshold, unsigned int numClasses,    \
+                                    int *classificationMap, float *&classProbabilityMap);
 
 typedef struct _NvDsInferContextInitParams NvDsInferContextInitParams;
 

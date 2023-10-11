@@ -31,6 +31,15 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
+This example can be configured to use either the nvinfer or the nvinferserver
+element for inference.
+If nvinferserver is selected, the Triton Inference Server is used for inference
+processing. In this case, the example needs to be run inside the
+DeepStream-Triton docker container for dGPU platforms. For Jetson platforms,
+this example can be executed on target device directly or inside DeepStream L4T
+Triton container. Please refer samples/configs/deepstream-app-triton/README for
+the steps to download the container image and setup model repository.
+
 For RHEL Systems:
    The application has a dependency on libjpeg.so.8 which has to be installed
    separately by the user.
@@ -60,7 +69,7 @@ It demonstrates, how to encode objects detected by nvinfer in jpeg format.
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
   $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
@@ -73,6 +82,12 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
 e.g.
   $ ./deepstream-image-meta-test 0 file:///home/ubuntu/video1.mp4
   $ ./deepstream-image-meta-test 0 rtsp://127.0.0.1/video1
+
+Use option "-t inferserver" to select nvinferserver as the inference plugin
+  $ ./deepstream-image-meta-test -t inferserver <gpu_id> <uri1> [uri2] ... [uriN]
+e.g.
+  $ ./deepstream-image-meta-test -t inferserver 0 file:///home/ubuntu/video1.mp4
+  $ ./deepstream-image-meta-test -t inferserver 0 rtsp://127.0.0.1/video1
 
 NOTE: Run app with `sudo` or change directory and file permissions
 as necessary.
@@ -88,12 +103,13 @@ For reference, here are the config files used for this sample :
 1. The 4-class detector (referred to as pgie in this sample) uses
     ds_image_meta_pgie_config.txt
 
-In this sample, one instance of "nvinfer" referred as the pgie, is created.
+In this sample, one instance of either "nvinfer" or "nvinferserver" element
+referred as the pgie, is created.
 This is a 4 class detector and it detects for "Vehicle , RoadSign, TwoWheeler,
 Person".
-nvinfer element attaches some object MetaData to the buffer. By attaching
-the probe function at the end of the nvinfer component, one can extract
-meaningful information about the different objects which have been detected.
+The "nvinfer" element uses TensorRT API to infer
+on frames/objects. The "nvinferserver" element uses the Triton Inference
+Server to infer on frames/objects.
 With this information detected objects are encoded using the
 "nvds_obj_enc_start_encode" API. Refer the "nvds_obj_encode.h" public header
 file for details. Please refer the "pgie_src_pad_buffer_probe" function in the

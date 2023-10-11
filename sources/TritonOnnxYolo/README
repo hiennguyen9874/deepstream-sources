@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
 # NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -43,7 +43,7 @@ Pre-requisites:
   https://catalog.ngc.nvidia.com/orgs/nvidia/containers/deepstream
   to download deepstream-triton image.
   $ docker pull nvcr.io/nvidia/deepstream:[version]-triton
-   [version] means deepstream version numbers e.g. 6.2.0
+   [version] means deepstream version numbers e.g. 6.3.0
   $ xhost +
   Set correct $DISPLAY variables on host, then run deepstream-triton docker container.
    $ docker run --gpus '"'device=0'"' -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix \
@@ -69,7 +69,7 @@ Compile the custom library:
 
   $ Set CUDA_VER in the MakeFile as per platform.
     For Jetson, CUDA_VER=11.4
-    For x86, CUDA_VER=11.8
+    For x86, CUDA_VER=12.1
 
   $ make -C nvdsinferserver_custom_impl_yolo
 
@@ -96,7 +96,7 @@ Run the ONNX sample with DeepStream Triton gRPC remote inference:
   Follow instructions in `samples/configs/deepstream-app-triton-grpc/README` to
   start tritonserver by
   $ tritonserver \
-    --model-repository=/opt/nvidia/deepstream/deepstream-6.2/sources/TritonOnnxYolo/triton_model_repo
+    --model-repository=/opt/nvidia/deepstream/deepstream-6.3/sources/TritonOnnxYolo/triton_model_repo
 
   Update config_triton_inferserver_primary_yolov3_onnx_custom.txt,
   disable 'model_repo{}' block and enable 'grpc{}' with correct url.

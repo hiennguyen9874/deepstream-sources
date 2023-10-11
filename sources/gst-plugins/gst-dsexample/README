@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -47,5 +47,7 @@ batch-size=1
 unique-id=15
 gpu-id=0
 blur-objects=0
-# Supported memory types for blur-objects are 1 and 3
+# Supported memory types for blur-objects:
+# For x86: 1 and 3
+# For Jetson: 0
 nvbuf-memory-type=3

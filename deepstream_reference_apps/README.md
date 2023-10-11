@@ -1,6 +1,6 @@
-# Reference Apps using DeepStream 6.2
+# Reference Apps using DeepStream 6.3
 
-This repository contains the reference applications for video analytics tasks using TensorRT and DeepSTream SDK 6.2 .
+This repository contains the reference applications for video analytics tasks using TensorRT and DeepSTream SDK 6.3.
 
 ## Getting Started
 
@@ -16,7 +16,7 @@ For further details, please see each project's README.
 ### back-to-back-detectors : [README](back-to-back-detectors/README.md)
 
 The project shows usage of 2 detectors in cascaded mode
-![sample back to back output](back-to-back-detectors/.backtobackdetectors.png)
+![sample back-to-back-detectors output](back-to-back-detectors/.backtobackdetectors.png)
 
 ### Anomaly Detection : [README](anomaly/README.md)
 

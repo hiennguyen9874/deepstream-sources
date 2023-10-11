@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -177,6 +177,13 @@ NvDsInferStatus InferGrpcContext::createNNBackend(const ic::BackendParams &param
                                                   int maxBatchSize,
                                                   UniqBackend &backend)
 {
+    assert(config().gpu_ids_size());
+    int32_t defaultGpu = config().gpu_ids(0);
+    CTX_RETURN_CUDA_ERR(cudaSetDevice(defaultGpu),
+                        "InferGrpcContext failed to set cuda device(%d) during creating"
+                        "NN backend",
+                        defaultGpu);
+
     const ic::TritonParams &tritonParams = getTritonParam(params);
     const std::string model = tritonParams.model_name();
 

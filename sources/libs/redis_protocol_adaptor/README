@@ -26,11 +26,10 @@ Build dependencies with installation instructions:
 
   git clone https://github.com/redis/hiredis.git
   cd hiredis
-  git reset --hard d5b4c69b7113213c1da3a0ccbfd1ee1b40443c7a
+  git checkout tags/v1.0.2
   make USE_SSL=1
   sudo cp libhiredis* /opt/nvidia/deepstream/deepstream/lib/
-  sudo ln -sf /opt/nvidia/deepstream/deepstream/lib/libhiredis.so /opt/nvidia/deepstream/deepstream/lib/libhiredis.so.1.0.1-dev
-  sudo ln -sf /opt/nvidia/deepstream/deepstream/lib/libhiredis_ssl.so /opt/nvidia/deepstream/deepstream/lib/libhiredis.so.1.0.1-dev-ssl
+  sudo ln -sf /opt/nvidia/deepstream/deepstream/lib/libhiredis.so /opt/nvidia/deepstream/deepstream/lib/libhiredis.so.1.0.0
   sudo ldconfig
 
 

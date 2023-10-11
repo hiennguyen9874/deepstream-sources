@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -28,6 +28,7 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 #include <nvbufsurface.h>
+#include <stdio.h>
 
 G_BEGIN_DECLS
 
@@ -78,6 +79,18 @@ struct _GstNvVideoTestSrc {
     unsigned int cuda_block_size;
     unsigned int cuda_num_blocks;
     void (*cuda_fill_image)(GstNvVideoTestSrc *src);
+
+    // File read related
+    gchar *filename; /* filename */
+    FILE *file_handle;
+    guint64 read_position;                  /* position of fd */
+    NvBufSurface *file_read_surface = NULL; /* surface for file read */
+    gboolean file_loop;
+
+    // Jitter related
+    guint max_jitter = 0; // max jitter in ms
+    GstClockTime last_buffer_start_timestamp = 0;
+    void *p_fixed_jitter_list = NULL;
 };
 
 struct _GstNvVideoTestSrcClass {

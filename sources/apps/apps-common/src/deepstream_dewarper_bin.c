@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -54,6 +54,12 @@ gboolean create_dewarper_bin(NvDsDewarperConfig *config, NvDsDewarperBin *bin)
         goto done;
     }
 
+    bin->conv_queue = gst_element_factory_make(NVDS_ELEM_QUEUE, "dewarper_conv_queue");
+    if (!bin->conv_queue) {
+        NVGSTDS_ERR_MSG_V("Failed to create 'dewarper_conv_queue'");
+        goto done;
+    }
+
     bin->cap_filter = gst_element_factory_make(NVDS_ELEM_CAPS_FILTER, "dewarper_caps");
     if (!bin->cap_filter) {
         NVGSTDS_ERR_MSG_V("Failed to create 'dewarper_caps'");
@@ -89,8 +95,8 @@ gboolean create_dewarper_bin(NvDsDewarperConfig *config, NvDsDewarperBin *bin)
 
     g_object_set(G_OBJECT(bin->dewarper_caps_filter), "caps", caps, NULL);
 
-    gst_bin_add_many(GST_BIN(bin->bin), bin->queue, bin->src_queue, bin->nvvidconv, bin->cap_filter,
-                     bin->nvdewarper, bin->dewarper_caps_filter, NULL);
+    gst_bin_add_many(GST_BIN(bin->bin), bin->queue, bin->src_queue, bin->conv_queue, bin->nvvidconv,
+                     bin->cap_filter, bin->nvdewarper, bin->dewarper_caps_filter, NULL);
 
     g_object_set(G_OBJECT(bin->nvvidconv), "gpu-id", config->gpu_id, NULL);
     g_object_set(G_OBJECT(bin->nvvidconv), "nvbuf-memory-type", config->nvbuf_memory_type, NULL);
@@ -100,12 +106,14 @@ gboolean create_dewarper_bin(NvDsDewarperConfig *config, NvDsDewarperBin *bin)
 
     g_object_set(G_OBJECT(bin->nvdewarper), "source-id", config->source_id, NULL);
     g_object_set(G_OBJECT(bin->nvdewarper), "nvbuf-memory-type", config->nvbuf_memory_type, NULL);
+    g_object_set(G_OBJECT(bin->nvdewarper), "num-output-buffers", config->num_out_buffers, NULL);
 
     NVGSTDS_LINK_ELEMENT(bin->queue, bin->nvvidconv);
 
     NVGSTDS_LINK_ELEMENT(bin->nvvidconv, bin->cap_filter);
+    NVGSTDS_LINK_ELEMENT(bin->cap_filter, bin->conv_queue);
 
-    NVGSTDS_LINK_ELEMENT(bin->cap_filter, bin->nvdewarper);
+    NVGSTDS_LINK_ELEMENT(bin->conv_queue, bin->nvdewarper);
 
     NVGSTDS_LINK_ELEMENT(bin->nvdewarper, bin->dewarper_caps_filter);
     NVGSTDS_LINK_ELEMENT(bin->dewarper_caps_filter, bin->src_queue);

@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "infer_grpc_client.h"
@@ -18,7 +19,7 @@
 #include "infer_utils.h"
 
 /* Maximum size of buffer name string */
-#define MAX_STR_LEN 32
+#define MAX_STR_LEN 64
 
 namespace nvdsinferserver {
 
@@ -191,7 +192,8 @@ static cudaError_t CreateCUDAIPCHandle(cudaIpcMemHandle_t *cudaHandle,
 
 tc::Error InferGrpcClient::SetInputCudaSharedMemory(tc::InferInput *inferInput,
                                                     const SharedBatchBuf &inbuf,
-                                                    SharedGrpcRequest request)
+                                                    SharedGrpcRequest request,
+                                                    uint64_t bufId)
 {
     tc::Error err;
     cudaIpcMemHandle_t inputCudaHandle;
@@ -199,7 +201,7 @@ tc::Error InferGrpcClient::SetInputCudaSharedMemory(tc::InferInput *inferInput,
     const InferBufferDescription &inDesc = inbuf->getBufDesc();
     size_t bytes = inbuf->getTotalBytes();
 
-    snprintf(bufferName, MAX_STR_LEN, "inbuf_%p", inbuf.get());
+    snprintf(bufferName, MAX_STR_LEN, "inbuf_%p_%lu", inbuf.get(), bufId);
     std::string inputCudaBufName(bufferName);
 
     cudaError_t cuErr =
@@ -217,7 +219,13 @@ tc::Error InferGrpcClient::SetInputCudaSharedMemory(tc::InferInput *inferInput,
         return err;
     }
 
-    err = inferInput->SetSharedMemory(inputCudaBufName, bytes, 0 /* offset */);
+    size_t bufOffset = inbuf->getBufOffset(0);
+    if (bufOffset == (size_t)-1) {
+        return tc::Error("Invalid CUDA buffer offset.");
+    }
+    err = inferInput->SetSharedMemory(
+        inputCudaBufName, bytes, bufOffset /* Offset of the buffer from the start of allocation */
+    );
     if (!err.IsOk()) {
         InferError("Unable to set shared memory for input.");
         return err;
@@ -288,7 +296,7 @@ SharedGrpcRequest InferGrpcClient::createRequest(const std::string &model,
             }
 #ifndef __aarch64__
             if (m_EnableCudaBufferSharing) {
-                err = SetInputCudaSharedMemory(inferInput, inbuf, request);
+                err = SetInputCudaSharedMemory(inferInput, inbuf, request, inputs->bufId());
             } else
 #endif /* __aarch64__ */
             {
@@ -474,7 +482,7 @@ void InferGrpcClient::InferComplete(tc::InferResult *result,
         };
 
         SharedBatchBuf outBatchBuf;
-        outBatchBuf.reset(new RefBatchBuffer((void *)outBuf, byte_size, bufDesc, batchSize),
+        outBatchBuf.reset(new RefBatchBuffer((void *)outBuf, 0, byte_size, bufDesc, batchSize),
                           [result_ptr](RefBatchBuffer *batchBuf) { delete batchBuf; });
         outputsArr->addBuf(outBatchBuf);
     }

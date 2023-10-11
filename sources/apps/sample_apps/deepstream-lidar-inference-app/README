@@ -12,31 +12,32 @@
 # deepstream_lidar_inference_app
 
 ## Introduction
-The deepstream_lidar_inference_app provides an end-to-end inference sample for [PointPillars](https://arxiv.org/abs/1812.05784) with deepstream.
+This sample app provides an end-to-end lidar 3D inference and rendering solution with
+[PointPillars](https://arxiv.org/abs/1812.05784) models.
 
 
-A single configuration file is deployed for the whole pipelines. All components
+A single configuration file is deployed for the whole pipeline. All components
 are updated in same config file. These components are setup by different `type`
   - `type: ds3d::dataloader`: load data source component.
   - `type: ds3d::datafilter`: load data filter component.
   - `type: ds3d::datarender`: load data sink/render component.
-Each components are loaded through `custom_lib_path`, created through `custom_create_function`.
-deepstream pipeline manages the life cycle of each components.
+Each component is loaded through `custom_lib_path`, and created through `custom_create_function`.
+deepstream pipeline manages the life cycle of each component.
 
-The processing pipeline could be dataloader -> datafilter -> datarender. All of them
-are custom libs and connected by Deepstream Gstreamer pipelines.
+The processing pipeline is launched as dataloader -> datafilter -> datarender.
+Each of them is implemented inside custom lib and connected by Deepstream pipelines.
 - `ds3d::dataloader` is created by explicit call of `NvDs3D_CreateDataLoaderSrc`.
   During this API call, the `custom_lib_path` is loaded and a specific data loader
   is created by `custom_create_function`. Meanwhile GstAppsrc is created and starts
   managing `ds3d::dataloader` dataflows. Component `ds3d::dataloader` could be
   started by gst-pipeline automatically or by application call dataloader->start()
-  manually. It is configured by YAML format with datatype: ds3d::dataloader.
+  manually. It is configured by YAML format with datatype: `ds3d::dataloader`.
 - `ds3d::datarender` is created by explicit call of `NvDs3D_CreateDataRenderSink`.
   During this API call, the `custom_lib_path` is loaded and a specific data render
   is created by `custom_create_function`. Meanwhile GstAppsink is created and starts
   managing `ds3d::datarender` dataflows. Component `ds3d::datarender` could be
   started by gst-pipeline automatically or by application call datarender->start()
-  function manually. It is configured by YAML format with datatype: ds3d::datarender.
+  function manually. It is configured by YAML format with datatype: `ds3d::datarender`.
 - `ds3d::datafilter` is loaded through DeepStream Gst-plugin `nvds3dfilter`.
   It is started by gst_element_set_state(GST_STATE_READY). During this API call,
   the `custom_lib_path` is loaded and a specific data render is created by
@@ -44,14 +45,19 @@ are custom libs and connected by Deepstream Gstreamer pipelines.
   Gst-plugin `nvds3dfilter` have properties `config-content` and `config-file`.
   One of them must be set to create a datafilter object.
 
-Inside the configuration files. `in_caps` and `out_caps` correspond to Gstreamer's
+Inside these configuration files. `in_caps` and `out_caps` are corresponding to Gstreamer's
 sinck_caps and src_caps.
 
 ## Main Features
 
-* Support lidar infer models inference with [nvinferserver](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvinferserver.html)(Triton)
-* gst-nvinferserver inferencing as Triton CAPI client
-* gst-nvinferserver inferencing as Triton gRPC client
+* Supports lidar infer models inference with DeepStream Triton filter.
+* Supports Triton inference modes:
+    - CAPI Native inference
+    - gRPC remote client inference
+* Supports lidar custom preprocessing(point pillar) and postprocessing(detection)
+  for inference.
+* Support GLES Lidar data, 3D bbox and labels rendering.
+* Support lidar file input and 3D detection bbox file dump.
 
 ## Performance
 Below table shows the end-to-end performance with this sample application.
@@ -65,7 +71,7 @@ Below table shows the end-to-end performance with this sample application.
 
 
 # Prerequisites
-DeepStream SDK 6.x.x
+DeepStream SDK
 Download and install from https://developer.nvidia.com/deepstream-download
 
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
@@ -78,7 +84,6 @@ You must have the following development packages installed
    GStreamer-1.0 gstrtspserver
    X11 client-side library
    libyaml-cpp-dev
-   Realsense SDK
 
 To install these packages, execute the following command:
 
@@ -86,49 +91,23 @@ To install these packages, execute the following command:
    libgstrtspserver-1.0-dev libx11-dev libyaml-cpp-dev
 
 # Prepare Trtion Enviroment(Only For DGPU)
+DeepStream lidar sample application could be deployed as 2 different modes: Triton CAPI Native
+Inference or Triton gRPC Remote Inference Client. Users can follow below instructions
+to run the 2 modes.
+For x86 platforms, This app must run inside deepstream-triton containers.
+Follow tags in  https://catalog.ngc.nvidia.com/orgs/nvidia/containers/deepstream to get
+latest version.
 
-DeepStream applications can work as Triton Inference client. So the corresponding Triton Inference Server should be started before the Triton client start to work.
+$ export DS_TRITON_IMG=nvcr.io/nvidia/deepstream:6.3-triton
+$ docker pull ${DS_TRITON_IMG}
+Note: for other latest version, switch to deepstream:x.x.x-triton. [x.x.x] stands for
+the version numbers.
 
-An immediate way to start a corresponding Triton Server is to use Triton containers provided in [NGC](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tritonserver). Since every DeepStream version has its corresponding Triton Server version, so the reliable way is to use [DeepStream Triton container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/deepstream).
-## Triton CAPI deployment
-Start Triton docker
-```
-    $ docker run --gpus all -it  --ipc=host --rm -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY -w /opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream_lidar_inference_app  nvcr.io/nvidia/deepstream:6.2-triton
-```
-Generate inference engines
-```
-    $ cd tritonserver/
-    $ sudo ./build_engine.sh       # this will take some time to build TensorRT engines
-```
+## Triton CAPI Native Inference deployment
+Follow instructions in `README.Triton_DGPU` to setup DeepStream Triton CAPI testing environment
 
-##  Triton GRPC deployment
-start Triton server docker
-
-```
-    #start Triton docker, "-p 10001:8001" is used to map docker container's 8000 port to host's 10000 port, these ports can be changed.
-    $ docker run --gpus all -it  --ipc=host --rm -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY -p 10000:8000 -p 10001:8001 -p 10002:8002 -w /opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-lidar-inference-app  nvcr.io/nvidia/deepstream:6.2-triton
-```
-Generate inference engines
-```
-    $ cd tritonserver/
-    $ sudo ./build_engine.sh       # this will take some time to build TensorRT engines
-```
-start Tritonserver application program
-```
-    $ tritonserver --model-repository=./models --strict-model-config=false --grpc-infer-allocation-pool-size=16 --log-verbose=1
-```
-Start Triton client
-```
-    $ docker run --gpus all -it  --ipc=host --rm -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY -w /opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-lidar-inference-app  nvcr.io/nvidia/deepstream:6.2-triton
-```
-Set config_file to triton_mode_CAPI.txt in config_lidar_triton_infer.yaml, fill the actual grpc url in triton_mode_GRPC.txt, the gRPC url setting looks like:
-```
-    grpc {
-        url: "10.23.89.105:10001"
-    }
-```
-Here don't use localhost if starting server docker without "--net=host", localhost won't work even though both server & client are running on the same host.
-On the client side, "curl -v IP:10000/v2/health/ready" is used to check if a connection can be established.
+## Triton gRPC Inference deployment
+Follow instructions in `README.Triton_DGPU_GRPC` to setup DeepStream Triton gRPC testing environment
 
 # Prepare Trtion Enviroment(only for Jetson)
 please refer to [README.Triton_Jetson](./README.Triton_Jetson)
@@ -140,61 +119,36 @@ please refer to [README.Triton_Jetson](./README.Triton_Jetson)
    $ sudo make (sudo not required in case of docker containers)
    $ sudo make install (sudo not required in case of docker containers)
 ```
-NOTE: To compile the sources, run make with "sudo" or root permission.
+Note: To compile the sources, run make with "sudo" or root permission.
 
 2. Prepare Data
 ```
-    We suggest you train your own model if you want to use your lidar data. You also need to generate a data list file like configs/lidar_data_list.yaml.
+    We suggest you train your own model if you want to use your lidar data.
+    Users also need to generate a data list file like configs/lidar_data_list.yaml.
+
     format:  - timestamp(us): lidar_data_path
 ```
 3. Run
 
 There are two sample pipelines.
+Note: For x86 platforms, users must run the samples inside the container.
 
-3.1 config_lidar_triton_infer.yaml is used to save inference results into files.
+3.1 config_lidar_triton_infer.yaml is configured to save detection inference
+    results into files.
 ```
-    $ sudo mkdir datas
+    $ sudo mkdir data
     $ sudo ./deepstream-lidar-inference-app -c configs/config_lidar_triton_infer.yaml
 ```
 
-3.2 config_lidar_source_triton_render.yaml is used to render the lidar data and the lidar 3D Bboxes on screen.
+3.2 config_lidar_source_triton_render.yaml is configured to render the 3D
+    data and 3D detection bounding boxes through GLES on screen.
 ```
-$ deepstream-lidar-inference-app -c configs/config_lidar_source_triton_render.yaml
+    $ deepstream-lidar-inference-app -c configs/config_lidar_source_triton_render.yaml
+    Press CTL+C to exit the process when `file_loop` is enabled.
 ```
 # Application Configuration Semantics
-The lidar inferencing app uses the YAML configuration file to config GIEs, sources, and other features of the pipeline. The basic group semantics is the same as [deepstream-app](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_ref_app_deepstream.html#expected-output-for-the-deepstream-reference-application-deepstream-app).
-
-Please refer to deepstream-app [Configuration Groups](https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_ref_app_deepstream.html#configuration-groups) part for the semantics of corresponding groups.
-
 There are additional new sections introduced by the lidar inferencing app.
-
-### lidarsource
-| Key              |Meaning                                            |Type and Value             | Example                  |Plateforms|
-|------------------|---------------------------------------------------|---------------------------|--------------------------|----------|
-|data_config_file  |lidar data list file path                          |string                     |lidar_data_list.yaml      |All       |
-|points_num        |number of the points                               |fixed value                |204800                    |All       |
-|lidar_datatype    |data type of the dataset                           |String:FP32 FP16 INT8 INT32|FP32                      |All       |
-|mem_type          |memory type of process data:just support cpu now   |String:cpu gpu             |cpu                       |All       |
-|mem_pool_size     |Size of the data read pool                         |Integer, >0                |4                         |All       |
-|output_datamap_key|datamap key in lidarsource                         |string                     |DS3D::LidarXYZI           |All       |
-|file_loop         |whether datas need to be read circulary            |Integer: False,True        |False                     |All       |
-
-### lidarfilter
-| Key                     |    Meaning                                 | Type and Value        | Example                                        | Plateforms   |
-|-------------------------|--------------------------------------------|-----------------------|------------------------------------------------|--------------|
-|in_streams               |which data type will be processed           |fixed value            |in_streams: [lidar]                             |All(dGPU, Jetson)|
-|mem_pool_size            |Size of the input tensor pool               |Integer, >0            |mem_pool_size: 8                                |All|
-|model_inputs             |model 's input layers                       |Array                  |refer to config_lidar_triton_infer.yaml         |All|
-|model_outputs            |model 's output layers                      |Array                  |refer to config_lidar_triton_infer.yaml         |All|
-|input_tensor_mem_type    |input tensor memory type after preprocess   |String GpuCuda/CpuCuda |input_tensor_mem_type: GpuCuda                  |All|
-|config_file              |nvinferserver configuration file            |String                 |config_file: triton_mode_CAPI.txt               |All|
-|filter_input_datamap_key |input datamap key from lidarsource          |String                 |filter_input_datamap_key: DS3D::LidarXYZI       |All|
-
-### lidarrender
-| Key             | Meaning                              |Type and Value| Example                | Plateforms   |
-|-----------------|--------------------------------------|--------------|------------------------|--------------|
-|frames_save_path |the path of the render file           |string        |../datas/               |All           |
-|input_datamap_key|input key from the custom_postprocess |string        |DS3D::Lidar3DBboxRawData|All           |
+please refer to https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_3D_Lidar_Inference.html#deepstream-lidar-inference-app-ds3d-userapp-group-settings
 
 ## Notice
 1. model will gives different num_boxes each time when testing the same file.

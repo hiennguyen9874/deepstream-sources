@@ -24,6 +24,9 @@ local_copy_files:
 resources_files:
   - resources.yaml
 
+custom_runs:
+  - "chmod 1777 /tmp && /opt/nvidia/deepstream/deepstream/user_additional_install.sh" # Additional packages needed to run the app
+
 work_folder: /workspace/deepstream-test5/
 env_list:
   PATH: "/opt/nvidia/graph-composer:$PATH"

@@ -81,6 +81,12 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
             }
         }
 
+        /* top and left should not be less than 0 */
+        if (obj.top < 0)
+            obj.top = 0;
+        if (obj.left < 0)
+            obj.left = 0;
+
         /* Check if the scaled box co-ordinates meet the detection filter criteria.
          * Skip the box if it does not. */
         if (nvinfer->filter_out_class_ids->find(obj.classIndex) !=
@@ -95,10 +101,6 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
         if (filter_params.detectionMaxHeight > 0 && obj.height > filter_params.detectionMaxHeight)
             continue;
         if (nvinfer->crop_objects_to_roi_boundary) {
-            if (obj.top < 0)
-                obj.top = 0;
-            if (obj.left < 0)
-                obj.left = 0;
             if (obj.top < filter_params.roiTopOffset)
                 obj.top = filter_params.roiTopOffset;
             if (obj.left + obj.width >= frame.input_surf_params->width)

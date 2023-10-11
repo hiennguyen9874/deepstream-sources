@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -44,6 +44,10 @@
  * - <a href="https://specs.amwa.tv/is-05/">AMWA IS-05 NMOS Device Connection Management
  * Specification</a> v1.1
  * - <a href="https://specs.amwa.tv/is-09/">AMWA IS-09 NMOS System Parameters Specification</a> v1.0
+ * - <a href="https://specs.amwa.tv/bcp-002-01/">AMWA BCP-002-01 Natural Grouping of NMOS
+ * Resources</a> v1.0
+ * - <a href="https://specs.amwa.tv/bcp-002-02/">AMWA BCP-002-02 NMOS Asset Distinguishing
+ * Information</a> v1.0
  * - <a href="https://specs.amwa.tv/bcp-004-01/">AMWA BCP-004-01 NMOS Receiver Capabilities</a> v1.0
  * - Session Description Protocol conforming to SMPTE ST 2110-20 and -30
  *
@@ -53,6 +57,32 @@
 
 #ifndef NVDSNMOS_H
 #define NVDSNMOS_H
+
+#if defined(NVDSNMOS_EXPORTS)
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+#define NVDSNMOS_API __declspec(dllexport)
+#elif defined(__GNUC__) && (__GNUC__ >= 4)
+#define NVDSNMOS_API __attribute__((visibility("default")))
+#else
+#define NVDSNMOS_API
+#endif
+
+#elif defined(NVDSNMOS_STATIC)
+
+#define NVDSNMOS_API
+
+#else
+
+#if defined(_WIN32) || defined(__CYGWIN__)
+#define NVDSNMOS_API __declspec(dllimport)
+#elif defined(__GNUC__) && (__GNUC__ >= 4)
+#define NVDSNMOS_API
+#else
+#define NVDSNMOS_API
+#endif
+
+#endif
 
 #include <stdbool.h>
 
@@ -74,13 +104,15 @@ typedef struct _NvDsNmosNodeServer NvDsNmosNodeServer;
  *                   the sender or receiver is being deactivated.
  *                   The new data only updates the transport parameters
  *                   of the sender or receiver, not the media format.
- *                   The x-nvds-id session-level attribute specifies
+ *                   The 'inactive' media-level attribute is used to
+ *                   indicate a disabled leg.
+ *                   The 'x-nvds-id' session-level attribute specifies
  *                   the unique identifier for the sender or receiver,
  *                   @p id.
- *                   For a receiver, the x-nvds-iface-ip media-level
+ *                   For a receiver, the 'x-nvds-iface-ip' media-level
  *                   attribute is used to specify the interface IP
  *                   address on which the stream is received.
- *                   For a sender, the x-nvds-src-port media-level
+ *                   For a sender, the 'x-nvds-src-port' media-level
  *                   attribute is used to specify the source port
  *                   from which the stream is transmitted.
  * @return Whether the activation could be applied.
@@ -126,6 +158,7 @@ typedef void (*nmos_logging_callback)(NvDsNmosNodeServer *server,
                                       int level,
                                       const char *message);
 
+typedef struct _NvDsNmosAssetConfig NvDsNmosAssetConfig;
 typedef struct _NvDsNmosReceiverConfig NvDsNmosReceiverConfig;
 typedef struct _NvDsNmosSenderConfig NvDsNmosSenderConfig;
 
@@ -134,13 +167,23 @@ typedef struct _NvDsNmosSenderConfig NvDsNmosSenderConfig;
  * The structure should be zero initialized.
  */
 typedef struct _NvDsNmosNodeConfig {
-    /** Holds the fully-qualified host name, e.g. nmos-node.local.
-        May be null in which case the system host name is determined
-        automatically. */
+    /** Holds the fully-qualified host name, e.g. "nmos-node.local" or
+        "nmos-node.example.com". May be null in which case the system host
+        name is determined automatically. */
     const char *host_name;
+    /** Holds the host IP addresses, e.g. "192.0.2.0" and "198.51.100.0".
+        The array's size must be equal to #num_host_addresses. May be null
+        in which case the system host addresses are determined
+        automatically. */
+    const char **host_addresses;
+    /** Holds the number of #host_addresses. May be zero. */
+    unsigned int num_host_addresses;
     /** Holds the port number for the HTTP APIs, e.g. 80.
-        May be null in which case default ports are used for each API. */
+        May be zero in which case default ports are used for each API. */
     unsigned int http_port;
+
+    /** Holds BCP-002-02 Asset Distinguishing Information. May be null. */
+    NvDsNmosAssetConfig *asset_tags;
 
     /** Holds a string used to ensure repeatable UUID generation.
         May be null in which case a random seed is used; not recommended. */
@@ -174,6 +217,25 @@ typedef struct _NvDsNmosNodeConfig {
 } NvDsNmosNodeConfig;
 
 /**
+ * Defines asset distinguishing information for BCP-002-02 tags in an
+ * @ref NvDsNmosNodeServer.
+ */
+typedef struct _NvDsNmosAssetConfig {
+    /** Holds the manufacturer, e.g. "Acme". Must not be null. */
+    const char *manufacturer;
+    /** Holds the product name, e.g. "Widget Pro". Must not be null. */
+    const char *product;
+    /** Holds the instance identifier, e.g. "XYZ123-456789". Must not
+        be null. */
+    const char *instance_id;
+    /** Holds the function or functions, e.g. "Decoder", "Encoder",
+        "Converter" or "Analyzer". Must not be null. */
+    const char **functions;
+    /** Holds the number of #functions. Must not be zero. */
+    unsigned int num_functions;
+} NvDsNmosAssetConfig;
+
+/**
  * Defines configuration settings used to create receivers in an
  * @ref NvDsNmosNodeServer.
  */
@@ -182,9 +244,11 @@ typedef struct _NvDsNmosReceiverConfig {
         the receiver. Must not be null. The SDP data must be valid
         as per the relevant IETF RFC and SMPTE standards for the
         media format and transport.
-        The x-nvds-id session-level attribute specifies the unique
+        The 'x-nvds-id' session-level attribute specifies the unique
         identifier for the receiver.
-        The x-nvds-iface-ip media-level attribute is used to specify
+        The 'x-nvds-group-hint' session-level attribute may be used to
+        specify a group hint tag for the receiver.
+        The 'x-nvds-iface-ip' media-level attribute is used to specify
         the interface IP address on which the stream is received. */
     const char *sdp;
 } NvDsNmosReceiverConfig;
@@ -198,9 +262,12 @@ typedef struct _NvDsNmosSenderConfig {
         the sender. Must not be null. The SDP data must be valid
         as per the relevant IETF RFC and SMPTE standards for the
         media format and transport.
-        The x-nvds-id session-level attribute specifies the unique
+        The 'ts-refclk' attributes are used to specify the node clock.
+        The 'x-nvds-id' session-level attribute specifies the unique
         identifier for the sender.
-        The x-nvds-src-port media-level attribute is used to specify
+        The 'x-nvds-group-hint' session-level attribute may be used to
+        specify a group hint tag for the sender.
+        The 'x-nvds-src-port' media-level attribute is used to specify
         the source port from which the stream is transmitted. */
     const char *sdp;
 } NvDsNmosSenderConfig;
@@ -233,6 +300,7 @@ typedef struct _NvDsNmosNodeServer {
  * @param[in] server Pointer to the server to be initialized.
  * @return Whether the server has been created and successfully started.
  */
+NVDSNMOS_API
 bool create_nmos_node_server(const NvDsNmosNodeConfig *config, NvDsNmosNodeServer *server);
 
 /**
@@ -241,10 +309,64 @@ bool create_nmos_node_server(const NvDsNmosNodeConfig *config, NvDsNmosNodeServe
  * The server should have been successfully initialized using
  * @ref create_nmos_node_server.
  *
- * @param[in] server  Pointer to the server to be deinitialized.
+ * @param[in] server Pointer to the server to be deinitialized.
  * @return Whether the server has been successfully stopped and deinitialized.
  */
+NVDSNMOS_API
 bool destroy_nmos_node_server(NvDsNmosNodeServer *server);
+
+/**
+ * Add an NMOS Receiver to an NMOS Node server according to the
+ * specified configuration settings.
+ *
+ * The receiver may be removed using @ref remove_nmos_receiver_from_node_server.
+ *
+ * @param[in] server Pointer to the server to update.
+ * @param[in] config Pointer to the configuration settings.
+ * @return Whether the receiver has been successfully added.
+ */
+NVDSNMOS_API
+bool add_nmos_receiver_to_node_server(NvDsNmosNodeServer *server,
+                                      const NvDsNmosReceiverConfig *config);
+
+/**
+ * Remove an NMOS Receiver from an NMOS Node server.
+ *
+ * The receiver may have been adding using @ref create_nmos_node_server
+ * or @ref add_nmos_receiver_to_node_server.
+ *
+ * @param[in] server Pointer to the server to update.
+ * @param[in] id     The unique identifier for the receiver to be removed.
+ * @return Whether the receiver has been successfully removed.
+ */
+NVDSNMOS_API
+bool remove_nmos_receiver_from_node_server(NvDsNmosNodeServer *server, const char *id);
+
+/**
+ * Add an NMOS Sender to an NMOS Node server according to the
+ * specified configuration settings.
+ *
+ * The sender may be removed using @ref remove_nmos_sender_from_node_server.
+ *
+ * @param[in] server Pointer to the server to update.
+ * @param[in] config Pointer to the configuration settings.
+ * @return Whether the sender has been successfully added.
+ */
+NVDSNMOS_API
+bool add_nmos_sender_to_node_server(NvDsNmosNodeServer *server, const NvDsNmosSenderConfig *config);
+
+/**
+ * Remove an NMOS Sender from an NMOS Node server.
+ *
+ * The sender may have been adding using @ref create_nmos_node_server
+ * or @ref add_nmos_sender_to_node_server.
+ *
+ * @param[in] server Pointer to the server to update.
+ * @param[in] id     The unique identifier for the sender to be removed.
+ * @return Whether the receiver has been successfully removed.
+ */
+NVDSNMOS_API
+bool remove_nmos_sender_from_node_server(NvDsNmosNodeServer *server, const char *id);
 
 /**
  * Update the configuration settings of a sender or receiver.
@@ -257,17 +379,22 @@ bool destroy_nmos_node_server(NvDsNmosNodeServer *server);
  *                   the sender or receiver is being deactivated.
  *                   The new data only updates the transport parameters
  *                   of the sender or receiver, not the media format.
- *                   The x-nvds-id session-level attribute specifies
+ *                   The 'inactive' media-level attribute is used to
+ *                   indicate a disabled leg.
+ *                   For a sender, the 'ts-refclk' attributes are used
+ *                   to specify the node clock.
+ *                   The 'x-nvds-id' session-level attribute specifies
  *                   the unique identifier for the sender or receiver,
  *                   @p id.
- *                   For a receiver, the x-nvds-iface-ip media-level
+ *                   For a receiver, the 'x-nvds-iface-ip' media-level
  *                   attribute is used to specify the interface IP
  *                   address on which the stream is received.
- *                   For a sender, the x-nvds-src-port media-level
+ *                   For a sender, the 'x-nvds-src-port' media-level
  *                   attribute is used to specify the source port
  *                   from which the stream is transmitted.
  * @return Whether the update has been successfully applied.
  */
+NVDSNMOS_API
 bool nmos_connection_rtp_activate(NvDsNmosNodeServer *server, const char *id, const char *sdp);
 
 #ifdef __cplusplus

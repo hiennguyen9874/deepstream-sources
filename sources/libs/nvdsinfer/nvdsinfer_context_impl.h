@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -399,6 +399,7 @@ private:
                                        const NvDsInferContextInitParams &initParams);
 
     NvDsInferStatus getBoundLayersInfo();
+    NvDsInferStatus resizeOutputBufferpool(uint32_t numBuffers);
     NvDsInferStatus allocateBuffers();
     NvDsInferStatus initNonImageInputLayers();
 
@@ -431,7 +432,8 @@ private:
     std::vector<std::unique_ptr<CudaDeviceBuffer>> m_InputDeviceBuffers;
 
     uint32_t m_OutputBufferPoolSize = NVDSINFER_MIN_OUTPUT_BUFFERPOOL_SIZE;
-    std::vector<NvDsInferBatch> m_Batches;
+    std::vector<std::shared_ptr<NvDsInferBatch>> m_Batches;
+    std::mutex m_BatchesMutex;
 
     /* Queues and synchronization members for processing multiple batches
      * in parallel.
@@ -451,6 +453,8 @@ private:
     NvDsInferLoggingFunc m_LoggingFunc;
 
     bool m_Initialized = false;
+    uint32_t m_AutoIncMem = 1;
+    double m_MaxGPUMem = 99;
 };
 
 } // namespace nvdsinfer

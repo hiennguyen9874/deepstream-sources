@@ -31,8 +31,8 @@ Two application graphs are provided in this sample:
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.2
-- Graph-Composer 2.5.0
+- DeepStreamSDK 6.3
+- Graph-Composer 3.0.0
 - Basler Camera and Pylon GStreamer Plugin setup - https://github.com/basler/gst-plugin-pylon
 
 ================================================================================

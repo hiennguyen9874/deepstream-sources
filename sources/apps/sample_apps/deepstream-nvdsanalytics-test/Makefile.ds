@@ -31,7 +31,7 @@ CXX=g++
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.0
+NVDS_VERSION:=6.3
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
@@ -53,7 +53,8 @@ OBJS+= deepstream_nvdsanalytics_meta.o deepstream_app_main.o
 CFLAGS+= -I./ -I../../apps-common/includes -I../../../includes  -I../deepstream-app/ -DDS_VERSION_MINOR=0 -DDS_VERSION_MAJOR=5 \
 		 -I /usr/local/cuda-$(CUDA_VER)/include
 
-LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvdsgst_helper -lnvdsgst_smartrecord -lnvds_utils -lnvds_msgbroker -lm \
+LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvdsgst_helper -lnvdsgst_customhelper \
+       -lnvdsgst_smartrecord -lnvds_utils -lnvds_msgbroker -lm \
        -lgstrtspserver-1.0 -ldl -Wl,-rpath,$(LIB_INSTALL_DIR) \
 	   -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart \
 	   -lcuda 

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -240,7 +240,8 @@ private:
      */
     tc::Error SetInputCudaSharedMemory(tc::InferInput *inferInput,
                                        const SharedBatchBuf &inbuf,
-                                       SharedGrpcRequest request);
+                                       SharedGrpcRequest request,
+                                       uint64_t bufId);
 
 private:
     /**

@@ -40,8 +40,8 @@ https://docs.nvidia.com/metropolis/deepstream/dev-guide/index.html
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.2
-- Graph-Composer 2.5.0
+- DeepStreamSDK 6.3
+- Graph-Composer 3.0.0
 - Realsense SDK
 
 Follow Realsense SDK documentation to add realsense public key and list of repositories.
@@ -79,8 +79,8 @@ specific containers. The container builder configuration files have already been
 provided for this sample.
 
 * Building a DGPU container and running on the same host
-  $ container_builder -c ds_3d_depth_camera_container_builder_dgpu.yaml \
-        -d ../common/target_x86_64.yaml
+  $ container_builder build -c ds_3d_depth_camera_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml -wd $(pwd)
   $ xhost +
   $ docker run -it --rm --gpus all --device /dev/video0 --device /dev/video1 \
         --device /dev/video2 --device /dev/video3 --device /dev/video4 \

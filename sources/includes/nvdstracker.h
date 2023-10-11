@@ -136,6 +136,17 @@ typedef enum {
     NvMOTConfigStatus_Unsupported
 } NvMOTConfigStatus;
 
+typedef enum {
+    /** Unsupported batch mode. At least either batch or non-batch should be supported. **/
+    NvMOTBatchMode_Error = 0,
+    /** Batch processing mode. **/
+    NvMOTBatchMode_Batch = 1 << 0,
+    /** Non-batch processing mode. **/
+    NvMOTBatchMode_NonBatch = 1 << 1,
+    /** Max value of the enum. All bits are 1. **/
+    NvMOTBatchMode_MaxValue = 3
+} NvMOTBatchMode;
+
 /**
  * @brief Holds a tracker's configuration status.
  *
@@ -160,20 +171,6 @@ typedef struct _NvMOTConfigResponse {
  * @brief Defines generic status codes for tracking operations.
  */
 typedef enum { NvMOTStatus_OK, NvMOTStatus_Error, NvMOTStatus_Invalid_Path } NvMOTStatus;
-
-/**
- * @brief Bitwise flag to define whether batch/nonbatch mode is supported
- */
-typedef enum {
-    /** Unsupported batch mode. At least either batch or non-batch should be supported. **/
-    NvMOTBatchMode_Error = 0,
-    /** Batch processing mode. **/
-    NvMOTBatchMode_Batch = 1 << 0,
-    /** Non-batch processing mode. **/
-    NvMOTBatchMode_NonBatch = 1 << 1,
-    /** Max value of the enum. All bits are 1. **/
-    NvMOTBatchMode_MaxValue = 3
-} NvMOTBatchMode;
 
 /**
  * @brief Holds the definition of a rectangle.
@@ -277,6 +274,9 @@ typedef struct _NvMOTTrackedObj {
     uint32_t age;
     /** Holds a pointer to the associated input object, if there is one. */
     NvMOTObjToTrack *associatedObjectIn;
+    /** Each target’s reid tensor index in batch.*/
+    int32_t reidInd;
+    /** Reserved custom data field. */
     uint8_t reserved[128];
 } NvMOTTrackedObj;
 
@@ -308,7 +308,17 @@ typedef struct _NvMOTTrackedObjBatch {
     uint32_t numAllocated;
     /** Holds the number of filled blocks in the list. */
     uint32_t numFilled;
+    /** The whole batch’s reid tensor to fill by low level tracker. */
+    NvDsReidTensorBatch *pReidTensorBatch;
 } NvMOTTrackedObjBatch;
+
+/**
+ * @brief Tracker misc data.
+ */
+typedef struct _NvMOTTrackerMiscData {
+    /** Holds past frame data of current batch. */
+    NvDsPastFrameObjBatch *pPastFrameObjBatch;
+} NvMOTTrackerMiscData;
 
 /**
  * @brief Holds parameters for processing a batch.
@@ -327,13 +337,23 @@ typedef struct _NvMOTQuery {
      in perTransformBatchConfig. */
     uint8_t numTransforms;
     /** Holds the color formats for input buffers; a required value. */
-    NvBufSurfaceColorFormat colorFormats[NVMOT_MAX_TRANSFORMS];
+    NvBufSurfaceColorFormat colorFormats[1];
     /** Holds the preferred memory type for input buffers. */
     NvBufSurfaceMemType memType;
-    /** Holds flags for whether batch or none batch mode is supported. */
-    NvMOTBatchMode batchMode;
+    /** Holds maximum number of targets per stream. */
+    uint32_t maxTargetsPerStream;
+    /** Holds maximum shadow tracking age per stream. */
+    uint32_t maxShadowTrackingAge;
+    /** Whether to output ReID tensor in user meta. */
+    bool outputReidTensor;
+    /** Reid feature size. */
+    uint32_t reidFeatureSize;
+    /** Whether to output target trajectories in user meta. */
+    bool outputTrajectory;
     /** Holds a Boolean which is true if outputing past frame is supported. */
     bool supportPastFrame;
+    /** Holds flags for whether batch or none batch mode is supported. */
+    NvMOTBatchMode batchMode;
 } NvMOTQuery;
 
 /**
@@ -398,19 +418,16 @@ NvMOTStatus NvMOT_Process(NvMOTContextHandle contextHandle,
  * @brief Process the past-frame data in the low-level tracker lib and retrieve
  *
  * Given a context and batch of frame(s), process the past-frame data of each tracked object stored
- in the low-level tracker lib
- * , put it into the past-frame data strcture, and retrieve it
+ * in the low-level tracker lib , put it into the past-frame data strcture, and retrieve it
  *
  * @param [in] pContext The context handle obtained from NvMOTInit()
  * @param [in] pParams Pointer to parameters for the batch of frames with the available stream ID
- * @param [out] pPastFrameObjBatch Batch of lists of tracked objects that are stored by the
- low-level tracker in the past frames BBoxes are scaled to the resolution of the first input image
- transform buffer.
+ * @param [out] pTrackerMiscData Misc data from low level tracker to store in user meta
  * @return Status of batch processing
  */
-NvMOTStatus NvMOT_ProcessPast(NvMOTContextHandle contextHandle,
-                              NvMOTProcessParams *pParams,
-                              NvDsPastFrameObjBatch *pPastFrameObjBatch);
+NvMOTStatus NvMOT_RetrieveMiscData(NvMOTContextHandle contextHandle,
+                                   NvMOTProcessParams *pParams,
+                                   NvMOTTrackerMiscData *pTrackerMiscData);
 /**
  * @brief Query tracker lib capabilities and requirements.
  *

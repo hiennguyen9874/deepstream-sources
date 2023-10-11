@@ -28,6 +28,7 @@ template <class abiDataProcessorT, _EnableIfBaseOf<abiProcess, abiDataProcessorT
 class BaseImplDataProcessor : public abiDataProcessorT {
 public:
     using OnGuardDataCBImpl = std::function<void(ErrCode, GuardDataMap)>;
+    using OnGuardBridgeDataCBImpl = std::function<void(ErrCode, const struct VideoBridge2dInput *)>;
     using ImplMutex = std::recursive_mutex;
 
     BaseImplDataProcessor() {}

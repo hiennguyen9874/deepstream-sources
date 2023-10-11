@@ -35,13 +35,12 @@ gboolean parse_tracker_yaml(NvDsTrackerConfig *config, gchar *cfg_file_path)
     gboolean ret = FALSE;
     YAML::Node configyml = YAML::LoadFile(cfg_file_path);
 
-    config->enable_batch_process = TRUE;
     config->display_tracking_id = TRUE;
-    config->enable_past_frame = FALSE;
     config->tracking_id_reset_mode = 0;
     config->input_tensor_meta = FALSE;
     config->input_tensor_gie_id = 0;
     config->compute_hw = 0;
+    config->user_meta_pool_size = 16;
 
     for (YAML::const_iterator itr = configyml["tracker"].begin(); itr != configyml["tracker"].end();
          ++itr) {
@@ -78,10 +77,6 @@ gboolean parse_tracker_yaml(NvDsTrackerConfig *config, gchar *cfg_file_path)
                 goto done;
             }
             g_free(str);
-        } else if (paramKey == "enable-batch-process") {
-            config->enable_batch_process = itr->second.as<gboolean>();
-        } else if (paramKey == "enable-past-frame") {
-            config->enable_past_frame = itr->second.as<gboolean>();
         } else if (paramKey == "tracking-surface-type") {
             // Diff b/w this and tracking_surf_type
             config->tracking_surface_type = itr->second.as<guint>();
@@ -95,6 +90,8 @@ gboolean parse_tracker_yaml(NvDsTrackerConfig *config, gchar *cfg_file_path)
             config->input_tensor_gie_id = itr->second.as<guint>();
         } else if (paramKey == "compute-hw") {
             config->compute_hw = itr->second.as<guint>();
+        } else if (paramKey == "user-meta-pool-size") {
+            config->user_meta_pool_size = itr->second.as<guint>();
         } else {
             cout << "Unknown key " << paramKey << " for tracker" << endl;
         }

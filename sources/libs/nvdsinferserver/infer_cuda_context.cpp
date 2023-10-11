@@ -154,6 +154,8 @@ NvDsInferStatus InferCudaContext::fixateInferenceInfo(const ic::InferenceConfig 
         }
         m_NetworkImageInfo = dims2ImageInfo(inputInfo->inferDims, m_InputTensorOrder);
         assert(m_InputTensorOrder != InferTensorOrder::kNone);
+    } else if (!hasWildcard(inputInfo->inferDims)) {
+        m_NetworkImageInfo = dims2ImageInfo(inputInfo->inferDims, m_InputTensorOrder);
     }
 
     if (config.has_lstm()) {

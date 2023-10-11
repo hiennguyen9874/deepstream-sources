@@ -55,7 +55,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_dsexample_debug);
 
 #ifdef WITH_OPENCV
 // enable to write transformed cvmat to files
-//#define DSEXAMPLE_DEBUG
+// #define DSEXAMPLE_DEBUG
 #ifdef DSEXAMPLE_DEBUG
 #include "opencv2/imgcodecs.hpp"
 #endif
@@ -1256,7 +1256,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dsexample,
                   DESCRIPTION,
                   dsexample_plugin_init,
-                  "6.2",
+                  "6.3",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

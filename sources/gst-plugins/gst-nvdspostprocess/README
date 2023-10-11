@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -42,8 +42,8 @@ NOTE:
 --------------------------------------------------------------------------------
 How to test :
 
-Single Stream and Rendering, set appropriate CUDA_VER, 11.4 for Jetson 11.8 for dGPU
-   $ export CUDA_VER=11.8
+Single Stream and Rendering, set appropriate CUDA_VER, 11.4 for Jetson 12.1 for dGPU
+   $ export CUDA_VER=12.1
    $ make
    $ sudo -E make install
    $ cd postprocesslib_impl
@@ -93,7 +93,7 @@ On Jetson
     ! nvdspostprocess  postprocesslib-config-file= \
     config_classifier_vehicle_type.yml  postprocesslib-name= \
     ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvmultistreamtiler !  nvvideoconvert \
-    gpu-id=0 ! nvdsosd ! nvegltransform ! nveglglessink sync=1 -v  uridecodebin \
+    gpu-id=0 ! nvdsosd ! nv3dsink sync=1 -v  uridecodebin \
     uri=file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4 ! m.sink_1
 
 Test for segmentation model
@@ -117,7 +117,5 @@ On Jetson
      nvinfer config-file-path= \
      config_infer_segmentation_semantic_post_process.txt !  nvdspostprocess \
      postprocesslib-config-file= config_segmentation_semantic.yml \
-     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue   ! nvsegvisual ! \
-     nvmultistreamtiler  ! nvvideoconvert gpu-id=0 ! nvdsosd ! nvegltransform ! nveglglessink \
-     sync=1 -v
-
+     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvsegvisual ! \
+     nvmultistreamtiler ! nvvideoconvert gpu-id=0 ! nvdsosd ! nv3dsink sync=1 -v

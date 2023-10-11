@@ -15,6 +15,10 @@ plugin and "NvDsInfer" API.
 --------------------------------------------------------------------------------
 Compiling and installing the plugin:
 Export or set in Makefile the appropriate CUDA_VER
+On x86, run below commands before compilation:
+    sudo apt-get install -y cuda-compat-12-1
+    export LD_LIBRARY_PATH=/usr/local/cuda/compat:$LD_LIBRARY_PATH (Required for data center GPUs only)
+
 Run make and sudo make install
 
 NOTE: To compile the sources, run make with "sudo" or root permission.

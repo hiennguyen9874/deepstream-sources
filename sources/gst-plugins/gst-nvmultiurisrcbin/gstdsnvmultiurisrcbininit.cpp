@@ -49,7 +49,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_nvmultiurisrcbin,
                   DESCRIPTION,
                   nvmultiurisrcbin_plugin_init,
-                  "6.2",
+                  "6.3",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

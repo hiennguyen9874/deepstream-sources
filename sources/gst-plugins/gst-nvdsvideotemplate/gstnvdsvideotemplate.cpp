@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -128,8 +128,38 @@ static GstCaps *gst_nvdsvideotemplate_fixate_caps(GstBaseTransform *btrans,
                                                   GstCaps *othercaps)
 {
     GstNvDsVideoTemplate *nvdsvideotemplate = GST_NVDSVIDEOTEMPLATE(btrans);
+    GstCaps *outcaps = NULL;
 
-    return nvdsvideotemplate->algo_ctx->GetCompatibleCaps(direction, caps, othercaps);
+    outcaps = nvdsvideotemplate->algo_ctx->GetCompatibleCaps(direction, caps, othercaps);
+    gst_caps_set_simple(outcaps, "gpu-id", G_TYPE_INT, nvdsvideotemplate->gpu_id, NULL);
+    return outcaps;
+}
+
+static gboolean gst_nvdsvideotemplate_query(GstBaseTransform *trans,
+                                            GstPadDirection direction,
+                                            GstQuery *query)
+{
+    GstNvDsVideoTemplate *filter;
+    filter = GST_NVDSVIDEOTEMPLATE(trans);
+
+    if (gst_nvquery_is_update_caps(query)) {
+        guint stream_index;
+        const GValue *frame_rate = NULL;
+        GstStructure *str;
+
+        gst_nvquery_parse_update_caps(query, &stream_index, frame_rate);
+
+        str = gst_structure_new("update-caps", "stream-id", G_TYPE_UINT, stream_index, "width-val",
+                                G_TYPE_INT, filter->out_video_info.width, "height-val", G_TYPE_INT,
+                                filter->out_video_info.height, NULL);
+        if (frame_rate) {
+            gst_structure_set_value(str, "frame-rate", frame_rate);
+        }
+
+        return gst_nvquery_update_caps_peer_query(trans->srcpad, str);
+    }
+
+    return GST_BASE_TRANSFORM_CLASS(parent_class)->query(trans, direction, query);
 }
 
 static GstCaps *gst_nvdsvideotemplate_caps_remove_format_info(GstCaps *caps)
@@ -310,6 +340,7 @@ static void gst_nvdsvideotemplate_class_init(GstNvDsVideoTemplateClass *klass)
     gstbasetransform_class->sink_event = GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_sink_event);
     gstbasetransform_class->start = GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_start);
     gstbasetransform_class->stop = GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_stop);
+    gstbasetransform_class->query = GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_query);
 
     gstbasetransform_class->submit_input_buffer =
         GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_submit_input_buffer);
@@ -471,7 +502,7 @@ static void gst_nvdsvideotemplate_get_property(GObject *object,
             DSCustomLibrary_Factory *algo_factory = new DSCustomLibrary_Factory();
             char *str = NULL;
             IDSCustomLibrary *algo_ctx =
-                algo_factory->CreateCustomAlgoCtx(g_getenv("NVDS_CUSTOMLIB"));
+                algo_factory->CreateCustomAlgoCtx(g_getenv("NVDS_CUSTOMLIB"), object);
             if (algo_ctx) {
                 str = algo_ctx->QueryProperties();
                 delete algo_ctx;
@@ -519,10 +550,10 @@ static gboolean gst_nvdsvideotemplate_start(GstBaseTransform *btrans)
     try {
         nvdsvideotemplate->algo_factory = new DSCustomLibrary_Factory();
         nvdsvideotemplate->algo_ctx = nvdsvideotemplate->algo_factory->CreateCustomAlgoCtx(
-            nvdsvideotemplate->custom_lib_name);
+            nvdsvideotemplate->custom_lib_name, G_OBJECT(btrans));
 
-        if (nvdsvideotemplate->vecProp && nvdsvideotemplate->vecProp &&
-            nvdsvideotemplate->vecProp->size()) {
+        if (nvdsvideotemplate->algo_ctx && nvdsvideotemplate->vecProp &&
+            nvdsvideotemplate->vecProp && nvdsvideotemplate->vecProp->size()) {
             GST_INFO_OBJECT(nvdsvideotemplate, "Setting custom lib properties # %lu",
                             nvdsvideotemplate->vecProp->size());
             for (std::vector<Property>::iterator it = nvdsvideotemplate->vecProp->begin();
@@ -735,7 +766,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_videotemplate,
                   DESCRIPTION,
                   nvdsvideotemplate_plugin_init,
-                  "6.2",
+                  "6.3",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

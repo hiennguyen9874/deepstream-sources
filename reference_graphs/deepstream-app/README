@@ -31,8 +31,8 @@ These graphs also demonstrate the usage of the following components
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.2
-- Graph-Composer 2.5.0
+- DeepStreamSDK 6.3
+- Graph-Composer 3.0.0
 
 ================================================================================
 Running the graph
@@ -76,8 +76,9 @@ The configuration files have been created for
 source30_1080p_dec_infer-resnet_tiled_display_int8.yaml graph.
 
 * Building a DGPU container and running on the same host
-  $ container_builder -c ds_app_container_builder_dgpu.yaml \
-        -d ../common/target_x86_64.yaml
+  $ container_builder build -c ds_app_container_builder_dgpu.yaml \
+        -d ../common/target_x86_64.yaml \
+        -wd $(pwd)
   $ xhost +
   $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
         --net=host -e DISPLAY=:0 deepstream_app_dgpu
@@ -86,8 +87,9 @@ source30_1080p_dec_infer-resnet_tiled_display_int8.yaml graph.
 * Building a Jetson container on x86 host
 - In ds_app_container_builder_jetson.yaml, change <docker-container-registry>
   to a valid docker registry where containers can be pushed, and then build:
-  $ container_builder -c ds_app_container_builder_jetson.yaml \
-        -d ../common/target_aarch64.yaml
+  $ container_builder build -c ds_app_container_builder_jetson.yaml \
+        -d ../common/target_aarch64.yaml \
+        -wd $(pwd)
 
 - Push the built image to the docker registry:
   $ docker push <docker-container-registry>:deepstream-app-jetson

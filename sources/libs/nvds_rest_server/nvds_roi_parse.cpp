@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,8 +20,6 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#include <iostream>
-
 #include "nvds_parse.h"
 #include "nvds_rest_server.h"
 
@@ -36,11 +34,23 @@ bool nvds_rest_roi_parse(const Json::Value &in, NvDsRoiInfo *roi_info)
         const Json::Value sub_root_val = in[root_val]; // object values of root_key
 
         roi_info->stream_id = sub_root_val.get("stream_id", EMPTY_STRING).asString().c_str();
+        if (roi_info->stream_id == "") {
+            roi_info->roi_log = "stream_id value not parsed correctly";
+            roi_info->status = ROI_UPDATE_FAIL;
+        }
         roi_info->roi_count = sub_root_val.get("roi_count", 0).asUInt();
+        if (roi_info->roi_count == 0) {
+            roi_info->roi_log = "roi id is 0";
+            roi_info->status = ROI_UPDATE_FAIL;
+        }
 
         const Json::Value roi_arr = sub_root_val.get("roi", EMPTY_STRING);
+        if (roi_arr == "") {
+            roi_info->roi_log = "roi is empty";
+            roi_info->status = ROI_UPDATE_FAIL;
+        }
 
-        for (uint i = 0; i < roi_arr.size(); i++) {
+        for (guint i = 0; i < roi_arr.size(); i++) {
             RoiDimension roi_dim;
 
             g_strlcpy(roi_dim.roi_id, roi_arr[i]["roi_id"].asString().c_str(),

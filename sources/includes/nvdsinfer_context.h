@@ -404,11 +404,20 @@ typedef struct _NvDsInferContextInitParams {
      */
     int inputFromPreprocessedTensor;
 
-    /** Boolean flag indicating that wheather we will post processing on GPU
+    /** Boolean flag indicating that whether we will post processing on GPU
      *  if this flag enabled, nvinfer will return gpu buffer to prossprocessing
      *  user must write cuda post processing code
      */
     int disableOutputHostCopy;
+
+    /** Boolean flag indicating that whether we will automatically increase
+     *  bufferpool size when facing a bottleneck.
+     */
+    int autoIncMem;
+
+    /** Max gpu memory that can be occupied while expanding the bufferpool.
+     */
+    double maxGPUMemPer;
 
 } NvDsInferContextInitParams;
 

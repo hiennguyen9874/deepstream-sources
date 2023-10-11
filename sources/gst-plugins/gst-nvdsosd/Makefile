@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2017-2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -20,12 +20,12 @@ LIB:=libnvdsgst_osd.so
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.2
+NVDS_VERSION:=6.3
 
 GST_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/gst-plugins/
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.2.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
 	 -I../../includes \
 	 -I/usr/local/cuda-$(CUDA_VER)/include \
 
@@ -37,7 +37,7 @@ LIBS := -shared -Wl,-no-undefined \
 	-L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart
 
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_meta -lnvds_meta \
-       -lnvds_osd -lnvbufsurface -lnvbufsurftransform -ldl -lpthread \
+       -lnvds_osd -lnvbufsurface -lnvbufsurftransform -lnvdsgst_customhelper -ldl -lpthread \
        -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 OBJS:= $(SRCS:.c=.o)

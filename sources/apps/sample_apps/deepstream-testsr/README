@@ -31,6 +31,14 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
 
+This example can be configured to use either the nvinfer or the nvinferserver
+element for inference.
+If nvinferserver is selected, the Triton Inference Server is used for inference
+processing. In this case, the example needs to be run inside the
+DeepStream-Triton docker container. Please refer
+samples/configs/deepstream-app-triton/README for the steps to download the
+container image and setup model repository.
+
 ===============================================================================
 2. Purpose:
 ===============================================================================
@@ -45,7 +53,7 @@ as per the command line arguments. Refer Usage section for command line argument
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
   $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
@@ -67,10 +75,11 @@ Use below command line arguments to use respective components
 2. enc-type     0: Hardware encoder, 1: Software encoder, Default: Hardware encoder
 3. sink-type    1: Fakesink, 2: Eglsink, 3: RTSP sink, Default: Eglsink
 4. sr-mode      0: Audio + Video, 1: Video only, 2: Audio only, Default: Audio + Video
+5. pgie-type	0: Nvinfer, 1: Nvinferenceserver, Default: Nvinfer
 
 Sample command with above mentioned command line arguments as below
 (User can refer above data to set each arguments accordingly) :
- $./deepstream-testsr-app rtsp://127.0.0.1/video1 --enc-type=1 --sink-type=1 --bbox-enable=1 --sr-mode=0
+ $./deepstream-testsr-app rtsp://127.0.0.1/video1 --enc-type=1 --sink-type=1 --bbox-enable=1 --sr-mode=0 --pgie-type=0
 
 
 This document shall describe about the sample deepstream-testsr application.
@@ -83,6 +92,16 @@ The NvDsSr smart record API supports both video and audio. Depending on which si
 ("sink" and "asink") of the record bin are linked, either video or audio or both
 can be recorded. For this sample application, this is controlled using the "--sr-mode" commandline
 argument.
+
+This sample creates instance of either "nvinfer" or "nvinferserver" element
+for inference. The "nvinfer" element uses TensorRT API to infer
+on frames/objects. The "nvinferserver" element uses the Triton Inference
+Server to infer on frames/objects. Both elements are configured through the argument
+provided and correspondingly, their respective config files will be set.
+
+For reference, here are the config files used for this sample :
+1. The 4-class detector (referred to as pgie in this sample) uses
+    dstestsr_pgie_config.yml / dstestsr_pgie_nvinferserver_config.txt
 
 Note:
 
@@ -98,5 +117,5 @@ Note:
    above mentioned parameters accordingly.
 5. By default OSD_DISPLAY_TEXT is set to 0. Set to 1, in case user needs
    information about type of object detected in bounding box e.g. Person.
-6. Use sync-type and enc-type to use the sink and encoders accordingly.
+6. Use sink-type and enc-type to use the sink and encoders accordingly.
 7. Only video is supported for recording with bboxes enabled

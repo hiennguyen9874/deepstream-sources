@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -15,6 +15,10 @@
 
 #include <ds3d/common/common.h>
 #include <ds3d/common/typeid.h>
+
+typedef struct _GstBuffer GstBuffer;
+typedef struct NvBufSurface NvBufSurface;
+typedef struct _NvDsBatchMeta NvDsBatchMeta;
 
 namespace ds3d {
 
@@ -136,6 +140,20 @@ struct ExtrinsicsParam {
     vec3f rotation[3]; // column-major order
     vec3f translation;
     REGISTER_TYPE_ID(DS3D_TYPEID_EXTRINSIC_PARM)
+};
+
+struct TransformMatrix {
+    vec4f matrix[4]; // column-major order
+    REGISTER_TYPE_ID(DS3D_TYPEID_TRANSFORM_MATRIX)
+};
+
+// Video Bridge 2d input
+struct VideoBridge2dInput {
+    uint8_t desc[128] = {0};
+    GstBuffer *buffer = nullptr;
+    NvBufSurface *surfaceBatchBuffer = nullptr;
+    NvDsBatchMeta *batchMeta = nullptr;
+    REGISTER_TYPE_ID(DS3D_TYPEID_VIDEOBRIDGE2D_PARM)
 };
 
 } // namespace ds3d

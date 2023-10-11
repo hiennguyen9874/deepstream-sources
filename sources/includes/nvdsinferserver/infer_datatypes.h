@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -214,6 +214,7 @@ public:
     virtual void *getBufPtr(uint32_t batchIdx) const = 0;
     virtual uint32_t getBatchSize() const = 0;
     virtual uint64_t getTotalBytes() const = 0;
+    virtual size_t getBufOffset(uint32_t batchIdx) const = 0;
 
 private:
     DISABLE_CLASS_COPY(IBatchBuffer);

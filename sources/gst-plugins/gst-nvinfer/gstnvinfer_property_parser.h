@@ -41,6 +41,9 @@
 // gpu_post_processing 0 is not 1 is yes
 #define CONFIG_GROUP_INFER_DISABLE_OUTPUT_HOST_COPY "disable-output-host-copy"
 
+#define CONFIG_GROUP_INFER_AUTO_INCREASE_MEMORY "auto-inc-mem"
+#define CONFIG_GROUP_INFER_MAX_GPU_MEMORY_PERCENTAGE "max-gpu-mem-per"
+
 #define CONFIG_GROUP_INFER_ENABLE_DLA "enable-dla"
 #define CONFIG_GROUP_INFER_USE_DLA_CORE "use-dla-core"
 

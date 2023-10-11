@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
 # NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -35,8 +35,11 @@ Deploy NVIDIA Riva server:
    Refer to https://docs.nvidia.com/deeplearning/riva/user-guide/docs/quick-start-guide.html
    to deploy the Riva server.
 
+Update the voice_name in the "riva_tts_stream" group as per the voice names supported by the Riva TTS service:
+   voice_name: <Voice name>
+
 --------------------------------------------------------------------------------
 How to test Text-To-Speech Plugin:
    $ echo "Nvidia corporation is based in Santa Clara" | gst-launch-1.0 -v \
-   fdsrc ! "text/x-raw" ! nvds_text_to_speech config-file=riva_tts_conf.yml \
+   fdsrc ! "text/x-raw" ! nvds_text_to_speech config-file=/opt/nvidia/deepstream/deepstream/sources/apps/audio_apps/deepstream_asr_tts_app/riva_tts_conf.yml \
    ! autoaudiosink

@@ -58,7 +58,6 @@ inline ErrCode parseComponentConfig(const std::string &yamlComp,
                                     const std::string &path,
                                     ComponentConfig &config)
 {
-    config.rawContent = yamlComp;
     config.filePath = path;
 
     YAML::Node node = YAML::Load(yamlComp);
@@ -77,6 +76,19 @@ inline ErrCode parseComponentConfig(const std::string &yamlComp,
     if (outCapsNode) {
         config.gstOutCaps = outCapsNode.as<std::string>();
     }
+    auto linkToNode = node["link_to"];
+    if (linkToNode) {
+        config.linkTo = linkToNode.as<std::string>();
+    }
+    auto linkFromNode = node["link_from"];
+    if (linkFromNode) {
+        config.linkFrom = linkFromNode.as<std::string>();
+    }
+
+    auto withQueueNode = node["with_queue"];
+    if (withQueueNode) {
+        config.withQueue = withQueueNode.as<std::string>();
+    }
 
     if (node["custom_lib_path"]) {
         config.customLibPath = node["custom_lib_path"].as<std::string>();
@@ -89,13 +101,22 @@ inline ErrCode parseComponentConfig(const std::string &yamlComp,
                            "custom_create_function not found in config");
     }
     //
-    if (node["config_body"]) {
+    auto bodyNode = node["config_body"];
+    if (bodyNode) {
+        // some components(e.g. lidarinfer) need how to figure out file path from config_path
+        if (!bodyNode["config_path"] && !path.empty()) {
+            bodyNode["config_path"] = path;
+        }
         YAML::Emitter body;
-        body << node["config_body"];
+        body << bodyNode;
         DS3D_THROW_ERROR(body.good(), ErrCode::kConfig,
                          "config_body error in config, yaml error: " + body.GetLastError());
         config.configBody = body.c_str();
     }
+
+    YAML::Emitter yRawContent;
+    yRawContent << node;
+    config.rawContent = yRawContent.c_str();
     return ErrCode::kGood;
 }
 

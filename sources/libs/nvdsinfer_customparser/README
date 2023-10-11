@@ -16,7 +16,7 @@ Compile the library :
 
   # Export correct CUDA version as per the platform
   For Jetson:  $ export CUDA_VER=11.4
-  For x86:     $ export CUDA_VER=11.8
+  For x86:     $ export CUDA_VER=12.1
 
   $ sudo -E make install
 

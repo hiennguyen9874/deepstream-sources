@@ -100,7 +100,7 @@ custom_sequence_preprocess/libnvds_custom_sequence_preprocess.so:
 
   $ Set CUDA_VER in the MakeFile as per platform.
       For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=11.8
+      For x86, CUDA_VER=12.1
 
   $ make
   $ sudo make install (sudo not required in case of docker containers)

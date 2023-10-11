@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -13,17 +14,19 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstring>
 #include <iostream>
+#include <map>
 
 #include "nvdsinfer_custom_impl.h"
 
@@ -84,6 +87,12 @@ extern "C" bool NvDsInferParseCustomMrcnnTLTV2(
     std::vector<NvDsInferInstanceMaskInfo> &objectList);
 
 extern "C" bool NvDsInferParseCustomEfficientDetTAO(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    NvDsInferParseDetectionParams const &detectionParams,
+    std::vector<NvDsInferObjectDetectionInfo> &objectList);
+
+extern "C" bool NvDsInferParseCustomDDETRTAO(
     std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
     NvDsInferNetworkInfo const &networkInfo,
     NvDsInferParseDetectionParams const &detectionParams,
@@ -662,6 +671,86 @@ extern "C" bool NvDsInferParseCustomEfficientDetTAO(
     return true;
 }
 
+extern "C" bool NvDsInferParseCustomDDETRTAO(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    NvDsInferParseDetectionParams const &detectionParams,
+    std::vector<NvDsInferObjectDetectionInfo> &objectList)
+{
+    auto layerFinder = [&outputLayersInfo](const std::string &name) -> const NvDsInferLayerInfo * {
+        for (auto &layer : outputLayersInfo) {
+            if (layer.dataType == FLOAT && (layer.layerName && name == layer.layerName)) {
+                return &layer;
+            }
+        }
+        return nullptr;
+    };
+
+    const NvDsInferLayerInfo *boxLayer = layerFinder("pred_boxes"); // 1 x num_queries x 4
+    const NvDsInferLayerInfo *classLayer =
+        layerFinder("pred_logits"); // 1 x num_queries x num_classes
+
+    if (!boxLayer || !classLayer) {
+        std::cerr << "ERROR: some layers missing or unsupported data types "
+                  << "in output tensors" << std::endl;
+        return false;
+    }
+
+    const int keep_top_k = 200;
+    unsigned int numDetections = classLayer->inferDims.d[0];
+    unsigned int numClasses = classLayer->inferDims.d[1];
+    std::map<float, NvDsInferObjectDetectionInfo> ordered_objects;
+
+    for (unsigned int idx = 0; idx < numDetections * 4; idx += 4) {
+        NvDsInferObjectDetectionInfo res;
+
+        res.classId = std::max_element(((float *)classLayer->buffer + idx),
+                                       ((float *)classLayer->buffer + idx + numClasses)) -
+                      ((float *)classLayer->buffer + idx);
+        res.detectionConfidence = ((float *)classLayer->buffer)[idx + res.classId];
+
+        // If model does not have sigmoid layer, perform sigmoid calculation here
+        res.detectionConfidence = 1.0 / (1.0 + exp(-res.detectionConfidence));
+
+        if (res.classId == 0 ||
+            res.detectionConfidence < detectionParams.perClassPreclusterThreshold[res.classId]) {
+            continue;
+        }
+        enum { cx, cy, w, h };
+        float rectX1f, rectY1f, rectX2f, rectY2f;
+
+        rectX1f =
+            (((float *)boxLayer->buffer)[idx + cx] - (((float *)boxLayer->buffer)[idx + w] / 2)) *
+            networkInfo.width;
+        rectY1f =
+            (((float *)boxLayer->buffer)[idx + cy] - (((float *)boxLayer->buffer)[idx + h] / 2)) *
+            networkInfo.height;
+        rectX2f = rectX1f + ((float *)boxLayer->buffer)[idx + w] * networkInfo.width;
+        rectY2f = rectY1f + ((float *)boxLayer->buffer)[idx + h] * networkInfo.height;
+
+        rectX1f = CLIP(rectX1f, 0.0f, networkInfo.width - 1);
+        rectX2f = CLIP(rectX2f, 0.0f, networkInfo.width - 1);
+        rectY1f = CLIP(rectY1f, 0.0f, networkInfo.height - 1);
+        rectY2f = CLIP(rectY2f, 0.0f, networkInfo.height - 1);
+
+        res.left = rectX1f;
+        res.top = rectY1f;
+        res.width = rectX2f - rectX1f;
+        res.height = rectY2f - rectY1f;
+
+        ordered_objects[res.detectionConfidence] = res;
+    }
+
+    // Use objects within top_k range
+    int jdx = 0;
+    for (std::map<float, NvDsInferObjectDetectionInfo>::iterator iter = ordered_objects.end();
+         iter != ordered_objects.begin() && jdx < keep_top_k; iter--, jdx++) {
+        if (iter->second.classId != 0)
+            objectList.emplace_back(iter->second);
+    }
+    return true;
+}
+
 /* Check that the custom function has been defined correctly */
 CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomResnet);
 CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomTfSSD);
@@ -671,3 +760,4 @@ CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomBatchedNMSTLT);
 CHECK_CUSTOM_INSTANCE_MASK_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomMrcnnTLT);
 CHECK_CUSTOM_INSTANCE_MASK_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomMrcnnTLTV2);
 CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomEfficientDetTAO);
+CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomDDETRTAO);
