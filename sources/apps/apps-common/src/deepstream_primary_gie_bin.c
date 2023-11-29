@@ -129,8 +129,6 @@ gboolean create_primary_gie_bin(NvDsGieConfig *config, NvDsPrimaryGieBin *bin)
     g_object_set(G_OBJECT(bin->primary_gie), "config-file-path",
                  GET_FILE_PATH(config->config_file_path), "process-mode", 1, NULL);
 
-    g_object_set(G_OBJECT(bin->primary_gie), "input-tensor-meta", config->input_tensor_meta, NULL);
-
     if (config->is_batch_size_set)
         g_object_set(G_OBJECT(bin->primary_gie), "batch-size", config->batch_size, NULL);
 

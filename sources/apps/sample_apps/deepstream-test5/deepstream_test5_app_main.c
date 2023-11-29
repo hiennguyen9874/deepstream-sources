@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -52,8 +52,6 @@
 #define INOTIFY_EVENT_SIZE (sizeof(struct inotify_event))
 #define INOTIFY_EVENT_BUF_LEN (1024 * (INOTIFY_EVENT_SIZE + 16))
 
-#define IS_YAML(file) (g_str_has_suffix(file, ".yml") || g_str_has_suffix(file, ".yaml"))
-
 /** @{
  * Macro's below and corresponding code-blocks are used to demonstrate
  * nvmsgconv + Broker Metadata manipulation possibility
@@ -90,7 +88,7 @@ typedef enum {
  * see in-code documentation and usage of
  * schema_fill_sample_sgie_vehicle_metadata()
  */
-// #define GENERATE_DUMMY_META_EXT
+//#define GENERATE_DUMMY_META_EXT
 
 /** Following class-ID's
  * used for demonstration code
@@ -134,7 +132,7 @@ static GMainLoop *main_loop = NULL;
 static gchar **cfg_files = NULL;
 static gchar **input_files = NULL;
 static gchar **override_cfg_file = NULL;
-static gboolean playback_utc = FALSE;
+static gboolean playback_utc = TRUE;
 static gboolean print_version = FALSE;
 static gboolean show_bbox_text = FALSE;
 static gboolean force_tcp = TRUE;
@@ -177,8 +175,8 @@ GOptionEntry entries[] = {
      "Set the override config file, used for on-the-fly model update feature", NULL},
     {"input-file", 'i', 0, G_OPTION_ARG_FILENAME_ARRAY, &input_files, "Set the input file", NULL},
     {"playback-utc", 'p', 0, G_OPTION_ARG_INT, &playback_utc,
-     "Playback utc; default=false (base UTC from file-URL or RTCP Sender Report) =true (base UTC "
-     "from file/rtsp URL)",
+     "Playback utc; default=true (base UTC from file/rtsp URL); =false (base UTC from file-URL or "
+     "RTCP Sender Report)",
      NULL},
     {"pgie-model-used", 'm', 0, G_OPTION_ARG_INT, &model_used,
      "PGIE Model used; {0 - Unknown [DEFAULT]}, {1: Resnet 4-class [Car, Bicycle, Person, "
@@ -310,14 +308,14 @@ static gpointer meta_copy_func(gpointer data, gpointer user_data)
     NvDsEventMsgMeta *srcMeta = (NvDsEventMsgMeta *)user_meta->user_meta_data;
     NvDsEventMsgMeta *dstMeta = NULL;
 
-    dstMeta = (NvDsEventMsgMeta *)g_memdup(srcMeta, sizeof(NvDsEventMsgMeta));
+    dstMeta = g_memdup(srcMeta, sizeof(NvDsEventMsgMeta));
 
     if (srcMeta->ts)
         dstMeta->ts = g_strdup(srcMeta->ts);
 
     if (srcMeta->objSignature.size > 0) {
         dstMeta->objSignature.signature =
-            (gdouble *)g_memdup(srcMeta->objSignature.signature, srcMeta->objSignature.size);
+            g_memdup(srcMeta->objSignature.signature, srcMeta->objSignature.size);
         dstMeta->objSignature.size = srcMeta->objSignature.size;
     }
 
@@ -452,8 +450,7 @@ static void generate_person_meta(gpointer data)
 }
 #endif /**< GENERATE_DUMMY_META_EXT */
 
-static void generate_event_msg_meta(AppCtx *appCtx,
-                                    gpointer data,
+static void generate_event_msg_meta(gpointer data,
                                     gint class_id,
                                     gboolean useTs,
                                     GstClockTime ts,
@@ -507,15 +504,6 @@ static void generate_event_msg_meta(AppCtx *appCtx,
 
     /** tracking ID */
     meta->trackingId = obj_params->object_id;
-
-    /** sensor ID when streams are added using nvmultiurisrcbin REST API */
-    NvDsSensorInfo *sensorInfo = get_sensor_info(appCtx, stream_id);
-    if (sensorInfo) {
-        /** this stream was added using REST API; we have Sensor Info! */
-        LOGD("this stream [%d:%s] was added using REST API; we have Sensor Info\n",
-             sensorInfo->source_id, sensorInfo->sensor_id);
-        meta->sensorStr = g_strdup(sensorInfo->sensor_id);
-    }
 
     (void)ts_generated;
 
@@ -571,7 +559,7 @@ static void bbox_generated_probe_after_analytics(AppCtx *appCtx,
 
     for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
          l_frame = l_frame->next) {
-        NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+        NvDsFrameMeta *frame_meta = l_frame->data;
         stream_id = frame_meta->source_id;
         GstClockTime buf_ntp_time = 0;
         if (playback_utc == FALSE) {
@@ -634,7 +622,7 @@ static void bbox_generated_probe_after_analytics(AppCtx *appCtx,
                 NvDsEventMsgMeta *msg_meta =
                     (NvDsEventMsgMeta *)g_malloc0(sizeof(NvDsEventMsgMeta));
                 generate_event_msg_meta(
-                    appCtx, msg_meta, obj_meta->class_id, TRUE,
+                    msg_meta, obj_meta->class_id, TRUE,
                     /**< useTs NOTE: Pass FALSE for files without base-timestamp in URI */
                     buffer_pts, appCtx->config.multi_source_config[stream_id].uri, stream_id,
                     appCtx->config.multi_source_config[stream_id].camera_id, obj_meta, scaleW,
@@ -694,15 +682,11 @@ static void perf_cb(gpointer context, NvDsAppPerfStruct *str)
     guint numf = str->num_instances;
 
     g_mutex_lock(&fps_lock);
-    guint active_src_count = 0;
     for (i = 0; i < numf; i++) {
         fps[i] = str->fps[i];
-        if (fps[i]) {
-            active_src_count++;
-        }
         fps_avg[i] = str->fps_avg[i];
     }
-    g_print("Active sources : %u\n", active_src_count);
+
     if (header_print_cnt % 20 == 0) {
         g_print("\n**PERF:  ");
         for (i = 0; i < numf; i++) {
@@ -841,32 +825,29 @@ static gboolean event_thread_func(gpointer arg)
 
     gint source_id;
     GstElement *tiler = appCtx[rcfg]->pipeline.tiled_display_bin.tiler;
+    g_object_get(G_OBJECT(tiler), "show-source", &source_id, NULL);
 
-    if (appCtx[rcfg]->config.tiled_display_config.enable) {
-        g_object_get(G_OBJECT(tiler), "show-source", &source_id, NULL);
-
-        if (selecting) {
-            if (rrowsel == FALSE) {
-                if (c >= '0' && c <= '9') {
-                    rrow = c - '0';
-                    g_print("--selecting source  row %d--\n", rrow);
-                    rrowsel = TRUE;
-                }
-            } else {
-                if (c >= '0' && c <= '9') {
-                    int tile_num_columns = appCtx[rcfg]->config.tiled_display_config.columns;
-                    rcol = c - '0';
-                    selecting = FALSE;
-                    rrowsel = FALSE;
-                    source_id = tile_num_columns * rrow + rcol;
-                    g_print("--selecting source  col %d sou=%d--\n", rcol, source_id);
-                    if (source_id >= (gint)appCtx[rcfg]->config.num_source_sub_bins) {
-                        source_id = -1;
-                    } else {
-                        appCtx[rcfg]->show_bbox_text = TRUE;
-                        appCtx[rcfg]->active_source_index = source_id;
-                        g_object_set(G_OBJECT(tiler), "show-source", source_id, NULL);
-                    }
+    if (selecting) {
+        if (rrowsel == FALSE) {
+            if (c >= '0' && c <= '9') {
+                rrow = c - '0';
+                g_print("--selecting source  row %d--\n", rrow);
+                rrowsel = TRUE;
+            }
+        } else {
+            if (c >= '0' && c <= '9') {
+                int tile_num_columns = appCtx[rcfg]->config.tiled_display_config.columns;
+                rcol = c - '0';
+                selecting = FALSE;
+                rrowsel = FALSE;
+                source_id = tile_num_columns * rrow + rcol;
+                g_print("--selecting source  col %d sou=%d--\n", rcol, source_id);
+                if (source_id >= (gint)appCtx[rcfg]->config.num_source_sub_bins) {
+                    source_id = -1;
+                } else {
+                    appCtx[rcfg]->show_bbox_text = TRUE;
+                    appCtx[rcfg]->active_source_index = source_id;
+                    g_object_set(G_OBJECT(tiler), "show-source", source_id, NULL);
                 }
             }
         }
@@ -889,8 +870,7 @@ static gboolean event_thread_func(gpointer arg)
         ret = FALSE;
         break;
     case 'c':
-        if (appCtx[rcfg]->config.tiled_display_config.enable && selecting == FALSE &&
-            source_id == -1) {
+        if (selecting == FALSE && source_id == -1) {
             g_print("--selecting config file --\n");
             c = fgetc(stdin);
             if (c >= '0' && c <= '9') {
@@ -905,8 +885,7 @@ static gboolean event_thread_func(gpointer arg)
         }
         break;
     case 'z':
-        if (appCtx[rcfg]->config.tiled_display_config.enable && source_id == -1 &&
-            selecting == FALSE) {
+        if (source_id == -1 && selecting == FALSE) {
             g_print("--selecting source --\n");
             selecting = TRUE;
         } else {
@@ -1226,28 +1205,13 @@ gpointer ota_handler_thread(gpointer data)
                     if (strstr("..data", event->name)) {
                         memset(&ota_appCtx->override_config, 0,
                                sizeof(ota_appCtx->override_config));
-                        if (!IS_YAML(ota_ds_config_file)) {
-                            if (!parse_config_file(&ota_appCtx->override_config,
-                                                   ota_ds_config_file)) {
-                                NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
-                                                  ota_ds_config_file);
-                                g_print(
-                                    "Error: ota_handler_thread: Failed to parse config file '%s'",
+                        if (!parse_config_file(&ota_appCtx->override_config, ota_ds_config_file)) {
+                            NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
+                                              ota_ds_config_file);
+                            g_print("Error: ota_handler_thread: Failed to parse config file '%s'",
                                     ota_ds_config_file);
-                            } else {
-                                apply_ota(ota_appCtx);
-                            }
-                        } else if (IS_YAML(ota_ds_config_file)) {
-                            if (!parse_config_file_yaml(&ota_appCtx->override_config,
-                                                        ota_ds_config_file)) {
-                                NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
-                                                  ota_ds_config_file);
-                                g_print(
-                                    "Error: ota_handler_thread: Failed to parse config file '%s'",
-                                    ota_ds_config_file);
-                            } else {
-                                apply_ota(ota_appCtx);
-                            }
+                        } else {
+                            apply_ota(ota_appCtx);
                         }
                     }
                 }
@@ -1258,30 +1222,15 @@ gpointer ota_handler_thread(gpointer data)
 
                             memset(&ota_appCtx->override_config, 0,
                                    sizeof(ota_appCtx->override_config));
-                            if (!IS_YAML(ota_ds_config_file)) {
-                                if (!parse_config_file(&ota_appCtx->override_config,
-                                                       ota_ds_config_file)) {
-                                    NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
-                                                      ota_ds_config_file);
-                                    g_print(
-                                        "Error: ota_handler_thread: Failed to parse config file "
-                                        "'%s'",
-                                        ota_ds_config_file);
-                                } else {
-                                    apply_ota(ota_appCtx);
-                                }
-                            } else if (IS_YAML(ota_ds_config_file)) {
-                                if (!parse_config_file_yaml(&ota_appCtx->override_config,
-                                                            ota_ds_config_file)) {
-                                    NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
-                                                      ota_ds_config_file);
-                                    g_print(
-                                        "Error: ota_handler_thread: Failed to parse config file "
-                                        "'%s'",
-                                        ota_ds_config_file);
-                                } else {
-                                    apply_ota(ota_appCtx);
-                                }
+                            if (!parse_config_file(&ota_appCtx->override_config,
+                                                   ota_ds_config_file)) {
+                                NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'",
+                                                  ota_ds_config_file);
+                                g_print(
+                                    "Error: ota_handler_thread: Failed to parse config file '%s'",
+                                    ota_ds_config_file);
+                            } else {
+                                apply_ota(ota_appCtx);
                             }
                         }
                     }
@@ -1368,23 +1317,15 @@ int main(int argc, char *argv[])
             g_free(input_files[i]);
         }
 
-        if (IS_YAML(cfg_files[i])) {
-            if (!parse_config_file_yaml(&appCtx[i]->config, cfg_files[i])) {
-                NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
-                appCtx[i]->return_value = -1;
-                goto done;
-            }
-        } else {
-            if (!parse_config_file(&appCtx[i]->config, cfg_files[i])) {
-                NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
-                appCtx[i]->return_value = -1;
-                goto done;
-            }
+        if (!parse_config_file(&appCtx[i]->config, cfg_files[i])) {
+            NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
+            appCtx[i]->return_value = -1;
+            goto done;
         }
 
         if (override_cfg_file && override_cfg_file[i]) {
             if (!g_file_test(override_cfg_file[i],
-                             (GFileTest)(G_FILE_TEST_IS_REGULAR | G_FILE_TEST_IS_SYMLINK))) {
+                             G_FILE_TEST_IS_REGULAR | G_FILE_TEST_IS_SYMLINK)) {
                 g_print("Override file %s does not exist, quitting...\n", override_cfg_file[i]);
                 appCtx[i]->return_value = -1;
                 goto done;
@@ -1448,6 +1389,9 @@ int main(int argc, char *argv[])
             goto done;
         }
 
+        if (!appCtx[i]->config.tiled_display_config.enable)
+            continue;
+
         for (j = 0; j < appCtx[i]->config.num_sink_sub_bins; j++) {
             XTextProperty xproperty;
             gchar *title;
@@ -1504,9 +1448,9 @@ int main(int argc, char *argv[])
                  appCtx[i]->config.tiled_display_config.rows *
                          appCtx[i]->config.tiled_display_config.columns ==
                      1) ||
-                (appCtx[i]->config.tiled_display_config.enable == 0)) {
-                attr.event_mask = KeyRelease;
-            } else if (appCtx[i]->config.tiled_display_config.enable) {
+                (appCtx[i]->config.tiled_display_config.enable == 0 &&
+                 appCtx[i]->config.num_source_sub_bins == 1)) {
+            } else {
                 attr.event_mask = ButtonPress | KeyRelease;
             }
             XChangeWindowAttributes(display, windows[i], CWEventMask, &attr);

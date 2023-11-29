@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020 NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -41,12 +41,6 @@ typedef NvDsPayload **(*nvds_msg2p_generate_multiple_ptr)(NvDsMsg2pCtx *ctx,
 
 typedef void (*nvds_msg2p_release_ptr)(NvDsMsg2pCtx *ctx, NvDsPayload *payload);
 
-typedef NvDsPayload *(*nvds_msg2p_generate_ptr_new)(NvDsMsg2pCtx *ctx, void *metadataInfo);
-
-typedef NvDsPayload **(*nvds_msg2p_generate_multiple_ptr_new)(NvDsMsg2pCtx *ctx,
-                                                              void *metadataInfo,
-                                                              guint *payloadCount);
-
 struct _GstNvMsgConv {
     GstBaseTransform parent;
 
@@ -59,8 +53,6 @@ struct _GstNvMsgConv {
     NvDsMsg2pCtx *pCtx;
     gchar *debugPayloadDir;
     gboolean multiplePayloads;
-    gboolean msg2pNewApi;
-    guint frameInterval;
     gint numActivePayloads;
     gboolean stop;
     gboolean selfRef;
@@ -69,8 +61,6 @@ struct _GstNvMsgConv {
     nvds_msg2p_ctx_destroy_ptr ctx_destroy;
     nvds_msg2p_generate_ptr msg2p_generate;
     nvds_msg2p_generate_multiple_ptr msg2p_generate_multiple;
-    nvds_msg2p_generate_ptr_new msg2p_generate_new;
-    nvds_msg2p_generate_multiple_ptr_new msg2p_generate_multiple_new;
     nvds_msg2p_release_ptr msg2p_release;
     /** Identifies from input cap capability if the incoming data
      * is video/audio */

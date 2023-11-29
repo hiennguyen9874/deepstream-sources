@@ -44,8 +44,8 @@ gboolean create_tiled_display_bin(NvDsTiledDisplayConfig *config, NvDsTiledDispl
     else if (config->enable == 3)
         bin->tiler = gst_element_factory_make("identity", "tiled_display_identity");
 
-    if (!bin->tiler) {
-        NVGSTDS_ERR_MSG_V("Failed to create 'tiled_display_tiler'");
+    if (!bin->queue) {
+        NVGSTDS_ERR_MSG_V("Failed to create 'tiled_display_queue'");
         goto done;
     }
 
@@ -60,14 +60,6 @@ gboolean create_tiled_display_bin(NvDsTiledDisplayConfig *config, NvDsTiledDispl
 
     if (config->columns)
         g_object_set(G_OBJECT(bin->tiler), "columns", config->columns, NULL);
-
-    if (config->buffer_pool_size)
-        g_object_set(G_OBJECT(bin->tiler), "buffer-pool-size", config->buffer_pool_size, NULL);
-
-#ifdef IS_TEGRA
-    if (config->compute_hw)
-        g_object_set(G_OBJECT(bin->tiler), "compute-hw", config->compute_hw, NULL);
-#endif
 
     g_object_set(G_OBJECT(bin->tiler), "gpu-id", config->gpu_id, "nvbuf-memory-type",
                  config->nvbuf_memory_type, NULL);

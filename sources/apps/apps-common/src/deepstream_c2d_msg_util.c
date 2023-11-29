@@ -40,7 +40,7 @@
 static time_t nvds_c2d_str_to_second(const gchar *str)
 {
     char *err;
-    struct tm tm_log = {0};
+    struct tm tm_log;
     time_t t1;
 
     g_return_val_if_fail(str, -1);
@@ -90,7 +90,7 @@ NvDsC2DMsg *nvds_c2d_parse_cloud_message(gpointer data, guint size)
      *   }
      * }
      */
-    NvDsC2DMsgSR *srMsg = g_new0(NvDsC2DMsgSR, 1);
+
     JsonParser *parser = json_parser_new();
     ret = json_parser_load_from_data(parser, data, size, &error);
     if (!ret) {
@@ -185,6 +185,7 @@ NvDsC2DMsg *nvds_c2d_parse_cloud_message(gpointer data, guint size)
         goto error;
     }
 
+    NvDsC2DMsgSR *srMsg = g_new0(NvDsC2DMsgSR, 1);
     srMsg->sensorStr = sensorStr;
     if (startRec) {
         srMsg->startTime = start;
@@ -206,7 +207,6 @@ NvDsC2DMsg *nvds_c2d_parse_cloud_message(gpointer data, guint size)
 error:
     g_object_unref(parser);
     g_free(sensorStr);
-    g_free(srMsg);
     return NULL;
 }
 

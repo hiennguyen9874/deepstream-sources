@@ -1,6 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -14,20 +13,18 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <stdio.h>
 
 #include "gstnvdsmeta.h"
-#include "nvds_yml_parser.h"
 
 #define MAX_DISPLAY_LEN 64
 
@@ -43,13 +40,6 @@
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
 #define MUXER_BATCH_TIMEOUT_USEC 40000
-
-/* Check for parsing error. */
-#define RETURN_ON_PARSER_ERROR(parse_expr)                    \
-    if (NVDS_YAML_PARSER_SUCCESS != parse_expr) {             \
-        g_printerr("Error in parsing configuration file.\n"); \
-        return -1;                                            \
-    }
 
 gint frame_number = 0;
 gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "Roadsign"};
@@ -155,34 +145,22 @@ int main(int argc, char *argv[])
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *source = NULL, *h264parser = NULL, *decoder = NULL,
                *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL, *nvosd = NULL;
-
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *osd_sink_pad = NULL;
-    gboolean yaml_config = FALSE;
-    NvDsGieType pgie_type = NVDS_GIE_PLUGIN_INFER;
 
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
     /* Check input arguments */
     if (argc != 2) {
-        g_printerr("Usage: %s <yml file>\n", argv[0]);
-        g_printerr("OR: %s <H264 filename>\n", argv[0]);
+        g_printerr("Usage: %s <H264 filename>\n", argv[0]);
         return -1;
     }
 
     /* Standard GStreamer initialization */
     gst_init(&argc, &argv);
     loop = g_main_loop_new(NULL, FALSE);
-
-    /* Parse inference plugin type */
-    yaml_config = (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml"));
-
-    if (yaml_config) {
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&pgie_type, argv[1], "primary-gie"));
-    }
 
     /* Create gstreamer elements */
     /* Create Pipeline element that will form a connection of other elements */
@@ -206,13 +184,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /* Use nvinfer or nvinferserver to run inferencing on decoder's output,
+    /* Use nvinfer to run inferencing on decoder's output,
      * behaviour of inferencing is set through config file */
-    if (pgie_type == NVDS_GIE_PLUGIN_INFER_SERVER) {
-        pgie = gst_element_factory_make("nvinferserver", "primary-nvinference-engine");
-    } else {
-        pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
-    }
+    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
 
     /* Use convertor to convert from NV12 to RGBA as required by nvosd */
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
@@ -221,40 +195,34 @@ int main(int argc, char *argv[])
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
-    } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-    }
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!source || !h264parser || !decoder || !pgie || !nvvidconv || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
+#ifdef PLATFORM_TEGRA
+    if (!transform) {
+        g_printerr("One tegra element could not be created. Exiting.\n");
+        return -1;
+    }
+#endif
+
     /* we set the input filename to the source element */
     g_object_set(G_OBJECT(source), "location", argv[1], NULL);
 
-    if (g_str_has_suffix(argv[1], ".h264")) {
-        g_object_set(G_OBJECT(source), "location", argv[1], NULL);
+    g_object_set(G_OBJECT(streammux), "batch-size", 1, NULL);
 
-        g_object_set(G_OBJECT(streammux), "batch-size", 1, NULL);
+    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
+                 "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
-        g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
-                     MUXER_OUTPUT_HEIGHT, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
-
-        /* Set all the necessary properties of the nvinfer element,
-         * the necessary ones are : */
-        g_object_set(G_OBJECT(pgie), "config-file-path", "dstest1_pgie_config.txt", NULL);
-    }
-
-    if (yaml_config) {
-        RETURN_ON_PARSER_ERROR(nvds_parse_file_source(source, argv[1], "source"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_streammux(streammux, argv[1], "streammux"));
-
-        /* Set all the necessary properties of the inference element */
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie(pgie, argv[1], "primary-gie"));
-    }
+    /* Set all the necessary properties of the nvinfer element,
+     * the necessary ones are : */
+    g_object_set(G_OBJECT(pgie), "config-file-path", "dstest1_pgie_config.txt", NULL);
 
     /* we add a message handler */
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
@@ -263,9 +231,13 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
+#ifdef PLATFORM_TEGRA
+    gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, nvvidconv,
+                     nvosd, transform, sink, NULL);
+#else
     gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, nvvidconv,
                      nvosd, sink, NULL);
-    g_print("Added elements to bin\n");
+#endif
 
     GstPad *sinkpad, *srcpad;
     gchar pad_name_sink[16] = "sink_0";
@@ -293,17 +265,24 @@ int main(int argc, char *argv[])
 
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder ->
-     * pgie -> nvvidconv -> nvosd -> video-renderer */
+     * nvinfer -> nvvidconv -> nvosd -> video-renderer */
 
     if (!gst_element_link_many(source, h264parser, decoder, NULL)) {
         g_printerr("Elements could not be linked: 1. Exiting.\n");
         return -1;
     }
 
+#ifdef PLATFORM_TEGRA
+    if (!gst_element_link_many(streammux, pgie, nvvidconv, nvosd, transform, sink, NULL)) {
+        g_printerr("Elements could not be linked: 2. Exiting.\n");
+        return -1;
+    }
+#else
     if (!gst_element_link_many(streammux, pgie, nvvidconv, nvosd, sink, NULL)) {
         g_printerr("Elements could not be linked: 2. Exiting.\n");
         return -1;
     }
+#endif
 
     /* Lets add probe to get informed of the meta data generated, we add probe to
      * the sink pad of the osd element, since by that time, the buffer would have
@@ -317,7 +296,7 @@ int main(int argc, char *argv[])
     gst_object_unref(osd_sink_pad);
 
     /* Set the pipeline to "playing" state */
-    g_print("Using file: %s\n", argv[1]);
+    g_print("Now playing: %s\n", argv[1]);
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

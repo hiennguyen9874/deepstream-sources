@@ -34,8 +34,8 @@
 #define DSLOG_SYSLOG_IDENT "DSLOG"
 
 // define additional categories here
-#define DSLOG_CAT_CR "DSLOG:CR"
-#define DSLOG_CAT_SG "DSLOG:SG"
+#define DSLOG_CAT_CR "CR"
+#define DSLOG_CAT_SG "SG"
 
 #ifdef __cplusplus
 extern "C" {

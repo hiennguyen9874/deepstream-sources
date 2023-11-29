@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -84,13 +84,11 @@ IModelParser *NvDsInferCreateModelParser(const NvDsInferContextInitParams *initP
 }
 #else
 extern "C" bool NvDsInferYoloCudaEngineGet(nvinfer1::IBuilder *const builder,
-                                           nvinfer1::IBuilderConfig *const builderConfig,
                                            const NvDsInferContextInitParams *const initParams,
                                            nvinfer1::DataType dataType,
                                            nvinfer1::ICudaEngine *&cudaEngine);
 
 extern "C" bool NvDsInferYoloCudaEngineGet(nvinfer1::IBuilder *const builder,
-                                           nvinfer1::IBuilderConfig *const builderConfig,
                                            const NvDsInferContextInitParams *const initParams,
                                            nvinfer1::DataType dataType,
                                            nvinfer1::ICudaEngine *&cudaEngine)
@@ -101,7 +99,7 @@ extern "C" bool NvDsInferYoloCudaEngineGet(nvinfer1::IBuilder *const builder,
     }
 
     Yolo yolo(networkInfo);
-    cudaEngine = yolo.createEngine(builder, builderConfig);
+    cudaEngine = yolo.createEngine(builder);
     if (cudaEngine == nullptr) {
         std::cerr << "Failed to build cuda engine on " << networkInfo.configFilePath << std::endl;
         return false;

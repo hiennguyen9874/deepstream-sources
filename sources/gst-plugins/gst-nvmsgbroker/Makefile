@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2023 NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018-2020 NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -8,14 +8,14 @@
 # license agreement from NVIDIA Corporation is strictly prohibited.
 #################################################################################
 
-CXX:= g++
-SRCS:= gstnvmsgbroker.cpp
+CXX:= gcc
+SRCS:= gstnvmsgbroker.c
 INCS:= gstnvmsgbroker.h
 LIB:=libnvdsgst_msgbroker.so
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=5.0
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"5.0.0\" \
 	 -I../../includes
 
 GST_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/gst-plugins/
@@ -25,15 +25,15 @@ LIBS := -shared -Wl,-no-undefined
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvds_meta -ldl -lnvds_msgbroker \
        -Wl,-rpath,$(LIB_INSTALL_DIR)
 
-OBJS:= $(SRCS:.cpp=.o)
+OBJS:= $(SRCS:.c=.o)
 
 PKGS:= gstreamer-1.0 gstreamer-base-1.0
-CFLAGS+= $(shell pkg-config --cflags $(PKGS))
-LIBS+= $(shell pkg-config --libs $(PKGS))
+CFLAGS+= `pkg-config --cflags $(PKGS)`
+LIBS+= `pkg-config --libs $(PKGS)`
 
 all: $(LIB)
 
-%.o: %.cpp $(INCS) Makefile
+%.o: %.c $(INCS) Makefile
 	@echo $(CFLAGS)
 	$(CXX) -c -o $@ $(CFLAGS) $<
 

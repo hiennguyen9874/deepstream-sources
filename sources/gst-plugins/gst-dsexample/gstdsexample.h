@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,16 +27,6 @@
 #include <gst/video/video.h>
 
 /* Open CV headers */
-#pragma GCC diagnostic push
-#if __GNUC__ >= 8
-#pragma GCC diagnostic ignored "-Wclass-memaccess"
-#endif
-#ifdef WITH_OPENCV
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#endif
-#pragma GCC diagnostic pop
-
 #include <cuda.h>
 #include <cuda_runtime.h>
 
@@ -45,6 +35,8 @@
 #include "gstnvdsmeta.h"
 #include "nvbufsurface.h"
 #include "nvbufsurftransform.h"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
 
 /* Package and library details required for plugin_init */
 #define PACKAGE "dsexample"
@@ -92,10 +84,8 @@ struct _GstDsExample {
     // the intermediate scratch buffer for conversions RGBA
     NvBufSurface *inter_buf;
 
-#ifdef WITH_OPENCV
     // OpenCV mat containing RGB data
     cv::Mat *cvmat;
-#endif
 
     // Input video info (resolution, color format, framerate, etc)
     GstVideoInfo video_info;
@@ -103,9 +93,6 @@ struct _GstDsExample {
     // Resolution at which frames/objects should be processed
     gint processing_width;
     gint processing_height;
-
-    // Flag which defince igpu/dgpu
-    guint is_integrated;
 
     // Amount of objects processed in single call to algorithm
     guint batch_size;

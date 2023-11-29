@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -40,9 +40,7 @@ static gboolean get_absolute_file_path(const gchar *cfg_file_path,
     if (file_path[0] == '/') {
         /* Check if the file exists, return error if not. */
         if (!realpath(file_path, abs_real_file_path)) {
-            /* Ignore error if file does not exist and use the unresolved path. */
-            if (errno != ENOENT)
-                return FALSE;
+            return FALSE;
         }
         g_strlcpy(abs_path_str, abs_real_file_path, _PATH_MAX);
         return TRUE;
@@ -321,10 +319,6 @@ static gboolean gst_nvinfer_parse_other_attribute(GstNvInfer *nvinfer,
                                    &error))
             nvinfer->classifier_async_mode = TRUE;
         CHECK_ERROR(error);
-    } else if (!g_strcmp0(key, CONFIG_GROUP_INFER_CLASSIFIER_TYPE)) {
-        nvinfer->classifier_type =
-            g_key_file_get_string(key_file, group_name, CONFIG_GROUP_INFER_CLASSIFIER_TYPE, &error);
-        CHECK_ERROR(error);
     } else if (!g_strcmp0(key, CONFIG_GROUP_INFER_INTERVAL)) {
         if ((*nvinfer->is_prop_set)[PROP_INTERVAL])
             return TRUE;
@@ -353,11 +347,6 @@ static gboolean gst_nvinfer_parse_other_attribute(GstNvInfer *nvinfer,
         if (g_key_file_get_boolean(key_file, group_name, CONFIG_GROUP_INFER_MAINTAIN_ASPECT_RATIO,
                                    &error))
             nvinfer->maintain_aspect_ratio = TRUE;
-        CHECK_ERROR(error);
-    } else if (!g_strcmp0(key, CONFIG_GROUP_INFER_SYMMETRIC_PADDING)) {
-        if (g_key_file_get_boolean(key_file, group_name, CONFIG_GROUP_INFER_SYMMETRIC_PADDING,
-                                   &error))
-            nvinfer->symmetric_padding = TRUE;
         CHECK_ERROR(error);
     } else if (!g_strcmp0(key, CONFIG_GROUP_INFER_INPUT_OBJECT_MIN_WIDTH)) {
         nvinfer->min_input_object_width = g_key_file_get_integer(
@@ -442,7 +431,7 @@ static gboolean gst_nvinfer_parse_other_attribute(GstNvInfer *nvinfer,
         switch (val) {
         case NvBufSurfTransformCompute_Default:
         case NvBufSurfTransformCompute_GPU:
-#ifdef __aarch64__
+#ifdef IS_TEGRA
         case NvBufSurfTransformCompute_VIC:
 #endif
             break;
@@ -472,11 +461,6 @@ static gboolean gst_nvinfer_parse_other_attribute(GstNvInfer *nvinfer,
             goto done;
         }
         nvinfer->transform_params.transform_filter = (NvBufSurfTransform_Inter)val;
-    } else if (!g_strcmp0(key, CONFIG_GROUP_INFER_CROP_OBJECTS_TO_ROI_BOUNDARY)) {
-        if (g_key_file_get_boolean(key_file, group_name,
-                                   CONFIG_GROUP_INFER_CROP_OBJECTS_TO_ROI_BOUNDARY, &error))
-            nvinfer->crop_objects_to_roi_boundary = TRUE;
-        CHECK_ERROR(error);
     } else {
         g_printerr("Unknown or legacy key specified '%s' for group [%s]\n", key,
                    CONFIG_GROUP_PROPERTY);
@@ -586,19 +570,6 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
             init_params->dlaCore = g_key_file_get_integer(key_file, CONFIG_GROUP_PROPERTY,
                                                           CONFIG_GROUP_INFER_USE_DLA_CORE, &error);
             CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_AUTO_INCREASE_MEMORY)) {
-            init_params->autoIncMem = g_key_file_get_integer(
-                key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_AUTO_INCREASE_MEMORY, &error);
-            CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_MAX_GPU_MEMORY_PERCENTAGE)) {
-            init_params->maxGPUMemPer =
-                g_key_file_get_integer(key_file, CONFIG_GROUP_PROPERTY,
-                                       CONFIG_GROUP_INFER_MAX_GPU_MEMORY_PERCENTAGE, &error);
-            CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_TENSOR_META_POOL_SIZE)) {
-            init_params->outputBufferPoolSize = g_key_file_get_integer(
-                key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_TENSOR_META_POOL_SIZE, &error);
-            CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_BATCH_SIZE)) {
             if (nvinfer && (*nvinfer->is_prop_set)[PROP_BATCH_SIZE])
                 continue;
@@ -699,7 +670,6 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
                 g_key_file_get_string_list(key_file, CONFIG_GROUP_PROPERTY,
                                            CONFIG_GROUP_INFER_OUTPUT_IO_FORMATS, &length, &error);
             init_params->numOutputIOFormats = length;
-            CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_LAYER_DEVICE_PRECISION)) {
             gsize length;
             init_params->layerDevicePrecisions = g_key_file_get_string_list(
@@ -938,24 +908,6 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
                 g_printerr(
                     "Warning: Ignoring 'uff-input-dims' parameter since 'infer-dims' has been "
                     "set.\n");
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_NET_INPUT_ORDER)) {
-            gint val = g_key_file_get_integer(key_file, CONFIG_GROUP_PROPERTY,
-                                              CONFIG_GROUP_INFER_NET_INPUT_ORDER, &error);
-            CHECK_ERROR(error);
-
-            switch (val) {
-            case 0:
-                init_params->netInputOrder = NvDsInferTensorOrder_kNCHW;
-                break;
-            case 1:
-                init_params->netInputOrder = NvDsInferTensorOrder_kNHWC;
-                break;
-            default:
-                g_printerr("Error. Invalid value for '%s', network input order :'%d'\n",
-                           CONFIG_GROUP_INFER_NET_INPUT_ORDER, val);
-                goto done;
-                break;
-            }
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_UFF_INPUT_ORDER)) {
             gint val = g_key_file_get_integer(key_file, CONFIG_GROUP_PROPERTY,
                                               CONFIG_GROUP_INFER_UFF_INPUT_ORDER, &error);
@@ -1091,32 +1043,6 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
                            init_params->segmentationThreshold);
                 goto done;
             }
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_SEGMENTATION_OUTPUT_ORDER)) {
-            gint val = g_key_file_get_integer(key_file, CONFIG_GROUP_PROPERTY,
-                                              CONFIG_GROUP_INFER_SEGMENTATION_OUTPUT_ORDER, &error);
-            CHECK_ERROR(error);
-            switch (val) {
-            case 0:
-                init_params->segmentationOutputOrder = NvDsInferTensorOrder_kNCHW;
-                break;
-            case 1:
-                init_params->segmentationOutputOrder = NvDsInferTensorOrder_kNHWC;
-                break;
-            default:
-                g_printerr("Error. Invalid value for '%s', Segmentation output order :'%d'\n",
-                           CONFIG_GROUP_INFER_SEGMENTATION_OUTPUT_ORDER, val);
-                goto done;
-                break;
-            }
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_INPUT_FROM_META)) {
-            if ((*nvinfer->is_prop_set)[PROP_INPUT_TENSOR_META])
-                continue;
-            if (g_key_file_get_boolean(key_file, CONFIG_GROUP_PROPERTY,
-                                       CONFIG_GROUP_INFER_INPUT_FROM_META, &error)) {
-                nvinfer->input_tensor_from_meta = TRUE;
-                init_params->inputFromPreprocessedTensor = TRUE;
-            }
-            CHECK_ERROR(error);
         } else if (nvinfer) {
             if (!gst_nvinfer_parse_other_attribute(nvinfer, key_file, CONFIG_GROUP_PROPERTY, *key,
                                                    cfg_file_path)) {
@@ -1182,7 +1108,6 @@ gboolean gst_nvinfer_parse_config_file(GstNvInfer *nvinfer,
         color_params.have_border_color = TRUE;
         color_params.border_color = (NvOSD_ColorParams){1, 0, 0, 1};
         color_params.have_bg_color = FALSE;
-        color_params.bg_color = {0};
 
         /* Parse the parameters for "all" classes if the group has been specified. */
         if (g_key_file_has_group(cfg_file, CONFIG_GROUP_INFER_CLASS_ATTRS_PREFIX "all")) {

@@ -25,11 +25,11 @@ infer_config {
   gpu_ids: 0
   max_batch_size: 16
   backend {
-    triton {
+    trt_is {
       model_name: "Secondary_CarColor"
       version: -1
       model_repo {
-        root: "../../../../../samples/triton_model_repo"
+        root: "../../../../../samples/trtis_model_repo"
         strict_model_config: true
       }
     }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -38,18 +38,12 @@
 #define CONFIG_GROUP_INFER_GPU_ID "gpu-id"
 #define CONFIG_GROUP_INFER_SECONDARY_REINFER_INTERVAL "secondary-reinfer-interval"
 #define CONFIG_GROUP_INFER_OUTPUT_TENSOR_META "output-tensor-meta"
-// gpu_post_processing 0 is not 1 is yes
-#define CONFIG_GROUP_INFER_DISABLE_OUTPUT_HOST_COPY "disable-output-host-copy"
-
-#define CONFIG_GROUP_INFER_AUTO_INCREASE_MEMORY "auto-inc-mem"
-#define CONFIG_GROUP_INFER_MAX_GPU_MEMORY_PERCENTAGE "max-gpu-mem-per"
 
 #define CONFIG_GROUP_INFER_ENABLE_DLA "enable-dla"
 #define CONFIG_GROUP_INFER_USE_DLA_CORE "use-dla-core"
 
 /** Runtime engine parameters. */
 #define CONFIG_GROUP_INFER_BATCH_SIZE "batch-size"
-#define CONFIG_GROUP_INFER_TENSOR_META_POOL_SIZE "tensor-meta-pool-size"
 #define CONFIG_GROUP_INFER_NETWORK_MODE "network-mode"
 #define CONFIG_GROUP_INFER_MODEL_ENGINE "model-engine-file"
 #define CONFIG_GROUP_INFER_INT8_CALIBRATION_FILE "int8-calib-file"
@@ -70,11 +64,8 @@
 #define CONFIG_GROUP_INFER_OFFSETS "offsets"
 #define CONFIG_GROUP_INFER_MEANFILE "mean-file"
 #define CONFIG_GROUP_INFER_MAINTAIN_ASPECT_RATIO "maintain-aspect-ratio"
-#define CONFIG_GROUP_INFER_SYMMETRIC_PADDING "symmetric-padding"
 #define CONFIG_GROUP_INFER_SCALING_FILTER "scaling-filter"
 #define CONFIG_GROUP_INFER_SCALING_COMPUTE_HW "scaling-compute-hw"
-#define CONFIG_GROUP_INFER_NET_INPUT_ORDER "network-input-order"
-#define CONFIG_GROUP_INFER_INPUT_FROM_META "input-tensor-from-meta"
 
 /** Custom implementation required to support a network. */
 #define CONFIG_GROUP_INFER_CUSTOM_LIB_PATH "custom-lib-path"
@@ -106,16 +97,13 @@
 #define CONFIG_GROUP_INFER_NUM_DETECTED_CLASSES "num-detected-classes"
 #define CONFIG_GROUP_INFER_ENABLE_DBSCAN "enable-dbscan"
 #define CONFIG_GROUP_INFER_CLUSTER_MODE "cluster-mode"
-#define CONFIG_GROUP_INFER_CROP_OBJECTS_TO_ROI_BOUNDARY "crop-objects-to-roi-boundary"
 
 /** Classifier specific parameters. */
-#define CONFIG_GROUP_INFER_CLASSIFIER_TYPE "classifier-type"
 #define CONFIG_GROUP_INFER_CLASSIFIER_THRESHOLD "classifier-threshold"
 #define CONFIG_GROUP_INFER_CLASSIFIER_ASYNC_MODE "classifier-async-mode"
 
 /** Segmentaion specific parameters. */
 #define CONFIG_GROUP_INFER_SEGMENTATION_THRESHOLD "segmentation-threshold"
-#define CONFIG_GROUP_INFER_SEGMENTATION_OUTPUT_ORDER "segmentation-output-order"
 
 /** Instance Segmentaion specific parameters. */
 #define CONFIG_GROUP_INFER_OUTPUT_INSTANCE_MASK "output-instance-mask"

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -60,7 +60,7 @@ CaffeModelParser::~CaffeModelParser()
 {
     m_CaffeParser.reset();
     /* Destroy the PluginFactory created for building the Caffe model.*/
-    if (m_CaffePluginFactory.pluginFactoryV2) {
+    if (m_CaffePluginFactory.pluginFactory) {
         assert(m_LibHandle);
         auto destroyFunc = READ_SYMBOL(m_LibHandle, NvDsInferPluginFactoryCaffeDestroy);
         if (destroyFunc) {
@@ -86,7 +86,7 @@ NvDsInferStatus CaffeModelParser::setPluginFactory()
     if (!fcn)
         return NVDSINFER_SUCCESS;
 
-    NvDsInferPluginFactoryType type{PLUGIN_FACTORY_V2};
+    NvDsInferPluginFactoryType type{PLUGIN_FACTORY};
     if (!fcn(m_CaffePluginFactory, type)) {
         dsInferError(
             "Could not get PluginFactory instance for "
@@ -94,16 +94,22 @@ NvDsInferStatus CaffeModelParser::setPluginFactory()
         return NVDSINFER_CUSTOM_LIB_FAILED;
     }
 
-    if (type != PLUGIN_FACTORY_V2) {
+    switch (type) {
+    case PLUGIN_FACTORY:
+        m_CaffeParser->setPluginFactory(m_CaffePluginFactory.pluginFactory);
+        break;
+    case PLUGIN_FACTORY_EXT:
+        m_CaffeParser->setPluginFactoryExt(m_CaffePluginFactory.pluginFactoryExt);
+        break;
+    case PLUGIN_FACTORY_V2:
+        m_CaffeParser->setPluginFactoryV2(m_CaffePluginFactory.pluginFactoryV2);
+        break;
+    default:
         dsInferError(
             "Invalid PluginFactory type returned by "
             "custom library");
         return NVDSINFER_CUSTOM_LIB_FAILED;
-
-    } else {
-        m_CaffeParser->setPluginFactoryV2(m_CaffePluginFactory.pluginFactoryV2);
     }
-
     return NVDSINFER_SUCCESS;
 }
 
@@ -203,10 +209,68 @@ UffModelParser::UffModelParser(const NvDsInferContextInitParams &initParams,
 UffModelParser::~UffModelParser()
 {
     m_UffParser.reset();
+    if (m_UffPluginFactory.pluginFactory) {
+        /* Destroy the PluginFactory created for building the Caffe model.*/
+        assert(m_LibHandle);
+        auto destroyFcn = READ_SYMBOL(m_LibHandle, NvDsInferPluginFactoryUffDestroy);
+        if (destroyFcn) {
+            destroyFcn(m_UffPluginFactory);
+        } else {
+            dsInferWarning(
+                "Custom lib: %s doesn't have function "
+                "<NvDsInferPluginFactoryUffDestroy> may cause memory-leak",
+                safeStr(m_LibHandle->getPath()));
+        }
+    }
+}
+
+NvDsInferStatus UffModelParser::setPluginFactory()
+{
+    assert(m_UffParser);
+    if (!m_LibHandle)
+        return NVDSINFER_SUCCESS;
+
+    /* Check if the custom library provides a PluginFactory for UFF parsing. */
+    auto fcn = READ_SYMBOL(m_LibHandle, NvDsInferPluginFactoryUffGet);
+    if (!fcn)
+        return NVDSINFER_SUCCESS;
+
+    NvDsInferPluginFactoryType type{PLUGIN_FACTORY};
+    if (!fcn(m_UffPluginFactory, type)) {
+        dsInferError(
+            "Could not get PluginFactory instance for "
+            "Uff parsing from custom library");
+        return NVDSINFER_CUSTOM_LIB_FAILED;
+    }
+
+    /* Use the appropriate API to set the PluginFactory based on its
+     * type. */
+    switch (type) {
+    case PLUGIN_FACTORY:
+        m_UffParser->setPluginFactory(m_UffPluginFactory.pluginFactory);
+        break;
+    case PLUGIN_FACTORY_EXT:
+        m_UffParser->setPluginFactoryExt(m_UffPluginFactory.pluginFactoryExt);
+        break;
+    default:
+        dsInferError(
+            "Invalid PluginFactory type returned by "
+            "custom library: %s",
+            safeStr(m_LibHandle->getPath()));
+        return NVDSINFER_CUSTOM_LIB_FAILED;
+    }
+    return NVDSINFER_SUCCESS;
 }
 
 NvDsInferStatus UffModelParser::initParser()
 {
+    /* Check if the custom library provides a PluginFactory for UFF parsing. */
+    NvDsInferStatus status = setPluginFactory();
+    if (status != NVDSINFER_SUCCESS) {
+        dsInferError("Failed to set UFF plugin Factory from custom lib");
+        return NVDSINFER_TENSORRT_ERROR;
+    }
+
     /* Register the input layer (name, dims and input order). */
     for (size_t i = 0; i < m_ModelParams.inputNames.size(); ++i) {
         if (!m_UffParser->registerInput(m_ModelParams.inputNames[i].c_str(),
@@ -538,8 +602,6 @@ TrtModelBuilder::TrtModelBuilder(int gpuId,
 {
     m_Builder.reset(nvinfer1::createInferBuilder(logger));
     assert(m_Builder);
-    m_BuilderConfig.reset(m_Builder->createBuilderConfig());
-    assert(m_BuilderConfig);
 }
 
 /* Get already built CUDA Engine from custom library. */
@@ -567,8 +629,8 @@ std::unique_ptr<TrtEngine> TrtModelBuilder::getCudaEngineFromCustomLib(
         if (m_Builder->platformHasFastInt8()) {
             if (m_Int8Calibrator != nullptr) {
                 /* Set INT8 mode and set the INT8 Calibrator */
-                m_BuilderConfig->setFlag(nvinfer1::BuilderFlag::kINT8);
-                m_BuilderConfig->setInt8Calibrator(m_Int8Calibrator.get());
+                m_Builder->setInt8Mode(true);
+                m_Builder->setInt8Calibrator(m_Int8Calibrator.get());
                 /* modelDataType should be FLOAT for INT8 */
                 modelDataType = nvinfer1::DataType::kFLOAT;
             } else if (cudaEngineGetFcn != nullptr || cudaEngineGetDeprecatedFcn != nullptr) {
@@ -589,7 +651,7 @@ std::unique_ptr<TrtEngine> TrtModelBuilder::getCudaEngineFromCustomLib(
     if (networkMode == NvDsInferNetworkMode_FP16) {
         /* Check if platform supports FP16 else use FP32 */
         if (m_Builder->platformHasFastFp16()) {
-            m_BuilderConfig->setFlag(nvinfer1::BuilderFlag::kFP16);
+            m_Builder->setHalf2Mode(true);
             modelDataType = nvinfer1::DataType::kHALF;
         } else {
             dsInferWarning("FP16 not supported by platform. Using FP32 mode.");
@@ -603,18 +665,14 @@ std::unique_ptr<TrtEngine> TrtModelBuilder::getCudaEngineFromCustomLib(
 
     /* Set the maximum batch size */
     m_Builder->setMaxBatchSize(initParams.maxBatchSize);
-    /* By default the workspace size is the size of total global memory in the device. */
-    if (initParams.workspaceSize) {
-        size_t workspaceSize = initParams.workspaceSize * UINT64_C(1024) * UINT64_C(1024);
-        m_BuilderConfig->setMaxWorkspaceSize(workspaceSize);
-    }
+    m_Builder->setMaxWorkspaceSize(kWorkSpaceSize);
 
     int dla = -1;
     /* Use DLA if specified. */
     if (initParams.useDLA) {
-        m_BuilderConfig->setDefaultDeviceType(nvinfer1::DeviceType::kDLA);
-        m_BuilderConfig->setDLACore(initParams.dlaCore);
-        m_BuilderConfig->setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
+        m_Builder->setDefaultDeviceType(nvinfer1::DeviceType::kDLA);
+        m_Builder->setDLACore(initParams.dlaCore);
+        m_Builder->allowGPUFallback(true);
         dla = initParams.dlaCore;
 
         if (networkMode == NvDsInferNetworkMode_FP32) {
@@ -627,8 +685,8 @@ std::unique_ptr<TrtEngine> TrtModelBuilder::getCudaEngineFromCustomLib(
     /* Get the  cuda engine from the library */
     nvinfer1::ICudaEngine *engine = nullptr;
     if (cudaEngineGetFcn &&
-        (!cudaEngineGetFcn(m_Builder.get(), m_BuilderConfig.get(),
-                           (NvDsInferContextInitParams *)&initParams, modelDataType, engine) ||
+        (!cudaEngineGetFcn(m_Builder.get(), (NvDsInferContextInitParams *)&initParams,
+                           modelDataType, engine) ||
          engine == nullptr)) {
         dsInferError(
             "Failed to create network using custom network creation"
@@ -880,11 +938,6 @@ std::unique_ptr<BuildParams> TrtModelBuilder::createDynamicParams(
 
     params->optBatchSize = initParams.maxBatchSize;
     params->maxBatchSize = initParams.maxBatchSize;
-    params->inputOrder = initParams.netInputOrder;
-
-    dsInferDebug("%s: c, h, w = %d, %d, %d, order = %s\n", __func__, initParams.inferInputDims.c,
-                 initParams.inferInputDims.h, initParams.inferInputDims.w,
-                 (params->inputOrder == NvDsInferTensorOrder_kNCHW) ? "NCHW" : "NHWC");
 
     if (initParams.inferInputDims.c && initParams.inferInputDims.h && initParams.inferInputDims.w) {
         nvinfer1::Dims dims = ds2TrtDims(initParams.inferInputDims);
@@ -952,6 +1005,8 @@ std::unique_ptr<TrtEngine> TrtModelBuilder::buildEngine(nvinfer1::INetworkDefini
                                                         BuildParams &options)
 {
     assert(m_Builder);
+    m_BuilderConfig.reset(m_Builder->createBuilderConfig());
+
     if (!options.sanityCheck()) {
         dsInferError("build param sanity check failed.");
         return nullptr;
@@ -1078,12 +1133,11 @@ NvDsInferStatus TrtModelBuilder::configCommonOptions(BuildParams &params)
 
 NvDsInferStatus TrtModelBuilder::configImplicitOptions(ImplicitBuildParams &params)
 {
-    assert(m_Builder && m_Network && m_BuilderConfig);
+    assert(m_Builder && m_Network);
     assert(params.inputDims.size() <= 1);
 
     nvinfer1::IBuilder &builder = *m_Builder;
     nvinfer1::INetworkDefinition &network = *m_Network;
-    nvinfer1::IBuilderConfig &builderConfig = *m_BuilderConfig;
 
     RETURN_NVINFER_ERROR(configCommonOptions(params),
                          "config implicit params failed because of common option's error");
@@ -1103,7 +1157,7 @@ NvDsInferStatus TrtModelBuilder::configImplicitOptions(ImplicitBuildParams &para
     }
 
     builder.setMaxBatchSize(params.maxBatchSize);
-    builderConfig.setMaxWorkspaceSize(params.workspaceSize);
+    builder.setMaxWorkspaceSize(params.workspaceSize);
 
     if (!params.inputDims.empty()) {
         int inputLayerNum = network.getNbInputs();
@@ -1154,19 +1208,8 @@ NvDsInferStatus TrtModelBuilder::configExplicitOptions(ExplicitBuildParams &para
             return NVDSINFER_CONFIG_FAILED;
         }
 
-        if (params.inputOrder == NvDsInferTensorOrder_kNCHW) {
-            std::move_backward(minDims.d, minDims.d + modelDims.nbDims - 1,
-                               minDims.d + modelDims.nbDims);
-        } else if (params.inputOrder == NvDsInferTensorOrder_kNHWC) {
-            /* For Infer config accept Dims as CHW order by default,
-            we need to change it to HWC */
-            dsInferDebug("Switch Dims for NHWC\n");
-            minDims.d[3] = minDims.d[0];
-        } else {
-            dsInferError("Unexpected Input Tensor Order\n");
-            return NVDSINFER_CONFIG_FAILED;
-        }
-
+        std::move_backward(minDims.d, minDims.d + modelDims.nbDims - 1,
+                           minDims.d + modelDims.nbDims);
         minDims.d[0] = params.minBatchSize;
         minDims.nbDims = modelDims.nbDims;
         assert(std::none_of(minDims.d, minDims.d + minDims.nbDims, [](int d) { return d < 0; }));
@@ -1175,13 +1218,8 @@ NvDsInferStatus TrtModelBuilder::configExplicitOptions(ExplicitBuildParams &para
         nvinfer1::Dims optDims =
             params.inputProfileDims.at(iL)[(int)nvinfer1::OptProfileSelector::kOPT];
         assert(optDims.nbDims + 1 == modelDims.nbDims);
-
-        if (params.inputOrder == NvDsInferTensorOrder_kNCHW) {
-            std::move_backward(optDims.d, optDims.d + modelDims.nbDims - 1,
-                               optDims.d + modelDims.nbDims);
-        } else { // must be NHWC as already checked above
-            optDims.d[3] = optDims.d[0];
-        }
+        std::move_backward(optDims.d, optDims.d + modelDims.nbDims - 1,
+                           optDims.d + modelDims.nbDims);
         optDims.d[0] = params.optBatchSize;
         optDims.nbDims = modelDims.nbDims;
         assert(std::none_of(optDims.d, optDims.d + optDims.nbDims, [](int d) { return d < 0; }));
@@ -1190,11 +1228,8 @@ NvDsInferStatus TrtModelBuilder::configExplicitOptions(ExplicitBuildParams &para
         nvinfer1::Dims maxDims =
             params.inputProfileDims.at(iL)[(int)nvinfer1::OptProfileSelector::kMAX];
         assert(maxDims.nbDims + 1 == modelDims.nbDims);
-        if (params.inputOrder == NvDsInferTensorOrder_kNCHW)
-            std::move_backward(maxDims.d, maxDims.d + modelDims.nbDims - 1,
-                               maxDims.d + modelDims.nbDims);
-        else
-            maxDims.d[3] = maxDims.d[0];
+        std::move_backward(maxDims.d, maxDims.d + modelDims.nbDims - 1,
+                           maxDims.d + modelDims.nbDims);
         maxDims.d[0] = params.maxBatchSize;
         maxDims.nbDims = modelDims.nbDims;
         assert(std::none_of(maxDims.d, maxDims.d + maxDims.nbDims, [](int d) { return d < 0; }));
@@ -1245,8 +1280,8 @@ NvDsInferStatus TrtModelBuilder::serializeEngine(const std::string &path,
 {
     std::ofstream fileOut(path, std::ios::binary);
     if (!fileOut.is_open()) {
-        dsInferWarning("Serialize engine failed because of file path: %s opened error",
-                       safeStr(path));
+        dsInferError("Serialize engine failed because of file path: %s opened error",
+                     safeStr(path));
         return NVDSINFER_TENSORRT_ERROR;
     }
 
@@ -1268,7 +1303,7 @@ std::unique_ptr<TrtEngine> TrtModelBuilder::deserializeEngine(const std::string 
 {
     std::ifstream fileIn(path, std::ios::binary);
     if (!fileIn.is_open()) {
-        dsInferWarning("Deserialize engine failed because file path: %s open error", safeStr(path));
+        dsInferError("Deserialize engine failed because file path: %s open error", safeStr(path));
         return nullptr;
     }
 

@@ -72,9 +72,6 @@ enum {
     PROP_OUTPUT_CALLBACK_USERDATA,
     PROP_OUTPUT_TENSOR_META,
     PROP_OUTPUT_INSTANCE_MASK,
-    PROP_INPUT_TENSOR_META,
-    PROP_CLIP_OBJECT_OUTSIDE_ROI,
-    PROP_CROP_OBJECTS_TO_ROI_BOUNDARY,
     PROP_LAST
 };
 
@@ -112,22 +109,12 @@ typedef struct {
 } GstNvInferColorParams;
 
 /** Holds the cached information of an object. */
-struct GstNvInferObjectInfo {
+typedef struct {
     /** Vector of cached classification attributes. */
     std::vector<NvDsInferAttribute> attributes;
     /** Cached string label. */
     std::string label;
-
-    GstNvInferObjectInfo(const GstNvInferObjectInfo &) = delete;
-    GstNvInferObjectInfo() = default;
-    ~GstNvInferObjectInfo()
-    {
-        for (auto &attr : attributes) {
-            if (attr.attributeLabel)
-                free(attr.attributeLabel);
-        }
-    }
-};
+} GstNvInferObjectInfo;
 
 /**
  * Holds the inference information/history for one object based on it's
@@ -224,20 +211,9 @@ struct _GstNvInfer {
     /** Cuda Stream to launch npp operations on. */
     cudaStream_t convertStream;
 
-    gboolean input_tensor_from_meta;
-
-    /** Clip the object bounding-box which lies outside the roi specified by nvdspreprosess plugin.
-     */
-    gboolean clip_object_outside_roi;
-
     /** Boolean indicating if aspect ratio should be maintained when scaling to
      * network resolution. Right/bottom areas will be filled with black areas. */
     gboolean maintain_aspect_ratio;
-
-    /** Boolean indicating which padding to be used when scaling to
-     * network resolution. Right/bottom areas will be filled with black areas
-     * by default. Symmetric padding is used if enabled.*/
-    gboolean symmetric_padding;
 
     /** Vector for per-class detection filtering parameters. */
     std::vector<GstNvInferDetectionFilterParams> *perClassDetectionFilterParams;
@@ -272,9 +248,6 @@ struct _GstNvInfer {
 
     /** Boolean indicating if the secondary classifier should run in asynchronous mode. */
     gboolean classifier_async_mode;
-
-    /** String containing the type of classifier */
-    gchar *classifier_type;
 
     /** Network input information. */
     NvDsInferNetworkInfo network_info;
@@ -323,9 +296,6 @@ struct _GstNvInfer {
 
     /** NVTX Domain. */
     nvtxDomainHandle_t nvtx_domain;
-
-    /*Clip the object bounding-box which lies outside the roi boundary. */
-    gboolean crop_objects_to_roi_boundary;
 
     GstNvInferImpl *impl;
 };

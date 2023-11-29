@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -76,11 +76,23 @@ gie-unique-id=1
 output-blob-names=conv2d_bbox;conv2d_cov/Sigmoid
 force-implicit-batch-dim=1
 #parse-bbox-func-name=NvDsInferParseCustomResnet
-#custom-lib-path=/path/to/this/directory/libnvds_infercustomparser.so
-## 1=DBSCAN, 2=NMS, 3= DBSCAN+NMS Hybrid, 4 = None(No clustering)
-cluster-mode=2
+#custom-lib-path=/path/to/libnvdsparsebbox.so
+## 0=Group Rectangles, 1=DBSCAN, 2=NMS, 3= DBSCAN+NMS Hybrid, 4 = None(No clustering)
+#cluster-mode=1
 #scaling-filter=0
 #scaling-compute-hw=0
+
+#Use these config params for group rectangles clustering mode
+[class-attrs-all]
+pre-cluster-threshold=0.2
+group-threshold=1
+eps=0.2
+roi-top-offset=0
+roi-bottom-offset=0
+detected-min-w=0
+detected-min-h=0
+detected-max-w=0
+detected-max-h=0
 
 #Use the config params below for dbscan clustering mode
 #[class-attrs-all]
@@ -88,17 +100,11 @@ cluster-mode=2
 #detected-min-h=4
 #minBoxes=3
 
-#Use the config params below for NMS clustering mode
-[class-attrs-all]
-topk=20
-nms-iou-threshold=0.5
-pre-cluster-threshold=0.2
-
 ## Per class configurations
-[class-attrs-0]
-topk=20
-nms-iou-threshold=0.5
-pre-cluster-threshold=0.4
+#[class-attrs-0]
+#pre-cluster-threshold=0.05
+#eps=0.7
+#dbscan-min-score=0.95
 
 #[class-attrs-1]
 #pre-cluster-threshold=0.05

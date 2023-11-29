@@ -1,6 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -14,14 +13,13 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <stdio.h>
@@ -29,7 +27,6 @@
 #include <string.h>
 
 #include "gstnvdsmeta.h"
-#include "nvds_yml_parser.h"
 
 #define PGIE_CONFIG_FILE "dstest2_pgie_config.txt"
 #define SGIE1_CONFIG_FILE "dstest2_sgie1_config.txt"
@@ -52,21 +49,6 @@
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
 #define MUXER_BATCH_TIMEOUT_USEC 40000
-
-/* Create an inference element instance of the specified type. */
-#define CREATE_GIE_INSTANCE(element, type, name)                   \
-    if ((type) == NVDS_GIE_PLUGIN_INFER_SERVER) {                  \
-        element = gst_element_factory_make("nvinferserver", name); \
-    } else {                                                       \
-        element = gst_element_factory_make("nvinfer", name);       \
-    }
-
-/* Check for parsing error. */
-#define RETURN_ON_PARSER_ERROR(parse_expr)                    \
-    if (NVDS_YAML_PARSER_SUCCESS != parse_expr) {             \
-        g_printerr("Error in parsing configuration file.\n"); \
-        return -1;                                            \
-    }
 
 gint frame_number = 0;
 /* These are the strings of the labels for the respective models */
@@ -201,6 +183,7 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 #define CONFIG_GROUP_TRACKER_HEIGHT "tracker-height"
 #define CONFIG_GROUP_TRACKER_LL_CONFIG_FILE "ll-config-file"
 #define CONFIG_GROUP_TRACKER_LL_LIB_FILE "ll-lib-file"
+#define CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS "enable-batch-process"
 #define CONFIG_GPU_ID "gpu-id"
 
 static gchar *get_absolute_file_path(gchar *cfg_file_path, gchar *file_path)
@@ -279,6 +262,11 @@ static gboolean set_tracker_properties(GstElement *nvtracker)
                                       CONFIG_GROUP_TRACKER_LL_LIB_FILE, &error));
             CHECK_ERROR(error);
             g_object_set(G_OBJECT(nvtracker), "ll-lib-file", ll_lib_file, NULL);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS)) {
+            gboolean enable_batch_process = g_key_file_get_integer(
+                key_file, CONFIG_GROUP_TRACKER, CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS, &error);
+            CHECK_ERROR(error);
+            g_object_set(G_OBJECT(nvtracker), "enable_batch_process", enable_batch_process, NULL);
         } else {
             g_printerr("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_TRACKER);
         }
@@ -305,38 +293,22 @@ int main(int argc, char *argv[])
                *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL, *nvosd = NULL,
                *sgie1 = NULL, *sgie2 = NULL, *sgie3 = NULL, *nvtracker = NULL;
     g_print("With tracker\n");
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id = 0;
     GstPad *osd_sink_pad = NULL;
-    gboolean yaml_config = FALSE;
-    NvDsGieType pgie_type = NVDS_GIE_PLUGIN_INFER, sgie1_type = NVDS_GIE_PLUGIN_INFER;
-    NvDsGieType sgie2_type = NVDS_GIE_PLUGIN_INFER, sgie3_type = NVDS_GIE_PLUGIN_INFER;
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
 
     /* Check input arguments */
     if (argc != 2) {
-        g_printerr("Usage: %s <yml file>\n", argv[0]);
-        g_printerr("OR: %s <H264 filename>\n", argv[0]);
+        g_printerr("Usage: %s <elementary H264 filename>\n", argv[0]);
         return -1;
     }
 
     /* Standard GStreamer initialization */
     gst_init(&argc, &argv);
     loop = g_main_loop_new(NULL, FALSE);
-
-    /* Parse inference plugin type */
-    yaml_config = (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml"));
-
-    if (yaml_config) {
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&pgie_type, argv[1], "primary-gie"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&sgie1_type, argv[1], "secondary-gie1"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&sgie2_type, argv[1], "secondary-gie2"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&sgie3_type, argv[1], "secondary-gie3"));
-    }
 
     /* Create gstreamer elements */
 
@@ -361,18 +333,20 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /* Use nvinfer or nvinferserver to run inferencing on decoder's output,
+    /* Use nvinfer to run inferencing on decoder's output,
      * behaviour of inferencing is set through config file */
-    CREATE_GIE_INSTANCE(pgie, pgie_type, "primary-nvinference-engine");
+    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
 
     /* We need to have a tracker to track the identified objects */
     nvtracker = gst_element_factory_make("nvtracker", "tracker");
 
     /* We need three secondary gies so lets create 3 more instances of
-       nvinfer or nvinferserver */
-    CREATE_GIE_INSTANCE(sgie1, sgie1_type, "secondary1-nvinference-engine");
-    CREATE_GIE_INSTANCE(sgie2, sgie2_type, "secondary2-nvinference-engine");
-    CREATE_GIE_INSTANCE(sgie3, sgie3_type, "secondary3-nvinference-engine");
+       nvinfer */
+    sgie1 = gst_element_factory_make("nvinfer", "secondary1-nvinference-engine");
+
+    sgie2 = gst_element_factory_make("nvinfer", "secondary2-nvinference-engine");
+
+    sgie3 = gst_element_factory_make("nvinfer", "secondary3-nvinference-engine");
 
     /* Use convertor to convert from NV12 to RGBA as required by nvosd */
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
@@ -381,11 +355,10 @@ int main(int argc, char *argv[])
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
-    } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-    }
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!source || !h264parser || !decoder || !pgie || !nvtracker || !sgie1 || !sgie2 || !sgie3 ||
         !nvvidconv || !nvosd || !sink) {
@@ -393,39 +366,32 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (g_str_has_suffix(argv[1], ".h264")) {
-        /* Set the input filename to the source element */
-        g_object_set(G_OBJECT(source), "location", argv[1], NULL);
-
-        g_object_set(G_OBJECT(streammux), "batch-size", 1, NULL);
-
-        g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
-                     MUXER_OUTPUT_HEIGHT, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
-
-        /* Set all the necessary properties of the nvinfer element,
-         * the necessary ones are : */
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
-        g_object_set(G_OBJECT(sgie1), "config-file-path", SGIE1_CONFIG_FILE, NULL);
-        g_object_set(G_OBJECT(sgie2), "config-file-path", SGIE2_CONFIG_FILE, NULL);
-        g_object_set(G_OBJECT(sgie3), "config-file-path", SGIE3_CONFIG_FILE, NULL);
-
-        /* Set necessary properties of the tracker element. */
-        if (!set_tracker_properties(nvtracker)) {
-            g_printerr("Failed to set tracker properties. Exiting.\n");
-            return -1;
-        }
+#ifdef PLATFORM_TEGRA
+    if (!transform) {
+        g_printerr("One tegra element could not be created. Exiting.\n");
+        return -1;
     }
+#endif
 
-    if (yaml_config) {
-        RETURN_ON_PARSER_ERROR(nvds_parse_file_source(source, argv[1], "source"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_streammux(streammux, argv[1], "streammux"));
+    /* Set the input filename to the source element */
+    g_object_set(G_OBJECT(source), "location", argv[1], NULL);
 
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie(pgie, argv[1], "primary-gie"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie(sgie1, argv[1], "secondary-gie1"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie(sgie2, argv[1], "secondary-gie2"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie(sgie3, argv[1], "secondary-gie3"));
+    g_object_set(G_OBJECT(streammux), "batch-size", 1, NULL);
 
-        RETURN_ON_PARSER_ERROR(nvds_parse_tracker(nvtracker, argv[1], "tracker"));
+    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
+                 "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
+
+    /* Set all the necessary properties of the nvinfer element,
+     * the necessary ones are : */
+    g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
+    g_object_set(G_OBJECT(sgie1), "config-file-path", SGIE1_CONFIG_FILE, NULL);
+    g_object_set(G_OBJECT(sgie2), "config-file-path", SGIE2_CONFIG_FILE, NULL);
+    g_object_set(G_OBJECT(sgie3), "config-file-path", SGIE3_CONFIG_FILE, NULL);
+
+    /* Set necessary properties of the tracker element. */
+    if (!set_tracker_properties(nvtracker)) {
+        g_printerr("Failed to set tracker properties. Exiting.\n");
+        return -1;
     }
 
     /* we add a message handler */
@@ -436,8 +402,13 @@ int main(int argc, char *argv[])
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
     /* decoder | pgie1 | nvtracker | sgie1 | sgie2 | sgie3 | etc.. */
+#ifdef PLATFORM_TEGRA
+    gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, nvtracker,
+                     sgie1, sgie2, sgie3, nvvidconv, nvosd, transform, sink, NULL);
+#else
     gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, nvtracker,
                      sgie1, sgie2, sgie3, nvvidconv, nvosd, sink, NULL);
+#endif
 
     GstPad *sinkpad, *srcpad;
     gchar pad_name_sink[16] = "sink_0";
@@ -469,11 +440,19 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+#ifdef PLATFORM_TEGRA
+    if (!gst_element_link_many(streammux, pgie, nvtracker, sgie1, sgie2, sgie3, nvvidconv, nvosd,
+                               transform, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
+    }
+#else
     if (!gst_element_link_many(streammux, pgie, nvtracker, sgie1, sgie2, sgie3, nvvidconv, nvosd,
                                sink, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }
+#endif
 
     /* Lets add probe to get informed of the meta data generated, we add probe to
      * the sink pad of the osd element, since by that time, the buffer would have
@@ -487,7 +466,7 @@ int main(int argc, char *argv[])
     gst_object_unref(osd_sink_pad);
 
     /* Set the pipeline to "playing" state */
-    g_print("Using file: %s\n", argv[1]);
+    g_print("Now playing: %s\n", argv[1]);
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Iterate */

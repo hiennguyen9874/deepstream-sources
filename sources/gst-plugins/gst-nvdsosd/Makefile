@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -20,12 +20,12 @@ LIB:=libnvdsgst_osd.so
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=5.0
 
 GST_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/gst-plugins/
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"5.0.0\" \
 	 -I../../includes \
 	 -I/usr/local/cuda-$(CUDA_VER)/include \
 
@@ -37,14 +37,14 @@ LIBS := -shared -Wl,-no-undefined \
 	-L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart
 
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_meta -lnvds_meta \
-       -lnvds_osd -lnvbufsurface -lnvbufsurftransform -lnvdsgst_customhelper -ldl -lpthread \
+       -lnvds_osd -lnvbufsurface -lnvbufsurftransform -ldl -lpthread \
        -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 OBJS:= $(SRCS:.c=.o)
 
 PKGS:= gstreamer-1.0 gstreamer-base-1.0 gstreamer-video-1.0
-CFLAGS+= $(shell pkg-config --cflags $(PKGS))
-LIBS+= $(shell pkg-config --libs $(PKGS))
+CFLAGS+= `pkg-config --cflags $(PKGS)`
+LIBS+= `pkg-config --libs $(PKGS)`
 
 all: $(LIB)
 

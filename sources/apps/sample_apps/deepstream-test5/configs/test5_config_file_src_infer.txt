@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -69,7 +69,7 @@ nvbuf-memory-type=0
 
 [sink1]
 enable=1
-#Type - 1=FakeSink 2=EglSink 3=File 4=UDPSink 5=nvdrmvideosink 6=MsgConvBroker
+#Type - 1=FakeSink 2=EglSink 3=File 4=UDPSink 5=nvoverlaysink 6=MsgConvBroker
 type=6
 msg-conv-config=dstest5_msgconv_sample_config.txt
 #(0): PAYLOAD_DEEPSTREAM - Deepstream schema payload
@@ -77,7 +77,7 @@ msg-conv-config=dstest5_msgconv_sample_config.txt
 #(256): PAYLOAD_RESERVED - Reserved type
 #(257): PAYLOAD_CUSTOM   - Custom schema payload
 msg-conv-payload-type=0
-msg-broker-proto-lib=/opt/nvidia/deepstream/deepstream/lib/libnvds_kafka_proto.so
+msg-broker-proto-lib=/opt/nvidia/deepstream/deepstream-5.0/lib/libnvds_kafka_proto.so
 #Provide your msg-broker-conn-str here
 msg-broker-conn-str=<host>;<port>;<topic>
 topic=<topic>
@@ -116,7 +116,7 @@ msg-conv-payload-type=0
 # Configure this group to enable cloud message consumer.
 [message-consumer0]
 enable=0
-proto-lib=/opt/nvidia/deepstream/deepstream/lib/libnvds_kafka_proto.so
+proto-lib=/opt/nvidia/deepstream/deepstream-5.0/lib/libnvds_kafka_proto.so
 conn-str=<host>;<port>
 config-file=<broker config file e.g. cfg_kafka.txt>
 subscribe-topic-list=<topic1>;<topic2>;<topicN>
@@ -176,18 +176,15 @@ config-file=../../../../../samples/configs/deepstream-app/config_infer_primary.t
 
 [tracker]
 enable=1
-# For NvDCF and NvDeepSORT tracker, tracker-width and tracker-height must be a multiple of 32, respectively
-tracker-width=960
-tracker-height=544
-ll-lib-file=/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
-# ll-config-file required to set different tracker types
-# ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_IOU.yml
-# ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_NvSORT.yml
-ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml
-# ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_NvDCF_accuracy.yml
-# ll-config-file=../../../../../samples/configs/deepstream-app/config_tracker_NvDeepSORT.yml
+tracker-width=600
+tracker-height=288
+ll-lib-file=/opt/nvidia/deepstream/deepstream-5.0/lib/libnvds_mot_klt.so
+#ll-config-file required for DCF/IOU only
+#ll-config-file=tracker_config.yml
+#ll-config-file=iou_config.txt
 gpu-id=0
-display-tracking-id=1
+#enable-batch-process applicable to DCF only
+enable-batch-process=0
 
 [tests]
 file-loop=0

@@ -66,7 +66,7 @@ cudadec-memtype=0
 
 [sink0]
 enable=1
-#Type - 1=FakeSink 2=EglSink/nv3dsink (Jetson only) 3=File
+#Type - 1=FakeSink 2=EglSink 3=File
 type=2
 sync=1
 source-id=0
@@ -87,7 +87,6 @@ sync=0
 bitrate=2000000
 #H264 Profile - 0=Baseline 2=Main 4=High
 #H265 Profile - 0=Main 1=Main10
-# set profile only for hw encoder, sw encoder selects profile based on sw-preset
 profile=0
 output-file=out.mp4
 source-id=0
@@ -100,13 +99,10 @@ type=4
 codec=1
 #encoder type 0=Hardware 1=Software
 enc-type=0
-#sw-preset=1 #for SW enc=(0)None (1)ultrafast (2)superfast (3)veryfast (4)faster
-#(5)fast (6)medium (7)slow (8)slower (9)veryslow (10)placebo
 sync=0
 bitrate=4000000
 #H264 Profile - 0=Baseline 2=Main 4=High
 #H265 Profile - 0=Main 1=Main10
-# set profile only for hw encoder, sw encoder selects profile based on sw-preset
 profile=0
 # set below properties in case of RTSPStreaming
 rtsp-port=8554

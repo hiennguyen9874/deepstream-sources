@@ -1,13 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
  *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
+ * NVIDIA Corporation and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA Corporation is strictly prohibited.
  */
 
 /**
@@ -41,37 +39,17 @@ extern "C" {
 
 #define FLAG(name) GST_EVENT_TYPE_##name
 
-/** Defines supported types of custom events.
- *  STICKY and STICKY_MULTI flags are used to ensure that events are not
- *  dropped in case of leaky queue. */
+/** Defines supported types of custom events. */
 typedef enum {
     /** Specifies a custom event to indicate Pad Added. */
-    GST_NVEVENT_PAD_ADDED = GST_EVENT_MAKE_TYPE(
-        400,
-        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
+    GST_NVEVENT_PAD_ADDED = GST_EVENT_MAKE_TYPE(400, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
     /** Specifies a custom event to indicate Pad Deleted. */
-    GST_NVEVENT_PAD_DELETED = GST_EVENT_MAKE_TYPE(
-        401,
-        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
+    GST_NVEVENT_PAD_DELETED = GST_EVENT_MAKE_TYPE(401, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
     /** Specifies a custom event to indicate EOS of a particular stream
      in a batch. */
-    GST_NVEVENT_STREAM_EOS = GST_EVENT_MAKE_TYPE(
-        402,
-        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
+    GST_NVEVENT_STREAM_EOS = GST_EVENT_MAKE_TYPE(402, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
     /** Specifies a custom event to indicate a stream segment. */
-    GST_NVEVENT_STREAM_SEGMENT = GST_EVENT_MAKE_TYPE(
-        403,
-        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
-    /** Specifies a custom event to indicate reset of a particular stream
-     in a batch. */
-    GST_NVEVENT_STREAM_RESET = GST_EVENT_MAKE_TYPE(
-        404,
-        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
-    /** Specifies a custom event to indicate start of a particular stream
-     in a batch. */
-    GST_NVEVENT_STREAM_START =
-        GST_EVENT_MAKE_TYPE(405,
-                            FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI))
+    GST_NVEVENT_STREAM_SEGMENT = GST_EVENT_MAKE_TYPE(403, FLAG(DOWNSTREAM) | FLAG(SERIALIZED))
 } GstNvEventType;
 #undef FLAG
 
@@ -127,18 +105,6 @@ GstEvent *gst_nvevent_new_stream_eos(guint source_id);
 GstEvent *gst_nvevent_new_stream_segment(guint source_id, GstSegment *segment);
 
 /**
- * Creates a "custom reset" event for the specified source.
- *
- * @param[in] source_id     Source ID of the stream for which reset is to be sent;
- *                          also the pad ID  of the sinkpad of the
- *                          Gst-nvstreammux plugin for which
- *                          the source is configured.
- * @return  A pointer to the event corresponding to request if sucxessful,
- *  or NULL otherwise.
- */
-GstEvent *gst_nvevent_new_stream_reset(guint source_id);
-
-/**
  * Parses a "pad added" event received on the sinkpad.
  *
  * @param[in] event         A pointer to the event received on the sinkpad
@@ -176,37 +142,6 @@ void gst_nvevent_parse_stream_eos(GstEvent *event, guint *source_id);
  *                          corresponding to source ID for the event.
  */
 void gst_nvevent_parse_stream_segment(GstEvent *event, guint *source_id, GstSegment **segment);
-
-/**
- * Parses a "stream reset" event received on the sinkpad.
- *
- * @param[in] event         A pointer to the event received on the sinkpad
- *                          when the source ID sends the reset event.
- * @param[out] source_id    A pointer to the parsed source ID for the event.
- */
-void gst_nvevent_parse_stream_reset(GstEvent *event, guint *source_id);
-
-/**
- * Creates a new "stream start" event.
- *
- * @param[out] source_id    Source ID of the stream for which stream-start is to be sent
- * @param[out] stream_id    The stream-id string obtained from sink pad with
- *                          gst_pad_get_stream_id(pad)
- *                          corresponding to source ID for the event.
- */
-GstEvent *gst_nvevent_new_stream_start(guint source_id, gchar *stream_id);
-
-/**
- * Parses a "stream start" event received on the sinkpad.
- *
- * @param[in] event         The event received on the sinkpad
- *                          when the source ID sends a stream-start event.
- * @param[out] source_id    A pointer to the parsed source ID for which
- *                          the event is sent.
- * @param[out] segment      A double pointer to the parsed stream-id
- *                          corresponding to source ID for the event.
- */
-void gst_nvevent_parse_stream_start(GstEvent *event, guint *source_id, gchar **stream_id);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -41,7 +41,6 @@
  */
 extern "C" bool NvDsInferCudaEngineGetFromTltModel(
     nvinfer1::IBuilder *const builder,
-    nvinfer1::IBuilderConfig *const builderConfig,
     const NvDsInferContextInitParams *const initParams,
     nvinfer1::DataType dataType,
     nvinfer1::ICudaEngine *&cudaEngine);

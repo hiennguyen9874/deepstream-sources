@@ -1,13 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2017-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
+ * NVIDIA Corporation and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA Corporation is strictly prohibited.
+ *
  */
 
 /**
@@ -45,11 +44,13 @@
  *
  * @section iplugininterface TensorRT Plugin Factory interface for DeepStream
  *
- * For the Caffe model, the library must implement
- * NvDsInferPluginFactoryCaffeGet().
- * During model parsing, "nvinfer" looks for that function' symbol in the
- * custom library. If symbol is found, the plugin calls that function to get a
- * pointer to the PluginFactory instance required for parsing.
+ * Based on the type of the model (Caffe or UFF), the library
+ * must implement one of the functions NvDsInferPluginFactoryCaffeGet() or
+ * NvDsInferPluginFactoryUffGet().
+ * During model parsing, "nvinfer" looks for either of these functions'
+ * symbols in the custom library based on the model framework. If either
+ * symbol is found, the plugin calls that function to get a pointer to
+ * the PluginFactory instance required for parsing.
  *
  * If the IPluginFactory is needed during deserialization of CUDA engines,
  * the library must implement %NvDsInferPluginFactoryRuntimeGet().
@@ -191,15 +192,15 @@ typedef struct {
      class ID less than this value. */
     unsigned int numClassesConfigured;
     /** Holds a per-class vector of detection confidence thresholds
-     to be applied prior to the clustering operation.
+     to be applied prior to clustering operation.
      Parsing functions may only output an object with detection confidence
      greater than or equal to the vector element indexed by the object's
      class ID. */
     std::vector<float> perClassPreclusterThreshold;
-    /* Per-class threshold to be applied after the clustering operation. */
+    /* Per class threshold to be applied post clustering operation */
     std::vector<float> perClassPostclusterThreshold;
 
-    /** @deprecated  Use perClassPreclusterThreshold instead. Reference to
+    /** Deprecated. Use perClassPreclusterThreshold instead. Reference to
      * maintain backward compatibility. */
     std::vector<float> &perClassThreshold = perClassPreclusterThreshold;
 } NvDsInferParseDetectionParams;
@@ -301,46 +302,6 @@ typedef bool (*NvDsInferClassiferParseCustomFunc)(
         NvDsInferNetworkInfo const &networkInfo, float classifierThreshold,          \
         std::vector<NvDsInferAttribute> &attrList, std::string &descString);
 
-/**
- * Type definition for the custom semantic segmentation output parsing function.
- *
- * @param[in]  outputLayersInfo  A vector containing information on the
- *                               output layers of the model.
- * @param[in]  networkInfo       Network information.
- * @param[in]  segmentationThreshold
- *                               Segmentation confidence threshold.
- * @param[in]  numClasses        Number of classes in the segmentation output.
- * @param[out] classificationMap Pointer to interger array of image height *
- *                               width where the semantic segmentation output
- *                               index is stored after parsing.
- * @param[out] classProbabilityMap
- *                               A reference to a pointer which can be used to
- *                               point to the probability map of the
- *                               segmentation output. Can be set to null.
- */
-typedef bool (*NvDsInferSemSegmentationParseCustomFunc)(
-    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-    NvDsInferNetworkInfo const &networkInfo,
-    float segmentationThreshold,
-    unsigned int numClasses,
-    int *classificationMap,
-    float *&classProbabilityMap);
-
-/**
- * Validates the semantic segmentation custom parser function definition.
- * Must be called after defining the function.
- */
-#define CHECK_CUSTOM_SEM_SEGMENTATION_PARSE_FUNC_PROTOTYPE(customParseFunc)                  \
-    static void checkFunc_##customParseFunc(NvDsInferSemSegmentationParseCustomFunc func =   \
-                                                customParseFunc)                             \
-    {                                                                                        \
-        checkFunc_##customParseFunc();                                                       \
-    };                                                                                       \
-    extern "C" bool customParseFunc(std::vector<NvDsInferLayerInfo> const &outputLayersInfo, \
-                                    NvDsInferNetworkInfo const &networkInfo,                 \
-                                    float segmentationThreshold, unsigned int numClasses,    \
-                                    int *classificationMap, float *&classProbabilityMap);
-
 typedef struct _NvDsInferContextInitParams NvDsInferContextInitParams;
 
 /**
@@ -357,25 +318,25 @@ typedef struct _NvDsInferContextInitParams NvDsInferContextInitParams;
  *
  * Properties like @a MaxBatchSize, @a MaxWorkspaceSize, INT8/FP16
  * precision parameters, and DLA parameters (if applicable) are set on the
- * builder and builderConfig before it is passed to the interface. The
- * corresponding Get functions of the nvinfer1::IBuilder and
- * nvinfer1::IBuilderConfig interface can be used to get the property values.
+ * builder before it is passed to the interface. The corresponding Get
+ * functions of the nvinfer1::IBuilder interface can be used to get
+ * the property values.
  *
  * The implementation must make sure not to reduce the @a MaxBatchSize of the
  * returned @c CudaEngine.
  *
- * @param[in]  builder        An nvinfer1::IBuilder instance.
- * @param[in]  builderConfig  A nvinfer1::IBuilderConfig instance.
- * @param[in]  initParams     A pointer to the structure to be used for
- *                            initializing the NvDsInferContext instance.
- * @param[in]  dataType       Data precision.
- * @param[out] cudaEngine     A pointer to a location where the function is to
- *                            store a reference to the nvinfer1::ICudaEngine
- *                            instance it has built.
- * @return  True if the engine build was successful, or false otherwise.
+ * @param[in]  builder      An nvinfer1::IBuilder instance.
+ * @param[in]  initParams   A pointer to the structure to be used for
+ *                          initializing the NvDsInferContext instance.
+ * @param[in]  dataType     Data precision.
+ * @param[out] cudaEngine   A pointer to a location where the function is to
+ *                          store a reference to the nvinfer1::ICudaEngine
+ *                          instance it has built.
+ * @return  True if the engine build was successful, or false otherwise. TBD Shaunak asked to have
+ * the original "deprecated" description restored. That would be redundant; there's a @deprecated
+ * command near the top of the comment.
  */
 typedef bool (*NvDsInferEngineCreateCustomFunc)(nvinfer1::IBuilder *const builder,
-                                                nvinfer1::IBuilderConfig *const builderConfig,
                                                 const NvDsInferContextInitParams *const initParams,
                                                 nvinfer1::DataType dataType,
                                                 nvinfer1::ICudaEngine *&cudaEngine);
@@ -384,23 +345,28 @@ typedef bool (*NvDsInferEngineCreateCustomFunc)(nvinfer1::IBuilder *const builde
  * A macro that validates a custom engine creator function definition.
  * Call this macro after the function is defined.
  */
-#define CHECK_CUSTOM_ENGINE_CREATE_FUNC_PROTOTYPE(customEngineCreateFunc)                 \
-    static void checkFunc_##customEngineCreateFunc(NvDsInferEngineCreateCustomFunc =      \
-                                                       customEngineCreateFunc)            \
-    {                                                                                     \
-        checkFunc_##customEngineCreateFunc();                                             \
-    };                                                                                    \
-    extern "C" bool customEngineCreateFunc(                                               \
-        nvinfer1::IBuilder *const builder, nvinfer1::IBuilderConfig *const builderConfig, \
-        const NvDsInferContextInitParams *const initParams, nvinfer1::DataType dataType,  \
-        nvinfer1::ICudaEngine *&cudaEngine);
+#define CHECK_CUSTOM_ENGINE_CREATE_FUNC_PROTOTYPE(customEngineCreateFunc)                      \
+    static void checkFunc_##customEngineCreateFunc(NvDsInferEngineCreateCustomFunc =           \
+                                                       customEngineCreateFunc)                 \
+    {                                                                                          \
+        checkFunc_##customEngineCreateFunc();                                                  \
+    };                                                                                         \
+    extern "C" bool customEngineCreateFunc(                                                    \
+        nvinfer1::IBuilder *const builder, const NvDsInferContextInitParams const *initParams, \
+        nvinfer1::DataType dataType, nvinfer1::ICudaEngine *&cudaEngine);
 
 /**
  * Specifies the type of the Plugin Factory.
  */
 typedef enum {
+    /** Specifies nvcaffeparser1::IPluginFactory or
+     nvuffparser::IPluginFactory. */
+    PLUGIN_FACTORY,
+    /** Specifies nvcaffeparser1::IPluginFactoryExt or
+     nvuffparser::IPluginFactoryExt. */
+    PLUGIN_FACTORY_EXT,
     /** Specifies nvcaffeparser1::IPluginFactoryV2. Used only for Caffe models. */
-    PLUGIN_FACTORY_V2 = 2
+    PLUGIN_FACTORY_V2
 } NvDsInferPluginFactoryType;
 
 /**
@@ -408,8 +374,19 @@ typedef enum {
  * Caffe model parsing.
  */
 typedef union {
+    nvcaffeparser1::IPluginFactory *pluginFactory;
+    nvcaffeparser1::IPluginFactoryExt *pluginFactoryExt;
     nvcaffeparser1::IPluginFactoryV2 *pluginFactoryV2;
 } NvDsInferPluginFactoryCaffe;
+
+/**
+ * Holds a  pointer to a heap-allocated Plugin Factory object required during
+ * UFF model parsing.
+ */
+typedef union {
+    nvuffparser::IPluginFactory *pluginFactory;
+    nvuffparser::IPluginFactoryExt *pluginFactoryExt;
+} NvDsInferPluginFactoryUff;
 
 /**
  * Gets a new instance of a Plugin Factory interface to be used
@@ -438,6 +415,32 @@ bool NvDsInferPluginFactoryCaffeGet(NvDsInferPluginFactoryCaffe &pluginFactory,
  *                          by NvDsInferPluginFactoryCaffeGet().
  */
 void NvDsInferPluginFactoryCaffeDestroy(NvDsInferPluginFactoryCaffe &pluginFactory);
+
+/**
+ * Returns a new instance of a Plugin Factory interface to be used
+ * during parsing of UFF models. The function must set the correct @a type and
+ * the correct field in the @a pluginFactory union, based on the type of the
+ * Plugin Factory (i.e. @a pluginFactory or @a pluginFactoryExt).
+ *
+ * @param[out] pluginFactory    A reference to a union that contains a pointer
+ *                              to the Plugin Factory object.
+ * @param[out] type             Specifies the type of @a pluginFactory, i.e.
+ *                              which member of the @a pluginFactory union
+ *                              is valid.
+ * @return  True if the Plugin Factory was created successfully, or false
+ *  otherwise.
+ */
+bool NvDsInferPluginFactoryUffGet(NvDsInferPluginFactoryUff &pluginFactory,
+                                  NvDsInferPluginFactoryType &type);
+
+/**
+ * Destroys a Plugin Factory instance created by NvDsInferPluginFactoryUffGet().
+ *
+ * @param[in] pluginFactory     A reference to the union that contains a
+ *                              pointer to the Plugin Factory instance returned
+ *                              by NvDsInferPluginFactoryUffGet().
+ */
+void NvDsInferPluginFactoryUffDestroy(NvDsInferPluginFactoryUff &pluginFactory);
 
 /**
  * Returns a new instance of a Plugin Factory interface to be used

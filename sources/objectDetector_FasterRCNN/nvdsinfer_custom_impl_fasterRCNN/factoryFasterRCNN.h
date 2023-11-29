@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -37,35 +37,19 @@ public:
     virtual nvinfer1::IPluginV2 *createPlugin(const char *layerName,
                                               const nvinfer1::Weights *weights,
                                               int nbWeights,
-                                              const char *libNamespace) noexcept override
+                                              const char *libNamespace) override
     {
         assert(isPluginV2(layerName));
         if (!strcmp(layerName, "RPROIFused")) {
             assert(mPluginRPROI == nullptr);
             assert(nbWeights == 0 && weights == nullptr);
-
-            auto creator = getPluginRegistry()->getPluginCreator("RPROI_TRT", "1");
-
-            nvinfer1::PluginField fields[]{
-                {"poolingH", &poolingH, nvinfer1::PluginFieldType::kINT32, 1},
-                {"poolingW", &poolingW, nvinfer1::PluginFieldType::kINT32, 1},
-                {"featureStride", &featureStride, nvinfer1::PluginFieldType::kINT32, 1},
-                {"preNmsTop", &preNmsTop, nvinfer1::PluginFieldType::kINT32, 1},
-                {"nmsMaxOut", &nmsMaxOut, nvinfer1::PluginFieldType::kINT32, 1},
-                {"iouThreshold", &iouThreshold, nvinfer1::PluginFieldType::kFLOAT32, 1},
-                {"minBoxSize", &minBoxSize, nvinfer1::PluginFieldType::kFLOAT32, 1},
-                {"spatialScale", &spatialScale, nvinfer1::PluginFieldType::kFLOAT32, 1},
-                {"anchorsRatioCount", &anchorsRatioCount, nvinfer1::PluginFieldType::kINT32, 1},
-                {"anchorsRatios", anchorsRatios, nvinfer1::PluginFieldType::kFLOAT32, 1},
-                {"anchorsScaleCount", &anchorsScaleCount, nvinfer1::PluginFieldType::kINT32, 1},
-                {"anchorsScales", anchorsScales, nvinfer1::PluginFieldType::kFLOAT32, 1},
-            };
-            nvinfer1::PluginFieldCollection pluginData;
-            pluginData.nbFields = 12;
-            pluginData.fields = fields;
-
             mPluginRPROI = std::unique_ptr<IPluginV2, decltype(pluginDeleter)>(
-                creator->createPlugin(layerName, &pluginData), pluginDeleter);
+                createRPNROIPlugin(
+                    featureStride, preNmsTop, nmsMaxOut, iouThreshold, minBoxSize, spatialScale,
+                    DimsHW(poolingH, poolingW),
+                    Weights{nvinfer1::DataType::kFLOAT, anchorsRatios, anchorsRatioCount},
+                    Weights{nvinfer1::DataType::kFLOAT, anchorsScales, anchorsScaleCount}),
+                pluginDeleter);
             mPluginRPROI.get()->setPluginNamespace(libNamespace);
             return mPluginRPROI.get();
         } else {
@@ -75,7 +59,7 @@ public:
     }
 
     // caffe parser plugin implementation
-    bool isPluginV2(const char *name) noexcept override { return !strcmp(name, "RPROIFused"); }
+    bool isPluginV2(const char *name) override { return !strcmp(name, "RPROIFused"); }
 
     void destroyPlugin() { mPluginRPROI.reset(); }
 

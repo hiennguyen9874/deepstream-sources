@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022 NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020 NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -31,8 +31,6 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvmsgconv_debug_category);
 
 #define MAX_TIME_STAMP_LEN 32
 
-#define DEFAULT_FRAME_INTERVAL 30
-
 static GType gst_nvmsgconv_payload_get_type(void)
 {
     static GType qtype = 0;
@@ -42,8 +40,6 @@ static GType gst_nvmsgconv_payload_get_type(void)
             {NVDS_PAYLOAD_DEEPSTREAM, "Deepstream schema payload", "PAYLOAD_DEEPSTREAM"},
             {NVDS_PAYLOAD_DEEPSTREAM_MINIMAL, "Deepstream schema payload minimal",
              "PAYLOAD_DEEPSTREAM_MINIMAL"},
-            {NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF, "Deepstream schema payload in protobuf",
-             "PAYLOAD_DEEPSTREAM_PROTOBUF"},
             {NVDS_PAYLOAD_RESERVED, "Reserved type", "PAYLOAD_RESERVED"},
             {NVDS_PAYLOAD_CUSTOM, "Custom schema payload", "PAYLOAD_CUSTOM"},
             {0, NULL, NULL}};
@@ -75,9 +71,7 @@ enum {
     PROP_PAYLOAD_TYPE,
     PROP_COMPONENT_ID,
     PROP_DEBUG_PAYLOAD_DIR,
-    PROP_MULTIPLE_PAYLOADS,
-    PROP_MSG2P_NEW_API,
-    PROP_FRAME_INTERVAL
+    PROP_MULTIPLE_PAYLOADS
 };
 
 static GstStaticPadTemplate gst_nvmsgconv_src_template =
@@ -215,20 +209,6 @@ static void gst_nvmsgconv_class_init(GstNvMsgConvClass *klass)
             "multiple-payloads", "Use multiple payloads API",
             "Use API which supports reciveing multiple payloads from converter lib.", FALSE,
             G_PARAM_READWRITE));
-
-    g_object_class_install_property(
-        gobject_class, PROP_MSG2P_NEW_API,
-        g_param_spec_boolean(
-            "msg2p-newapi", "Use new msg2p API",
-            "Use new API which supports publishing multiple payloads using NvDsFrameMeta", FALSE,
-            G_PARAM_READWRITE));
-
-    g_object_class_install_property(
-        gobject_class, PROP_FRAME_INTERVAL,
-        g_param_spec_uint("frame-interval", "Payload generation interval",
-                          "Frame interval at which payload is generated", 1, G_MAXUINT,
-                          DEFAULT_FRAME_INTERVAL,
-                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 static void gst_nvmsgconv_init(GstNvMsgConv *self)
@@ -246,8 +226,6 @@ static void gst_nvmsgconv_init(GstNvMsgConv *self)
     self->selfRef = FALSE;
     self->dsMetaQuark = g_quark_from_static_string(NVDS_META_STRING);
     self->is_video = FALSE;
-    self->msg2pNewApi = FALSE;
-    self->frameInterval = DEFAULT_FRAME_INTERVAL;
 
     gst_base_transform_set_passthrough(GST_BASE_TRANSFORM(self), TRUE);
 }
@@ -286,12 +264,6 @@ void gst_nvmsgconv_set_property(GObject *object,
     case PROP_MULTIPLE_PAYLOADS:
         self->multiplePayloads = g_value_get_boolean(value);
         break;
-    case PROP_MSG2P_NEW_API:
-        self->msg2pNewApi = g_value_get_boolean(value);
-        break;
-    case PROP_FRAME_INTERVAL:
-        self->frameInterval = g_value_get_uint(value);
-        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -325,12 +297,6 @@ void gst_nvmsgconv_get_property(GObject *object,
         break;
     case PROP_MULTIPLE_PAYLOADS:
         g_value_set_boolean(value, self->multiplePayloads);
-        break;
-    case PROP_MSG2P_NEW_API:
-        g_value_set_boolean(value, self->msg2pNewApi);
-        break;
-    case PROP_FRAME_INTERVAL:
-        g_value_set_uint(value, self->frameInterval);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -417,10 +383,6 @@ static gboolean gst_nvmsgconv_start(GstBaseTransform *trans)
             (nvds_msg2p_generate_ptr)dlsym(self->libHandle, "nvds_msg2p_generate");
         self->msg2p_generate_multiple = (nvds_msg2p_generate_multiple_ptr)dlsym(
             self->libHandle, "nvds_msg2p_generate_multiple");
-        self->msg2p_generate_new =
-            (nvds_msg2p_generate_ptr_new)dlsym(self->libHandle, "nvds_msg2p_generate_new");
-        self->msg2p_generate_multiple_new = (nvds_msg2p_generate_multiple_ptr_new)dlsym(
-            self->libHandle, "nvds_msg2p_generate_multiple_new");
         self->msg2p_release = (nvds_msg2p_release_ptr)dlsym(self->libHandle, "nvds_msg2p_release");
         if ((error = dlerror()) != NULL) {
             GST_ERROR_OBJECT(self, "%s", error);
@@ -432,9 +394,6 @@ static gboolean gst_nvmsgconv_start(GstBaseTransform *trans)
         self->msg2p_generate = (nvds_msg2p_generate_ptr)nvds_msg2p_generate;
         self->msg2p_generate_multiple =
             (nvds_msg2p_generate_multiple_ptr)nvds_msg2p_generate_multiple;
-        self->msg2p_generate_new = (nvds_msg2p_generate_ptr_new)nvds_msg2p_generate_new;
-        self->msg2p_generate_multiple_new =
-            (nvds_msg2p_generate_multiple_ptr_new)nvds_msg2p_generate_multiple_new;
         self->msg2p_release = (nvds_msg2p_release_ptr)nvds_msg2p_release;
     }
 
@@ -494,49 +453,6 @@ static void generate_ts_rfc3339(char *buf, int buf_size)
     strncat(buf, strmsec, buf_size);
 }
 
-static int add_payload_to_frame(GstNvMsgConv *self,
-                                NvDsPayload **payloads,
-                                guint payloadCount,
-                                NvDsBatchMeta *batch_meta,
-                                void *frame_meta,
-                                FILE *debug_payload_dump_file)
-{
-    for (uint p = 0; p < payloadCount; ++p) {
-        if ((payloads[p] == NULL) || (!payloads[p]->payloadSize)) {
-            GST_WARNING_OBJECT(self, "Payload received from converter at index %u is invalid", p);
-            continue;
-        }
-
-        payloads[p]->componentId = self->compId;
-        NvDsUserMeta *user_payload_meta = nvds_acquire_user_meta_from_pool(batch_meta);
-        if (user_payload_meta) {
-            user_payload_meta->user_meta_data = (void *)payloads[p];
-            user_payload_meta->base_meta.meta_type = NVDS_PAYLOAD_META;
-            user_payload_meta->base_meta.copy_func = (NvDsMetaCopyFunc)gst_nvmsgconv_copy_meta;
-            user_payload_meta->base_meta.release_func =
-                (NvDsMetaReleaseFunc)gst_nvmsgconv_free_meta;
-            user_payload_meta->base_meta.uContext = (void *)self;
-            if (self->is_video) {
-                nvds_add_user_meta_to_frame((NvDsFrameMeta *)frame_meta, user_payload_meta);
-            } else {
-                nvds_add_user_meta_to_audio_frame((NvDsAudioFrameMeta *)frame_meta,
-                                                  user_payload_meta);
-            }
-            g_atomic_int_inc(&self->numActivePayloads);
-        } else {
-            GST_ELEMENT_ERROR(self, RESOURCE, FAILED, (NULL), ("Couldn't get user meta from pool"));
-            if (debug_payload_dump_file)
-                fclose(debug_payload_dump_file);
-            return 1;
-        }
-
-        if (debug_payload_dump_file)
-            fprintf(debug_payload_dump_file, "%.*s \n", payloads[p]->payloadSize,
-                    (char *)payloads[p]->payload);
-    }
-    return 0;
-}
-
 static GstFlowReturn gst_nvmsgconv_transform_ip(GstBaseTransform *trans, GstBuffer *buf)
 {
     GstNvMsgConv *self = GST_NVMSGCONV(trans);
@@ -567,15 +483,9 @@ static GstFlowReturn gst_nvmsgconv_transform_ip(GstBaseTransform *trans, GstBuff
         void *frame_meta = NULL;
         NvDsUserMeta *user_event_meta = NULL;
 
-        // For every frame in the batch
         for (l_frame = batch_meta->frame_meta_list; l_frame; l_frame = l_frame->next) {
             frame_meta = l_frame->data;
-
-            if (self->is_video) {
-                user_meta_list = ((NvDsFrameMeta *)frame_meta)->frame_user_meta_list;
-            } else {
-                user_meta_list = ((NvDsAudioFrameMeta *)frame_meta)->frame_user_meta_list;
-            }
+            user_meta_list = ((NvDsFrameMeta *)frame_meta)->frame_user_meta_list;
 
             if (self->debugPayloadDir) {
                 g_autofree gchar *ts = (gchar *)g_malloc0(MAX_TIME_STAMP_LEN + 1);
@@ -584,155 +494,145 @@ static GstFlowReturn gst_nvmsgconv_transform_ip(GstBaseTransform *trans, GstBuff
                     g_strconcat(self->debugPayloadDir, "/", ts, ".txt", NULL);
                 debug_payload_dump_file = fopen(filename, "w");
             }
-            if (self->msg2pNewApi) {
-                // generate payload at frameInterval(ex: every 30th frame)
-                if (self->frameInterval &&
-                    (((NvDsFrameMeta *)frame_meta)->frame_num % self->frameInterval))
-                    continue;
-                guint payloadCount = 0;
-                NvDsMsg2pMetaInfo meta_info;
-                meta_info.objMeta = NULL;
-                meta_info.frameMeta = frame_meta;
-                meta_info.mediaType = self->is_video ? "video" : "audio";
 
-                if ((self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_MINIMAL) ||
-                    (self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF)) {
-                    if (self->multiplePayloads)
-                        payloads = self->msg2p_generate_multiple_new(self->pCtx, &meta_info,
-                                                                     &payloadCount);
-                    else {
-                        payloads = (NvDsPayload **)g_malloc0(sizeof(NvDsPayload *) * 1);
-                        payloads[0] = self->msg2p_generate_new(self->pCtx, &meta_info);
-                        payloadCount = 1;
-                    }
-                    int errcode = add_payload_to_frame(self, payloads, payloadCount, batch_meta,
-                                                       frame_meta, debug_payload_dump_file);
+            if (self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_MINIMAL) {
+                NvDsEvent *eventList = g_new0(NvDsEvent, g_list_length(user_meta_list));
+                guint eventCount = 0;
+                for (l = user_meta_list; l; l = l->next) {
+                    user_event_meta = (NvDsUserMeta *)(l->data);
 
-                    if (payloadCount && payloads)
-                        g_free(payloads);
+                    if (user_event_meta &&
+                        user_event_meta->base_meta.meta_type == NVDS_EVENT_MSG_META) {
+                        eventMsg = (NvDsEventMsgMeta *)user_event_meta->user_meta_data;
 
-                    if (errcode)
-                        return GST_FLOW_ERROR;
-                } else {
-                    if (self->is_video) {
-                        for (NvDsObjectMetaList *obj_l =
-                                 ((NvDsFrameMeta *)frame_meta)->obj_meta_list;
-                             obj_l; obj_l = obj_l->next) {
-                            NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)obj_l->data;
-                            if (obj_meta == NULL) {
-                                // Ignore Null object.
-                                continue;
-                            }
+                        if (self->compId && eventMsg->componentId != self->compId)
+                            continue;
 
-                            meta_info.objMeta = (void *)obj_meta;
-                            payloadCount = 0;
-
-                            if (self->multiplePayloads)
-                                payloads = self->msg2p_generate_multiple_new(self->pCtx, &meta_info,
-                                                                             &payloadCount);
-                            else {
-                                payloads = (NvDsPayload **)g_malloc0(sizeof(NvDsPayload *) * 1);
-                                payloads[0] = self->msg2p_generate_new(self->pCtx, &meta_info);
-                                payloadCount = 1;
-                            }
-                            int errcode =
-                                add_payload_to_frame(self, payloads, payloadCount, batch_meta,
-                                                     frame_meta, debug_payload_dump_file);
-
-                            if (payloadCount && payloads)
-                                g_free(payloads);
-
-                            if (errcode)
-                                return GST_FLOW_ERROR;
-                        }
+                        eventList[eventCount].eventType = eventMsg->type;
+                        eventList[eventCount].metadata = eventMsg;
+                        eventCount++;
                     }
                 }
-            } else {
-                if ((self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_MINIMAL) ||
-                    (self->payloadType == NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF)) {
-                    NvDsEvent *eventList = g_new0(NvDsEvent, g_list_length(user_meta_list));
-                    guint eventCount = 0;
-                    for (l = user_meta_list; l; l = l->next) {
-                        user_event_meta = (NvDsUserMeta *)(l->data);
 
-                        if (user_event_meta &&
-                            user_event_meta->base_meta.meta_type == NVDS_EVENT_MSG_META) {
-                            eventMsg = (NvDsEventMsgMeta *)user_event_meta->user_meta_data;
+                if (eventCount) {
+                    guint payloadCount = 0;
 
-                            if (self->compId && eventMsg->componentId != self->compId)
-                                continue;
-
-                            eventList[eventCount].eventType = eventMsg->type;
-                            eventList[eventCount].metadata = eventMsg;
-                            eventCount++;
-                        }
+                    if (self->multiplePayloads)
+                        payloads = self->msg2p_generate_multiple(self->pCtx, eventList, eventCount,
+                                                                 &payloadCount);
+                    else {
+                        payloads = (NvDsPayload **)g_malloc0(sizeof(NvDsPayload *) * 1);
+                        payloads[0] = self->msg2p_generate(self->pCtx, eventList, eventCount);
+                        payloadCount = 1;
                     }
 
-                    if (eventCount) {
+                    for (uint p = 0; p < payloadCount; ++p) {
+                        if ((payloads[p] == NULL) || (!payloads[p]->payloadSize)) {
+                            GST_WARNING_OBJECT(
+                                self, "Payload received from converter at index %u is invalid", p);
+                            continue;
+                        }
+
+                        payloads[p]->componentId = self->compId;
+                        NvDsUserMeta *user_payload_meta =
+                            nvds_acquire_user_meta_from_pool(batch_meta);
+                        if (user_payload_meta) {
+                            user_payload_meta->user_meta_data = (void *)payloads[p];
+                            user_payload_meta->base_meta.meta_type = NVDS_PAYLOAD_META;
+                            user_payload_meta->base_meta.copy_func =
+                                (NvDsMetaCopyFunc)gst_nvmsgconv_copy_meta;
+                            user_payload_meta->base_meta.release_func =
+                                (NvDsMetaReleaseFunc)gst_nvmsgconv_free_meta;
+                            user_payload_meta->base_meta.uContext = (void *)self;
+                            nvds_add_user_meta_to_frame((NvDsFrameMeta *)frame_meta,
+                                                        user_payload_meta);
+                            g_atomic_int_inc(&self->numActivePayloads);
+                        } else {
+                            GST_ELEMENT_ERROR(self, RESOURCE, FAILED, (NULL),
+                                              ("Couldn't get user meta from pool"));
+                            if (debug_payload_dump_file)
+                                fclose(debug_payload_dump_file);
+                            return GST_FLOW_ERROR;
+                        }
+
+                        if (debug_payload_dump_file)
+                            fprintf(debug_payload_dump_file, "%.*s \n", payloads[p]->payloadSize,
+                                    (char *)payloads[p]->payload);
+                    }
+                    if (payloadCount && payloads)
+                        g_free(payloads);
+                }
+                g_free(eventList);
+            } else {
+                for (l = user_meta_list; l; l = l->next) {
+                    user_event_meta = (NvDsUserMeta *)(l->data);
+
+                    if (user_event_meta &&
+                        user_event_meta->base_meta.meta_type == NVDS_EVENT_MSG_META) {
+                        NvDsEvent event;
+
+                        eventMsg = (NvDsEventMsgMeta *)user_event_meta->user_meta_data;
+
+                        if (self->compId && eventMsg->componentId != self->compId)
+                            continue;
+
+                        event.eventType = eventMsg->type;
+                        event.metadata = eventMsg;
+
                         guint payloadCount = 0;
 
                         if (self->multiplePayloads)
-                            payloads = self->msg2p_generate_multiple(self->pCtx, eventList,
-                                                                     eventCount, &payloadCount);
+                            payloads =
+                                self->msg2p_generate_multiple(self->pCtx, &event, 1, &payloadCount);
                         else {
                             payloads = (NvDsPayload **)g_malloc0(sizeof(NvDsPayload *) * 1);
-                            payloads[0] = self->msg2p_generate(self->pCtx, eventList, eventCount);
+                            payloads[0] = self->msg2p_generate(self->pCtx, &event, 1);
                             payloadCount = 1;
                         }
 
-                        int errcode = add_payload_to_frame(self, payloads, payloadCount, batch_meta,
-                                                           frame_meta, debug_payload_dump_file);
-
-                        if (payloadCount && payloads)
-                            g_free(payloads);
-
-                        if (errcode)
-                            return GST_FLOW_ERROR;
-                    }
-                    g_free(eventList);
-                } else {
-                    for (l = user_meta_list; l; l = l->next) {
-                        user_event_meta = (NvDsUserMeta *)(l->data);
-
-                        if (user_event_meta &&
-                            user_event_meta->base_meta.meta_type == NVDS_EVENT_MSG_META) {
-                            NvDsEvent event;
-
-                            eventMsg = (NvDsEventMsgMeta *)user_event_meta->user_meta_data;
-
-                            if (self->compId && eventMsg->componentId != self->compId)
+                        for (uint p = 0; p < payloadCount; ++p) {
+                            if ((payloads[p] == NULL) || (!payloads[p]->payloadSize)) {
+                                GST_WARNING_OBJECT(
+                                    self, "Payload received from converter at index %u is invalid",
+                                    p);
                                 continue;
-
-                            event.eventType = eventMsg->type;
-                            event.metadata = eventMsg;
-
-                            guint payloadCount = 0;
-
-                            if (self->multiplePayloads)
-                                payloads = self->msg2p_generate_multiple(self->pCtx, &event, 1,
-                                                                         &payloadCount);
-                            else {
-                                payloads = (NvDsPayload **)g_malloc0(sizeof(NvDsPayload *) * 1);
-                                payloads[0] = self->msg2p_generate(self->pCtx, &event, 1);
-                                payloadCount = 1;
                             }
 
-                            int errcode =
-                                add_payload_to_frame(self, payloads, payloadCount, batch_meta,
-                                                     frame_meta, debug_payload_dump_file);
-
-                            if (payloadCount && payloads)
-                                g_free(payloads);
-
-                            if (errcode)
+                            payloads[p]->componentId = self->compId;
+                            NvDsUserMeta *user_payload_meta =
+                                nvds_acquire_user_meta_from_pool(batch_meta);
+                            if (user_payload_meta) {
+                                user_payload_meta->user_meta_data = (void *)payloads[p];
+                                user_payload_meta->base_meta.meta_type = NVDS_PAYLOAD_META;
+                                user_payload_meta->base_meta.copy_func =
+                                    (NvDsMetaCopyFunc)gst_nvmsgconv_copy_meta;
+                                user_payload_meta->base_meta.release_func =
+                                    (NvDsMetaReleaseFunc)gst_nvmsgconv_free_meta;
+                                user_payload_meta->base_meta.uContext = (void *)self;
+                                nvds_add_user_meta_to_frame((NvDsFrameMeta *)frame_meta,
+                                                            user_payload_meta);
+                                g_atomic_int_inc(&self->numActivePayloads);
+                            } else {
+                                GST_ELEMENT_ERROR(self, RESOURCE, FAILED, (NULL),
+                                                  ("Couldn't get user meta from pool"));
+                                if (debug_payload_dump_file)
+                                    fclose(debug_payload_dump_file);
                                 return GST_FLOW_ERROR;
+                            }
+
+                            if (debug_payload_dump_file)
+                                fprintf(debug_payload_dump_file, "%.*s \n",
+                                        payloads[p]->payloadSize, (char *)payloads[p]->payload);
                         }
+                        if (payloadCount && payloads)
+                            g_free(payloads);
                     }
                 }
             }
+
+            if (debug_payload_dump_file)
+                fclose(debug_payload_dump_file);
         }
-        if (debug_payload_dump_file)
-            fclose(debug_payload_dump_file);
     }
     return GST_FLOW_OK;
 }
@@ -749,7 +649,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_msgconv,
                   "Metadata conversion",
                   plugin_init,
-                  "6.3",
+                  "5.0",
                   "Proprietary",
                   "NvMsgConv",
                   "http://nvidia.com")

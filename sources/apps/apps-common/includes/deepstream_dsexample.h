@@ -36,7 +36,6 @@ typedef struct {
     gboolean full_frame;
     gint processing_width;
     gint processing_height;
-    gboolean blur_objects;
     guint unique_id;
     guint gpu_id;
     // For nvvidconv
@@ -48,7 +47,6 @@ typedef struct {
     GstElement *bin;
     GstElement *queue;
     GstElement *pre_conv;
-    GstElement *cap_filter;
     GstElement *elem_dsexample;
 } NvDsDsExampleBin;
 

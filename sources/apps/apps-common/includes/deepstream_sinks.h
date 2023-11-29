@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,10 +23,6 @@
 #ifndef __NVGSTDS_SINKS_H__
 #define __NVGSTDS_SINKS_H__
 
-#ifdef __aarch64__
-#define IS_TEGRA
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,14 +31,10 @@ extern "C" {
 
 typedef enum {
     NV_DS_SINK_FAKE = 1,
-#ifndef IS_TEGRA
     NV_DS_SINK_RENDER_EGL,
-#else
-    NV_DS_SINK_RENDER_3D,
-#endif
     NV_DS_SINK_ENCODE_FILE,
     NV_DS_SINK_UDPSINK,
-    NV_DS_SINK_RENDER_DRM,
+    NV_DS_SINK_RENDER_OVERLAY,
     NV_DS_SINK_MSG_CONV_BROKER,
 } NvDsSinkType;
 
@@ -51,11 +43,6 @@ typedef enum { NV_DS_CONTAINER_MP4 = 1, NV_DS_CONTAINER_MKV } NvDsContainerType;
 typedef enum { NV_DS_ENCODER_H264 = 1, NV_DS_ENCODER_H265, NV_DS_ENCODER_MPEG4 } NvDsEncoderType;
 
 typedef enum { NV_DS_ENCODER_TYPE_HW, NV_DS_ENCODER_TYPE_SW } NvDsEncHwSwType;
-
-typedef enum {
-    NV_DS_ENCODER_OUTPUT_IO_MODE_MMAP = 2,
-    NV_DS_ENCODER_OUTPUT_IO_MODE_DMABUF_IMPORT = 5,
-} NvDsEncOutputIOMode;
 
 typedef struct {
     NvDsSinkType type;
@@ -71,9 +58,6 @@ typedef struct {
     guint udp_port;
     guint64 udp_buffer_size;
     guint iframeinterval;
-    guint copy_meta;
-    NvDsEncOutputIOMode output_io_mode;
-    gint sw_preset;
 } NvDsSinkEncoderConfig;
 
 typedef struct {
@@ -85,12 +69,10 @@ typedef struct {
     gboolean qos_value_specified;
     guint gpu_id;
     guint nvbuf_memory_type;
+    guint display_id;
+    guint overlay_id;
     guint offset_x;
     guint offset_y;
-    guint color_range;
-    guint conn_id;
-    guint plane_id;
-    gboolean set_mode;
 } NvDsSinkRenderConfig;
 
 typedef struct {
@@ -102,8 +84,6 @@ typedef struct {
     guint conv_comp_id;
     gchar *debug_payload_dir;
     gboolean multiple_payloads;
-    gboolean conv_msg2p_new_api;
-    guint conv_frame_interval;
     /** Broker settings */
     gchar *proto_lib;
     gchar *conn_str;

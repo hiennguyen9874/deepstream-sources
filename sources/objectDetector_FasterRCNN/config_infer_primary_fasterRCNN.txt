@@ -80,12 +80,17 @@ custom-lib-path=nvdsinfer_custom_impl_fasterRCNN/libnvdsinfer_custom_impl_faster
 force-implicit-batch-dim=1
 #scaling-filter=0
 #scaling-compute-hw=0
-cluster-mode=2
 
 [class-attrs-all]
-topk=20
-nms-iou-threshold=0.4
-pre-cluster-threshold=0.5
+threshold=0.2
+eps=0.1
+group-threshold=2
+roi-top-offset=0
+roi-bottom-offset=0
+detected-min-w=0
+detected-min-h=0
+detected-max-w=0
+detected-max-h=0
 
 ## Per class configuration
 # Prevent background detection

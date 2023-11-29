@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -21,9 +21,6 @@
 #################################################################################
 #enable this flag to use optimized dsexample plugin
 #it can also be exported from command line
-
-WITH_OPENCV?=0
-
 USE_OPTIMIZED_DSEXAMPLE?=0
 CUDA_VER?=
 ifeq ($(CUDA_VER),)
@@ -41,13 +38,13 @@ endif
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_dsexample.so
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=5.0
 
 DEP:=dsexample_lib/libdsexample.a
 DEP_FILES:=$(wildcard dsexample_lib/dsexample_lib.* )
 DEP_FILES-=$(DEP)
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"5.0.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes
 
@@ -62,12 +59,10 @@ LIBS := -shared -Wl,-no-undefined \
 	-Wl,-rpath,$(LIB_INSTALL_DIR)
 
 OBJS:= $(SRCS:.cpp=.o)
-
-PKGS:= gstreamer-1.0 gstreamer-base-1.0 gstreamer-video-1.0
-
-ifeq ($(WITH_OPENCV),1)
-CFLAGS+= -DWITH_OPENCV
-PKGS+= opencv4
+ifeq ($(TARGET_DEVICE),aarch64)
+	PKGS:= gstreamer-1.0 gstreamer-base-1.0 gstreamer-video-1.0 opencv4
+else
+	PKGS:= gstreamer-1.0 gstreamer-base-1.0 gstreamer-video-1.0 opencv
 endif
 
 CFLAGS+=$(shell pkg-config --cflags $(PKGS))

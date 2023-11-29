@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,18 +26,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "cuda_runtime_api.h"
-
-#pragma GCC diagnostic push
-#if __GNUC__ >= 8
-#pragma GCC diagnostic ignored "-Wclass-memaccess"
-#endif
-
-#ifdef WITH_OPENCV
 #include <opencv2/objdetect/objdetect.hpp>
-#endif
-#pragma GCC diagnostic pop
 
+#include "cuda_runtime_api.h"
 #include "gstnvdsinfer.h"
 #include "gstnvdsmeta.h"
 #include "nvds_version.h"
@@ -194,10 +185,9 @@ static GstPadProbeReturn pgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *inf
     NvDsInferParseDetectionParams detectionParams;
     detectionParams.numClassesConfigured = 4;
     detectionParams.perClassPreclusterThreshold = {0.2, 0.2, 0.2, 0.2};
-#ifdef WITH_OPENCV
     static float groupThreshold = 1;
     static float groupEps = 0.2;
-#endif
+
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(GST_BUFFER(info->data));
 
     /* Iterate each frame metadata in batch */
@@ -236,7 +226,7 @@ static GstPadProbeReturn pgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *inf
             }
 #endif
             NvDsInferParseCustomResnet(outputLayersInfo, networkInfo, detectionParams, objectList);
-#ifdef WITH_OPENCV
+
             /* Seperate detection rectangles per class for grouping. */
             std::vector<std::vector<cv::Rect>> objectListClasses(PGIE_DETECTED_CLASS_NUM);
             for (auto &obj : objectList) {
@@ -291,7 +281,6 @@ static GstPadProbeReturn pgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *inf
                     nvds_add_obj_meta_to_frame(frame_meta, obj_meta, NULL);
                 }
             }
-#endif
         }
     }
     use_device_mem = 1 - use_device_mem;
@@ -433,11 +422,9 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 
 static void usage(const char *bin)
 {
-    g_printerr("Usage: %s <H264 filename1> [H264 filename2] ...[H264 filenameN]\n", bin);
-    g_printerr(
-        "For nvinferserver, Usage: %s -t inferserver <H264 filename1> [H264 filename2] ...[H264 "
-        "filenameN]\n",
-        bin);
+    g_printerr("Usage: %s [-t infer-type]<elementary H264 file 1> ... <elementary H264 file n>\n",
+               bin);
+    g_printerr("     -t infer-type: select form [infer, inferserver], infer by default\n");
 }
 
 int main(int argc, char *argv[])
@@ -448,42 +435,48 @@ int main(int argc, char *argv[])
                *sgie1 = NULL, *sgie2 = NULL, *sgie3 = NULL, *tiler = NULL, *queue2, *queue3,
                *queue4, *queue5, *queue6;
     g_print("With tracker\n");
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
-
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id = 0;
     GstPad *osd_sink_pad = NULL, *queue_src_pad = NULL, *tiler_sink_pad = NULL;
-    guint i = 0, num_sources = 0;
+    guint i = 0;
     std::vector<std::string> files;
     gboolean is_nvinfer_server = FALSE;
     const char *infer_plugin = NVINFER_PLUGIN;
 
-    /* Check input arguments */
-    if (argc < 2) {
+    /* Parse infer type and file names */
+    for (gint k = 1; k < argc;) {
+        if (!strcmp("-t", argv[k])) {
+            if (k + 1 >= argc) {
+                usage(argv[0]);
+                return -1;
+            }
+            if (!strcmp("infer", argv[k + 1])) {
+                is_nvinfer_server = false;
+            } else if (!strcmp("inferserver", argv[k + 1])) {
+                is_nvinfer_server = true;
+            } else {
+                usage(argv[0]);
+                return -1;
+            }
+            k += 2;
+        } else {
+            files.emplace_back(argv[k]);
+            ++k;
+        }
+    }
+    /* Check input files */
+    if (files.empty()) {
         usage(argv[0]);
         return -1;
     }
-
-    if (argc >= 2 && !strcmp("-t", argv[1])) {
-        if (!strcmp("inferserver", argv[2])) {
-            is_nvinfer_server = TRUE;
-        } else {
-            usage(argv[0]);
-            return -1;
-        }
-        g_print("Using nvinferserver as the inference plugin\n");
-    }
-
+    guint num_sources = files.size();
     if (is_nvinfer_server) {
         infer_plugin = NVINFERSERVER_PLUGIN;
-        num_sources = argc - 3;
-    } else {
-        num_sources = argc - 1;
     }
+
     nvds_version(&nvds_lib_major_version, &nvds_lib_minor_version);
 
     /* Standard GStreamer initialization */
@@ -491,6 +484,7 @@ int main(int argc, char *argv[])
     loop = g_main_loop_new(NULL, FALSE);
 
     /* Create gstreamer elements */
+
     /* Create Pipeline element that will be a container of other elements */
     pipeline = gst_pipeline_new("dstensor-pipeline");
 
@@ -531,16 +525,21 @@ int main(int argc, char *argv[])
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
-    } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-    }
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!pgie || !sgie1 || !sgie2 || !sgie3 || !nvvidconv || !nvosd || !sink || !tiler) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
+#ifdef PLATFORM_TEGRA
+    if (!transform) {
+        g_printerr("One tegra element could not be created. Exiting.\n");
+        return -1;
+    }
+#endif
 
     g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
                  "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
@@ -584,6 +583,9 @@ int main(int argc, char *argv[])
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
     /* decoder | pgie1 | sgie1 | sgie2 | sgie3 | etc.. */
+#ifdef PLATFORM_TEGRA
+    gst_bin_add(GST_BIN(pipeline), transform);
+#endif
     gst_bin_add_many(GST_BIN(pipeline), streammux, pgie, queue, sgie1, queue5, sgie2, queue6, sgie3,
                      queue2, tiler, queue3, nvvidconv, queue4, nvosd, sink, NULL);
 
@@ -635,15 +637,15 @@ int main(int argc, char *argv[])
             return -1;
         }
         /* Set the input filename to the source element */
-        if (is_nvinfer_server) {
-            g_object_set(G_OBJECT(source), "location", argv[i + 3], NULL);
-        } else {
-            g_object_set(G_OBJECT(source), "location", argv[i + 1], NULL);
-        }
+        g_object_set(G_OBJECT(source), "location", files[i].c_str(), NULL);
     }
 
     if (!gst_element_link_many(streammux, pgie, queue, sgie1, queue5, sgie2, queue6, sgie3, queue2,
-                               tiler, queue3, nvvidconv, queue4, nvosd, sink, NULL)) {
+                               tiler, queue3, nvvidconv, queue4, nvosd,
+#ifdef PLATFORM_TEGRA
+                               transform,
+#endif
+                               sink, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }

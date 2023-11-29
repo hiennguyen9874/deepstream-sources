@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -13,12 +13,10 @@
 
 #include <cassert>
 #include <sstream>
-#include <string>
 #include <vector>
 
 #include "gstnvinfer.h"
 #include "gstnvinfer_property_parser.h"
-#include "gstnvinfer_yaml_parser.h"
 
 GST_DEBUG_CATEGORY_EXTERN(gst_nvinfer_debug);
 #define GST_CAT_DEFAULT gst_nvinfer_debug
@@ -196,33 +194,20 @@ bool DsNvInferImpl::initNewInferModelParams(NvDsInferContextInitParams &newParam
                                             ModelLoadType loadType,
                                             const NvDsInferContextInitParams &oldParams)
 {
-    static const std::string string_yml = ".yml";
-    static const std::string string_yaml = ".yaml";
-    static const std::string string_txt = ".txt";
     NvDsInferContext_ResetInitParams(&newParams);
     assert(!newModelPath.empty());
 
     switch (loadType) {
     case MODEL_LOAD_FROM_CONFIG:
-        if (!newModelPath.compare(newModelPath.length() - 4, 4, string_yml) ||
-            !newModelPath.compare(newModelPath.length() - 5, 5, string_yaml)) {
-            if (!gst_nvinfer_parse_context_params_yaml(&newParams, newModelPath.c_str())) {
-                GST_WARNING_OBJECT(m_GstInfer, "[UID %d]: parse new model config file: %s failed.",
-                                   m_GstInfer->unique_id, newModelPath.c_str());
-                return false;
-            }
-        } else if (!newModelPath.compare(newModelPath.length() - 4, 4, string_txt)) {
-            if (!gst_nvinfer_parse_context_params(&newParams, newModelPath.c_str())) {
-                GST_WARNING_OBJECT(m_GstInfer, "[UID %d]: parse new model config file: %s failed.",
-                                   m_GstInfer->unique_id, newModelPath.c_str());
-                return false;
-            }
+        if (!gst_nvinfer_parse_context_params(&newParams, newModelPath.c_str())) {
+            GST_WARNING_OBJECT(m_GstInfer, "[UID %d]: parse new model config file: %s failed.",
+                               m_GstInfer->unique_id, newModelPath.c_str());
+            return false;
         }
-
         break;
     case MODEL_LOAD_FROM_ENGINE:
-        g_strlcpy(newParams.modelEngineFilePath, newModelPath.c_str(),
-                  sizeof(newParams.modelEngineFilePath));
+        strncpy(newParams.modelEngineFilePath, newModelPath.c_str(),
+                sizeof(newParams.modelEngineFilePath));
         newParams.networkMode = oldParams.networkMode;
         memcpy(newParams.meanImageFilePath, oldParams.meanImageFilePath,
                sizeof(newParams.meanImageFilePath));
@@ -250,8 +235,8 @@ bool DsNvInferImpl::initNewInferModelParams(NvDsInferContextInitParams &newParam
     newParams.copyInputToHostBuffers = oldParams.copyInputToHostBuffers;
     newParams.outputBufferPoolSize = oldParams.outputBufferPoolSize;
     if (string_empty(newParams.labelsFilePath) && !string_empty(oldParams.labelsFilePath)) {
-        g_strlcpy(newParams.labelsFilePath, oldParams.labelsFilePath,
-                  sizeof(newParams.labelsFilePath));
+        strncpy(newParams.labelsFilePath, oldParams.labelsFilePath,
+                sizeof(newParams.labelsFilePath));
     }
     if (oldParams.numDetectedClasses) {
         newParams.numDetectedClasses = oldParams.numDetectedClasses;

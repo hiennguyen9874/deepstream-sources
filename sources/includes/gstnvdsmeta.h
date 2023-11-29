@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -43,7 +43,6 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#include "nvds_audio_meta.h"
 #include "nvds_latency_meta.h"
 #include "nvdsmeta.h"
 
@@ -70,13 +69,6 @@ typedef enum {
     NVDS_DECODER_GST_META,
     /* Specifies information of dewarped surfaces. */
     NVDS_DEWARPER_GST_META,
-    /* @ref NvDsMetaType for @ref NvDsUserMeta in @NvDsFrameMeta
-     * This metadata carries GstMeta objects of all input frames
-     * batched by nvstreammux2
-     * Note: Please refer to APIs @ref nvds_copy_gst_meta_to_frame_meta
-     * and @ref nvds_copy_gst_meta_to_audio_frame_meta for more information.
-     */
-    NVDS_BUFFER_GST_AS_FRAME_USER_META,
     NVDS_RESERVED_GST_META = NVDS_GST_CUSTOM_META + 4096,
     /* Specifies the first value that may be assigned to a user-defined type. */
     NVDS_GST_META_FORCE32 = 0x7FFFFFFF
@@ -180,65 +172,6 @@ NvDsMeta *gst_buffer_get_nvds_meta(GstBuffer *buffer);
  *          NvDsMeta was attached.
  */
 NvDsBatchMeta *gst_buffer_get_nvds_batch_meta(GstBuffer *buffer);
-
-/**
- * Copies all GstMeta objects on src_gst_buffer to
- * the batched buffer's @ref NvDsBatchMeta
- * The GstMeta objects are copied into the user_meta_list
- * within @ref NvDsFrameMeta.
- *
- * Note: the list of plain GstMeta from @src_gst_buffer are copied into
- * @frame_meta as a single frame_meta->user_meta
- * with NvDsUserMeta->base_meta.meta_type == @ref NVDS_USER_FRAME_META_GST_META.
- * The list of N X NvDsMeta from @src_gst_buffer are copied into
- * @frame_meta as N X frame_meta->user_meta
- * with each NvDsUserMeta->base_meta.meta_type == NvDsMeta->meta_type.
- *
- * @param[in] src_gst_buffer    A pointer to the GstBuffer.
- *                              GstMeta objects in this GstBuffer
- *                              will be copied.
- * @param[in] batch_meta        A pointer to the @ref NvDsBatchMeta obtained
- *                              from nvstreammux plugin. (Note: Works only
- *                              for nvstreammux2 (Beta))
- * @param[in] frame_meta        A pointer to the @ref NvDsFrameMeta
- *                              @ref NvDsFrameMeta (metadata) for
- *                              the batched input frame to which GstMeta objects
- *                              will be copied as frame @ref NvDsUserMeta.
- *
- */
-void nvds_copy_gst_meta_to_frame_meta(GstBuffer *src_gst_buffer,
-                                      NvDsBatchMeta *batch_meta,
-                                      NvDsFrameMeta *frame_meta);
-
-/**
- * Copies all GstMeta objects on src_gst_buffer to
- * the batched buffer's @ref NvDsBatchMeta
- * The GstMeta objects are copied into the user_meta_list
- * within @ref NvDsAudioFrameMeta.
- *
- * Note: the list of plain GstMeta from @src_gst_buffer are copied into
- * @frame_meta as a single frame_meta->user_meta
- * with NvDsUserMeta->base_meta.meta_type == @ref NVDS_USER_FRAME_META_GST_META.
- * The list of N X NvDsMeta from @src_gst_buffer are copied into
- * @frame_meta as N X frame_meta->user_meta
- * with each NvDsUserMeta->base_meta.meta_type == NvDsMeta->meta_type.
- *
- * @param[in] src_gst_buffer    A pointer to the GstBuffer.
- *                              GstMeta objects in this GstBuffer
- *                              will be copied.
- * @param[in] batch_meta        A pointer to the @ref NvDsBatchMeta obtained
- *                              from nvstreammux plugin. (Note: Works only
- *                              for nvstreammux2 (Beta))
- * @param[in] frame_meta        A pointer to the @ref NvDsAudioFrameMeta
- *                              @ref NvDsAudioFrameMeta (metadata) for
- *                              the batched input frame to which GstMeta objects
- *                              will be copied as frame @ref NvDsUserMeta.
- *
- */
-void nvds_copy_gst_meta_to_audio_frame_meta(GstBuffer *src_gst_buffer,
-                                            NvDsBatchMeta *batch_meta,
-                                            NvDsAudioFrameMeta *frame_meta);
-
 /** @} */
 #ifdef __cplusplus
 }

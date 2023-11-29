@@ -22,5 +22,3 @@ Install using:
 --------------------------------------------------------------------------------
 Compiling and installing the plugin:
 Run make and sudo make install
-
-NOTE: To compile the sources, run make with "sudo" or root permission.

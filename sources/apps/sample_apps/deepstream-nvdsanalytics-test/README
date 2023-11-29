@@ -1,91 +1,53 @@
----
+*****************************************************************************
+* Copyright (c) 2020 NVIDIA Corporation.  All rights reserved.
+*
+* NVIDIA Corporation and its licensors retain all intellectual property
+* and proprietary rights in and to this software, related documentation
+* and any modifications thereto.  Any use, reproduction, disclosure or
+* distribution of this software and related documentation without an express
+* license agreement from NVIDIA Corporation is strictly prohibited.
+*****************************************************************************
 
-- Copyright (c) 2020-2023 NVIDIA Corporation. All rights reserved.
--
-- NVIDIA Corporation and its licensors retain all intellectual property
-- and proprietary rights in and to this software, related documentation
-- and any modifications thereto. Any use, reproduction, disclosure or
-- distribution of this software and related documentation without an express
-- license agreement from NVIDIA Corporation is strictly prohibited.
-
----
-
----
-
-                     deepstream-nvdsanalytics-test
-                             README
-
----
-
-===============================================================================
-
-1. # Prerequisites:
+Prerequisites:
 
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
 to install the prerequisites for the Deepstream SDK, the DeepStream SDK itself,
 and the apps.
 
 You must have the following development packages installed
-GStreamer-1.0
-GStreamer-1.0 Base Plugins
-GStreamer-1.0 gstrtspserver
-X11 client-side library
+   GStreamer-1.0
+   GStreamer-1.0 Base Plugins
+   GStreamer-1.0 gstrtspserver
+   X11 client-side library
 
 To install these packages, execute the following command:
-sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
- libgstrtspserver-1.0-dev libx11-dev
+   sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
+   libgstrtspserver-1.0-dev libx11-dev
 
-This example can be configured to use either the nvinfer or the nvinferserver
-element for inference.
-If nvinferserver is selected, the Triton Inference Server is used for inference
-processing. In this case, the example needs to be run inside the
-DeepStream-Triton docker container for dGPU platforms. For Jetson platforms,
-this example can be executed on target device directly or inside DeepStream L4T
-Triton container. Please refer samples/configs/deepstream-app-triton/README for
-the steps to download the container image and setup model repository.
+To compile:
+  $ cd apps/deepstream-nvdsanalytics-test/
+  $ make
 
-=============================================================================== 2. Purpose:
-===============================================================================
+To run:
+  $ ./deepstream-nvdsanalytics-test <uri1> [uri2] ... [uriN]
+e.g.
+  $ ./deepstream-nvdsanalytics-test file:///home/ubuntu/video1.mp4 file:///home/ubuntu/video2.mp4
+  $ ./deepstream-nvdsanalytics-test rtsp://127.0.0.1/video1 rtsp://127.0.0.1/video2
 
 This document describes the sample deepstream-nvdsanalytics-test application.
 
 This sample builds on top of the deepstream-test3 sample to demonstrate how to:
 
-- Demonstrate use of nvdsanalytics gstreamer plugin
-- Extract the nvdsanalytics metadata, which contains useful information about the
+* Demonstrate use of nvdsanalytics gstreamer plugin
+* Extract the nvdsanalytics metadata, which contains useful information about the
   frames in the batched buffer.
-- Refer plugin manual for configuration of nvdsanalytics plugin property
-
-=============================================================================== 3. To compile:
-===============================================================================
-
-$ Set CUDA_VER in the MakeFile as per platform.
-For Jetson, CUDA_VER=11.4
-For x86, CUDA_VER=12.1
-$ sudo make (sudo not required in case of docker containers)
-
-NOTE: To compile the sources, run make with "sudo" or root permission.
-
-=============================================================================== 4. Usage:
-===============================================================================
-
-To run:
-$ ./deepstream-nvdsanalytics-test <uri1> [uri2] ... [uriN]
-e.g.
-$ ./deepstream-nvdsanalytics-test file:///home/ubuntu/video1.mp4 file:///home/ubuntu/video2.mp4
-$ ./deepstream-nvdsanalytics-test rtsp://127.0.0.1/video1 rtsp://127.0.0.1/video2
-
-Use option "-t inferserver" to select nvinferserver as the inference plugin
-$ ./deepstream-nvdsanalytics-test -t inferserver <uri1> [uri2] ... [uriN]
-e.g.
-$ ./deepstream-nvdsanalytics-test -t inferserver file:///home/ubuntu/video1.mp4 file:///home/ubuntu/video2.mp4
-$ ./deepstream-nvdsanalytics-test -t inferserver rtsp://127.0.0.1/video1 rtsp://127.0.0.1/video2
+* Refer plugin manual for configuration of nvdsanalytics plugin property
 
 This sample accepts one or more H.264/H.265 video streams as input. It creates
 a source bin for each input and connects the bins to an instance of the
 "nvstreammux" element, which forms the batch of frames. The batch of
-frames is fed to "nvinfer" or "nvinferserver" for batched inferencing. The batched
-buffer is composited into a 2D tile array using "nvmultistreamtiler." The rest of the
+frames is fed to "nvinfer" for batched inferencing. The batched buffer is
+composited into a 2D tile array using "nvmultistreamtiler." The rest of the
 pipeline is similar to the deepstream-test1 sample.
 
 The "width" and "height" properties must be set on the stream-muxer to set the
@@ -102,7 +64,7 @@ available input buffers and pushed. Ideally, the timeout of the stream-muxer
 should be set based on the framerate of the fastest source. It can also be set
 to -1 to make the stream-muxer wait infinitely.
 
-The "nvinfer" or "nvinferserver" detects objects and attach the metadata with the batched buffer.
+The "nvinfer" detects objects and attach the metadata with the batched buffer.
 
 The "nvtracker" tracks the detected object and provides unique-id to each of them
 
@@ -120,8 +82,7 @@ across the next row, etc.).
 The "nvdsosd" performs drawing on on the composited frame, i.e. object bbox, ROI
 info, direction and linecrossing info etc.
 
----
-
+--------------------------------------------------------------------------------
 The nvdsanalytics plugin can also be used along with reference deepstream-app,
 this can be done by doing corresponding config file changes (Add the following section), in
 deepstream-app configuration file. Provide config-file property with relative or
@@ -135,13 +96,5 @@ In order to access the meta data programmatically in reference deepstream-app
 compile the custom deepstream-app as given below. Function for accessing meta is
 available in deepstream_nvdsanalytics_meta.cpp
 
-$ make -f Makefile.ds
-$ ./deepstream-app -c <config file>
-
-Known Issue:
-On Jetson, if libgomp is not preloaded, this error may occur:
-(deepstream-nvdsanalytics-test:19931): GStreamer-WARNING \*\*: 00:44:37.356: Failed to load plugin '/usr/lib/aarch64-linux-gnu/gstreamer-1.0/libgstlibav.so': /usr/lib/aarch64-linux-gnu/libgomp.so.1: cannot allocate memory in static TLS block
-
-To work around the problem with TLS usage limitation.
-Add to LD_PRELOAD:
-/usr/lib/aarch64-linux-gnu/libgomp.so.1
+  $ make -f Makefile.ds
+  $ ./deepstream-app -c <config file>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -48,20 +48,7 @@ extern "C" {
 #define NVBUF_MAX_PLANES 4
 
 /**
- * Defines the default values for chroma subsampling.
- * The default value matches JPEG/MPEG use cases.
- */
-#define NVBUFSURFACE_CHROMA_SUBSAMPLING_HORIZ_DEFAULT 0
-#define NVBUFSURFACE_CHROMA_SUBSAMPLING_VERT_DEFAULT 1
-
-#define NVBUFSURFACE_CHROMA_SUBSAMPLING_PARAMS_DEFAULT   \
-    {                                                    \
-        NVBUFSURFACE_CHROMA_SUBSAMPLING_HORIZ_DEFAULT,   \
-            NVBUFSURFACE_CHROMA_SUBSAMPLING_VERT_DEFAULT \
-    }
-
-/**
- *  Defines mapping types of NvBufSurface.
+ * Specifies mapping types for \ref NvBufSurface.
  */
 typedef enum {
     NVBUF_MAP_READ,       /**< Specifies \ref NvBufSurface mapping type "read." */
@@ -72,30 +59,7 @@ typedef enum {
 } NvBufSurfaceMemMapFlags;
 
 /**
- * Defines tags that identify the components requesting a memory allocation.
- * The tags can be used later to identify the total memory allocated to
- * particular types of components.
- * TODO: Check if DeepStream require more tags to be defined.
- */
-typedef enum {
-    /** tag None. */
-    NvBufSurfaceTag_NONE = 0x0,
-    /** tag for Camera. */
-    NvBufSurfaceTag_CAMERA = 0x200,
-    /** tag for Jpeg Encoder/Decoder. */
-    NvBufSurfaceTag_JPEG = 0x1500,
-    /** tag for VPR Buffers. */
-    NvBufSurfaceTag_PROTECTED = 0x1504,
-    /** tag for H264/H265 Video Encoder. */
-    NvBufSurfaceTag_VIDEO_ENC = 0x1200,
-    /** tag for H264/H265/VP9 Video Decoder. */
-    NvBufSurfaceTag_VIDEO_DEC = 0x1400,
-    /** tag for Video Transform/Composite/Blend. */
-    NvBufSurfaceTag_VIDEO_CONVERT = 0xf01,
-} NvBufSurfaceTag;
-
-/**
- * Defines color formats for NvBufSurface.
+ * Specifies color formats for \ref NvBufSurface.
  */
 typedef enum {
     /** Specifies an invalid color format. */
@@ -182,98 +146,7 @@ typedef enum {
     NVBUF_COLOR_FORMAT_NV12_10LE_2020,
     /** Specifies color format for packed 2 signed shorts  */
     NVBUF_COLOR_FORMAT_SIGNED_R16G16,
-    /** Specifies RGB- unsigned 8 bit multiplanar plane. */
-    NVBUF_COLOR_FORMAT_R8_G8_B8,
-    /** Specifies BGR- unsigned 8 bit multiplanar plane. */
-    NVBUF_COLOR_FORMAT_B8_G8_R8,
-    /** Specifies RGB-32bit Floating point multiplanar plane. */
-    NVBUF_COLOR_FORMAT_R32F_G32F_B32F,
-    /** Specifies BGR-32bit Floating point multiplanar plane. */
-    NVBUF_COLOR_FORMAT_B32F_G32F_R32F,
-    /** Specifies BT.601 colorspace - YUV422 multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV422,
-    /** Specifies BT.601 colorspace - Y/CrCb 4:2:0 10-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_NV21_10LE,
-    /** Specifies BT.601 colorspace - Y/CrCb 4:2:0 12-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_NV21_12LE,
-    /** Specifies BT.2020 colorspace - Y/CbCr 4:2:0 12-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_NV12_12LE_2020,
-    /** Specifies BT.601 colorspace - Y/CbCr 4:2:2 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV16,
-    /** Specifies BT.601 colorspace - Y/CbCr 4:2:2 10-bit semi-planar. */
-    NVBUF_COLOR_FORMAT_NV16_10LE,
-    /** Specifies BT.601 colorspace - Y/CbCr 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV24,
-    /** Specifies BT.601 colorspace - Y/CrCb 4:4:4 10-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_NV24_10LE,
-    /** Specifies BT.601_ER colorspace - Y/CbCr 4:2:2 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV16_ER,
-    /** Specifies BT.601_ER colorspace - Y/CbCr 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV24_ER,
-    /** Specifies BT.709 colorspace - Y/CbCr 4:2:2 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV16_709,
-    /** Specifies BT.709 colorspace - Y/CbCr 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV24_709,
-    /** Specifies BT.709_ER colorspace - Y/CbCr 4:2:2 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV16_709_ER,
-    /** Specifies BT.709_ER colorspace - Y/CbCr 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV24_709_ER,
-    /** Specifies BT.709 colorspace - Y/CbCr 10 bit 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV24_10LE_709,
-    /** Specifies BT.709 ER colorspace - Y/CbCr 10 bit 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV24_10LE_709_ER,
-    /** Specifies BT.2020 colorspace - Y/CbCr 10 bit 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV24_10LE_2020,
-    /** Specifies BT.2020 colorspace - Y/CbCr 12 bit 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_NV24_12LE_2020,
-    /** Specifies Non-linear RGB BT.709 colorspace - RGBA-10-10-10-2 planar. */
-    NVBUF_COLOR_FORMAT_RGBA_10_10_10_2_709,
-    /** Specifies Non-linear RGB BT.2020 colorspace - RGBA-10-10-10-2 planar. */
-    NVBUF_COLOR_FORMAT_RGBA_10_10_10_2_2020,
-    /** Specifies Non-linear RGB BT.709 colorspace - BGRA-10-10-10-2 planar. */
-    NVBUF_COLOR_FORMAT_BGRA_10_10_10_2_709,
-    /** Specifies Non-linear RGB BT.2020 colorspace - BGRA-10-10-10-2 planar. */
-    NVBUF_COLOR_FORMAT_BGRA_10_10_10_2_2020,
-    /** Specifies Optical flow SAD calculation Buffer format */
-    NVBUF_COLOR_FORMAT_A32,
-    /** Specifies BT.601 colorspace - 10 bit YUV 4:2:2 interleaved. */
-    NVBUF_COLOR_FORMAT_UYVP,
-    /** Specifies BT.601 colorspace - 10 bit YUV ER 4:2:2 interleaved. */
-    NVBUF_COLOR_FORMAT_UYVP_ER,
-    /** Specifies BT.601 colorspace - Y/CbCr ER 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_ER,
-    /** Specifies BT.709 colorspace - Y/CbCr 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_709,
-    /** Specifies BT.709 colorspace - Y/CbCr ER 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_709_ER,
-    /** Specifies BT.2020 colorspace - Y/CbCr 4:4:4 multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_2020,
-    /** Specifies BT.601 colorspace - Y/CbCr 4:4:4 10-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_10LE,
-    /** Specifies BT.601 colorspace - Y/CbCr ER 4:4:4 10-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_10LE_ER,
-    /** Specifies BT.709 colorspace - Y/CbCr 4:4:4 10-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_10LE_709,
-    /** Specifies BT.709 colorspace - Y/CbCr ER 4:4:4 10-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_10LE_709_ER,
-    /** Specifies BT.2020 colorspace - Y/CbCr 4:4:4 10-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_10LE_2020,
-    /** Specifies BT.601 colorspace - Y/CbCr 4:4:4 12-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_12LE,
-    /** Specifies BT.601 colorspace - Y/CbCr ER 4:4:4 12-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_12LE_ER,
-    /** Specifies BT.709 colorspace - Y/CbCr 4:4:4 12-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_12LE_709,
-    /** Specifies BT.709 colorspace - Y/CbCr ER 4:4:4 12-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_12LE_709_ER,
-    /** Specifies BT.2020 colorspace - Y/CbCr 4:4:4 12-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_YUV444_12LE_2020,
-    /** Specifies BT.601 colorspace - Y/CbCr ER 4:2:0 12-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_NV12_12LE_ER,
-    /** Specifies BT.709 colorspace - Y/CbCr 4:2:0 12-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_NV12_12LE_709,
-    /** Specifies BT.709 colorspace - Y/CbCr ER 4:2:0 12-bit multi-planar. */
-    NVBUF_COLOR_FORMAT_NV12_12LE_709_ER,
+
     NVBUF_COLOR_FORMAT_LAST
 } NvBufSurfaceColorFormat;
 
@@ -310,35 +183,7 @@ typedef enum {
 } NvBufSurfaceMemType;
 
 /**
- * Defines display scan formats for NvBufSurface video planes.
- */
-typedef enum {
-    /** Progessive scan formats. */
-    NVBUF_DISPLAYSCANFORMAT_PROGRESSIVE,
-    /** Interlaced scan formats. */
-    NVBUF_DISPLAYSCANFORMAT_INTERLACED,
-} NvBufSurfaceDisplayScanFormat;
-
-/**
- * Holds plane wise parameters(extended) of a buffer.
- */
-typedef struct NvBufSurfacePlaneParamsEx {
-    /** display scan format - progressive/interlaced. */
-    NvBufSurfaceDisplayScanFormat scanformat[NVBUF_MAX_PLANES];
-    /** offset of the second field for interlaced buffer. */
-    uint32_t secondfieldoffset[NVBUF_MAX_PLANES];
-    /** block height of the planes for blockLinear layout buffer. */
-    uint32_t blockheightlog2[NVBUF_MAX_PLANES];
-    /** physical address of allocated planes. */
-    uint32_t physicaladdress[NVBUF_MAX_PLANES];
-    /** flags associated with planes */
-    uint64_t flags[NVBUF_MAX_PLANES];
-
-    void *_reserved[STRUCTURE_PADDING * NVBUF_MAX_PLANES];
-} NvBufSurfacePlaneParamsEx;
-
-/**
- * Holds plane wise parameters of a buffer.
+ * Holds the planewise parameters of a buffer.
  */
 typedef struct NvBufSurfacePlaneParams {
     /** Holds the number of planes. */
@@ -358,15 +203,6 @@ typedef struct NvBufSurfacePlaneParams {
 
     void *_reserved[STRUCTURE_PADDING * NVBUF_MAX_PLANES];
 } NvBufSurfacePlaneParams;
-
-/**
- * Holds Chroma Subsampling parameters for NvBufSurface allocation.
- */
-typedef struct NvBufSurfaceChromaSubsamplingParams {
-    /** location settings */
-    uint8_t chromaLocHoriz;
-    uint8_t chromaLocVert;
-} NvBufSurfaceChromaSubsamplingParams;
 
 /**
  * Holds parameters required to allocate an \ref NvBufSurface.
@@ -394,32 +230,7 @@ typedef struct NvBufSurfaceCreateParams {
 } NvBufSurfaceCreateParams;
 
 /**
- * Hold extended parameters required to allocate NvBufSurface.
- * (Applicable for NvBufSurfaceAllocate API)
- */
-typedef struct NvBufSurfaceAllocateParams {
-    /** Hold legacy NvBufSurface creation parameters */
-    NvBufSurfaceCreateParams params;
-    /** Display scan format */
-    NvBufSurfaceDisplayScanFormat displayscanformat;
-    /** Chroma Subsampling parameters */
-    NvBufSurfaceChromaSubsamplingParams chromaSubsampling;
-    /** components tag to be used for memory allocation */
-    NvBufSurfaceTag memtag;
-    /** disable pitch padding allocation only applicable for cuda and system memory allocation
-        pitch would be width times bytes per pixel for the plane, for odd width it would be
-        multiple of 2, also note for some non standard video resolution cuda kernels may fail
-        due to unaligned pitch
-        */
-    bool disablePitchPadding;
-    /** Used void* from custom param for 64 bit machine, using other uint32_t param */
-    uint32_t _reservedParam;
-
-    void *_reserved[STRUCTURE_PADDING - 1];
-} NvBufSurfaceAllocateParams;
-
-/**
- * Hold the pointers of mapped buffer.
+ * Holds pointers for a mapped buffer.
  */
 typedef struct NvBufSurfaceMappedAddr {
     /** Holds planewise pointers to a CPU mapped buffer. */
@@ -431,28 +242,7 @@ typedef struct NvBufSurfaceMappedAddr {
 } NvBufSurfaceMappedAddr;
 
 /**
- * Hold the information(extended) of single buffer in the batch.
- */
-typedef struct NvBufSurfaceParamsEx {
-    /** offset in bytes from the start of the buffer to the first valid byte.
-        (Applicable for NVBUF_MEM_HANDLE) */
-    int32_t startofvaliddata;
-    /** size of the valid data from the first to the last valid byte.
-        (Applicable for NVBUF_MEM_HANDLE) */
-    int32_t sizeofvaliddatainbytes;
-    /** chroma subsampling parameters.
-        (Applicable for NVBUF_MEM_SURFACE_ARRAY) */
-    NvBufSurfaceChromaSubsamplingParams chromaSubsampling;
-    /** get buffer vpr information. */
-    bool is_protected;
-    /** plane wise extended info */
-    NvBufSurfacePlaneParamsEx planeParamsex;
-
-    void *_reserved[STRUCTURE_PADDING];
-} NvBufSurfaceParamsEx;
-
-/**
- * Hold the information of single buffer in the batch.
+ * Holds information about a single buffer in a batch.
  */
 typedef struct NvBufSurfaceParams {
     /** Holds the width of the buffer. */
@@ -478,10 +268,8 @@ typedef struct NvBufSurfaceParams {
     /** Holds pointers to mapped buffers. Initialized to NULL
      when the structure is created. */
     NvBufSurfaceMappedAddr mappedAddr;
-    /** pointers of extended parameters of single buffer in the batch.*/
-    NvBufSurfaceParamsEx *paramex;
 
-    void *_reserved[STRUCTURE_PADDING - 1];
+    void *_reserved[STRUCTURE_PADDING];
 } NvBufSurfaceParams;
 
 /**
@@ -507,58 +295,6 @@ typedef struct NvBufSurface {
 } NvBufSurface;
 
 /**
- * Holds plane parameters to map the buffer received from another process.
- */
-typedef struct NvBufSurfaceMapPlaneParams {
-    /** Holds the widths of planes */
-    uint32_t width;
-    /** Holds the heights of planes */
-    uint32_t height;
-    /** Holds the pitches of planes in bytes */
-    uint32_t pitch;
-    /** Holds the offsets of planes in bytes */
-    uint32_t offset;
-    /** Holds the sizes of planes in bytes */
-    uint32_t psize;
-    /** Holds offset of the second field for interlaced buffer */
-    uint32_t secondfieldoffset;
-    /** Holds block height of the planes for blockLinear layout buffer */
-    uint32_t blockheightlog2;
-    /** Holds flags associated with the planes */
-    uint64_t flags;
-    /** Reserved */
-    uint8_t reserved[64];
-} NvBufSurfaceMapPlaneParams;
-
-/**
- * Holds buffer parameters to map the buffer received from another process.
- */
-typedef struct NvBufSurfaceMapParams {
-    /** Holds the number of planes. */
-    uint32_t num_planes;
-    /** Holds a GPU ID */
-    uint32_t gpuId;
-    /** Holds a DMABUF FD */
-    uint64_t fd;
-    /** Holds the total size of allocated memory */
-    uint32_t totalSize;
-    /** Holds type of memory */
-    NvBufSurfaceMemType memType;
-    /** Holds BL or PL layout */
-    NvBufSurfaceLayout layout;
-    /** Holds display scan format */
-    NvBufSurfaceDisplayScanFormat scanformat;
-    /** Holds the color format */
-    NvBufSurfaceColorFormat colorFormat;
-    /** Holds chroma subsampling parameters */
-    NvBufSurfaceChromaSubsamplingParams chromaSubsampling;
-    /** Holds plane parameters */
-    NvBufSurfaceMapPlaneParams planes[NVBUF_MAX_PLANES];
-    /** Reserved */
-    uint8_t reserved[64];
-} NvBufSurfaceMapParams;
-
-/**
  * \brief  Allocates a batch of buffers.
  *
  * Allocates memory for \a batchSize buffers and returns a pointer to an
@@ -580,27 +316,7 @@ typedef struct NvBufSurfaceMapParams {
 int NvBufSurfaceCreate(NvBufSurface **surf, uint32_t batchSize, NvBufSurfaceCreateParams *params);
 
 /**
- * \brief  Allocate batch of buffers. (Using extended buffer allocation parameters)
- *
- * Allocates memory for batchSize buffers and returns in *surf a pointer to allocated NvBufSurface.
- * params structure should have allocation parameters of single buffer. If size field in
- * params is set, buffer of that size will be allocated and all other
- * parameters (w, h, color format etc.) will be ignored.
- *
- * Use NvBufSurfaceDestroy to free all the resources.
- *
- * @param[out] surf pointer to allocated batched buffers.
- * @param[in] batchSize batch size of buffers.
- * @param[in] paramsext pointer to NvBufSurfaceAllocateParams structure.
- *
- * @return 0 for success, -1 for failure.
- */
-int NvBufSurfaceAllocate(NvBufSurface **surf,
-                         uint32_t batchSize,
-                         NvBufSurfaceAllocateParams *paramsext);
-
-/**
- * Free the batched buffers previously allocated through NvBufSurfaceCreate.
+ * \brief  Frees batched buffers previously allocated by NvBufSurfaceCreate().
  *
  * @param[in] surf  A pointer to an \ref NvBufSurface to be freed.
  *
@@ -681,53 +397,7 @@ int NvBufSurfaceUnMap(NvBufSurface *surf, int index, int plane);
 int NvBufSurfaceCopy(NvBufSurface *srcSurf, NvBufSurface *dstSurf);
 
 /**
- * \brief Copies the NvBufSurface plane memory content to a raw buffer plane for a specific
- * batched buffer.
- *
- * This function can be used to copy plane memory content from source raw buffer pointer
- * to specific destination batch buffer of supported memory type.
- *
- * @param[in] surf pointer to NvBufSurface structure.
- * @param[in] index index of buffer in the batch.
- * @param[in] plane index of plane in buffer.
- * @param[in] out_width aligned width of the raw data plane.
- * @param[in] out_height aligned height of the raw data plane.
- * @param[in] ptr pointer to the output raw plane data.
- *
- * @return 0 for success, -1 for failure.
- */
-int NvBufSurface2Raw(NvBufSurface *Surf,
-                     unsigned int index,
-                     unsigned int plane,
-                     unsigned int outwidth,
-                     unsigned int outheight,
-                     unsigned char *ptr);
-
-/**
- * \brief Copies the raw buffer plane memory content to the NvBufSurface plane memory of a specific
- * batched buffer.
- *
- * This function can be used to copy plane memory content from batch buffer
- * to specific destination raw buffer pointer.
- *
- * @param[in] ptr pointer to the input raw plane data.
- * @param[in] index index of buffer in the batch.
- * @param[in] plane index of plane in buffer.
- * @param[in] in_width aligned width of the raw data plane.
- * @param[in] in_height aligned height of the raw data plane.
- * @param[in] surf pointer to NvBufSurface structure.
- *
- * @return 0 for success, -1 for failure.
- */
-int Raw2NvBufSurface(unsigned char *ptr,
-                     unsigned int index,
-                     unsigned int plane,
-                     unsigned int inwidth,
-                     unsigned int inheight,
-                     NvBufSurface *Surf);
-
-/**
- * Syncs the HW memory cache for the CPU.
+ * \brief  Syncs the hardware memory cache for the CPU.
  *
  * Valid only for memory types \ref NVBUF_MEM_SURFACE_ARRAY and
  * \ref NVBUF_MEM_HANDLE.
@@ -823,30 +493,6 @@ int NvBufSurfaceMapEglImage(NvBufSurface *surf, int index);
  * @return 0 if successful, or -1 otherwise.
  */
 int NvBufSurfaceUnMapEglImage(NvBufSurface *surf, int index);
-
-/**
- * \brief Import parameters received from another process and create hardware buffer.
- *
- * Calling process must need to call NvBufferDestroy() to remove reference count for
- * hardware buffer handle of the imported DMA buffer.
- *
- * @param[out] out_nvbuf_surf  Pointer to hardware buffer.
- * @param[in]  in_params       Parameters to create hardware buffer.
- *
- * @return 0 for success, -1 for failure.
- */
-int NvBufSurfaceImport(NvBufSurface **out_nvbuf_surf, const NvBufSurfaceMapParams *in_params);
-
-/**
- * \brief Get buffer information to map the buffer in another process.
- *
- * @param[in]  surf     Pointer to NvBufSurface structure.
- * @param[in]  index    Index of a buffer in the batch.
- * @param[out] params   Pointer to NvBufSurfaceMapParams information of the buffer.
- *
- * @return 0 for success, -1 for failure.
- */
-int NvBufSurfaceGetMapParams(const NvBufSurface *surf, int index, NvBufSurfaceMapParams *params);
 
 /** @} */
 

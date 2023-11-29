@@ -1,13 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2017-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
+ * NVIDIA Corporation and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA Corporation is strictly prohibited.
+ *
  */
 
 /**
@@ -122,13 +121,6 @@ typedef struct {
         (dimsCHW).w = (dims).d[2];        \
     } while (0)
 
-#define getDimsHWCFromDims(dimsCHW, dims) \
-    do {                                  \
-        (dimsCHW).h = (dims).d[0];        \
-        (dimsCHW).w = (dims).d[1];        \
-        (dimsCHW).c = (dims).d[2];        \
-    } while (0)
-
 /**
  * Holds information about one parsed object from a detector's output.
  */
@@ -198,9 +190,8 @@ typedef struct {
     /** Holds the attribute's confidence level. */
     float attributeConfidence;
     /** Holds a pointer to a string containing the attribute's label.
-     Memory for the string must not be freed. Custom parsing functions must
-     allocate strings on heap using strdup or equivalent. */
-    char *attributeLabel;
+     Memory for the string must not be freed. */
+    const char *attributeLabel;
 } NvDsInferAttribute;
 
 /**
@@ -224,12 +215,8 @@ typedef enum {
     NVDSINFER_TENSORRT_ERROR,
     /** Resource error was encountered. */
     NVDSINFER_RESOURCE_ERROR,
-    /** Triton error was encountered. Renamed TRT-IS to Triton. */
-    NVDSINFER_TRITON_ERROR,
-    /** [deprecated]TRT-IS error was encountered */
-    NVDSINFER_TRTIS_ERROR = NVDSINFER_TRITON_ERROR,
-    /** Cuda Memory error was encountered. */
-    NVDSINFER_MEM_ERROR,
+    /** TRT-IS error was encountered. */
+    NVDSINFER_TRTIS_ERROR,
     /** Unknown error was encountered. */
     NVDSINFER_UNKNOWN_ERROR
 } NvDsInferStatus;

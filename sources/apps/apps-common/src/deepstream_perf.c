@@ -158,9 +158,8 @@ void resume_perf_measurement(NvDsAppPerfStructInt *str)
         str->instance_str[i].buffer_cnt = 0;
     }
 
-    if (!str->perf_measurement_timeout_id)
-        str->perf_measurement_timeout_id =
-            g_timeout_add(str->measurement_interval_ms, perf_measurement_callback, str);
+    str->perf_measurement_timeout_id =
+        g_timeout_add(str->measurement_interval_ms, perf_measurement_callback, str);
 
     g_mutex_unlock(&str->struct_lock);
 }

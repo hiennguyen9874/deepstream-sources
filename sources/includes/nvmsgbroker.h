@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2020 NVIDIA Corporation.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-#define NV_MSGBROKER_VERSION "2.0"
+#define NV_MSGBROKER_VERSION "1.0"
 #define LOG_CAT "DSLOG:NV_MSGBROKER"
 /*
  * Defines status for operations in the NvMsgBroker interface
@@ -30,7 +30,6 @@ extern "C" {
 typedef enum {
     NV_MSGBROKER_API_OK,
     NV_MSGBROKER_API_ERR,
-    NV_MSGBROKER_API_RECONNECTING,
     NV_MSGBROKER_API_NOT_SUPPORTED
 } NvMsgBrokerErrorType;
 
@@ -61,16 +60,13 @@ typedef void (*nv_msgbroker_connect_cb_t)(NvMsgBrokerClientHandle h_ptr,
  * @param[in] user_ptr          Pointer passed during send_async for context
  * @param[in] status            Completion status of send operation
  */
-typedef void (*nv_msgbroker_send_cb_t)(void *user_ptr, NvMsgBrokerErrorType status);
+typedef void (*nv_msgbroker_send_cb_t)(void *user_ptr, NvMsgBrokerErrorType flag);
 
 /** subscribe callback method registered during subscribe
- * @param[in] status            Completion status of send operation
- * @param[in] msg               Consumer Message. Should be copied before function return
- * @param[in] msglen            Length of message consumed
- * @param[in] topic             Subscribed Topic where message is received
  * @param[in] user_ptr          Pointer passed during send_async for context
+ * @param[in] status            Completion status of send operation
  */
-typedef void (*nv_msgbroker_subscribe_cb_t)(NvMsgBrokerErrorType status,
+typedef void (*nv_msgbroker_subscribe_cb_t)(NvMsgBrokerErrorType flag,
                                             void *msg,
                                             int msglen,
                                             char *topic,

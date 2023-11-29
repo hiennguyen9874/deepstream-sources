@@ -41,7 +41,7 @@ typedef void *NvDsMsgApiHandle;
  * Defines events associated with connections to remote entities.
  */
 typedef enum {
-    /** Specifies that a connection attempt was successful. */
+    /** Specifies that a connection attempt was Successful*/
     NVDS_MSGAPI_EVT_SUCCESS,
     /** Specifies disconnection of a connection handle. */
     NVDS_MSGAPI_EVT_DISCONNECT,
@@ -67,17 +67,18 @@ typedef void (*nvds_msgapi_send_cb_t)(void *user_ptr, NvDsMsgApiErrorType comple
 /**
  * @brief Type definition for callback registered during subscribe.
  *
- * This callback reports any event (success or error) that occurs when
- * a message is consumed. If the event is success, the callback reports
- * the consumed message on a subscribed topic.
+ * This callback reports any event (success or error)
+ * during message consume
+ * If success, this callback reports the consumed message,
+ * on a subscribed topic
  *
- * @param[in]  flag        Message consumption status.
- * @param[in]  msg         A pointer to the message or payload received.
- * @param[in]  msg_len     Length of the message or payload.
- * @param[in]  topic       A pointer to the name of the topic
- *                          where the message was received
- * @param[in]  user_ptr    A pointer to a context, passed by subscribe().
+ * @param[in]  flag                  Message Consume Status
+ * @param[in]  msg                   Received message/payload
+ * @param[in]  msg_len               Length of message/payload
+ * @param[in]  topic                 Topic name where the message was received
+ * @param[in]  user_ptr              pointer passed during subscribe() for context
  */
+
 typedef void (*nvds_msgapi_subscribe_request_cb_t)(NvDsMsgApiErrorType flag,
                                                    void *msg,
                                                    int msg_len,
@@ -96,15 +97,14 @@ typedef void (*nvds_msgapi_subscribe_request_cb_t)(NvDsMsgApiErrorType flag,
 typedef void (*nvds_msgapi_connect_cb_t)(NvDsMsgApiHandle h_ptr, NvDsMsgApiEventType ds_evt);
 
 /**
- * Connects to a remote agent by calling into protocol adapter.
+ * Connects to a remote agent by calling into a protocol adapter.
  *
- * @param[in] connection_str  A connection string with format
+ * @param[in] connection_str    A connection string with format
  *                              `"url;port;topic"`.
- * @param[in] connect_cb      A pointer to a callback function for events
- *                            associated with the connection.
- * @param[in] config_path     A pointer to the pathname of a configuration file
- *                            passed to the protocol adapter.
- *
+ * @param[in] connect_cb        A callback function for events associated with
+ *                              the connection.
+ * @param[in] config_path       A pointer to the pathname of a configuration
+ *                              file passed to the protocol adapter.
  * @return A connection handle.
  */
 NvDsMsgApiHandle nvds_msgapi_connect(char *connection_str,

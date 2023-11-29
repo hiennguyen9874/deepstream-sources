@@ -22,24 +22,15 @@
 
 CC:= g++
 
-CFLAGS:= -Wall -std=c++14 -shared -fPIC -Wno-error=deprecated-declarations
-CFLAGS+= -I../../includes \
-         -I /usr/local/cuda-$(CUDA_VER)/include \
-         -I../../includes/nvdsinferserver
+CFLAGS:= -Wall -std=c++11 -shared -fPIC -Wno-error=deprecated-declarations
+CFLAGS+= -I../../includes
 
-LIBS:= -lnvinfer -lnvinfer_plugin \
-       -L/opt/nvidia/deepstream/deepstream/lib/ -lnvds_meta
+LIBS:= -lnvinfer -lnvinfer_plugin
 LFLAGS:= -Wl,--start-group $(LIBS) -Wl,--end-group
 
 SRCFILES:= nvdsparsebbox_fasterRCNN.cpp nvdsiplugin_fasterRCNN.cpp \
-           nvdsinitinputlayers_fasterRCNN.cpp \
-		   nvdsinferserver_custom_process.cpp
-
+           nvdsinitinputlayers_fasterRCNN.cpp
 TARGET_LIB:= libnvdsinfer_custom_impl_fasterRCNN.so
-
-PKGS:= glib-2.0
-CFLAGS+=$(shell pkg-config --cflags $(PKGS))
-LIBS+=$(shell pkg-config --libs $(PKGS))
 
 all: $(TARGET_LIB)
 

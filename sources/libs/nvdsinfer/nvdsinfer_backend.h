@@ -252,13 +252,13 @@ public:
 private:
     NvDsInferStatus initialize() override;
 
+    bool canSupportBatchDims(int bindingIdx, const NvDsInferBatchDims &batchDims) override;
+
     NvDsInferStatus enqueueBuffer(const std::shared_ptr<InferBatchBuffer> &buffer,
                                   CudaStream &stream,
                                   CudaEvent *consumeEvent) override;
 
 protected:
-    bool canSupportBatchDims(int bindingIdx, const NvDsInferBatchDims &batchDims) override;
-
     int m_MaxBatchSize = 0;
 };
 

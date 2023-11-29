@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,13 +29,9 @@
 #define CONFIG_GROUP_APP_PERF_MEASUREMENT_INTERVAL "perf-measurement-interval-sec"
 #define CONFIG_GROUP_APP_GIE_OUTPUT_DIR "gie-kitti-output-dir"
 #define CONFIG_GROUP_APP_GIE_TRACK_OUTPUT_DIR "kitti-track-output-dir"
-#define CONFIG_GROUP_APP_REID_TRACK_OUTPUT_DIR "reid-track-output-dir"
 
 #define CONFIG_GROUP_TESTS "tests"
 #define CONFIG_GROUP_TESTS_FILE_LOOP "file-loop"
-#define CONFIG_GROUP_TESTS_PIPELINE_RECREATE_SEC "pipeline-recreate-sec"
-
-#define CONFIG_GROUP_SOURCE_SGIE_BATCH_SIZE "sgie-batch-size"
 
 GST_DEBUG_CATEGORY_EXTERN(APP_CFG_PARSER_CAT);
 
@@ -44,6 +40,8 @@ GST_DEBUG_CATEGORY_EXTERN(APP_CFG_PARSER_CAT);
         GST_CAT_ERROR(APP_CFG_PARSER_CAT, "%s", error->message); \
         goto done;                                               \
     }
+
+NvDsSourceConfig global_source_config;
 
 static gboolean parse_source_list(NvDsConfig *config, GKeyFile *key_file, gchar *cfg_file_path)
 {
@@ -70,37 +68,6 @@ static gboolean parse_source_list(NvDsConfig *config, GKeyFile *key_file, gchar 
                 NVGSTDS_ERR_MSG_V("App supports max %d sources", MAX_SOURCE_BINS);
                 goto done;
             }
-            CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_SENSOR_ID_LIST)) {
-            config->sensor_id_list = g_key_file_get_string_list(
-                key_file, CONFIG_GROUP_SOURCE_LIST, CONFIG_GROUP_SOURCE_LIST_SENSOR_ID_LIST,
-                &num_strings, &error);
-            if (num_strings > MAX_SOURCE_BINS) {
-                NVGSTDS_ERR_MSG_V("App supports max %d sources", MAX_SOURCE_BINS);
-                goto done;
-            }
-            CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_USE_NVMULTIURISRCBIN)) {
-            config->use_nvmultiurisrcbin =
-                g_key_file_get_boolean(key_file, CONFIG_GROUP_SOURCE_LIST,
-                                       CONFIG_GROUP_SOURCE_LIST_USE_NVMULTIURISRCBIN, &error);
-            CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_HTTP_IP)) {
-            config->http_ip = g_key_file_get_string(key_file, CONFIG_GROUP_SOURCE_LIST,
-                                                    CONFIG_GROUP_SOURCE_LIST_HTTP_IP, &error);
-            CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_HTTP_PORT)) {
-            config->http_port = g_key_file_get_string(key_file, CONFIG_GROUP_SOURCE_LIST,
-                                                      CONFIG_GROUP_SOURCE_LIST_HTTP_PORT, &error);
-            CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_MAX_BATCH_SIZE)) {
-            config->max_batch_size =
-                g_key_file_get_integer(key_file, CONFIG_GROUP_SOURCE_LIST,
-                                       CONFIG_GROUP_SOURCE_LIST_MAX_BATCH_SIZE, &error);
-            CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_SGIE_BATCH_SIZE)) {
-            config->sgie_batch_size = g_key_file_get_integer(
-                key_file, CONFIG_GROUP_SOURCE_LIST, CONFIG_GROUP_SOURCE_SGIE_BATCH_SIZE, &error);
             CHECK_ERROR(error);
         } else {
             NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_SOURCE_LIST);
@@ -138,7 +105,7 @@ static gboolean set_source_all_configs(NvDsConfig *config, gchar *cfg_file_path)
 {
     guint i = 0;
     for (i = 0; i < config->total_num_sources; i++) {
-        config->multi_source_config[i] = config->source_attr_all_config;
+        config->multi_source_config[i] = global_source_config;
         config->multi_source_config[i].camera_id = i;
         if (config->uri_list) {
             char *uri = config->uri_list[i];
@@ -193,10 +160,6 @@ static gboolean parse_tests(NvDsConfig *config, GKeyFile *key_file)
             config->file_loop = g_key_file_get_integer(key_file, CONFIG_GROUP_TESTS,
                                                        CONFIG_GROUP_TESTS_FILE_LOOP, &error);
             CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_TESTS_PIPELINE_RECREATE_SEC)) {
-            config->pipeline_recreate_sec = g_key_file_get_integer(
-                key_file, CONFIG_GROUP_TESTS, CONFIG_GROUP_TESTS_PIPELINE_RECREATE_SEC, &error);
-            CHECK_ERROR(error);
         } else {
             NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_TESTS);
         }
@@ -246,12 +209,6 @@ static gboolean parse_app(NvDsConfig *config, GKeyFile *key_file, gchar *cfg_fil
                 g_key_file_get_string(key_file, CONFIG_GROUP_APP,
                                       CONFIG_GROUP_APP_GIE_TRACK_OUTPUT_DIR, &error));
             CHECK_ERROR(error);
-        } else if (!g_strcmp0(*key, CONFIG_GROUP_APP_REID_TRACK_OUTPUT_DIR)) {
-            config->reid_track_dir_path = get_absolute_file_path(
-                cfg_file_path,
-                g_key_file_get_string(key_file, CONFIG_GROUP_APP,
-                                      CONFIG_GROUP_APP_REID_TRACK_OUTPUT_DIR, &error));
-            CHECK_ERROR(error);
         } else {
             NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_APP);
         }
@@ -279,10 +236,8 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
     gchar **groups = NULL;
     gchar **group;
     guint i, j;
-    guint num_dewarper_source = 0;
 
     config->source_list_enabled = FALSE;
-    config->source_attr_all_parsed = FALSE;
 
     if (!APP_CFG_PARSER_CAT) {
         GST_DEBUG_CATEGORY_INIT(APP_CFG_PARSER_CAT, "NVDS_CFG_PARSER", 0, NULL);
@@ -309,14 +264,12 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
         g_key_file_remove_group(cfg_file, CONFIG_GROUP_SOURCE_LIST, &error);
     }
     if (g_key_file_has_group(cfg_file, CONFIG_GROUP_SOURCE_ALL)) {
-        if (!parse_source(&config->source_attr_all_config, cfg_file,
-                          (gchar *)CONFIG_GROUP_SOURCE_ALL, cfg_file_path)) {
+        if (!parse_source(&global_source_config, cfg_file, CONFIG_GROUP_SOURCE_ALL,
+                          cfg_file_path)) {
             GST_CAT_ERROR(APP_CFG_PARSER_CAT, "Failed to parse '%s' group",
                           CONFIG_GROUP_SOURCE_LIST);
             goto done;
         }
-        config->source_attr_all_parsed = TRUE;
-
         if (!set_source_all_configs(config, cfg_file_path)) {
             ret = FALSE;
             goto done;
@@ -381,18 +334,9 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
             parse_err = !parse_osd(&config->osd_config, cfg_file);
         }
 
-        if (!g_strcmp0(*group, CONFIG_GROUP_SEGVISUAL)) {
-            parse_err = !parse_segvisual(&config->segvisual_config, cfg_file);
-        }
-
-        if (!g_strcmp0(*group, CONFIG_GROUP_PREPROCESS)) {
-            parse_err =
-                !parse_preprocess(&config->preprocess_config, cfg_file, *group, cfg_file_path);
-        }
-
         if (!g_strcmp0(*group, CONFIG_GROUP_PRIMARY_GIE)) {
-            parse_err = !parse_gie(&config->primary_gie_config, cfg_file,
-                                   (gchar *)CONFIG_GROUP_PRIMARY_GIE, cfg_file_path);
+            parse_err = !parse_gie(&config->primary_gie_config, cfg_file, CONFIG_GROUP_PRIMARY_GIE,
+                                   cfg_file_path);
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_TRACKER)) {
@@ -410,25 +354,6 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
                 *group, cfg_file_path);
             if (config->secondary_gie_sub_bin_config[config->num_secondary_gie_sub_bins].enable) {
                 config->num_secondary_gie_sub_bins++;
-            }
-        }
-
-        if (!strncmp(*group, CONFIG_GROUP_SECONDARY_PREPROCESS,
-                     sizeof(CONFIG_GROUP_SECONDARY_PREPROCESS) - 1)) {
-            if (config->num_secondary_preprocess_sub_bins == MAX_SECONDARY_PREPROCESS_BINS) {
-                NVGSTDS_ERR_MSG_V("App supports max %d secondary PREPROCESSs",
-                                  MAX_SECONDARY_PREPROCESS_BINS);
-                ret = FALSE;
-                goto done;
-            }
-            parse_err = !parse_preprocess(&config->secondary_preprocess_sub_bin_config
-                                               [config->num_secondary_preprocess_sub_bins],
-                                          cfg_file, *group, cfg_file_path);
-
-            if (config
-                    ->secondary_preprocess_sub_bin_config[config->num_secondary_preprocess_sub_bins]
-                    .enable) {
-                config->num_secondary_preprocess_sub_bins++;
             }
         }
 
@@ -485,47 +410,9 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
             parse_err = !parse_tests(config, cfg_file);
         }
 
-        if (!strncmp(*group, CONFIG_GROUP_DEWARPER, strlen(*group) - 1)) {
-            guint source_id = 0;
-            {
-                gchar *source_id_start_ptr = *group + strlen(CONFIG_GROUP_DEWARPER);
-                gchar *source_id_end_ptr = NULL;
-                source_id = g_ascii_strtoull(source_id_start_ptr, &source_id_end_ptr, 10);
-                if (source_id_start_ptr == source_id_end_ptr || *source_id_end_ptr != '\0') {
-                    NVGSTDS_ERR_MSG_V(
-                        "dewarper group \"[%s]\" is not in the form \"[dewarper<%%d>]\"", *group);
-                    ret = FALSE;
-                    goto done;
-                }
-            }
-            parse_err = !parse_dewarper(&config->multi_source_config[source_id].dewarper_config,
-                                        cfg_file, cfg_file_path, *group);
-            if (config->multi_source_config[source_id].dewarper_config.enable)
-                num_dewarper_source++;
-            if (num_dewarper_source > config->num_source_sub_bins) {
-                NVGSTDS_ERR_MSG_V(
-                    "Dewarper max numbers %u should be less than number of sources %u",
-                    num_dewarper_source, config->num_source_sub_bins);
-                ret = FALSE;
-                goto done;
-            }
-        }
-
         if (parse_err) {
             GST_CAT_ERROR(APP_CFG_PARSER_CAT, "Failed to parse '%s' group", *group);
             goto done;
-        }
-    }
-
-    /* Updating batch size when source list is enabled */
-    if (config->source_list_enabled == TRUE) {
-        /* For streammux and pgie, batch size is set to number of sources */
-        config->streammux_config.batch_size = config->num_source_sub_bins;
-        config->primary_gie_config.batch_size = config->num_source_sub_bins;
-        if (config->sgie_batch_size != 0) {
-            for (i = 0; i < config->num_secondary_gie_sub_bins; i++) {
-                config->secondary_gie_sub_bin_config[i].batch_size = config->sgie_batch_size;
-            }
         }
     }
 

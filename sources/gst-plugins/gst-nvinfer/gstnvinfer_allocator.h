@@ -16,8 +16,9 @@
 #include <gst/gst.h>
 
 #include <vector>
-
+#ifdef IS_TEGRA
 #include "cudaEGL.h"
+#endif
 #include "nvbufsurface.h"
 
 /**
@@ -32,12 +33,15 @@
  */
 typedef struct {
     NvBufSurface *surf;
+#ifdef IS_TEGRA
     /** Vector of cuda resources created by registering the above egl images in CUDA. */
     std::vector<CUgraphicsResource> cuda_resources;
     /** Vector of CUDA eglFrames created by mapping the above cuda resources. */
     std::vector<CUeglFrame> egl_frames;
+#else
     /** Pointer to the memory allocated for the batch of frames (DGPU). */
     void *dev_memory_ptr;
+#endif
     /** Vector of pointer to individual frame memories in the batch memory */
     std::vector<void *> frame_memory_ptrs;
 } GstNvInferMemory;

@@ -115,10 +115,6 @@ message PluginControl {
       /* Detection results filter */
       OutputDetectionControl detect_control = 2;
     }
-    oneof ClassifierMeta {
-      /* Classifier type of a particular nvinferserver component. */
-      string classifier_type = 3;
-    }
   }
 
   /** Low-level libnvds_infer_server inference configuration settings */

@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -25,14 +25,9 @@ Compiling and installing the plugin:
 Export or set in Makefile the appropriate cuda version using CUDA_VER
 Run make and sudo make install
 
-NOTE: 
-1. To compile the sources, run make with "sudo" or root permission.
-2. This plugin contains additional optimized sample which supports batch processing
+NOTE:
+This plugin contains additional optimized sample which supports batch processing
 of buffers. Refer to the Makefile for using optimized sample.
-3. OpenCV has been deprecated by default, so blur-objects will not work.
-   To enable OpenCV in dsexample, set `WITH_OPENCV=1` in the plugin Makefile
-   (/opt/nvidia/deepstream/deepstream/sources/gst-plugins/gst-dsexample/Makefile)
-   and follow compilation and installation instructions present in this README.
 
 --------------------------------------------------------------------------------
 Corresponding config file changes (Add the following section). GPU ID might need
@@ -46,8 +41,3 @@ full-frame=0
 batch-size=1
 unique-id=15
 gpu-id=0
-blur-objects=0
-# Supported memory types for blur-objects:
-# For x86: 1 and 3
-# For Jetson: 0
-nvbuf-memory-type=3

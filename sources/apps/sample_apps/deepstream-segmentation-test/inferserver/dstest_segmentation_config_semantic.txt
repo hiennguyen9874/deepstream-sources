@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -25,11 +25,11 @@ infer_config {
   gpu_ids: [0]
   max_batch_size: 1
   backend {
-    triton {
+    trt_is {
       model_name: "Segmentation_Semantic"
       version: -1
       model_repo {
-        root: "../../../../../samples/triton_model_repo"
+        root: "../../../../../samples/trtis_model_repo"
         strict_model_config: true
         tf_gpu_memory_fraction: 0.0
         tf_disable_soft_placement: 0
@@ -52,7 +52,6 @@ infer_config {
   postprocess {
     segmentation {
       threshold:0
-      num_segmentation_classes: 4
     }
   }
 

@@ -79,9 +79,9 @@ typedef struct {
      * Size of the array will be equal to num_output_layers. Pointers inside
      * the NvDsInferLayerInfo structure are not valid for this array. */
     NvDsInferLayerInfo *output_layers_info;
-    /** Array of pointers to the output host buffers for the batch / frame / object. */
+    /** Array of pointers to the output host buffers for the frame / object. */
     void **out_buf_ptrs_host;
-    /** Array of pointers to the output device buffers for the batch / frame / object. */
+    /** Array of pointers to the output device buffers for the frame / object. */
     void **out_buf_ptrs_dev;
     /** GPU device ID on which the device buffers have been allocated. */
     gint gpu_id;
@@ -89,8 +89,6 @@ typedef struct {
     void *priv_data;
     /** Network information for the model specified for the nvinfer element instance. */
     NvDsInferNetworkInfo network_info;
-    /** Whether aspect ratio was maintained while scaling to network resolution */
-    gboolean maintain_aspect_ratio;
 } NvDsInferTensorMeta;
 
 /**
@@ -117,8 +115,6 @@ typedef struct {
     gfloat *class_probabilities_map;
     /** Private data used for the meta producer's internal memory management. */
     void *priv_data;
-    /** Unique ID of the gst-nvinfer instance which attached this meta. */
-    gint unique_id;
 } NvDsInferSegmentationMeta;
 
 G_END_DECLS

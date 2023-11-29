@@ -1,15 +1,11 @@
 /*
-
- * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
  *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
+ * NVIDIA Corporation and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA Corporation is strictly prohibited.
  */
 
 /**
@@ -23,7 +19,6 @@
 #ifndef __GST_NVQUERY_H__
 #define __GST_NVQUERY_H__
 
-#include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
 
 #ifdef __cplusplus
@@ -113,90 +108,6 @@ void gst_nvquery_numStreams_size_set(GstQuery *query, guint numStreams_size);
  * @return  True if the query was successfully parsed.
  */
 gboolean gst_nvquery_numStreams_size_parse(GstQuery *query, guint *numStreams_size);
-
-/**
- * Creates a preprocess poolsize query, used by elements to query
- * preprocess element for the size of buffer pool.
- *
- * params[in] gieid    An unsigned integer in which
- *                     the preprocess gie id is stored.
- * @return  A pointer to the new query.
- */
-GstQuery *gst_nvquery_preprocess_poolsize_new(guint gieid);
-
-/**
- * Determines whether a query is a preprocess poolsize query.
- *
- * params[in] query     A pointer to the query to be checked.
- *
- * @return  A Boolean; true if the query is a preprocess poolsize query.
- */
-gboolean gst_nvquery_is_preprocess_poolsize(GstQuery *query);
-
-/**
- * \brief  Sets the preprocess poolsize as a reponse to query.
- *
- * This function is used by elements responding to
- * a number of streams query. It fails if the query is not of the correct type.
- *
- * params[in] query             A pointer to a nv-preprocess-poolsize query.
- * params[in] preprocess_poolsize   The preprocess poolsize to be set.
- */
-void gst_nvquery_preprocess_poolsize_set(GstQuery *query, guint preprocess_poolsize);
-
-/**
- * Parses the preprocess poolsize from a preprocess poolsize query.
- *
- * params[in] query         A pointer to a nv-preprocess-poolsize query.
- * params[out] preprocess_poolsize   A pointer to an unsigned integer in which
- *                          the preprocess poolsize is stored.
- *
- * @return  True if the query was successfully parsed.
- */
-gboolean gst_nvquery_preprocess_poolsize_parse(GstQuery *query, guint *preprocess_poolsize);
-
-/**
- * Parses the preprocess gie id from a preprocess poolsize query.
- *
- * params[in] query     A pointer to a nv-preprocess-poolsize query.
- * params[out] gieid    A pointer to an unsigned integer in which
- *                          the preprocess gie id is stored.
- *
- * @return  True if the query was successfully parsed.
- */
-gboolean gst_nvquery_preprocess_poolsize_gieid_parse(GstQuery *query, guint *gieId);
-
-/**
- * Checks if a query is update_caps query.
- *
- * params[in] query     A pointer to a query.
- *
- * @return  True if the query was update_caps query.
- */
-gboolean gst_nvquery_is_update_caps(GstQuery *query);
-
-/**
- * Parses the update_caps query.
- *
- * params[in] query     A pointer to a update_caps query.
- * params[out] stream_index    A pointer to an unsigned integer in which
- *                          the stream_index is stored.
- * params[out] frame_rate    A pointer to an GValue string in which
- *                          the frame_rate is stored.
- *
- * @return  Void.
- */
-void gst_nvquery_parse_update_caps(GstQuery *query, guint *stream_index, const GValue *frame_rate);
-
-/**
- * Heterogeneous batching query for new streammux.
- *
- * params[in] srcpad     A pointer to a srcpad.
- * params[in] str     A pointer to a str of update_caps query.
- *
- * @return  True if the query was successfully pushed.
- */
-gboolean gst_nvquery_update_caps_peer_query(GstPad *srcpad, GstStructure *str);
 
 /** @} */
 

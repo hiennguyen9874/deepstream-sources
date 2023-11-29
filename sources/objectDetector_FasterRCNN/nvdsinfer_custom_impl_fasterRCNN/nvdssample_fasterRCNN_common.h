@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,8 +23,6 @@
 #ifndef __NVDS_SAMPLE_FASTERRCNN_COMMON_H__
 #define __NVDS_SAMPLE_FASTERRCNN_COMMON_H__
 
-#include "nvdsinfer_custom_impl.h"
-
 const int nmsMaxOut = 300;
 const int poolingH = 7;
 const int poolingW = 7;
@@ -37,12 +35,5 @@ const float minBoxSize = 16;
 const float spatialScale = 0.0625f;
 const float anchorsRatios[anchorsRatioCount] = {0.5f, 1.0f, 2.0f};
 const float anchorsScales[anchorsScaleCount] = {8.0f, 16.0f, 32.0f};
-
-extern "C" {
-bool NvDsInferParseCustomFasterRCNN(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
-                                    NvDsInferNetworkInfo const &networkInfo,
-                                    NvDsInferParseDetectionParams const &detectionParams,
-                                    std::vector<NvDsInferObjectDetectionInfo> &objectList);
-}
 
 #endif

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -15,6 +15,9 @@
 #include <NvCaffeParser.h>
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
+#include <nvdsinfer_context.h>
+#include <nvdsinfer_custom_impl.h>
+#include <nvdsinfer_utils.h>
 #include <stdarg.h>
 
 #include <condition_variable>
@@ -22,21 +25,8 @@
 #include <list>
 #include <memory>
 #include <mutex>
-#include <queue>
-
-#pragma GCC diagnostic push
-#if __GNUC__ >= 8
-#pragma GCC diagnostic ignored "-Wclass-memaccess"
-#endif
-#ifdef WITH_OPENCV
 #include <opencv2/objdetect/objdetect.hpp>
-#endif
-#pragma GCC diagnostic pop
-
-#include <nvdsinfer_context.h>
-#include <nvdsinfer_custom_impl.h>
-#include <nvdsinfer_logger.h>
-#include <nvdsinfer_utils.h>
+#include <queue>
 
 #include "nvdsinfer_backend.h"
 
@@ -73,7 +63,6 @@ public:
     void setLoggingFunc(const NvDsInferLoggingFunc &func) { m_LoggingFunc = func; }
     bool setScaleOffsets(float scale, const std::vector<float> &offsets = {});
     bool setMeanFile(const std::string &file);
-    bool setInputOrder(const NvDsInferTensorOrder order);
 
     NvDsInferStatus allocateResource();
     NvDsInferStatus syncStream();
@@ -94,7 +83,6 @@ private:
     NvDsInferNetworkInfo m_NetworkInfo = {0};
     /** Input format for the network. */
     NvDsInferFormat m_NetworkInputFormat = NvDsInferFormat_RGB;
-    NvDsInferTensorOrder m_InputOrder = NvDsInferTensorOrder_kNCHW;
     NvDsInferBatchDimsLayerInfo m_NetworkInputLayer;
     float m_Scale = 1.0f;
     std::vector<float> m_ChannelMeans; // same as channels
@@ -134,8 +122,6 @@ public:
     const std::vector<std::vector<std::string>> &getLabels() const { return m_Labels; }
     bool needInputCopy() const { return m_CopyInputToHostBuffers; }
 
-    bool needOutputCopyB4Processing() const { return !m_disableOutputHostCopy; }
-
     virtual NvDsInferStatus initResource(const NvDsInferContextInitParams &initParams);
 
     /* Copy inference output from device to host memory. */
@@ -170,7 +156,6 @@ protected:
     /* Custom library implementation. */
     std::shared_ptr<DlLibHandle> m_CustomLibHandle;
     bool m_CopyInputToHostBuffers = false;
-    bool m_disableOutputHostCopy = false;
     /* Network input information. */
     NvDsInferNetworkInfo m_NetworkInfo = {0};
     std::vector<NvDsInferLayerInfo> m_AllLayerInfo;
@@ -229,10 +214,8 @@ private:
 
     /* Vector for all parsed objects. */
     std::vector<NvDsInferObjectDetectionInfo> m_ObjectList;
-#ifdef WITH_OPENCV
     /* Vector of cv::Rect vectors for each class. */
     std::vector<std::vector<cv::Rect>> m_PerClassCvRectList;
-#endif
     /* Vector of NvDsInferObjectDetectionInfo vectors for each class. */
     std::vector<std::vector<NvDsInferObjectDetectionInfo>> m_PerClassObjectList;
 
@@ -326,7 +309,6 @@ private:
 
 private:
     float m_SegmentationThreshold = 0.0f;
-    NvDsInferTensorOrder m_SegmentationOutputOrder = NvDsInferTensorOrder_kNCHW;
 };
 
 class OtherPostprocessor : public InferPostprocessor {
@@ -374,8 +356,6 @@ private:
 
     /* Implementation of the public methods of INvDsInferContext interface. */
     NvDsInferStatus queueInputBatch(NvDsInferContextBatchInput &batchInput) override;
-    NvDsInferStatus queueInputBatchPreprocessed(
-        NvDsInferContextBatchPreprocessedInput &batchInput) override;
     NvDsInferStatus dequeueOutputBatch(NvDsInferContextBatchOutput &batchOutput) override;
     void releaseBatchOutput(NvDsInferContextBatchOutput &batchOutput) override;
     void fillLayersInfo(std::vector<NvDsInferLayerInfo> &layersInfo) override;
@@ -399,7 +379,6 @@ private:
                                        const NvDsInferContextInitParams &initParams);
 
     NvDsInferStatus getBoundLayersInfo();
-    NvDsInferStatus resizeOutputBufferpool(uint32_t numBuffers);
     NvDsInferStatus allocateBuffers();
     NvDsInferStatus initNonImageInputLayers();
 
@@ -432,8 +411,7 @@ private:
     std::vector<std::unique_ptr<CudaDeviceBuffer>> m_InputDeviceBuffers;
 
     uint32_t m_OutputBufferPoolSize = NVDSINFER_MIN_OUTPUT_BUFFERPOOL_SIZE;
-    std::vector<std::shared_ptr<NvDsInferBatch>> m_Batches;
-    std::mutex m_BatchesMutex;
+    std::vector<NvDsInferBatch> m_Batches;
 
     /* Queues and synchronization members for processing multiple batches
      * in parallel.
@@ -453,8 +431,6 @@ private:
     NvDsInferLoggingFunc m_LoggingFunc;
 
     bool m_Initialized = false;
-    uint32_t m_AutoIncMem = 1;
-    double m_MaxGPUMem = 99;
 };
 
 } // namespace nvdsinfer

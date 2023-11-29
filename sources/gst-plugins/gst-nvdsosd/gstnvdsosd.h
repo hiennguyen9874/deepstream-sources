@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2016-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2016-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -125,7 +125,8 @@ struct _GstNvDsOsd {
     gboolean draw_mask;
     /**Array containing color info for blending */
     NvOSD_Color_info color_info[MAX_BG_CLR];
-
+    /** Boolean indicating whether hw-blend-color-attr is set. */
+    gboolean hw_blend;
     /** Integer indicating number of detected classes. */
     int num_class_entries;
     /** Integer indicating gpu id to be used. */

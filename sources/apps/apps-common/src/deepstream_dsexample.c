@@ -28,7 +28,6 @@
 // Set the element properties from the parsed config
 gboolean create_dsexample_bin(NvDsDsExampleConfig *config, NvDsDsExampleBin *bin)
 {
-    GstCaps *caps = NULL;
     gboolean ret = FALSE;
 
     bin->bin = gst_bin_new("dsexample_bin");
@@ -55,30 +54,10 @@ gboolean create_dsexample_bin(NvDsDsExampleConfig *config, NvDsDsExampleBin *bin
         goto done;
     }
 
-    bin->cap_filter = gst_element_factory_make(NVDS_ELEM_CAPS_FILTER, "dsexample_caps");
-    if (!bin->cap_filter) {
-        NVGSTDS_ERR_MSG_V("Failed to create 'dsexample_caps'");
-        goto done;
-    }
-
-    if (config->blur_objects) {
-        caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "RGBA", NULL);
-
-        GstCapsFeatures *feature = NULL;
-        feature = gst_caps_features_new(MEMORY_FEATURES, NULL);
-        gst_caps_set_features(caps, 0, feature);
-
-        g_object_set(G_OBJECT(bin->cap_filter), "caps", caps, NULL);
-
-        gst_caps_unref(caps);
-    }
-
-    gst_bin_add_many(GST_BIN(bin->bin), bin->queue, bin->pre_conv, bin->cap_filter,
-                     bin->elem_dsexample, NULL);
+    gst_bin_add_many(GST_BIN(bin->bin), bin->queue, bin->pre_conv, bin->elem_dsexample, NULL);
 
     NVGSTDS_LINK_ELEMENT(bin->queue, bin->pre_conv);
-    NVGSTDS_LINK_ELEMENT(bin->pre_conv, bin->cap_filter);
-    NVGSTDS_LINK_ELEMENT(bin->cap_filter, bin->elem_dsexample);
+    NVGSTDS_LINK_ELEMENT(bin->pre_conv, bin->elem_dsexample);
 
     NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->queue, "sink");
 
@@ -86,8 +65,8 @@ gboolean create_dsexample_bin(NvDsDsExampleConfig *config, NvDsDsExampleBin *bin
 
     g_object_set(G_OBJECT(bin->elem_dsexample), "full-frame", config->full_frame,
                  "processing-width", config->processing_width, "processing-height",
-                 config->processing_height, "blur-objects", config->blur_objects, "unique-id",
-                 config->unique_id, "gpu-id", config->gpu_id, NULL);
+                 config->processing_height, "unique-id", config->unique_id, "gpu-id",
+                 config->gpu_id, NULL);
 
     g_object_set(G_OBJECT(bin->pre_conv), "gpu-id", config->gpu_id, NULL);
 

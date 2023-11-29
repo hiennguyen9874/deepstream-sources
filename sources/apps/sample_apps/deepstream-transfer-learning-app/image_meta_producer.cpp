@@ -165,7 +165,7 @@ std::string ImageMetaProducer::make_kitti_data(const IPData &data)
 {
     std::stringstream ss;
     // Please refer to :
-    // https://docs.nvidia.com/tao/tao-toolkit/text/data_annotation_format.html#object-detection-kitti-format
+    // https://docs.nvidia.com/metropolis/TLT/tlt-getting-started-guide/index.html#input_gridbox_ssd
     ss << data.class_name << " "; // Class names
     ss << "0.0"
        << " "; // Truncation (No data default value)

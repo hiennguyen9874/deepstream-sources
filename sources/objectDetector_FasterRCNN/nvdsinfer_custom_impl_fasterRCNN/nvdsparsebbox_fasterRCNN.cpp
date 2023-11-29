@@ -34,6 +34,12 @@
 /* This is a sample bounding box parsing function for the sample FasterRCNN
  * detector model provided with the TensorRT samples. */
 
+extern "C" bool NvDsInferParseCustomFasterRCNN(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    NvDsInferParseDetectionParams const &detectionParams,
+    std::vector<NvDsInferObjectDetectionInfo> &objectList);
+
 /* C-linkage to prevent name-mangling */
 extern "C" bool NvDsInferParseCustomFasterRCNN(
     std::vector<NvDsInferLayerInfo> const &outputLayersInfo,

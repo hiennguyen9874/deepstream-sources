@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,18 +27,12 @@
 #include <gst/video/video.h>
 
 /* Open CV headers */
-#ifdef WITH_OPENCV
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#endif
-
 #include <cuda.h>
 #include <cuda_runtime.h>
 
 #include <condition_variable>
 #include <mutex>
 #include <thread>
-#include <vector>
 
 #include "dsexample_lib/dsexample_lib.h"
 #include "gst-nvquery.h"
@@ -46,6 +40,8 @@
 #include "nvbufsurface.h"
 #include "nvbufsurftransform.h"
 #include "nvtx3/nvToolsExt.h"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
 
 /* Package and library details required for plugin_init */
 #define PACKAGE "dsexample"
@@ -92,10 +88,10 @@ struct _GstDsExample {
     GCond process_cond;
 
     /**Queue to receive processed data from output thread **/
-    GQueue *buf_queue;
+    GQueue *cvmat_queue;
 
-    /** Gcondition for buf queue **/
-    GCond buf_cond;
+    /** Gcondition for cvmat queue **/
+    GCond cvmat_cond;
 
     /** Output thread. */
     GThread *process_thread;
@@ -191,13 +187,8 @@ typedef struct {
      * synchronization. The output loop does not process on the batch.
      */
     gboolean event_marker = FALSE;
-
-#ifdef WITH_OPENCV
     /** OpenCV mat containing RGB data */
     cv::Mat *cvmat;
-#else
-    NvBufSurface *inter_buf;
-#endif
 
     nvtxRangeId_t nvtx_complete_buf_range = 0;
 } GstDsExampleBatch;

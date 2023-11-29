@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -18,10 +18,10 @@ user-defined TensorRT layers from engine file in runtime.
 
 --------------------------------------------------------------------------------
 Sample contents:
-- deepstream_app_config_yolo[V3,V3_tiny,V2,V2_tiny].txt - DeepStream reference
-  app configuration file for using YoloV2/yoloV2-tiny/yolo/yolo-tiny model
+- deepstream_app_config_yolo[V3,V3_tiny,V2,V2_tiny,tlt].txt - DeepStream reference
+  app configuration file for using YoloV2/yoloV2-tiny/yolo/yolo-tiny/tlt model
   as the primary detector.
-- config_infer_primary_yolo[V3,V3_tiny,V2,V2_tiny].txt - Configuration file for the GStreamer
+- config_infer_primary_yolo[V3,V3_tiny,V2,V2_tiny,tlt].txt - Configuration file for the GStreamer
   nvinfer plugin for the Yolo detector model.
 - yolov3-calibration.table.trt7.0 - yoloV3 INT8 calibration binary on TensorRT 7.0+
 - nvdsinfer_custom_impl_Yolo/nvdsinfer_yolo_engine.cpp -
@@ -52,9 +52,16 @@ Pre-requisites:
     model-file # path to yolo weights
 - Enable INT8 precision detection if there is a calibration cache file, update
   config_infer_primary_yolo[...].txt.
-    int8-calib-file=yolo[...]-calibration.table.trt7.1+
+    int8-calib-file=yolo[...]-calibration.table.trt5.1
 - Other INT8 precision calibration table need to be calibrated by user.
-- On x86 : sudo apt-get install -y cuda-compat-12-1
+- The yolo-tlt sample makes use of a few TensorRT OSS plugins. Download the
+  TensorRT OSS repo (https://github.com/NVIDIA/TensorRT/) and checkout the
+  'release/7.0' branch. Follow the instructions in the README to build the
+  plugin library 'libnvinfer_plugin.so.7.0.0' corresponding to your dGPU/Jetson
+  platform. This library needs to be used with LD_PRELOAD to let nvinfer plugin
+  access the TRT OSS plugin layers.
+- Set the path of the etlt model (tlt-encoded-model) and the tlt model key
+  (tlt-model-key) in config_infer_primary_yolo_tlt.txt before running the sample.
 
 Note:
 - There is a quality regression of masks in yolov3-tiny.cfg, please see comments
@@ -68,14 +75,9 @@ Compile the custom library:
   # set the macro USE_CUDA_ENGINE_GET_API to 0 or 1 in
   # nvdsinfer_custom_impl_Yolo/nvdsinfer_yolo_engine.cpp
 
-  # Export correct CUDA version as per the platform
-  For Jetson:  $ export CUDA_VER=11.4
-  For x86:     $ export CUDA_VER=12.1
-               $ export LD_LIBRARY_PATH=/usr/local/cuda/compat:$LD_LIBRARY_PATH (Required for data center GPUs only)
-
-  $ sudo -E make -C nvdsinfer_custom_impl_Yolo
-
-NOTE: To compile the sources, run make with "sudo" or root permission.
+  # Export correct CUDA version (e.g. 10.2, 10.1)
+  $ export CUDA_VER=10.2
+  $ make -C nvdsinfer_custom_impl_Yolo
 
 --------------------------------------------------------------------------------
 Run the sample:
@@ -89,3 +91,4 @@ The first-time a "model_b1_int8.engine" would be generated as the engine-file
   $ deepstream-app -c deepstream_app_config_yoloV3_tiny.txt
   $ deepstream-app -c deepstream_app_config_yoloV2.txt
   $ deepstream-app -c deepstream_app_config_yoloV2_tiny.txt
+  $ LD_PRELOAD=<path-to-TRT-OSS-libnvinfer_plugin.so.7.0.0> deepstream-app -c deepstream_app_config_yolo_tlt.txt

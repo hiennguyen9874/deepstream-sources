@@ -1,6 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -14,14 +13,13 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <math.h>
@@ -29,20 +27,22 @@
 #include <string.h>
 #include <sys/time.h>
 
-#include "gst-nvmessage.h"
 #include "gstnvdsmeta.h"
-#include "nvds_yml_parser.h"
+//#include "gstnvstreammeta.h"
+#ifndef PLATFORM_TEGRA
+#include "gst-nvmessage.h"
+#endif
 
 #define MAX_DISPLAY_LEN 64
 
 #define PGIE_CLASS_ID_VEHICLE 0
 #define PGIE_CLASS_ID_PERSON 2
 
-/* By default, OSD process-mode is set to GPU_MODE. To change mode, set as:
- * 0: CPU mode
- * 1: GPU mode
+/* By default, OSD process-mode is set to CPU_MODE. To change mode, set as:
+ * 1: GPU mode (for Tesla only)
+ * 2: HW mode (For Jetson only)
  */
-#define OSD_PROCESS_MODE 1
+#define OSD_PROCESS_MODE 0
 
 /* By default, OSD will not display text. To display text, change this to 1 */
 #define OSD_DISPLAY_TEXT 0
@@ -64,16 +64,12 @@
  * pads having this capability will push GstBuffers containing cuda buffers. */
 #define GST_CAPS_FEATURES_NVMM "memory:NVMM"
 
-/* Check for parsing error. */
-#define RETURN_ON_PARSER_ERROR(parse_expr)                    \
-    if (NVDS_YAML_PARSER_SUCCESS != parse_expr) {             \
-        g_printerr("Error in parsing configuration file.\n"); \
-        return -1;                                            \
-    }
-
 gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "RoadSign"};
 
-static gboolean PERF_MODE = FALSE;
+#define FPS_PRINT_INTERVAL 300
+// static struct timeval start_time = { };
+
+// static guint probe_counter = 0;
 
 /* tiler_sink_pad_buffer_probe  will extract metadata received on OSD sink pad
  * and update params for drawing rectangle, object information etc. */
@@ -173,6 +169,7 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     }
+#ifndef PLATFORM_TEGRA
     case GST_MESSAGE_ELEMENT: {
         if (gst_nvmessage_is_stream_eos(msg)) {
             guint stream_id;
@@ -182,6 +179,7 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         }
         break;
     }
+#endif
     default:
         break;
     }
@@ -190,10 +188,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 
 static void cb_newpad(GstElement *decodebin, GstPad *decoder_src_pad, gpointer data)
 {
+    g_print("In cb_newpad\n");
     GstCaps *caps = gst_pad_get_current_caps(decoder_src_pad);
-    if (!caps) {
-        caps = gst_pad_query_caps(decoder_src_pad, NULL);
-    }
     const GstStructure *str = gst_caps_get_structure(caps, 0);
     const gchar *name = gst_structure_get_name(str);
     GstElement *source_bin = (GstElement *)data;
@@ -228,9 +224,6 @@ static void decodebin_child_added(GstChildProxy *child_proxy,
         g_signal_connect(G_OBJECT(object), "child-added", G_CALLBACK(decodebin_child_added),
                          user_data);
     }
-    if (g_strrstr(name, "source") == name) {
-        g_object_set(G_OBJECT(object), "drop-on-latency", true, NULL);
-    }
 }
 
 static GstElement *create_source_bin(guint index, gchar *uri)
@@ -246,13 +239,7 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     /* Source element for reading from the uri.
      * We will use decodebin and let it figure out the container format of the
      * stream and the codec and plug the appropriate demux and decode plugins. */
-    if (PERF_MODE) {
-        uri_decode_bin = gst_element_factory_make("nvurisrcbin", "uri-decode-bin");
-        g_object_set(G_OBJECT(uri_decode_bin), "file-loop", TRUE, NULL);
-        g_object_set(G_OBJECT(uri_decode_bin), "cudadec-memtype", 0, NULL);
-    } else {
-        uri_decode_bin = gst_element_factory_make("uridecodebin", "uri-decode-bin");
-    }
+    uri_decode_bin = gst_element_factory_make("uridecodebin", "uri-decode-bin");
 
     if (!bin || !uri_decode_bin) {
         g_printerr("One element in source bin could not be created.\n");
@@ -287,41 +274,27 @@ int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *queue1, *queue2,
-               *queue3, *queue4, *queue5, *nvvidconv = NULL, *nvosd = NULL, *tiler = NULL,
-               *nvdslogger = NULL;
+               *queue3, *queue4, *queue5, *nvvidconv = NULL, *nvosd = NULL, *tiler = NULL;
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *tiler_src_pad = NULL;
-    guint i = 0, num_sources = 0;
+    guint i, num_sources;
     guint tiler_rows, tiler_columns;
     guint pgie_batch_size;
-    gboolean yaml_config = FALSE;
-    NvDsGieType pgie_type = NVDS_GIE_PLUGIN_INFER;
-    PERF_MODE =
-        g_getenv("NVDS_TEST3_PERF_MODE") && !g_strcmp0(g_getenv("NVDS_TEST3_PERF_MODE"), "1");
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
 
     /* Check input arguments */
     if (argc < 2) {
-        g_printerr("Usage: %s <yml file>\n", argv[0]);
-        g_printerr("OR: %s <uri1> [uri2] ... [uriN] \n", argv[0]);
+        g_printerr("Usage: %s <uri1> [uri2] ... [uriN] \n", argv[0]);
         return -1;
     }
+    num_sources = argc - 1;
 
     /* Standard GStreamer initialization */
     gst_init(&argc, &argv);
     loop = g_main_loop_new(NULL, FALSE);
-
-    /* Parse inference plugin type */
-    yaml_config = (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml"));
-
-    if (yaml_config) {
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&pgie_type, argv[1], "primary-gie"));
-    }
 
     /* Create gstreamer elements */
     /* Create Pipeline element that will form a connection of other elements */
@@ -336,32 +309,11 @@ int main(int argc, char *argv[])
     }
     gst_bin_add(GST_BIN(pipeline), streammux);
 
-    GList *src_list = NULL;
-
-    if (yaml_config) {
-        RETURN_ON_PARSER_ERROR(nvds_parse_source_list(&src_list, argv[1], "source-list"));
-
-        GList *temp = src_list;
-        while (temp) {
-            num_sources++;
-            temp = temp->next;
-        }
-        g_list_free(temp);
-    } else {
-        num_sources = argc - 1;
-    }
-
     for (i = 0; i < num_sources; i++) {
         GstPad *sinkpad, *srcpad;
         gchar pad_name[16] = {};
+        GstElement *source_bin = create_source_bin(i, argv[i + 1]);
 
-        GstElement *source_bin = NULL;
-        if (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml")) {
-            g_print("Now playing : %s\n", (char *)(src_list)->data);
-            source_bin = create_source_bin(i, (char *)(src_list)->data);
-        } else {
-            source_bin = create_source_bin(i, argv[i + 1]);
-        }
         if (!source_bin) {
             g_printerr("Failed to create source bin. Exiting.\n");
             return -1;
@@ -389,22 +341,10 @@ int main(int argc, char *argv[])
 
         gst_object_unref(srcpad);
         gst_object_unref(sinkpad);
-
-        if (yaml_config) {
-            src_list = src_list->next;
-        }
     }
 
-    if (yaml_config) {
-        g_list_free(src_list);
-    }
-
-    /* Use nvinfer or nvinferserver to infer on batched frame. */
-    if (pgie_type == NVDS_GIE_PLUGIN_INFER_SERVER) {
-        pgie = gst_element_factory_make("nvinferserver", "primary-nvinference-engine");
-    } else {
-        pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
-    }
+    /* Use nvinfer to infer on batched frame. */
+    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
 
     /* Add queue elements between every two elements */
     queue1 = gst_element_factory_make("queue", "queue1");
@@ -412,9 +352,6 @@ int main(int argc, char *argv[])
     queue3 = gst_element_factory_make("queue", "queue3");
     queue4 = gst_element_factory_make("queue", "queue4");
     queue5 = gst_element_factory_make("queue", "queue5");
-
-    /* Use nvdslogger for perf measurement. */
-    nvdslogger = gst_element_factory_make("nvdslogger", "nvdslogger");
 
     /* Use nvtiler to composite the batched frames into a 2D tiled array based
      * on the source of the frames. */
@@ -426,85 +363,50 @@ int main(int argc, char *argv[])
     /* Create OSD to draw on the converted RGBA buffer */
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
-    if (PERF_MODE) {
-        sink = gst_element_factory_make("fakesink", "nvvideo-renderer");
-    } else {
-        /* Finally render the osd output */
-        if (prop.integrated) {
-            sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
-        } else {
-            sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-        }
-    }
+    /* Finally render the osd output */
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
-    if (!pgie || !nvdslogger || !tiler || !nvvidconv || !nvosd || !sink) {
+    if (!pgie || !tiler || !nvvidconv || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    if (yaml_config) {
-        RETURN_ON_PARSER_ERROR(nvds_parse_streammux(streammux, argv[1], "streammux"));
+#ifdef PLATFORM_TEGRA
+    if (!transform) {
+        g_printerr("One tegra element could not be created. Exiting.\n");
+        return -1;
+    }
+#endif
 
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie(pgie, argv[1], "primary-gie"));
+    g_object_set(G_OBJECT(streammux), "batch-size", num_sources, NULL);
 
-        g_object_get(G_OBJECT(pgie), "batch-size", &pgie_batch_size, NULL);
-        if (pgie_batch_size != num_sources) {
-            g_printerr(
-                "WARNING: Overriding infer-config batch-size (%d) with number of sources (%d)\n",
-                pgie_batch_size, num_sources);
-            g_object_set(G_OBJECT(pgie), "batch-size", num_sources, NULL);
-        }
+    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
+                 "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
-        RETURN_ON_PARSER_ERROR(nvds_parse_osd(nvosd, argv[1], "osd"));
+    /* Configure the nvinfer element using the nvinfer config file. */
+    g_object_set(G_OBJECT(pgie), "config-file-path", "dstest3_pgie_config.txt", NULL);
 
-        tiler_rows = (guint)sqrt(num_sources);
-        tiler_columns = (guint)ceil(1.0 * num_sources / tiler_rows);
-        g_object_set(G_OBJECT(tiler), "rows", tiler_rows, "columns", tiler_columns, NULL);
-
-        RETURN_ON_PARSER_ERROR(nvds_parse_tiler(tiler, argv[1], "tiler"));
-        if (prop.integrated) {
-            RETURN_ON_PARSER_ERROR(nvds_parse_3d_sink(sink, argv[1], "sink"));
-        } else {
-            RETURN_ON_PARSER_ERROR(nvds_parse_egl_sink(sink, argv[1], "sink"));
-        }
-
-    } else {
-        g_object_set(G_OBJECT(streammux), "batch-size", num_sources, NULL);
-
-        g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
-                     MUXER_OUTPUT_HEIGHT, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
-
-        /* Configure the nvinfer element using the nvinfer config file. */
-        g_object_set(G_OBJECT(pgie), "config-file-path", "dstest3_pgie_config.txt", NULL);
-
-        /* Override the batch-size set in the config file with the number of sources. */
-        g_object_get(G_OBJECT(pgie), "batch-size", &pgie_batch_size, NULL);
-        if (pgie_batch_size != num_sources) {
-            g_printerr(
-                "WARNING: Overriding infer-config batch-size (%d) with number of sources (%d)\n",
-                pgie_batch_size, num_sources);
-            g_object_set(G_OBJECT(pgie), "batch-size", num_sources, NULL);
-        }
-
-        tiler_rows = (guint)sqrt(num_sources);
-        tiler_columns = (guint)ceil(1.0 * num_sources / tiler_rows);
-        /* we set the tiler properties here */
-        g_object_set(G_OBJECT(tiler), "rows", tiler_rows, "columns", tiler_columns, "width",
-                     TILED_OUTPUT_WIDTH, "height", TILED_OUTPUT_HEIGHT, NULL);
-
-        g_object_set(G_OBJECT(nvosd), "process-mode", OSD_PROCESS_MODE, "display-text",
-                     OSD_DISPLAY_TEXT, NULL);
-
-        g_object_set(G_OBJECT(sink), "qos", 0, NULL);
+    /* Override the batch-size set in the config file with the number of sources. */
+    g_object_get(G_OBJECT(pgie), "batch-size", &pgie_batch_size, NULL);
+    if (pgie_batch_size != num_sources) {
+        g_printerr("WARNING: Overriding infer-config batch-size (%d) with number of sources (%d)\n",
+                   pgie_batch_size, num_sources);
+        g_object_set(G_OBJECT(pgie), "batch-size", num_sources, NULL);
     }
 
-    if (PERF_MODE) {
-        if (prop.integrated) {
-            g_object_set(G_OBJECT(streammux), "nvbuf-memory-type", 4, NULL);
-        } else {
-            g_object_set(G_OBJECT(streammux), "nvbuf-memory-type", 2, NULL);
-        }
-    }
+    tiler_rows = (guint)sqrt(num_sources);
+    tiler_columns = (guint)ceil(1.0 * num_sources / tiler_rows);
+    /* we set the tiler properties here */
+    g_object_set(G_OBJECT(tiler), "rows", tiler_rows, "columns", tiler_columns, "width",
+                 TILED_OUTPUT_WIDTH, "height", TILED_OUTPUT_HEIGHT, NULL);
+
+    g_object_set(G_OBJECT(nvosd), "process-mode", OSD_PROCESS_MODE, "display-text",
+                 OSD_DISPLAY_TEXT, NULL);
+
+    g_object_set(G_OBJECT(sink), "qos", 0, NULL);
 
     /* we add a message handler */
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
@@ -513,16 +415,27 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, nvdslogger, tiler, queue3, nvvidconv,
-                     queue4, nvosd, queue5, sink, NULL);
+#ifdef PLATFORM_TEGRA
+    gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, tiler, queue3, nvvidconv, queue4,
+                     nvosd, queue5, transform, sink, NULL);
     /* we link the elements together
-     * nvstreammux -> nvinfer -> nvdslogger -> nvtiler -> nvvidconv -> nvosd
-     * -> video-renderer */
-    if (!gst_element_link_many(streammux, queue1, pgie, queue2, nvdslogger, tiler, queue3,
-                               nvvidconv, queue4, nvosd, queue5, sink, NULL)) {
+     * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+    if (!gst_element_link_many(streammux, queue1, pgie, queue2, tiler, queue3, nvvidconv, queue4,
+                               nvosd, queue5, transform, sink, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }
+#else
+    gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, tiler, queue3, nvvidconv, queue4,
+                     nvosd, queue5, sink, NULL);
+    /* we link the elements together
+     * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+    if (!gst_element_link_many(streammux, queue1, pgie, queue2, tiler, queue3, nvvidconv, queue4,
+                               nvosd, queue5, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
+    }
+#endif
 
     /* Lets add probe to get informed of the meta data generated, we add probe to
      * the sink pad of the osd element, since by that time, the buffer would have
@@ -536,15 +449,11 @@ int main(int argc, char *argv[])
     gst_object_unref(tiler_src_pad);
 
     /* Set the pipeline to "playing" state */
-    if (yaml_config) {
-        g_print("Using file: %s\n", argv[1]);
-    } else {
-        g_print("Now playing:");
-        for (i = 0; i < num_sources; i++) {
-            g_print(" %s,", argv[i + 1]);
-        }
-        g_print("\n");
+    g_print("Now playing:");
+    for (i = 0; i < num_sources; i++) {
+        g_print(" %s,", argv[i + 1]);
     }
+    g_print("\n");
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

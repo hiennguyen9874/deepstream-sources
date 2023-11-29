@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,9 +49,6 @@ static gboolean create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBi
 
     uid++;
 
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, config->gpu_id);
-
     g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin%d", uid);
     bin->bin = gst_bin_new(elem_name);
     if (!bin->bin) {
@@ -62,7 +58,6 @@ static gboolean create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBi
 
     g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin_sink%d", uid);
     switch (config->type) {
-#ifndef IS_TEGRA
     case NV_DS_SINK_RENDER_EGL:
         GST_CAT_INFO(NVDS_APP, "NVvideo renderer\n");
         bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_EGL, elem_name);
@@ -71,33 +66,20 @@ static gboolean create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBi
                      config->height, NULL);
         g_object_set(G_OBJECT(bin->sink), "enable-last-sample", FALSE, NULL);
         break;
-#endif
-    case NV_DS_SINK_RENDER_DRM:
+    case NV_DS_SINK_RENDER_OVERLAY:
 #ifndef IS_TEGRA
-        NVGSTDS_ERR_MSG_V("nvdrmvideosink is only supported for Jetson");
+        NVGSTDS_ERR_MSG_V("Overlay is only supported for Jetson");
         return FALSE;
 #endif
         GST_CAT_INFO(NVDS_APP, "NVvideo renderer\n");
-        bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_DRM, elem_name);
-        if ((gint)config->color_range > -1) {
-            g_object_set(G_OBJECT(bin->sink), "color-range", config->color_range, NULL);
-        }
-        g_object_set(G_OBJECT(bin->sink), "conn-id", config->conn_id, NULL);
-        g_object_set(G_OBJECT(bin->sink), "plane-id", config->plane_id, NULL);
-        if ((gint)config->set_mode > -1) {
-            g_object_set(G_OBJECT(bin->sink), "set-mode", config->set_mode, NULL);
-        }
+        bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_OVERLAY, elem_name);
+        g_object_set(G_OBJECT(bin->sink), "display-id", config->display_id, NULL);
+        g_object_set(G_OBJECT(bin->sink), "overlay", config->overlay_id, NULL);
+        g_object_set(G_OBJECT(bin->sink), "overlay-x", config->offset_x, NULL);
+        g_object_set(G_OBJECT(bin->sink), "overlay-y", config->offset_y, NULL);
+        g_object_set(G_OBJECT(bin->sink), "overlay-w", config->width, NULL);
+        g_object_set(G_OBJECT(bin->sink), "overlay-h", config->height, NULL);
         break;
-#ifdef IS_TEGRA
-    case NV_DS_SINK_RENDER_3D:
-        GST_CAT_INFO(NVDS_APP, "NVvideo renderer\n");
-        bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_3D, elem_name);
-        g_object_set(G_OBJECT(bin->sink), "window-x", config->offset_x, "window-y",
-                     config->offset_y, "window-width", config->width, "window-height",
-                     config->height, NULL);
-        g_object_set(G_OBJECT(bin->sink), "enable-last-sample", FALSE, NULL);
-        break;
-#endif
     case NV_DS_SINK_FAKE:
         bin->sink = gst_element_factory_make(NVDS_ELEM_SINK_FAKESINK, elem_name);
         g_object_set(G_OBJECT(bin->sink), "enable-last-sample", FALSE, NULL);
@@ -114,44 +96,42 @@ static gboolean create_render_bin(NvDsSinkRenderConfig *config, NvDsSinkBinSubBi
     g_object_set(G_OBJECT(bin->sink), "sync", config->sync, "max-lateness", -1, "async", FALSE,
                  "qos", config->qos, NULL);
 
-    if (!prop.integrated) {
-        g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin_cap_filter%d", uid);
-        bin->cap_filter = gst_element_factory_make(NVDS_ELEM_CAPS_FILTER, elem_name);
-        if (!bin->cap_filter) {
-            NVGSTDS_ERR_MSG_V("Failed to create '%s'", elem_name);
-            goto done;
-        }
-        gst_bin_add(GST_BIN(bin->bin), bin->cap_filter);
+#ifndef IS_TEGRA
+    g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin_cap_filter%d", uid);
+    bin->cap_filter = gst_element_factory_make(NVDS_ELEM_CAPS_FILTER, elem_name);
+    if (!bin->cap_filter) {
+        NVGSTDS_ERR_MSG_V("Failed to create '%s'", elem_name);
+        goto done;
     }
+    gst_bin_add(GST_BIN(bin->bin), bin->cap_filter);
+#endif
 
     g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin_transform%d", uid);
-#ifndef IS_TEGRA
     if (config->type == NV_DS_SINK_RENDER_EGL) {
-        if (prop.integrated) {
-            bin->transform = gst_element_factory_make(NVDS_ELEM_EGLTRANSFORM, elem_name);
-        } else {
-            bin->transform = gst_element_factory_make(NVDS_ELEM_VIDEO_CONV, elem_name);
-        }
+#ifdef IS_TEGRA
+        bin->transform = gst_element_factory_make(NVDS_ELEM_EGLTRANSFORM, elem_name);
+#else
+        bin->transform = gst_element_factory_make(NVDS_ELEM_VIDEO_CONV, elem_name);
+#endif
         if (!bin->transform) {
             NVGSTDS_ERR_MSG_V("Failed to create '%s'", elem_name);
             goto done;
         }
         gst_bin_add(GST_BIN(bin->bin), bin->transform);
 
-        if (!prop.integrated) {
-            caps = gst_caps_new_empty_simple("video/x-raw");
+#ifndef IS_TEGRA
+        caps = gst_caps_new_empty_simple("video/x-raw");
 
-            GstCapsFeatures *feature = NULL;
-            feature = gst_caps_features_new(MEMORY_FEATURES, NULL);
-            gst_caps_set_features(caps, 0, feature);
-            g_object_set(G_OBJECT(bin->cap_filter), "caps", caps, NULL);
+        GstCapsFeatures *feature = NULL;
+        feature = gst_caps_features_new(MEMORY_FEATURES, NULL);
+        gst_caps_set_features(caps, 0, feature);
+        g_object_set(G_OBJECT(bin->cap_filter), "caps", caps, NULL);
 
-            g_object_set(G_OBJECT(bin->transform), "gpu-id", config->gpu_id, NULL);
-            g_object_set(G_OBJECT(bin->transform), "nvbuf-memory-type", config->nvbuf_memory_type,
-                         NULL);
-        }
-    }
+        g_object_set(G_OBJECT(bin->transform), "gpu-id", config->gpu_id, NULL);
+        g_object_set(G_OBJECT(bin->transform), "nvbuf-memory-type", config->nvbuf_memory_type,
+                     NULL);
 #endif
+    }
 
     g_snprintf(elem_name, sizeof(elem_name), "render_queue%d", uid);
     bin->queue = gst_element_factory_make(NVDS_ELEM_QUEUE, elem_name);
@@ -248,8 +228,7 @@ static gboolean create_msg_conv_broker_bin(NvDsSinkMsgConvBrokerConfig *config,
                      (config->conv_msg2p_lib ? config->conv_msg2p_lib : NULL), "payload-type",
                      config->conv_payload_type, "comp-id", config->conv_comp_id,
                      "debug-payload-dir", config->debug_payload_dir, "multiple-payloads",
-                     config->multiple_payloads, "msg2p-newapi", config->conv_msg2p_new_api,
-                     "frame-interval", config->conv_frame_interval, NULL);
+                     config->multiple_payloads, NULL);
 
     /* Create msg broker to send payload to server */
     g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin_sink%d", uid);
@@ -280,21 +259,6 @@ done:
 }
 
 /**
- * Probe function to drop upstream "GST_QUERY_SEEKING" query from h264parse element.
- * This is a WAR to avoid memory leaks from h264parse element
- */
-static GstPadProbeReturn seek_query_drop_prob(GstPad *pad, GstPadProbeInfo *info, gpointer u_data)
-{
-    if (GST_PAD_PROBE_INFO_TYPE(info) & GST_PAD_PROBE_TYPE_QUERY_UPSTREAM) {
-        GstQuery *query = GST_PAD_PROBE_INFO_QUERY(info);
-        if (GST_QUERY_TYPE(query) == GST_QUERY_SEEKING) {
-            return GST_PAD_PROBE_DROP;
-        }
-    }
-    return GST_PAD_PROBE_OK;
-}
-
-/**
  * Function to create sink bin to generate encoded output.
  */
 static gboolean create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBinSubBin *bin)
@@ -302,10 +266,8 @@ static gboolean create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBi
     GstCaps *caps = NULL;
     gboolean ret = FALSE;
     gchar elem_name[50];
-    int probe_id = 0;
     gulong bitrate = config->bitrate;
     guint profile = config->profile;
-    const gchar *latency = g_getenv("NVDS_ENABLE_LATENCY_MEASUREMENT");
 
     uid++;
 
@@ -367,34 +329,12 @@ static gboolean create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBi
         goto done;
     }
 
-    NVGSTDS_ELEM_ADD_PROBE(probe_id, bin->encoder, "sink", seek_query_drop_prob,
-                           GST_PAD_PROBE_TYPE_QUERY_UPSTREAM, bin);
-
-    probe_id = probe_id;
+#ifdef IS_TEGRA
+    g_object_set(G_OBJECT(bin->encoder), "bufapi-version", 1, NULL);
+#endif
 
     if (config->codec == NV_DS_ENCODER_MPEG4)
         config->enc_type = NV_DS_ENCODER_TYPE_SW;
-
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, config->gpu_id);
-
-    if (config->copy_meta == 1) {
-        g_object_set(G_OBJECT(bin->encoder), "copy-meta", TRUE, NULL);
-    }
-
-    if (config->enc_type == NV_DS_ENCODER_TYPE_HW) {
-        switch (config->output_io_mode) {
-        case NV_DS_ENCODER_OUTPUT_IO_MODE_MMAP:
-        default:
-            g_object_set(G_OBJECT(bin->encoder), "output-io-mode",
-                         NV_DS_ENCODER_OUTPUT_IO_MODE_MMAP, NULL);
-            break;
-        case NV_DS_ENCODER_OUTPUT_IO_MODE_DMABUF_IMPORT:
-            g_object_set(G_OBJECT(bin->encoder), "output-io-mode",
-                         NV_DS_ENCODER_OUTPUT_IO_MODE_DMABUF_IMPORT, NULL);
-            break;
-        }
-    }
 
     if (config->enc_type == NV_DS_ENCODER_TYPE_HW) {
         g_object_set(G_OBJECT(bin->encoder), "profile", profile, NULL);
@@ -406,7 +346,6 @@ static gboolean create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBi
         else {
             // bitrate is in kbits/sec for software encoder x264enc and x265enc
             g_object_set(G_OBJECT(bin->encoder), "bitrate", bitrate / 1000, NULL);
-            g_object_set(G_OBJECT(bin->encoder), "speed-preset", config->sw_preset, NULL);
         }
     }
 
@@ -425,22 +364,16 @@ static gboolean create_encode_file_bin(NvDsSinkEncoderConfig *config, NvDsSinkBi
     }
 
     g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin_mux%d", uid);
-    // disabling the mux when latency measurement logs are enabled
-    if (latency) {
-        bin->mux = gst_element_factory_make(NVDS_ELEM_IDENTITY, elem_name);
-    } else {
-        switch (config->container) {
-        case NV_DS_CONTAINER_MP4:
-            bin->mux = gst_element_factory_make(NVDS_ELEM_MUX_MP4, elem_name);
-            break;
-        case NV_DS_CONTAINER_MKV:
-            bin->mux = gst_element_factory_make(NVDS_ELEM_MKV, elem_name);
-            break;
-        default:
-            goto done;
-        }
+    switch (config->container) {
+    case NV_DS_CONTAINER_MP4:
+        bin->mux = gst_element_factory_make(NVDS_ELEM_MUX_MP4, elem_name);
+        break;
+    case NV_DS_CONTAINER_MKV:
+        bin->mux = gst_element_factory_make(NVDS_ELEM_MKV, elem_name);
+        break;
+    default:
+        goto done;
     }
-
     if (!bin->mux) {
         NVGSTDS_ERR_MSG_V("Failed to create '%s'", elem_name);
         goto done;
@@ -546,7 +479,6 @@ static gboolean create_udpsink_bin(NvDsSinkEncoderConfig *config, NvDsSinkBinSub
     gchar elem_name[50];
     gchar encode_name[50];
     gchar rtppay_name[50];
-    int probe_id = 0;
 
     // guint rtsp_port_num = g_rtsp_port_num++;
     uid++;
@@ -592,7 +524,6 @@ static gboolean create_udpsink_bin(NvDsSinkEncoderConfig *config, NvDsSinkBinSub
     switch (config->codec) {
     case NV_DS_ENCODER_H264:
         bin->codecparse = gst_element_factory_make("h264parse", "h264-parser");
-        g_object_set(G_OBJECT(bin->codecparse), "config-interval", -1, NULL);
         bin->rtppay = gst_element_factory_make("rtph264pay", rtppay_name);
         if (config->enc_type == NV_DS_ENCODER_TYPE_SW)
             bin->encoder = gst_element_factory_make(NVDS_ELEM_ENC_H264_SW, encode_name);
@@ -601,7 +532,6 @@ static gboolean create_udpsink_bin(NvDsSinkEncoderConfig *config, NvDsSinkBinSub
         break;
     case NV_DS_ENCODER_H265:
         bin->codecparse = gst_element_factory_make("h265parse", "h265-parser");
-        g_object_set(G_OBJECT(bin->codecparse), "config-interval", -1, NULL);
         bin->rtppay = gst_element_factory_make("rtph265pay", rtppay_name);
         if (config->enc_type == NV_DS_ENCODER_TYPE_SW)
             bin->encoder = gst_element_factory_make(NVDS_ELEM_ENC_H265_SW, encode_name);
@@ -617,11 +547,6 @@ static gboolean create_udpsink_bin(NvDsSinkEncoderConfig *config, NvDsSinkBinSub
         goto done;
     }
 
-    NVGSTDS_ELEM_ADD_PROBE(probe_id, bin->encoder, "sink", seek_query_drop_prob,
-                           GST_PAD_PROBE_TYPE_QUERY_UPSTREAM, bin);
-
-    probe_id = probe_id;
-
     if (!bin->rtppay) {
         NVGSTDS_ERR_MSG_V("Failed to create '%s'", rtppay_name);
         goto done;
@@ -636,17 +561,13 @@ static gboolean create_udpsink_bin(NvDsSinkEncoderConfig *config, NvDsSinkBinSub
         g_object_set(G_OBJECT(bin->encoder), "iframeinterval", config->iframeinterval, NULL);
     }
 
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, config->gpu_id);
-
-    if (prop.integrated) {
-        if (config->enc_type == NV_DS_ENCODER_TYPE_HW) {
-            g_object_set(G_OBJECT(bin->encoder), "preset-level", 1, NULL);
-            g_object_set(G_OBJECT(bin->encoder), "insert-sps-pps", 1, NULL);
-        }
-    } else {
-        g_object_set(G_OBJECT(bin->transform), "gpu-id", config->gpu_id, NULL);
-    }
+#ifdef IS_TEGRA
+    g_object_set(G_OBJECT(bin->encoder), "preset-level", 1, NULL);
+    g_object_set(G_OBJECT(bin->encoder), "insert-sps-pps", 1, NULL);
+    g_object_set(G_OBJECT(bin->encoder), "bufapi-version", 1, NULL);
+#else
+    g_object_set(G_OBJECT(bin->transform), "gpu-id", config->gpu_id, NULL);
+#endif
 
     g_snprintf(elem_name, sizeof(elem_name), "sink_sub_bin_udpsink%d", uid);
     bin->sink = gst_element_factory_make("udpsink", elem_name);
@@ -735,12 +656,8 @@ gboolean create_sink_bin(guint num_sub_bins,
             continue;
         }
         switch (config_array[i].type) {
-#ifndef IS_TEGRA
         case NV_DS_SINK_RENDER_EGL:
-#else
-        case NV_DS_SINK_RENDER_3D:
-#endif
-        case NV_DS_SINK_RENDER_DRM:
+        case NV_DS_SINK_RENDER_OVERLAY:
         case NV_DS_SINK_FAKE:
             config_array[i].render_config.type = config_array[i].type;
             config_array[i].render_config.sync = config_array[i].sync;
@@ -837,12 +754,8 @@ gboolean create_demux_sink_bin(guint num_sub_bins,
             continue;
         }
         switch (config_array[i].type) {
-#ifndef IS_TEGRA
         case NV_DS_SINK_RENDER_EGL:
-#else
-        case NV_DS_SINK_RENDER_3D:
-#endif
-        case NV_DS_SINK_RENDER_DRM:
+        case NV_DS_SINK_RENDER_OVERLAY:
         case NV_DS_SINK_FAKE:
             config_array[i].render_config.type = config_array[i].type;
             config_array[i].render_config.sync = config_array[i].sync;

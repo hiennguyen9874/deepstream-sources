@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <stdio.h>
@@ -31,11 +30,6 @@
 
 #define PGIE_CLASS_ID_VEHICLE 0
 #define PGIE_CLASS_ID_PERSON 2
-
-#define NVINFER_PLUGIN "nvinfer"
-#define NVINFERSERVER_PLUGIN "nvinferserver"
-#define PGIE_CONFIG_FILE "dsmeta_pgie_config.txt"
-#define PGIE_NVINFERSERVER_CONFIG_FILE "dsmeta_pgie_nvinferserver_config.txt"
 
 /** set the user metadata type */
 #define NVDS_DECODER_GST_META_EXAMPLE (nvds_get_user_meta_type("NVIDIA.DECODER.GST_USER_META"))
@@ -305,44 +299,24 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
     return TRUE;
 }
 
-static void usage(const char *bin)
-{
-    g_printerr("Usage: %s <H264 filename>\n", bin);
-    g_printerr("For nvinferserver, Usage: %s -t inferserver <H264 filename>\n", bin);
-}
-
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *source = NULL, *h264parser = NULL, *decoder = NULL,
                *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL, *nvosd = NULL;
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *infer_src_pad = NULL;
     GstPad *decoder_src_pad = NULL;
     GstPad *h264parse_src_pad = NULL;
-    gboolean is_nvinfer_server = FALSE;
-    gchar *input_stream = NULL;
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
 
     /* Check input arguments */
-    if (argc < 2) {
-        usage(argv[0]);
+    if (argc != 2) {
+        g_printerr("Usage: %s <H264 filename>\n", argv[0]);
         return -1;
-    }
-
-    if (argc >= 2 && !strcmp("-t", argv[1])) {
-        if (!strcmp("inferserver", argv[2])) {
-            is_nvinfer_server = TRUE;
-        } else {
-            usage(argv[0]);
-            return -1;
-        }
-        g_print("Using nvinferserver as the inference plugin\n");
     }
 
     /* Standard GStreamer initialization */
@@ -371,10 +345,9 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /* Use nvinfer/nvinferserver to run inferencing on decoder's output,
+    /* Use nvinfer to run inferencing on decoder's output,
      * behaviour of inferencing is set through config file */
-    pgie = gst_element_factory_make(is_nvinfer_server ? NVINFERSERVER_PLUGIN : NVINFER_PLUGIN,
-                                    "primary-nvinference-engine");
+    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
 
     /* Use convertor to convert from NV12 to RGBA as required by nvosd */
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
@@ -383,36 +356,32 @@ int main(int argc, char *argv[])
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
-    } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-    }
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!source || !h264parser || !decoder || !pgie || !nvvidconv || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    /* we set the input filename to the source element */
-    if (is_nvinfer_server) {
-        input_stream = argv[3];
-        g_object_set(G_OBJECT(source), "location", argv[3], NULL);
-    } else {
-        input_stream = argv[1];
-        g_object_set(G_OBJECT(source), "location", argv[1], NULL);
+#ifdef PLATFORM_TEGRA
+    if (!transform) {
+        g_printerr("One tegra element could not be created. Exiting.\n");
+        return -1;
     }
+#endif
+
+    /* we set the input filename to the source element */
+    g_object_set(G_OBJECT(source), "location", argv[1], NULL);
 
     g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
                  "batch-size", 1, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
     /* Set all the necessary properties of the nvinfer element,
      * the necessary ones are : */
-    if (is_nvinfer_server) {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_NVINFERSERVER_CONFIG_FILE, NULL);
-    } else {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
-    }
+    g_object_set(G_OBJECT(pgie), "config-file-path", "dsmeta_pgie_config.txt", NULL);
 
     /* we add a message handler */
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
@@ -421,8 +390,13 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
+#ifdef PLATFORM_TEGRA
+    gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, nvvidconv,
+                     nvosd, transform, sink, NULL);
+#else
     gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, nvvidconv,
                      nvosd, sink, NULL);
+#endif
 
     GstPad *sinkpad, *srcpad;
     gchar pad_name_sink[16] = "sink_0";
@@ -450,17 +424,24 @@ int main(int argc, char *argv[])
 
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder ->
-     * pgie -> nvvidconv -> nvosd -> video-renderer */
+     * nvinfer -> nvvidconv -> nvosd -> video-renderer */
 
     if (!gst_element_link_many(source, h264parser, decoder, NULL)) {
         g_printerr("Elements could not be linked: 1. Exiting.\n");
         return -1;
     }
 
+#ifdef PLATFORM_TEGRA
+    if (!gst_element_link_many(streammux, pgie, nvvidconv, nvosd, transform, sink, NULL)) {
+        g_printerr("Elements could not be linked: 2. Exiting.\n");
+        return -1;
+    }
+#else
     if (!gst_element_link_many(streammux, pgie, nvvidconv, nvosd, sink, NULL)) {
         g_printerr("Elements could not be linked: 2. Exiting.\n");
         return -1;
     }
+#endif
 
     /* Lets add probe to set h264parse metadata attached with NvDsMeta.
      * This metadata is tranformed into nvdsmeta and set as user metadata at
@@ -500,7 +481,7 @@ int main(int argc, char *argv[])
     gst_object_unref(infer_src_pad);
 
     /* Set the pipeline to "playing" state */
-    g_print("Now playing: %s\n", input_stream);
+    g_print("Now playing: %s\n", argv[1]);
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

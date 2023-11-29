@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -12,13 +12,12 @@
 Refer to the DeepStream SDK documentation for a description of the library.
 
 --------------------------------------------------------------------------------
-Compile the library :
+Pre-requisites:
+- TensorRT 5.0
 
-  # Export correct CUDA version as per the platform
-  For Jetson:  $ export CUDA_VER=11.4
-  For x86:     $ export CUDA_VER=12.1
-
-  $ sudo -E make install
+--------------------------------------------------------------------------------
+Compile the library using:
+  make
 
 --------------------------------------------------------------------------------
 This source has been written to parse the output layers of the resnet10 detector

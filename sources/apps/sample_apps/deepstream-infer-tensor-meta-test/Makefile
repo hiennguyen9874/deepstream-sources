@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -25,13 +25,11 @@ ifeq ($(CUDA_VER),)
   $(error "CUDA_VER is not set")
 endif
 
-WITH_OPENCV:=0
-
 APP:= deepstream-infer-tensor-meta-app
 CC = g++
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=5.0
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
@@ -39,27 +37,22 @@ APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
 SRCS:= $(wildcard *.cpp)
 INCS:= $(wildcard *.h)
 
-PKGS:= gstreamer-1.0
+ifeq ($(TARGET_DEVICE),aarch64)
+	PKGS:= gstreamer-1.0 opencv4
+else
+	PKGS:= gstreamer-1.0 opencv
+endif
 
 CFLAGS:= -fPIC -std=c++11    \
          -I ../../../includes \
-         -I /usr/local/cuda-$(CUDA_VER)/include \
-	 -I /usr/include/opencv4
+         -I /usr/local/cuda-$(CUDA_VER)/include
 
-CFLAGS+= $(shell pkg-config --cflags $(PKGS))
-LIBS:= $(shell pkg-config --libs $(PKGS))
-
-ifeq ($(WITH_OPENCV),1)
- CFLAGS+= -DWITH_OPENCV
-endif
+CFLAGS+= `pkg-config --cflags $(PKGS)`
+LIBS:= `pkg-config --libs $(PKGS)`
 
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvds_inferutils -lnvds_utils -lm \
        -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart     \
-       -lcuda -Wl,-rpath,$(LIB_INSTALL_DIR)
-
-ifeq ($(WITH_OPENCV),1)
-LIBS += -lopencv_objdetect -lopencv_imgproc -lopencv_core
-endif
+       -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 ifeq ($(TARGET_DEVICE),aarch64)
   CFLAGS+= -DPLATFORM_TEGRA

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <math.h>
@@ -33,8 +32,6 @@
 #include "gst-nvmessage.h"
 #endif
 
-#define MEMORY_FEATURES "memory:NVMM"
-
 /* The muxer output resolution must be set if the input streams will be of
  * different resolution. The muxer will scale all the input frames to this
  * resolution. */
@@ -43,7 +40,7 @@
 
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
-#define MUXER_BATCH_TIMEOUT_USEC 33333
+#define MUXER_BATCH_TIMEOUT_USEC 34000
 
 #define TILED_OUTPUT_WIDTH 1280
 #define TILED_OUTPUT_HEIGHT 720
@@ -188,17 +185,13 @@ int main(int argc, char *argv[])
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *tiler = NULL, *nvof = NULL,
                *nvofvisual = NULL, *of_queue = NULL, *ofvisual_queue = NULL;
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     guint i, num_sources;
     guint tiler_rows, tiler_columns;
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
-    const gchar *new_mux_str = g_getenv("USE_NEW_NVSTREAMMUX");
-    gboolean use_new_mux = !g_strcmp0(new_mux_str, "yes");
 
     /* Check input arguments */
     if (argc < 2) {
@@ -225,44 +218,16 @@ int main(int argc, char *argv[])
     gst_bin_add(GST_BIN(pipeline), streammux);
 
     for (i = 0; i < num_sources; i++) {
-        GstPad *sinkpad, *srcpad, *sinkpad1, *srcpad1;
+        GstPad *sinkpad, *srcpad;
         gchar pad_name[16] = {};
-        GstElement *source_bin = create_source_bin(i, argv[i + 1]), *caps_filter = NULL,
-                   *nvvideoconvert = NULL, *queue = NULL;
+        GstElement *source_bin = create_source_bin(i, argv[i + 1]);
 
-        /* create queue element */
-        queue = gst_element_factory_make("queue", NULL);
-        if (!queue) {
-            g_printerr("Failed to create queue element after srcbin. Exiting.\n");
-            return -1;
-        }
-
-        /* create nvvideoconvert element */
-        nvvideoconvert = gst_element_factory_make("nvvideoconvert", NULL);
-        if (!nvvideoconvert) {
-            g_printerr("Failed to create nvvideoconvert element. Exiting.\n");
-            return -1;
-        }
-
-        caps_filter = gst_element_factory_make("capsfilter", NULL);
-        if (!caps_filter) {
-            g_printerr("Failed to create capsfilter element. Exiting.\n");
-            return -1;
-        }
-
-        GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "NV12", "width",
-                                            G_TYPE_INT, MUXER_OUTPUT_WIDTH, "height", G_TYPE_INT,
-                                            MUXER_OUTPUT_HEIGHT, NULL);
-        GstCapsFeatures *feature = gst_caps_features_new(MEMORY_FEATURES, NULL);
-        gst_caps_set_features(caps, 0, feature);
-        g_object_set(G_OBJECT(caps_filter), "caps", caps, NULL);
-
-        if (!source_bin || !nvvideoconvert || !caps_filter) {
+        if (!source_bin) {
             g_printerr("Failed to create source bin. Exiting.\n");
             return -1;
         }
 
-        gst_bin_add_many(GST_BIN(pipeline), source_bin, queue, nvvideoconvert, caps_filter, NULL);
+        gst_bin_add(GST_BIN(pipeline), source_bin);
 
         g_snprintf(pad_name, 15, "sink_%u", i);
         sinkpad = gst_element_get_request_pad(streammux, pad_name);
@@ -271,7 +236,7 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        srcpad = gst_element_get_static_pad(caps_filter, "src");
+        srcpad = gst_element_get_static_pad(source_bin, "src");
         if (!srcpad) {
             g_printerr("Failed to get src pad of source bin. Exiting.\n");
             return -1;
@@ -282,32 +247,8 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        sinkpad1 = gst_element_get_static_pad(queue, "sink");
-        if (!sinkpad) {
-            g_printerr("Streammux request sink pad failed. Exiting.\n");
-            return -1;
-        }
-
-        srcpad1 = gst_element_get_static_pad(source_bin, "src");
-        if (!srcpad) {
-            g_printerr("Failed to get src pad of source bin. Exiting.\n");
-            return -1;
-        }
-
-        if (gst_pad_link(srcpad1, sinkpad1) != GST_PAD_LINK_OK) {
-            g_printerr("Failed to link source bin to stream muxer. Exiting.\n");
-            return -1;
-        }
-
-        if (!gst_element_link_many(queue, nvvideoconvert, caps_filter, NULL)) {
-            g_printerr("Elements could not be linked. Exiting.\n");
-            return -1;
-        }
-
         gst_object_unref(srcpad);
         gst_object_unref(sinkpad);
-        gst_object_unref(srcpad1);
-        gst_object_unref(sinkpad1);
     }
 
     /* Use nvtiler to composite the batched frames into a 2D tiled array based
@@ -327,27 +268,23 @@ int main(int argc, char *argv[])
     ofvisual_queue = gst_element_factory_make("queue", "q_after_ofvisual");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
-    } else {
-        sink = gst_element_factory_make("nveglglessink", "nvelgglessink");
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+
+    if (!transform) {
+        g_printerr("nvegltransform element could not be created. Exiting.\n");
+        return -1;
     }
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvelgglessink");
 
     if (!nvof || !nvofvisual || !tiler || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    g_object_set(G_OBJECT(streammux), "batch-size", num_sources, "live-source", 1, NULL);
-
-    if (!use_new_mux) {
-        g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
-                     MUXER_OUTPUT_HEIGHT, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
-    }
-
-    if (use_new_mux) {
-        g_object_set(G_OBJECT(sink), "async", FALSE, "sync", FALSE, NULL);
-    }
+    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
+                 "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
     tiler_rows = (guint)sqrt(num_sources);
     tiler_columns = (guint)ceil(1.0 * num_sources / tiler_rows);
@@ -362,6 +299,16 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
+#ifdef PLATFORM_TEGRA
+    gst_bin_add_many(GST_BIN(pipeline), nvof, of_queue, nvofvisual, ofvisual_queue, tiler,
+                     transform, sink, NULL);
+
+    if (!gst_element_link_many(streammux, nvof, of_queue, nvofvisual, ofvisual_queue, tiler,
+                               transform, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
+    }
+#else
     gst_bin_add_many(GST_BIN(pipeline), nvof, of_queue, nvofvisual, ofvisual_queue, tiler, sink,
                      NULL);
 
@@ -370,6 +317,7 @@ int main(int argc, char *argv[])
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }
+#endif
 
     /* Set the pipeline to "playing" state */
     g_print("Now playing:");

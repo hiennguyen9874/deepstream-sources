@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -45,25 +45,17 @@
 #define NVDS_ELEM_QUEUE "queue"
 #define NVDS_ELEM_CAPS_FILTER "capsfilter"
 #define NVDS_ELEM_TEE "tee"
-#define NVDS_ELEM_IDENTITY "identity"
 
-#define NVDS_ELEM_PREPROCESS "nvdspreprocess"
-#define NVDS_ELEM_SECONDARY_PREPROCESS "nvdspreprocess"
 #define NVDS_ELEM_PGIE "nvinfer"
 #define NVDS_ELEM_SGIE "nvinfer"
-#define NVDS_ELEM_NVINFER "nvinfer"
 #define NVDS_ELEM_INFER_SERVER "nvinferserver"
-#define NVDS_ELEM_INFER_AUDIO "nvinferaudio"
 #define NVDS_ELEM_TRACKER "nvtracker"
 
 #define NVDS_ELEM_VIDEO_CONV "nvvideoconvert"
-#define NVDS_ELEM_AUDIO_CONV "audioconvert"
-#define NVDS_ELEM_AUDIO_RESAMPLER "audioresample"
 #define NVDS_ELEM_STREAM_MUX "nvstreammux"
 #define NVDS_ELEM_STREAM_DEMUX "nvstreamdemux"
 #define NVDS_ELEM_TILER "nvmultistreamtiler"
 #define NVDS_ELEM_OSD "nvdsosd"
-#define NVDS_ELEM_SEGVISUAL "nvsegvisual"
 #define NVDS_ELEM_DSANALYTICS_ELEMENT "nvdsanalytics"
 #define NVDS_ELEM_DSEXAMPLE_ELEMENT "dsexample"
 
@@ -77,8 +69,8 @@
 #define NVDS_ELEM_SINK_FAKESINK "fakesink"
 #define NVDS_ELEM_SINK_FILE "filesink"
 #define NVDS_ELEM_SINK_EGL "nveglglessink"
-#define NVDS_ELEM_SINK_3D "nv3dsink"
-#define NVDS_ELEM_SINK_DRM "nvdrmvideosink"
+
+#define NVDS_ELEM_SINK_OVERLAY "nvoverlaysink"
 #define NVDS_ELEM_EGLTRANSFORM "nvegltransform"
 
 #define NVDS_ELEM_MUX_MP4 "qtmux"
@@ -94,9 +86,6 @@
 #define MAX_SOURCE_BINS 1024
 #define MAX_SINK_BINS (1024)
 #define MAX_SECONDARY_GIE_BINS (16)
-#define MAX_SECONDARY_PREPROCESS_BINS (16)
 #define MAX_MESSAGE_CONSUMERS (16)
-
-#define NVDS_ELEM_NVMULTIURISRCBIN "nvmultiurisrcbin"
 
 #endif

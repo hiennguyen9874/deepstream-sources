@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -40,14 +40,14 @@ AppCtx *appCtx[MAX_INSTANCES];
 static guint cintr = FALSE;
 static GMainLoop *main_loop = NULL;
 static gchar **cfg_files = NULL;
-static gchar **input_uris = NULL;
+static gchar **input_files = NULL;
 static gboolean print_version = FALSE;
 static gboolean show_bbox_text = FALSE;
 static gboolean print_dependencies_version = FALSE;
 static gboolean quit = FALSE;
 static gint return_value = 0;
 static guint num_instances;
-static guint num_input_uris;
+static guint num_input_files;
 static GMutex fps_lock;
 static gdouble fps[MAX_SOURCE_BINS];
 static gdouble fps_avg[MAX_SOURCE_BINS];
@@ -70,8 +70,7 @@ GOptionEntry entries[] = {
     {"version-all", 0, 0, G_OPTION_ARG_NONE, &print_dependencies_version,
      "Print DeepStreamSDK and dependencies version", NULL},
     {"cfg-file", 'c', 0, G_OPTION_ARG_FILENAME_ARRAY, &cfg_files, "Set the config file", NULL},
-    {"input-uri", 'i', 0, G_OPTION_ARG_FILENAME_ARRAY, &input_uris,
-     "Set the input uri (file://stream or rtsp://stream)", NULL},
+    {"input-file", 'i', 0, G_OPTION_ARG_FILENAME_ARRAY, &input_files, "Set the input file", NULL},
     {NULL},
 };
 
@@ -286,40 +285,37 @@ static gboolean event_thread_func(gpointer arg)
 
     gint source_id;
     GstElement *tiler = appCtx[rcfg]->pipeline.tiled_display_bin.tiler;
-    if (appCtx[rcfg]->config.tiled_display_config.enable) {
-        g_object_get(G_OBJECT(tiler), "show-source", &source_id, NULL);
+    g_object_get(G_OBJECT(tiler), "show-source", &source_id, NULL);
 
-        if (selecting) {
-            if (rrowsel == FALSE) {
-                if (c >= '0' && c <= '9') {
-                    rrow = c - '0';
-                    if (rrow < appCtx[rcfg]->config.tiled_display_config.rows) {
-                        g_print("--selecting source  row %d--\n", rrow);
-                        rrowsel = TRUE;
-                    } else {
-                        g_print("--selected source  row %d out of bound, reenter\n", rrow);
-                    }
+    if (selecting) {
+        if (rrowsel == FALSE) {
+            if (c >= '0' && c <= '9') {
+                rrow = c - '0';
+                if (rrow < appCtx[rcfg]->config.tiled_display_config.rows) {
+                    g_print("--selecting source  row %d--\n", rrow);
+                    rrowsel = TRUE;
+                } else {
+                    g_print("--selected source  row %d out of bound, reenter\n", rrow);
                 }
-            } else {
-                if (c >= '0' && c <= '9') {
-                    unsigned int tile_num_columns =
-                        appCtx[rcfg]->config.tiled_display_config.columns;
-                    rcol = c - '0';
-                    if (rcol < tile_num_columns) {
-                        selecting = FALSE;
-                        rrowsel = FALSE;
-                        source_id = tile_num_columns * rrow + rcol;
-                        g_print("--selecting source  col %d sou=%d--\n", rcol, source_id);
-                        if (source_id >= (gint)appCtx[rcfg]->config.num_source_sub_bins) {
-                            source_id = -1;
-                        } else {
-                            appCtx[rcfg]->show_bbox_text = TRUE;
-                            appCtx[rcfg]->active_source_index = source_id;
-                            g_object_set(G_OBJECT(tiler), "show-source", source_id, NULL);
-                        }
+            }
+        } else {
+            if (c >= '0' && c <= '9') {
+                unsigned int tile_num_columns = appCtx[rcfg]->config.tiled_display_config.columns;
+                rcol = c - '0';
+                if (rcol < tile_num_columns) {
+                    selecting = FALSE;
+                    rrowsel = FALSE;
+                    source_id = tile_num_columns * rrow + rcol;
+                    g_print("--selecting source  col %d sou=%d--\n", rcol, source_id);
+                    if (source_id >= (gint)appCtx[rcfg]->config.num_source_sub_bins) {
+                        source_id = -1;
                     } else {
-                        g_print("--selected source  col %d out of bound, reenter\n", rcol);
+                        appCtx[rcfg]->show_bbox_text = TRUE;
+                        appCtx[rcfg]->active_source_index = source_id;
+                        g_object_set(G_OBJECT(tiler), "show-source", source_id, NULL);
                     }
+                } else {
+                    g_print("--selected source  col %d out of bound, reenter\n", rcol);
                 }
             }
         }
@@ -342,8 +338,7 @@ static gboolean event_thread_func(gpointer arg)
         ret = FALSE;
         break;
     case 'c':
-        if (appCtx[rcfg]->config.tiled_display_config.enable && selecting == FALSE &&
-            source_id == -1) {
+        if (selecting == FALSE && source_id == -1) {
             g_print("--selecting config file --\n");
             c = fgetc(stdin);
             if (c >= '0' && c <= '9') {
@@ -358,8 +353,7 @@ static gboolean event_thread_func(gpointer arg)
         }
         break;
     case 'z':
-        if (appCtx[rcfg]->config.tiled_display_config.enable && source_id == -1 &&
-            selecting == FALSE) {
+        if (source_id == -1 && selecting == FALSE) {
             g_print("--selecting source --\n");
             selecting = TRUE;
         } else {
@@ -532,51 +526,6 @@ static gboolean overlay_graphics(AppCtx *appCtx,
     return TRUE;
 }
 
-static gboolean recreate_pipeline_thread_func(gpointer arg)
-{
-    guint i;
-    gboolean ret = TRUE;
-    AppCtx *appCtx = (AppCtx *)arg;
-
-    g_print("Destroy pipeline\n");
-    destroy_pipeline(appCtx);
-
-    g_print("Recreate pipeline\n");
-    if (!create_pipeline(appCtx, NULL, all_bbox_generated, perf_cb, overlay_graphics)) {
-        NVGSTDS_ERR_MSG_V("Failed to create pipeline");
-        return_value = -1;
-        return FALSE;
-    }
-
-    if (gst_element_set_state(appCtx->pipeline.pipeline, GST_STATE_PAUSED) ==
-        GST_STATE_CHANGE_FAILURE) {
-        NVGSTDS_ERR_MSG_V("Failed to set pipeline to PAUSED");
-        return_value = -1;
-        return FALSE;
-    }
-
-    for (i = 0; i < appCtx->config.num_sink_sub_bins; i++) {
-        if (!GST_IS_VIDEO_OVERLAY(appCtx->pipeline.instance_bins[0].sink_bin.sub_bins[i].sink)) {
-            continue;
-        }
-
-        gst_video_overlay_set_window_handle(
-            GST_VIDEO_OVERLAY(appCtx->pipeline.instance_bins[0].sink_bin.sub_bins[i].sink),
-            (gulong)windows[appCtx->index]);
-        gst_video_overlay_expose(
-            GST_VIDEO_OVERLAY(appCtx->pipeline.instance_bins[0].sink_bin.sub_bins[i].sink));
-    }
-
-    if (gst_element_set_state(appCtx->pipeline.pipeline, GST_STATE_PLAYING) ==
-        GST_STATE_CHANGE_FAILURE) {
-        g_print("\ncan't set pipeline to playing state.\n");
-        return_value = -1;
-        return FALSE;
-    }
-
-    return ret;
-}
-
 int main(int argc, char *argv[])
 {
     GOptionContext *ctx = NULL;
@@ -616,8 +565,8 @@ int main(int argc, char *argv[])
     if (cfg_files) {
         num_instances = g_strv_length(cfg_files);
     }
-    if (input_uris) {
-        num_input_uris = g_strv_length(input_uris);
+    if (input_files) {
+        num_input_files = g_strv_length(input_files);
     }
 
     if (!cfg_files || num_instances == 0) {
@@ -636,23 +585,16 @@ int main(int argc, char *argv[])
             appCtx[i]->show_bbox_text = TRUE;
         }
 
-        if (input_uris && input_uris[i]) {
-            appCtx[i]->config.multi_source_config[0].uri = g_strdup_printf("%s", input_uris[i]);
-            g_free(input_uris[i]);
+        if (input_files && input_files[i]) {
+            appCtx[i]->config.multi_source_config[0].uri =
+                g_strdup_printf("file://%s", input_files[i]);
+            g_free(input_files[i]);
         }
 
-        if (g_str_has_suffix(cfg_files[i], ".yml") || g_str_has_suffix(cfg_files[i], ".yaml")) {
-            if (!parse_config_file_yaml(&appCtx[i]->config, cfg_files[i])) {
-                NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
-                appCtx[i]->return_value = -1;
-                goto done;
-            }
-        } else if (g_str_has_suffix(cfg_files[i], ".txt")) {
-            if (!parse_config_file(&appCtx[i]->config, cfg_files[i])) {
-                NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
-                appCtx[i]->return_value = -1;
-                goto done;
-            }
+        if (!parse_config_file(&appCtx[i]->config, cfg_files[i])) {
+            NVGSTDS_ERR_MSG_V("Failed to parse config file '%s'", cfg_files[i]);
+            appCtx[i]->return_value = -1;
+            goto done;
         }
     }
 
@@ -680,6 +622,9 @@ int main(int argc, char *argv[])
             return_value = -1;
             goto done;
         }
+
+        if (!appCtx[i]->config.tiled_display_config.enable)
+            continue;
 
         for (j = 0; j < appCtx[i]->config.num_sink_sub_bins; j++) {
             XTextProperty xproperty;
@@ -737,9 +682,10 @@ int main(int argc, char *argv[])
                  appCtx[i]->config.tiled_display_config.rows *
                          appCtx[i]->config.tiled_display_config.columns ==
                      1) ||
-                (appCtx[i]->config.tiled_display_config.enable == 0)) {
+                (appCtx[i]->config.tiled_display_config.enable == 0 &&
+                 appCtx[i]->config.num_source_sub_bins == 1)) {
                 attr.event_mask = KeyPress;
-            } else if (appCtx[i]->config.tiled_display_config.enable) {
+            } else {
                 attr.event_mask = ButtonPress | KeyRelease;
             }
             XChangeWindowAttributes(display, windows[i], CWEventMask, &attr);
@@ -770,9 +716,6 @@ int main(int argc, char *argv[])
                 return_value = -1;
                 goto done;
             }
-            if (appCtx[i]->config.pipeline_recreate_sec)
-                g_timeout_add_seconds(appCtx[i]->config.pipeline_recreate_sec,
-                                      recreate_pipeline_thread_func, appCtx[i]);
         }
     }
 

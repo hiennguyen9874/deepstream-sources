@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,8 +29,8 @@
  * thread.
  *
  * There are two queues used for buffering and transferring data between thread:
- * Process_queue and buf_queue Process_queue is used to send filled batched data to
- * process thread and buf_queue is used to get return empty processed buffers from
+ * Process_queue and cvmat_queue Process_queue is used to send filled batched data to
+ * process thread and cvmat_queue is used to get return empty processed buffers from
  * process thread to input thread.  Two buffers are used in a ping pong manner between
  * the two threads for parallel processing.
  */
@@ -52,15 +52,11 @@
 GST_DEBUG_CATEGORY_STATIC(gst_dsexample_debug);
 #define GST_CAT_DEFAULT gst_dsexample_debug
 #define USE_EGLIMAGE 1
-
-#ifdef WITH_OPENCV
 // enable to write transformed cvmat to files
 // #define DSEXAMPLE_DEBUG
 #ifdef DSEXAMPLE_DEBUG
 #include "opencv2/imgcodecs.hpp"
 #endif
-#endif
-
 static GQuark _dsmeta_quark = 0;
 
 /* Enum to identify properties */
@@ -362,12 +358,8 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
 {
     GstDsExample *dsexample = GST_DSEXAMPLE(btrans);
     std::string nvtx_str;
-#ifdef WITH_OPENCV
     // OpenCV mat containing RGB data
     cv::Mat *cvmat;
-#else
-    NvBufSurface *inter_buf;
-#endif
     NvBufSurfaceCreateParams create_params;
     DsExampleInitParams init_params = {dsexample->processing_width, dsexample->processing_height,
                                        dsexample->process_full_frame};
@@ -386,11 +378,9 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
 
     CHECK_CUDA_STATUS(cudaStreamCreate(&dsexample->cuda_stream), "Could not create cuda stream");
 
-#ifdef WITH_OPENCV
     if (dsexample->inter_buf)
         NvBufSurfaceDestroy(dsexample->inter_buf);
     dsexample->inter_buf = NULL;
-#endif
 
     /* An intermediate buffer for NV12/RGBA to BGR conversion  will be
      * required. Can be skipped if custom algorithm can work directly on NV12/RGBA. */
@@ -406,21 +396,18 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
     create_params.memType = NVBUF_MEM_CUDA_UNIFIED;
 #endif
 
-#ifdef WITH_OPENCV
     if (NvBufSurfaceCreate(&dsexample->inter_buf, dsexample->max_batch_size, &create_params) != 0) {
         GST_ERROR("Error: Could not allocate internal buffer for dsexample");
         goto error;
     }
-#endif
 
     /* Create process queue and cvmat queue to transfer data between threads.
      * We will be using this queue to maintain the list of frames/objects
      * currently given to the algorithm for processing. */
     dsexample->process_queue = g_queue_new();
-    dsexample->buf_queue = g_queue_new();
+    dsexample->cvmat_queue = g_queue_new();
 
-#ifdef WITH_OPENCV
-    /* Push cvmat buffer twice on the buf_queue which will handle the
+    /* Push cvmat buffer twice on the cvmat_queue which will handle the
      * different processing speed between input thread and process thread
      * cvmat queue is used for getting processed data from the process thread*/
     for (int i = 0; i < 2; i++) {
@@ -434,20 +421,10 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
         if (!cvmat)
             goto error;
 
-        g_queue_push_tail(dsexample->buf_queue, cvmat);
+        g_queue_push_tail(dsexample->cvmat_queue, cvmat);
     }
 
     GST_DEBUG_OBJECT(dsexample, "created CV Mat\n");
-#else
-    for (int i = 0; i < 2; i++) {
-        if (NvBufSurfaceCreate(&inter_buf, dsexample->max_batch_size, &create_params) != 0) {
-            GST_ERROR("Error: Could not allocate internal buffer for dsexample");
-            goto error;
-        }
-
-        g_queue_push_tail(dsexample->buf_queue, inter_buf);
-    }
-#endif
 
     /* Set the NvBufSurfTransform config parameters. */
     dsexample->transform_config_params.compute_mode = NvBufSurfTransformCompute_Default;
@@ -496,12 +473,7 @@ error:
 static gboolean gst_dsexample_stop(GstBaseTransform *btrans)
 {
     GstDsExample *dsexample = GST_DSEXAMPLE(btrans);
-
-#ifdef WITH_OPENCV
     cv::Mat *cvmat;
-#else
-    NvBufSurface *inter_buf;
-#endif
 
     g_mutex_lock(&dsexample->process_lock);
 
@@ -510,20 +482,11 @@ static gboolean gst_dsexample_stop(GstBaseTransform *btrans)
         g_cond_wait(&dsexample->process_cond, &dsexample->process_lock);
     }
 
-#ifdef WITH_OPENCV
-    while (!g_queue_is_empty(dsexample->buf_queue)) {
-        cvmat = (cv::Mat *)g_queue_pop_head(dsexample->buf_queue);
+    while (!g_queue_is_empty(dsexample->cvmat_queue)) {
+        cvmat = (cv::Mat *)g_queue_pop_head(dsexample->cvmat_queue);
         delete[] cvmat;
         cvmat = NULL;
     }
-#else
-    while (!g_queue_is_empty(dsexample->buf_queue)) {
-        inter_buf = (NvBufSurface *)g_queue_pop_head(dsexample->buf_queue);
-        if (inter_buf)
-            NvBufSurfaceDestroy(inter_buf);
-        inter_buf = NULL;
-    }
-#endif
     dsexample->stop = TRUE;
 
     g_cond_broadcast(&dsexample->process_cond);
@@ -531,11 +494,9 @@ static gboolean gst_dsexample_stop(GstBaseTransform *btrans)
 
     g_thread_join(dsexample->process_thread);
 
-#ifdef WITH_OPENCV
     if (dsexample->inter_buf)
         NvBufSurfaceDestroy(dsexample->inter_buf);
     dsexample->inter_buf = NULL;
-#endif
 
     if (dsexample->cuda_stream)
         cudaStreamDestroy(dsexample->cuda_stream);
@@ -545,9 +506,7 @@ static gboolean gst_dsexample_stop(GstBaseTransform *btrans)
     delete[] dsexample->transform_params.dst_rect;
     delete[] dsexample->batch_insurf.surfaceList;
 
-#ifdef WITH_OPENCV
     GST_DEBUG_OBJECT(dsexample, "deleted CV Mat \n");
-#endif
 
     // Deinit the algorithm library
     DsExampleCtxDeinit(dsexample->dsexamplelib_ctx);
@@ -556,9 +515,7 @@ static gboolean gst_dsexample_stop(GstBaseTransform *btrans)
     GST_DEBUG_OBJECT(dsexample, "ctx lib released \n");
 
     g_queue_free(dsexample->process_queue);
-
-    g_queue_free(dsexample->buf_queue);
-
+    g_queue_free(dsexample->cvmat_queue);
     return TRUE;
 }
 
@@ -590,10 +547,10 @@ static GstFlowReturn scale_and_fill_data(GstDsExample *dsexample,
                                          gint input_width,
                                          gint input_height)
 {
-    gint src_left = GST_ROUND_UP_2((unsigned int)crop_rect_params->left);
-    gint src_top = GST_ROUND_UP_2((unsigned int)crop_rect_params->top);
-    gint src_width = GST_ROUND_DOWN_2((unsigned int)crop_rect_params->width);
-    gint src_height = GST_ROUND_DOWN_2((unsigned int)crop_rect_params->height);
+    gint src_left = crop_rect_params->left;
+    gint src_top = crop_rect_params->top;
+    gint src_width = crop_rect_params->width;
+    gint src_height = crop_rect_params->height;
 
     // Maintain aspect ratio
     double hdest = dsexample->processing_width * src_height / (double)src_width;
@@ -619,9 +576,15 @@ static GstFlowReturn scale_and_fill_data(GstDsExample *dsexample,
 #ifdef __aarch64__
     if (ratio <= 1.0 / 16 || ratio >= 16.0) {
         // Currently cannot scale by ratio > 16 or < 1/16 for Jetson
+        GST_ELEMENT_ERROR(dsexample, STREAM, FAILED,
+                          ("%s:can not scale by ratio > 16 or < 1/16 for Jetson", __func__),
+                          (NULL));
         return GST_FLOW_ERROR;
     }
 #endif
+
+    // Memset the memory
+    NvBufSurfaceMemSet(dsexample->inter_buf, dsexample->batch_insurf.numFilled, 0, 0);
 
     /* We will first convert only the Region of Interest (the entire frame or the
      * object bounding box) to RGB and then scale the converted RGB frame to
@@ -650,9 +613,7 @@ static gboolean convert_batch_and_push_to_process_thread(GstDsExample *dsexample
     NvBufSurfTransform_Error err;
     NvBufSurfTransformConfigParams transform_config_params;
     std::string nvtx_str;
-#ifdef WITH_OPENCV
     cv::Mat in_mat;
-#endif
 
     // Configure transform session parameters for the transformation
     transform_config_params.compute_mode = NvBufSurfTransformCompute_Default;
@@ -677,28 +638,6 @@ static gboolean convert_batch_and_push_to_process_thread(GstDsExample *dsexample
 
     nvtxDomainRangePushEx(dsexample->nvtx_domain, &eventAttrib);
 
-    g_mutex_lock(&dsexample->process_lock);
-
-    /* Wait if buf queue is empty. */
-    while (g_queue_is_empty(dsexample->buf_queue)) {
-        g_cond_wait(&dsexample->buf_cond, &dsexample->process_lock);
-    }
-
-#ifdef WITH_OPENCV
-    /* Pop a buffer from the element's buf queue. */
-    batch->cvmat = (cv::Mat *)g_queue_pop_head(dsexample->buf_queue);
-#else
-    /* Pop a buffer from the element's buf queue. */
-    batch->inter_buf = (NvBufSurface *)g_queue_pop_head(dsexample->buf_queue);
-    dsexample->inter_buf = batch->inter_buf;
-#endif
-
-    g_mutex_unlock(&dsexample->process_lock);
-
-    // Memset the memory
-    for (uint i = 0; i < dsexample->batch_insurf.numFilled; i++)
-        NvBufSurfaceMemSet(dsexample->inter_buf, i, 0, 0);
-
     /* Batched tranformation. */
     err = NvBufSurfTransform(&dsexample->batch_insurf, dsexample->inter_buf,
                              &dsexample->transform_params);
@@ -712,6 +651,18 @@ static gboolean convert_batch_and_push_to_process_thread(GstDsExample *dsexample
         return FALSE;
     }
 
+    g_mutex_lock(&dsexample->process_lock);
+
+    /* Wait if cvmat queue is empty. */
+    while (g_queue_is_empty(dsexample->cvmat_queue)) {
+        g_cond_wait(&dsexample->cvmat_cond, &dsexample->process_lock);
+    }
+
+    /* Pop a buffer from the element's cvmat queue. */
+    batch->cvmat = (cv::Mat *)g_queue_pop_head(dsexample->cvmat_queue);
+
+    g_mutex_unlock(&dsexample->process_lock);
+
     // Use openCV to remove padding and convert RGBA to BGR. Can be skipped if
     // algorithm can handle padded RGBA data.
     for (guint i = 0; i < dsexample->batch_insurf.numFilled; i++) {
@@ -724,7 +675,6 @@ static gboolean convert_batch_and_push_to_process_thread(GstDsExample *dsexample
         // sync mapped data for CPU access
         NvBufSurfaceSyncForCpu(dsexample->inter_buf, i, 0);
 
-#ifdef WITH_OPENCV
         in_mat = cv::Mat(dsexample->processing_height, dsexample->processing_width, CV_8UC4,
                          dsexample->inter_buf->surfaceList[i].mappedAddr.addr[0],
                          dsexample->inter_buf->surfaceList[i].pitch);
@@ -739,7 +689,6 @@ static gboolean convert_batch_and_push_to_process_thread(GstDsExample *dsexample
         static guint cnt = 0;
         cv::imwrite("out_" + std::to_string(cnt) + ".jpeg", batch->cvmat[i]);
         cnt++;
-#endif
 #endif
 
         if (NvBufSurfaceUnMap(dsexample->inter_buf, i, 0)) {
@@ -1187,13 +1136,7 @@ static gpointer gst_dsexample_output_loop(gpointer data)
         for (guint i = 0; i < batch->frames.size(); i++) {
             if (dsexample->process_full_frame) {
                 // Process to get the output
-#ifdef WITH_OPENCV
                 output = DsExampleProcess(dsexample->dsexamplelib_ctx, batch->cvmat[i].data);
-#else
-                output = DsExampleProcess(
-                    dsexample->dsexamplelib_ctx,
-                    (unsigned char *)batch->inter_buf->surfaceList[i].mappedAddr.addr[0]);
-#endif
                 // Attach the metadata for the full frame
                 attach_metadata_full_frame(dsexample, batch->frames[i].frame_meta, scale_ratio,
                                            output, i);
@@ -1209,14 +1152,8 @@ static gpointer gst_dsexample_output_loop(gpointer data)
                     obj_meta->rect_params.height < MIN_INPUT_OBJECT_HEIGHT)
                     continue;
 
-                    // Process the object crop to obtain label
-#ifdef WITH_OPENCV
+                // Process the object crop to obtain label
                 output = DsExampleProcess(dsexample->dsexamplelib_ctx, batch->cvmat[i].data);
-#else
-                output = DsExampleProcess(
-                    dsexample->dsexamplelib_ctx,
-                    (unsigned char *)batch->inter_buf->surfaceList[i].mappedAddr.addr[0]);
-#endif
 
                 // Attach labels for the object
                 attach_metadata_object(dsexample, obj_meta, output);
@@ -1227,12 +1164,8 @@ static gpointer gst_dsexample_output_loop(gpointer data)
 
         g_mutex_lock(&dsexample->process_lock);
 
-#ifdef WITH_OPENCV
-        g_queue_push_tail(dsexample->buf_queue, batch->cvmat);
-#else
-        g_queue_push_tail(dsexample->buf_queue, batch->inter_buf);
-#endif
-        g_cond_broadcast(&dsexample->buf_cond);
+        g_queue_push_tail(dsexample->cvmat_queue, batch->cvmat);
+        g_cond_broadcast(&dsexample->cvmat_cond);
 
         nvtxDomainRangePop(dsexample->nvtx_domain);
     }
@@ -1256,7 +1189,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dsexample,
                   DESCRIPTION,
                   dsexample_plugin_init,
-                  "6.3",
+                  "5.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

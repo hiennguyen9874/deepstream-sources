@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -35,12 +35,7 @@ spot-calibration-file=csv_files/nvspot_2M.csv
 #########################################
 
 [surface0]
-# 1=PushBroom,              2=VertRadCyl,               3=Perspective_Perspective,
-# 4=FISH_PERSPECTIVE,       5=FISH_FISH,                6=FISH_CYL,
-# 7=FISH_EQUIRECT,          8=FISH_PANINI,              9=PERSPECTIVE_EQUIRECT,
-# 10=PERSPECTIVE_PANINI,    11=EQUIRECT_CYLINDER,       12=EQUIRECT_EQUIRECT,
-# 13=EQUIRECT_FISHEYE,      14=EQUIRECT_PANINI,         15=EQUIRECT_PERSPECTIVE,
-# 16=EQUIRECT_PUSHBROOM,    17=EQUIRECT_STEREOGRAPHIC,  18=EQUIRECT_VERTCYLINDER
+# 1=PushBroom, 2=VertRadCyl
 projection-type=1
 surface-index=0
 #dewarped surface parameters
@@ -52,10 +47,6 @@ pitch=90
 yaw=0
 roll=0
 focal-length=437
-# Useful for Panini, Stereographic and Pushbroom projections
-# For all other projections "control" parameter has no effect
-# control=0 is identical to perspective output
-control=0.6
 
 [surface1]
 # 1=PushBroom, 2=VertRadCyl

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -112,6 +112,28 @@ std::string dimsToString(const nvinfer1::Dims d)
     return s.str();
 }
 
+void displayDimType(const nvinfer1::Dims d)
+{
+    std::cout << "(" << d.nbDims << ") ";
+    for (int i = 0; i < d.nbDims; ++i) {
+        switch (d.type[i]) {
+        case nvinfer1::DimensionType::kSPATIAL:
+            std::cout << "kSPATIAL ";
+            break;
+        case nvinfer1::DimensionType::kCHANNEL:
+            std::cout << "kCHANNEL ";
+            break;
+        case nvinfer1::DimensionType::kINDEX:
+            std::cout << "kINDEX ";
+            break;
+        case nvinfer1::DimensionType::kSEQUENCE:
+            std::cout << "kSEQUENCE ";
+            break;
+        }
+    }
+    std::cout << std::endl;
+}
+
 int getNumChannels(nvinfer1::ITensor *t)
 {
     nvinfer1::Dims d = t->getDimensions();
@@ -139,10 +161,10 @@ nvinfer1::ILayer *netAddMaxpool(int layerIdx,
     int stride = std::stoi(block.at("stride"));
 
     nvinfer1::IPoolingLayer *pool =
-        network->addPoolingNd(*input, nvinfer1::PoolingType::kMAX, nvinfer1::Dims{2, {size, size}});
+        network->addPooling(*input, nvinfer1::PoolingType::kMAX, nvinfer1::DimsHW{size, size});
     assert(pool);
     std::string maxpoolLayerName = "maxpool_" + std::to_string(layerIdx);
-    pool->setStrideNd(nvinfer1::Dims{2, {stride, stride}});
+    pool->setStride(nvinfer1::DimsHW{stride, stride});
     pool->setPaddingMode(nvinfer1::PaddingMode::kSAME_UPPER);
     pool->setName(maxpoolLayerName.c_str());
 
@@ -194,13 +216,13 @@ nvinfer1::ILayer *netAddConvLinear(int layerIdx,
     }
     convWt.values = val;
     trtWeights.push_back(convWt);
-    nvinfer1::IConvolutionLayer *conv = network->addConvolutionNd(
-        *input, filters, nvinfer1::Dims{2, {kernelSize, kernelSize}}, convWt, convBias);
+    nvinfer1::IConvolutionLayer *conv = network->addConvolution(
+        *input, filters, nvinfer1::DimsHW{kernelSize, kernelSize}, convWt, convBias);
     assert(conv != nullptr);
     std::string convLayerName = "conv_" + std::to_string(layerIdx);
     conv->setName(convLayerName.c_str());
-    conv->setStrideNd(nvinfer1::Dims{2, {stride, stride}});
-    conv->setPaddingNd(nvinfer1::Dims{2, {pad, pad}});
+    conv->setStride(nvinfer1::DimsHW{stride, stride});
+    conv->setPadding(nvinfer1::DimsHW{pad, pad});
 
     return conv;
 }
@@ -286,13 +308,13 @@ nvinfer1::ILayer *netAddConvBNLeaky(int layerIdx,
     trtWeights.push_back(convWt);
     nvinfer1::Weights convBias{nvinfer1::DataType::kFLOAT, nullptr, 0};
     trtWeights.push_back(convBias);
-    nvinfer1::IConvolutionLayer *conv = network->addConvolutionNd(
-        *input, filters, nvinfer1::Dims{2, {kernelSize, kernelSize}}, convWt, convBias);
+    nvinfer1::IConvolutionLayer *conv = network->addConvolution(
+        *input, filters, nvinfer1::DimsHW{kernelSize, kernelSize}, convWt, convBias);
     assert(conv != nullptr);
     std::string convLayerName = "conv_" + std::to_string(layerIdx);
     conv->setName(convLayerName.c_str());
-    conv->setStrideNd(nvinfer1::Dims{2, {stride, stride}});
-    conv->setPaddingNd(nvinfer1::Dims{2, {pad, pad}});
+    conv->setStride(nvinfer1::DimsHW{stride, stride});
+    conv->setPadding(nvinfer1::DimsHW{pad, pad});
 
     /***** BATCHNORM LAYER *****/
     /***************************/
@@ -355,8 +377,10 @@ nvinfer1::ILayer *netAddUpsample(int layerIdx,
     int w = inpDims.d[2];
     int stride = std::stoi(block.at("stride"));
     // add pre multiply matrix as a constant
-    nvinfer1::Dims preDims{3, {1, stride * h, w}};
-
+    nvinfer1::Dims preDims{3,
+                           {1, stride * h, w},
+                           {nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kSPATIAL,
+                            nvinfer1::DimensionType::kSPATIAL}};
     int size = stride * h * w;
     nvinfer1::Weights preMul{nvinfer1::DataType::kFLOAT, nullptr, size};
     float *preWt = new float[size];
@@ -384,8 +408,10 @@ nvinfer1::ILayer *netAddUpsample(int layerIdx,
     std::string preLayerName = "preMul_" + std::to_string(layerIdx);
     preM->setName(preLayerName.c_str());
     // add post multiply matrix as a constant
-    nvinfer1::Dims postDims{3, {1, h, stride * w}};
-
+    nvinfer1::Dims postDims{3,
+                            {1, h, stride * w},
+                            {nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kSPATIAL,
+                             nvinfer1::DimensionType::kSPATIAL}};
     size = stride * h * w;
     nvinfer1::Weights postMul{nvinfer1::DataType::kFLOAT, nullptr, size};
     float *postWt = new float[size];

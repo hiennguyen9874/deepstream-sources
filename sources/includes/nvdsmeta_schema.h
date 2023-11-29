@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -68,8 +68,6 @@ typedef enum NvDsObjectType {
     NVDS_OBJECT_TYPE_VEHICLE_EXT,
     NVDS_OBJECT_TYPE_PERSON_EXT,
     NVDS_OBJECT_TYPE_FACE_EXT,
-    NVDS_OBJECT_TYPE_PRODUCT,     /** New Object Type for Product */
-    NVDS_OBJECT_TYPE_PRODUCT_EXT, /** New Object Type for Product */
     /** Reserved for future use. Custom objects must be assigned values
      greater than this. */
     NVDS_OBJECT_TYPE_RESERVED = 0x100,
@@ -86,7 +84,6 @@ typedef enum NvDsObjectType {
 typedef enum NvDsPayloadType {
     NVDS_PAYLOAD_DEEPSTREAM,
     NVDS_PAYLOAD_DEEPSTREAM_MINIMAL,
-    NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF,
     /** Reserved for future use. Custom payloads must be assigned values
      greater than this. */
     NVDS_PAYLOAD_RESERVED = 0x100,
@@ -133,16 +130,6 @@ typedef struct NvDsObjectSignature {
     /** Holds the number of signature values in @a signature. */
     guint size;
 } NvDsObjectSignature;
-
-/**
- * Holds a product object's parameters.
- */
-typedef struct NvDsProductObjectExt {
-    gchar *brand; /**< Holds the product brand */
-    gchar *type;  /**< Holds the product type */
-    gchar *shape; /**< Holds the product shape */
-    GList *mask;
-} NvDsProductObjectExt;
 
 /**
  * Holds a vehicle object's parameters.
@@ -233,42 +220,6 @@ typedef struct NvDsFaceObjectWithExt {
 } NvDsFaceObjectExt;
 
 /**
- * Holds a joint's position and confidence.
- */
-typedef struct NvDsJoint {
-    float x;          /**< Holds the joint x position in pixels.*/
-    float y;          /**< Holds the joint y position in pixels.*/
-    float z;          /**< Holds the joint z position in pixels.*/
-    float confidence; /**< Holds the confidence of the joint. */
-} NvDsJoint;
-
-/**
- * Holds a body pose's joint points.
- */
-typedef struct NvDsJoints {
-    NvDsJoint *joints; /**< Holds the joints of the person.*/
-    int num_joints;    /**< Holds the number of joints.*/
-    int pose_type; /**< Holds the type of pose 0 - 2D, 1 - 3D , integer to support 2.5D in future*/
-} NvDsJoints;
-
-/**
- * Holds an embedding model's parameters.
- */
-typedef struct NvDsEmbedding {
-    float *embedding_vector; /**< Holds the embedding vector */
-    guint embedding_length;  /**< Holds the length of embedding vector */
-} NvDsEmbedding;
-
-/**
- * Holds a product object's parameters.
- */
-typedef struct NvDsProductObject {
-    gchar *brand; /**< Holds the product brand */
-    gchar *type;  /**< Holds the product type */
-    gchar *shape; /**< Holds the product shape */
-} NvDsProductObject;
-
-/**
  * Holds event message meta data.
  *
  * You can attach various types of objects (vehicle, person, face, etc.)
@@ -305,11 +256,12 @@ typedef struct NvDsEventMsgMeta {
     /** Holds the confidence level of the inference. */
     gdouble confidence;
     /** Holds the object's tracking ID. */
-    guint64 trackingId;
+    gint trackingId;
     /** Holds a pointer to the generated event's timestamp. */
     gchar *ts;
     /** Holds a pointer to the detected or inferred object's ID. */
     gchar *objectId;
+
     /** Holds a pointer to a string containing the sensor's identity. */
     gchar *sensorStr;
     /** Holds a pointer to a string containing other attributes associated with
@@ -323,10 +275,6 @@ typedef struct NvDsEventMsgMeta {
     gpointer extMsg;
     /** Holds the size of the custom object at @a extMsg. */
     guint extMsgSize;
-    /** Holds the object's pose information */
-    NvDsJoints pose;
-    /** Holds the object's embedding information */
-    NvDsEmbedding embedding;
 } NvDsEventMsgMeta;
 
 /**
@@ -338,16 +286,6 @@ typedef struct _NvDsEvent {
     /** Holds a pointer to event metadata. */
     NvDsEventMsgMeta *metadata;
 } NvDsEvent;
-
-/**
- * Holds data for any user defined custom message to be attached to the payload
- * message : custom message to be attached
- * size    : size of the custom message
- */
-typedef struct _NvDsCustomMsgInfo {
-    void *message;
-    guint size;
-} NvDsCustomMsgInfo;
 
 /**
  * Holds payload metadata.

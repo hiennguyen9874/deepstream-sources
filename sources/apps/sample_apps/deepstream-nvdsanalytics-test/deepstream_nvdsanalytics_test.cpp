@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <math.h>
@@ -52,16 +51,10 @@
 
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
-#define MUXER_BATCH_TIMEOUT_USEC 4000000
+#define MUXER_BATCH_TIMEOUT_USEC 40000
 
 #define TILED_OUTPUT_WIDTH 1920
 #define TILED_OUTPUT_HEIGHT 1080
-
-#define NVINFER_PLUGIN "nvinfer"
-#define NVINFERSERVER_PLUGIN "nvinferserver"
-
-#define PGIE_CONFIG_FILE "nvdsanalytics_pgie_config.txt"
-#define PGIE_NVINFERSERVER_CONFIG_FILE "nvdsanalytics_pgie_nvinferserver_config.txt"
 
 /* NVIDIA Decoder source pad memory feature. This feature signifies that source
  * pads having this capability will push GstBuffers containing cuda buffers. */
@@ -292,52 +285,28 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     return bin;
 }
 
-static void usage(const char *bin)
-{
-    g_printerr("Usage: %s <uri1> [uri2] ... [uriN]\n", bin);
-    g_printerr("For nvinferserver, Usage: %s -t inferserver <uri1> [uri2] ... [uriN]\n", bin);
-}
-
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *nvtracker = NULL,
                *nvdsanalytics = NULL, *nvvidconv = NULL, *nvosd = NULL, *tiler = NULL, *queue1,
                *queue2, *queue3, *queue4, *queue5, *queue6, *queue7;
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *nvdsanalytics_src_pad = NULL;
     guint i, num_sources;
     guint tiler_rows, tiler_columns;
     guint pgie_batch_size;
-    gboolean is_nvinfer_server = FALSE;
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
 
     /* Check input arguments */
     if (argc < 2) {
-        usage(argv[0]);
+        g_printerr("Usage: %s <uri1> [uri2] ... [uriN] \n", argv[0]);
         return -1;
     }
-
-    if (argc >= 2 && !strcmp("-t", argv[1])) {
-        if (!strcmp("inferserver", argv[2])) {
-            is_nvinfer_server = TRUE;
-        } else {
-            usage(argv[0]);
-            return -1;
-        }
-        g_print("Using nvinferserver as the inference plugin\n");
-    }
-
-    if (is_nvinfer_server) {
-        num_sources = argc - 3;
-    } else {
-        num_sources = argc - 1;
-    }
+    num_sources = argc - 1;
 
     /* Standard GStreamer initialization */
     gst_init(&argc, &argv);
@@ -358,13 +327,8 @@ int main(int argc, char *argv[])
 
     for (i = 0; i < num_sources; i++) {
         GstPad *sinkpad, *srcpad;
-        GstElement *source_bin;
         gchar pad_name[16] = {};
-        if (is_nvinfer_server) {
-            source_bin = create_source_bin(i, argv[i + 3]);
-        } else {
-            source_bin = create_source_bin(i, argv[i + 1]);
-        }
+        GstElement *source_bin = create_source_bin(i, argv[i + 1]);
 
         if (!source_bin) {
             g_printerr("Failed to create source bin. Exiting.\n");
@@ -395,9 +359,8 @@ int main(int argc, char *argv[])
         gst_object_unref(sinkpad);
     }
 
-    /* Use nvinfer/nvinferserver to infer on batched frame. */
-    pgie = gst_element_factory_make(is_nvinfer_server ? NVINFERSERVER_PLUGIN : NVINFER_PLUGIN,
-                                    "primary-nvinference-engine");
+    /* Use nvinfer to infer on batched frame. */
+    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
 
     /* Use nvtracker to track detections on batched frame. */
     nvtracker = gst_element_factory_make("nvtracker", "nvtracker");
@@ -425,11 +388,10 @@ int main(int argc, char *argv[])
     queue7 = gst_element_factory_make("queue", "queue7");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
-    } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-    }
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!pgie || !nvtracker || !nvdsanalytics || !tiler || !nvvidconv || !nvosd || !sink ||
         !queue1 || !queue2 || !queue3 || !queue4 || !queue5 || !queue6 || !queue7) {
@@ -437,22 +399,23 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+#ifdef PLATFORM_TEGRA
+    if (!transform) {
+        g_printerr("One tegra element could not be created. Exiting.\n");
+        return -1;
+    }
+#endif
+
     g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
                  "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
-    /* Configure the nvinfer element using the nvinfer/nvinferserver config file. */
-    if (is_nvinfer_server) {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_NVINFERSERVER_CONFIG_FILE, NULL);
-    } else {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
-    }
+    /* Configure the nvinfer element using the nvinfer config file. */
+    g_object_set(G_OBJECT(pgie), "config-file-path", "nvdsanalytics_pgie_config.txt", NULL);
 
     /* Configure the nvtracker element for using the particular tracker algorithm. */
     g_object_set(G_OBJECT(nvtracker), "ll-lib-file",
-                 "/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so",
-                 "ll-config-file",
-                 "../../../../samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml",
-                 "tracker-width", 640, "tracker-height", 480, NULL);
+                 "/opt/nvidia/deepstream/deepstream-5.0/lib/libnvds_nvdcf.so", "ll-config-file",
+                 "tracker_config.yml", "tracker-width", 640, "tracker-height", 480, NULL);
 
     /* Configure the nvdsanalytics element for using the particular analytics config file*/
     g_object_set(G_OBJECT(nvdsanalytics), "config-file", "config_nvdsanalytics.txt", NULL);
@@ -480,10 +443,26 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
+#ifdef PLATFORM_TEGRA
+    gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, nvtracker, queue3, nvdsanalytics,
+                     queue4, tiler, queue5, nvvidconv, queue6, nvosd, queue7, transform, sink,
+                     NULL);
+
+    /* we link the elements together, with queues in between
+     * nvstreammux -> nvinfer -> nvtracker -> nvdsanalytics -> nvtiler ->
+     * nvvideoconvert -> nvosd -> transform -> sink
+     */
+    if (!gst_element_link_many(streammux, queue1, pgie, queue2, nvtracker, queue3, nvdsanalytics,
+                               queue4, tiler, queue5, nvvidconv, queue6, nvosd, queue7, transform,
+                               sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
+    }
+#else
     gst_bin_add_many(GST_BIN(pipeline), queue1, pgie, queue2, nvtracker, queue3, nvdsanalytics,
                      queue4, tiler, queue5, nvvidconv, queue6, nvosd, queue7, sink, NULL);
     /* we link the elements together
-     * nvstreammux -> pgie -> nvtracker -> nvdsanalytics -> nvtiler ->
+     * nvstreammux -> nvinfer -> nvtracker -> nvdsanalytics -> nvtiler ->
      * nvvideoconvert -> nvosd -> sink
      */
     if (!gst_element_link_many(streammux, queue1, pgie, queue2, nvtracker, queue3, nvdsanalytics,
@@ -492,6 +471,7 @@ int main(int argc, char *argv[])
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }
+#endif
 
     /* Lets add probe to get informed of the meta data generated, we add probe to
      * the sink pad of the nvdsanalytics element, since by that time, the buffer
@@ -506,7 +486,11 @@ int main(int argc, char *argv[])
     gst_object_unref(nvdsanalytics_src_pad);
 
     /* Set the pipeline to "playing" state */
-    g_print("Now playing...\n");
+    g_print("Now playing:");
+    for (i = 0; i < num_sources; i++) {
+        g_print(" %s,", argv[i + 1]);
+    }
+    g_print("\n");
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

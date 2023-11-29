@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -20,16 +20,11 @@
 # DEALINGS IN THE SOFTWARE.
 ################################################################################
 
-CUDA_VER?=
-ifeq ($(CUDA_VER),)
-  $(error "CUDA_VER is not set")
-endif
-
 APP:= deepstream-test5-app
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=5.0
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
@@ -40,41 +35,30 @@ endif
 
 SRCS:= deepstream_test5_app_main.c deepstream_utc.c
 SRCS+= ../deepstream-app/deepstream_app.c ../deepstream-app/deepstream_app_config_parser.c
-SRCS+= ../deepstream-app/deepstream_app_config_parser_yaml.cpp
 SRCS+= $(wildcard ../../apps-common/src/*.c)
-SRCS+= $(wildcard ../../apps-common/src/deepstream-yaml/*.cpp)
 
 INCS:= $(wildcard *.h)
 
 PKGS:= gstreamer-1.0 gstreamer-video-1.0 x11 json-glib-1.0
 
 OBJS:= $(SRCS:.c=.o)
-OBJS:= $(OBJS:.cpp=.o)
 
-CFLAGS+= -I../../apps-common/includes \
-		 -I../../../includes \
-		 -I../deepstream-app/ -DDS_VERSION_MINOR=0 -DDS_VERSION_MAJOR=5 \
-		 -I /usr/local/cuda-$(CUDA_VER)/include
+CFLAGS+= -I../../apps-common/includes -I../../../includes -I../deepstream-app/ -DDS_VERSION_MINOR=0 -DDS_VERSION_MAJOR=5
 
-LIBS:= -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart
+LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvdsgst_helper -lnvdsgst_smartrecord -lnvds_utils -lnvds_msgbroker -lm \
+       -lgstrtspserver-1.0 -ldl -Wl,-rpath,$(LIB_INSTALL_DIR)
 
-LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lnvdsgst_helper -lnvdsgst_customhelper -lnvdsgst_smartrecord -lnvds_utils -lnvds_msgbroker -lm \
-       -lyaml-cpp -lcuda -lgstrtspserver-1.0 -ldl -Wl,-rpath,$(LIB_INSTALL_DIR)
+CFLAGS+= `pkg-config --cflags $(PKGS)`
 
-CFLAGS+= $(shell pkg-config --cflags $(PKGS))
-
-LIBS+= $(shell pkg-config --libs $(PKGS))
+LIBS+= `pkg-config --libs $(PKGS)`
 
 all: $(APP)
 
 %.o: %.c $(INCS) Makefile
 	$(CC) -c -o $@ $(CFLAGS) $<
 
-%.o: %.cpp $(INCS) Makefile
-	$(CXX) -c -o $@ $(CFLAGS) $<
-
 $(APP): $(OBJS) Makefile
-	$(CXX) -o $(APP) $(OBJS) $(LIBS)
+	$(CC) -o $(APP) $(OBJS) $(LIBS)
 
 install: $(APP)
 	cp -rv $(APP) $(APP_INSTALL_DIR)

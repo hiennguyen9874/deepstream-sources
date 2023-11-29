@@ -1,13 +1,12 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
+ * NVIDIA Corporation and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA Corporation is strictly prohibited.
+ *
  */
 
 #include "gstnvinfer.h"
@@ -15,7 +14,6 @@
 #include <string.h>
 #include <sys/time.h>
 
-#include <algorithm>
 #include <cassert>
 #include <condition_variable>
 #include <list>
@@ -23,17 +21,13 @@
 #include <mutex>
 #include <sstream>
 #include <thread>
-#include <vector>
 
-#include "gst-nvdscustomevent.h"
 #include "gst-nvevent.h"
 #include "gstnvdsmeta.h"
 #include "gstnvinfer_allocator.h"
 #include "gstnvinfer_impl.h"
 #include "gstnvinfer_meta_utils.h"
 #include "gstnvinfer_property_parser.h"
-#include "gstnvinfer_yaml_parser.h"
-#include "nvdspreprocess_meta.h"
 
 using namespace gstnvinfer;
 using namespace nvdsinfer;
@@ -96,11 +90,6 @@ static GQuark _dsmeta_quark = 0;
 #define DEFAULT_OUTPUT_WRITE_TO_FILE FALSE
 #define DEFAULT_OUTPUT_TENSOR_META FALSE
 #define DEFAULT_OUTPUT_INSTANCE_MASK FALSE
-#define DEFAULT_INPUT_TENSOR_META FALSE
-#define DEFAULT_CLIP_OBJECT_OUTSIDE_ROI TRUE
-#define DEFAULT_CLIP_OBJECT_TO_ROI_BOUNDARY FALSE
-
-#define NVTX_DEEPBLUE_COLOR 0xFF667EBE
 
 /* By default NVIDIA Hardware allocated memory flows through the pipeline. We
  * will be processing on this type of memory only. */
@@ -331,32 +320,6 @@ static void gst_nvinfer_class_init(GstNvInferClass *klass)
             DEFAULT_OUTPUT_INSTANCE_MASK,
             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
 
-    g_object_class_install_property(
-        gobject_class, PROP_INPUT_TENSOR_META,
-        g_param_spec_boolean(
-            "input-tensor-meta", "Input Tensor Meta",
-            "Use preprocessed input tensors attached as metadata instead of preprocessing inside "
-            "the plugin",
-            DEFAULT_INPUT_TENSOR_META,
-            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
-
-    g_object_class_install_property(
-        gobject_class, PROP_CLIP_OBJECT_OUTSIDE_ROI,
-        g_param_spec_boolean(
-            "clip-object-outside-roi", "Clip Object Outside Roi",
-            "Clip the object bounding-box which lies outside the roi specified by nvdspreprosess "
-            "plugin",
-            DEFAULT_CLIP_OBJECT_OUTSIDE_ROI,
-            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
-
-    g_object_class_install_property(
-        gobject_class, PROP_CROP_OBJECTS_TO_ROI_BOUNDARY,
-        g_param_spec_boolean(
-            "crop-objects-to-roi-boundary", "Crop Object to Roi Boundary",
-            "Clip the object bounding-box which lies outside the roi boundary",
-            DEFAULT_CLIP_OBJECT_TO_ROI_BOUNDARY,
-            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
-
     /** install signal MODEL_UPDATED */
     gst_nvinfer_signals[SIGNAL_MODEL_UPDATED] =
         g_signal_new("model-updated", G_TYPE_FROM_CLASS(klass), G_SIGNAL_RUN_LAST,
@@ -398,8 +361,6 @@ static void gst_nvinfer_init(GstNvInfer *nvinfer)
     nvinfer->filter_out_class_ids = new std::set<uint>;
     nvinfer->output_tensor_meta = DEFAULT_OUTPUT_TENSOR_META;
     nvinfer->output_instance_mask = DEFAULT_OUTPUT_INSTANCE_MASK;
-    nvinfer->clip_object_outside_roi = DEFAULT_CLIP_OBJECT_OUTSIDE_ROI;
-    nvinfer->crop_objects_to_roi_boundary = DEFAULT_CLIP_OBJECT_TO_ROI_BOUNDARY;
 
     nvinfer->max_batch_size = impl->m_InitParams->maxBatchSize = DEFAULT_BATCH_SIZE;
     nvinfer->interval = DEFAULT_INTERVAL;
@@ -480,14 +441,8 @@ static void gst_nvinfer_set_property(GObject *object,
         /* Parse the initialization parameters from the config file. This function
          * gives preference to values set through the set_property function over
          * the values set in the config file. */
-        if (g_str_has_suffix(nvinfer->config_file_path, ".yml") ||
-            g_str_has_suffix(nvinfer->config_file_path, ".yaml")) {
-            nvinfer->config_file_parse_successful = gst_nvinfer_parse_config_file_yaml(
-                nvinfer, impl->m_InitParams.get(), nvinfer->config_file_path);
-        } else {
-            nvinfer->config_file_parse_successful = gst_nvinfer_parse_config_file(
-                nvinfer, impl->m_InitParams.get(), nvinfer->config_file_path);
-        }
+        nvinfer->config_file_parse_successful = gst_nvinfer_parse_config_file(
+            nvinfer, impl->m_InitParams.get(), nvinfer->config_file_path);
     } break;
     case PROP_OPERATE_ON_GIE_ID:
         nvinfer->operate_on_gie_id = g_value_get_int(value);
@@ -500,8 +455,6 @@ static void gst_nvinfer_set_property(GObject *object,
         while (str.peek() != EOF) {
             gint class_id;
             str >> class_id;
-            if (class_id < 0)
-                continue;
             class_ids.push_back(class_id);
             max_class_id = MAX(max_class_id, class_id);
             str.get();
@@ -554,16 +507,6 @@ static void gst_nvinfer_set_property(GObject *object,
         break;
     case PROP_OUTPUT_INSTANCE_MASK:
         nvinfer->output_instance_mask = g_value_get_boolean(value);
-        break;
-    case PROP_INPUT_TENSOR_META:
-        nvinfer->input_tensor_from_meta = g_value_get_boolean(value);
-        impl->m_InitParams->inputFromPreprocessedTensor = g_value_get_boolean(value);
-        break;
-    case PROP_CLIP_OBJECT_OUTSIDE_ROI:
-        nvinfer->clip_object_outside_roi = g_value_get_boolean(value);
-        break;
-    case PROP_CROP_OBJECTS_TO_ROI_BOUNDARY:
-        nvinfer->crop_objects_to_roi_boundary = g_value_get_boolean(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -637,15 +580,6 @@ static void gst_nvinfer_get_property(GObject *object,
     case PROP_OUTPUT_INSTANCE_MASK:
         g_value_set_boolean(value, nvinfer->output_instance_mask);
         break;
-    case PROP_INPUT_TENSOR_META:
-        g_value_set_boolean(value, nvinfer->input_tensor_from_meta);
-        break;
-    case PROP_CLIP_OBJECT_OUTSIDE_ROI:
-        g_value_set_boolean(value, nvinfer->clip_object_outside_roi);
-        break;
-    case PROP_CROP_OBJECTS_TO_ROI_BOUNDARY:
-        g_value_set_boolean(value, nvinfer->crop_objects_to_roi_boundary);
-        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -697,11 +631,6 @@ static void gst_nvinfer_reset_init_params(GstNvInfer *nvinfer)
     if (nvinfer->is_prop_set->at(PROP_GPU_DEVICE_ID))
         impl->m_InitParams->gpuID = prev_params->gpuID;
 
-    if (nvinfer->is_prop_set->at(PROP_UNIQUE_ID))
-        impl->m_InitParams->uniqueID = prev_params->uniqueID;
-    if (nvinfer->is_prop_set->at(PROP_INPUT_TENSOR_META))
-        impl->m_InitParams->inputFromPreprocessedTensor = prev_params->inputFromPreprocessedTensor;
-
     delete prev_params->perClassDetectionParams;
     g_strfreev(prev_params->outputLayerNames);
     g_strfreev(prev_params->outputIOFormats);
@@ -740,10 +669,7 @@ static gboolean gst_nvinfer_sink_event(GstBaseTransform *trans, GstEvent *event)
 
         g_mutex_lock(&nvinfer->process_lock);
         /* Push the event marker batch in the processing queue. */
-        if (nvinfer->input_queue_thread)
-            g_queue_push_tail(nvinfer->input_queue, batch);
-        else
-            g_queue_push_tail(nvinfer->process_queue, batch);
+        g_queue_push_tail(nvinfer->input_queue, batch);
         g_cond_broadcast(&nvinfer->process_cond);
 
         /* Wait for all the remaining batches in the queue including the event
@@ -778,14 +704,6 @@ static gboolean gst_nvinfer_sink_event(GstBaseTransform *trans, GstEvent *event)
         auto result = nvinfer->source_info->find(source_id);
         if (result != nvinfer->source_info->end())
             result->second.object_history_map.clear();
-    }
-
-    if ((GstNvDsCustomEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_INFER_INTERVAL_UPDATE) {
-        gchar *stream_id = NULL;
-
-        g_mutex_lock(&nvinfer->process_lock);
-        gst_nvevent_parse_infer_interval_update(event, &stream_id, &nvinfer->interval);
-        g_mutex_unlock(&nvinfer->process_lock);
     }
 
     if (GST_EVENT_TYPE(event) == GST_EVENT_EOS) {
@@ -856,21 +774,9 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
     /* Set the number of output buffers that should be allocated by NvDsInferContext.
      * Should allocate more buffers if the output tensor buffers will be attached
      * as meta to GstBuffers and pushed downstream. */
-
-    init_params->outputBufferPoolSize =
-        std::max<uint>(init_params->outputBufferPoolSize, NVDSINFER_MIN_OUTPUT_BUFFERPOOL_SIZE);
-
+    init_params->outputBufferPoolSize = NVDSINFER_MIN_OUTPUT_BUFFERPOOL_SIZE;
     if (nvinfer->output_tensor_meta || IS_SEGMENTATION_INSTANCE(nvinfer))
-        init_params->outputBufferPoolSize = std::max<uint>(init_params->outputBufferPoolSize,
-                                                           NVDSINFER_CTX_OUT_POOL_SIZE_FLOW_META);
-
-    if (nvinfer->output_tensor_meta || init_params->autoIncMem == 0) {
-        GST_ELEMENT_WARNING(nvinfer, LIBRARY, SETTINGS,
-                            ("NvInfer output-tensor-meta is enabled but init_params auto "
-                             "increase memory (auto-inc-mem) is disabled. The bufferpool "
-                             "will not be automatically resized."),
-                            (nullptr));
-    }
+        init_params->outputBufferPoolSize = NVDSINFER_CTX_OUT_POOL_SIZE_FLOW_META;
 
     /* Create the NvDsInferContext instance. */
     status = createNvDsInferContext(&infer_context, *init_params, nvinfer, gst_nvinfer_logger);
@@ -905,27 +811,41 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
     nvinfer->process_queue = g_queue_new();
     nvinfer->input_queue = g_queue_new();
 
-    /* Set the NvBufSurfTransform config parameters. */
-    nvinfer->transform_config_params.gpu_id = nvinfer->gpu_id;
+    /* Create a buffer pool for internal memory required for scaling frames to
+     * network resolution / cropping objects. The pool allocates
+     * INTERNAL_BUF_POOL_SIZE buffers at start and keeps reusing them. */
+    auto pool_deleter = [](GstBufferPool *p) {
+        if (p)
+            gst_object_unref(p);
+    };
+    std::unique_ptr<GstBufferPool, decltype(pool_deleter)> pool_ptr(gst_buffer_pool_new(),
+                                                                    pool_deleter);
 
-    NvBufSurfTransformSetSessionParams(&nvinfer->transform_config_params);
+    auto config_deleter = [](GstStructure *s) {
+        if (s)
+            gst_structure_free(s);
+    };
+    std::unique_ptr<GstStructure, decltype(config_deleter)> config_ptr(
+        gst_buffer_pool_get_config(pool_ptr.get()), config_deleter);
+    gst_buffer_pool_config_set_params(config_ptr.get(), nullptr, sizeof(GstNvInferMemory),
+                                      INTERNAL_BUF_POOL_SIZE, INTERNAL_BUF_POOL_SIZE);
 
     /* Based on the network input requirements decide the buffer pool color format. */
     switch (init_params->networkInputFormat) {
     case NvDsInferFormat_RGB:
     case NvDsInferFormat_BGR:
-        if (nvinfer->transform_config_params.compute_mode == NvBufSurfTransformCompute_VIC) {
-            color_format = NVBUF_COLOR_FORMAT_RGBA;
-        } else {
-            color_format = NVBUF_COLOR_FORMAT_RGB;
-        }
+#ifdef IS_TEGRA
+        color_format = NVBUF_COLOR_FORMAT_RGBA;
+#else
+        color_format = NVBUF_COLOR_FORMAT_RGB;
+#endif
         break;
     case NvDsInferFormat_GRAY:
-        if (nvinfer->transform_config_params.compute_mode == NvBufSurfTransformCompute_VIC) {
-            color_format = NVBUF_COLOR_FORMAT_NV12;
-        } else {
-            color_format = NVBUF_COLOR_FORMAT_GRAY8;
-        }
+#ifdef IS_TEGRA
+        color_format = NVBUF_COLOR_FORMAT_NV12;
+#else
+        color_format = NVBUF_COLOR_FORMAT_GRAY8;
+#endif
         break;
     default:
         GST_ELEMENT_ERROR(nvinfer, LIBRARY, SETTINGS,
@@ -934,53 +854,31 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
         return FALSE;
     }
 
-    if (!nvinfer->input_tensor_from_meta) {
-        /* Create a buffer pool for internal memory required for scaling frames to
-         * network resolution / cropping objects. The pool allocates
-         * INTERNAL_BUF_POOL_SIZE buffers at start and keeps reusing them. */
-        auto pool_deleter = [](GstBufferPool *p) {
-            if (p)
-                gst_object_unref(p);
-        };
-        std::unique_ptr<GstBufferPool, decltype(pool_deleter)> pool_ptr(gst_buffer_pool_new(),
-                                                                        pool_deleter);
+    /* Create a new GstNvInferAllocator instance. Allocator has methods to allocate
+     * and free custom memories. */
+    auto allocator_deleter = [](GstAllocator *a) {
+        if (a)
+            gst_object_unref(a);
+    };
+    std::unique_ptr<GstAllocator, decltype(allocator_deleter)> allocator_ptr(
+        gst_nvinfer_allocator_new(nvinfer->network_width, nvinfer->network_height, color_format,
+                                  nvinfer->max_batch_size, nvinfer->gpu_id),
+        allocator_deleter);
+    memset(&allocation_params, 0, sizeof(allocation_params));
+    gst_buffer_pool_config_set_allocator(config_ptr.get(), allocator_ptr.get(), &allocation_params);
 
-        auto config_deleter = [](GstStructure *s) {
-            if (s)
-                gst_structure_free(s);
-        };
-        std::unique_ptr<GstStructure, decltype(config_deleter)> config_ptr(
-            gst_buffer_pool_get_config(pool_ptr.get()), config_deleter);
-        gst_buffer_pool_config_set_params(config_ptr.get(), nullptr, sizeof(GstNvInferMemory),
-                                          INTERNAL_BUF_POOL_SIZE, INTERNAL_BUF_POOL_SIZE);
+    if (!gst_buffer_pool_set_config(pool_ptr.get(), config_ptr.get())) {
+        GST_ELEMENT_ERROR(nvinfer, RESOURCE, FAILED, ("Failed to set config on buffer pool"),
+                          (nullptr));
+        return FALSE;
+    }
+    config_ptr.release();
 
-        /* Create a new GstNvInferAllocator instance. Allocator has methods to allocate
-         * and free custom memories. */
-        auto allocator_deleter = [](GstAllocator *a) {
-            if (a)
-                gst_object_unref(a);
-        };
-        std::unique_ptr<GstAllocator, decltype(allocator_deleter)> allocator_ptr(
-            gst_nvinfer_allocator_new(nvinfer->network_width, nvinfer->network_height, color_format,
-                                      nvinfer->max_batch_size, nvinfer->gpu_id),
-            allocator_deleter);
-        memset(&allocation_params, 0, sizeof(allocation_params));
-        gst_buffer_pool_config_set_allocator(config_ptr.get(), allocator_ptr.get(),
-                                             &allocation_params);
-
-        if (!gst_buffer_pool_set_config(pool_ptr.get(), config_ptr.release())) {
-            GST_ELEMENT_ERROR(nvinfer, RESOURCE, FAILED, ("Failed to set config on buffer pool"),
-                              (nullptr));
-            return FALSE;
-        }
-
-        /* Start the buffer pool and allocate all internal buffers. */
-        if (!gst_buffer_pool_set_active(pool_ptr.get(), TRUE)) {
-            GST_ELEMENT_ERROR(nvinfer, RESOURCE, FAILED, ("Failed to set buffer pool to active"),
-                              (nullptr));
-            return FALSE;
-        }
-        nvinfer->pool = pool_ptr.release();
+    /* Start the buffer pool and allocate all internal buffers. */
+    if (!gst_buffer_pool_set_active(pool_ptr.get(), TRUE)) {
+        GST_ELEMENT_ERROR(nvinfer, RESOURCE, FAILED, ("Failed to set buffer pool to active"),
+                          (nullptr));
+        return FALSE;
     }
 
     cudaReturn = cudaSetDevice(nvinfer->gpu_id);
@@ -999,6 +897,8 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
         return FALSE;
     }
 
+    /* Set the NvBufSurfTransform config parameters. */
+    nvinfer->transform_config_params.gpu_id = nvinfer->gpu_id;
     nvinfer->transform_config_params.cuda_stream = nvinfer->convertStream;
 
     /* Create the intermediate NvBufSurface structure for holding an array of input
@@ -1011,8 +911,7 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
     nvinfer->transform_params.src_rect = new NvBufSurfTransformRect[nvinfer->max_batch_size];
     nvinfer->transform_params.dst_rect = new NvBufSurfTransformRect[nvinfer->max_batch_size];
     nvinfer->transform_params.transform_flag =
-        NVBUFSURF_TRANSFORM_FILTER | NVBUFSURF_TRANSFORM_CROP_SRC | NVBUFSURF_TRANSFORM_CROP_DST |
-        NVBUFSURF_TRANSFORM_FLIP | NVBUFSURF_TRANSFORM_ALLOW_ODD_CROP;
+        NVBUFSURF_TRANSFORM_FILTER | NVBUFSURF_TRANSFORM_CROP_SRC | NVBUFSURF_TRANSFORM_CROP_DST;
     nvinfer->transform_params.transform_flip = NvBufSurfTransform_None;
 
     /* Initialize the object history map for source 0. */
@@ -1037,10 +936,8 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
     /* Start a thread which will queue input to the NvDsInfer context since
      * queueInputBatch is a blocking function. This is done to parallelize
      * input conversion and queueInputBatch. */
-    if (!nvinfer->input_tensor_from_meta) {
-        nvinfer->input_queue_thread =
-            g_thread_new("nvinfer-input-queue-thread", gst_nvinfer_input_queue_loop, nvinfer);
-    }
+    nvinfer->input_queue_thread =
+        g_thread_new("nvinfer-input-queue-thread", gst_nvinfer_input_queue_loop, nvinfer);
 
     /* nvinfer internal resource start for loading models */
     impl->m_InferCtx = std::move(ctx_ptr);
@@ -1051,6 +948,7 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
     }
 
     nvinfer->nvtx_domain = nvtx_domain_ptr.release();
+    nvinfer->pool = pool_ptr.release();
     lock.unlock();
 
     impl->notifyLoadModelStatus(
@@ -1081,8 +979,7 @@ static gboolean gst_nvinfer_stop(GstBaseTransform *btrans)
 
     impl->stop();
 
-    if (nvinfer->input_queue_thread)
-        g_thread_join(nvinfer->input_queue_thread);
+    g_thread_join(nvinfer->input_queue_thread);
     g_thread_join(nvinfer->output_thread);
 
     nvinfer->stop = FALSE;
@@ -1101,8 +998,7 @@ static gboolean gst_nvinfer_stop(GstBaseTransform *btrans)
         cudaStreamDestroy(nvinfer->convertStream);
 
     /* Free up the memory allocated by pool. */
-    if (nvinfer->pool)
-        gst_object_unref(nvinfer->pool);
+    gst_object_unref(nvinfer->pool);
 
     g_queue_free(nvinfer->process_queue);
     g_queue_free(nvinfer->input_queue);
@@ -1122,8 +1018,6 @@ static GstFlowReturn get_converted_buffer(GstNvInfer *nvinfer,
                                           NvBufSurfaceParams *dest_frame,
                                           gdouble &ratio_x,
                                           gdouble &ratio_y,
-                                          guint &offset_left,
-                                          guint &offset_top,
                                           void *destCudaPtr)
 {
     guint src_left = GST_ROUND_UP_2((unsigned int)crop_rect_params->left);
@@ -1132,9 +1026,6 @@ static GstFlowReturn get_converted_buffer(GstNvInfer *nvinfer,
     guint src_height = GST_ROUND_DOWN_2((unsigned int)crop_rect_params->height);
     guint dest_width, dest_height;
 
-    guint offset_right = 0, offset_bottom = 0;
-    offset_left = 0;
-    offset_top = 0;
     if (nvinfer->maintain_aspect_ratio) {
         /* Calculate the destination width and height required to maintain
          * the aspect ratio. */
@@ -1166,79 +1057,27 @@ static GstFlowReturn get_converted_buffer(GstNvInfer *nvinfer,
             g_assert_not_reached();
             break;
         }
+
         /* Pad the scaled image with black color. */
-        if (!nvinfer->symmetric_padding) {
-            /* Right-Bottom Padding. */
-            cudaReturn = cudaMemset2DAsync((uint8_t *)destCudaPtr + pixel_size * dest_width,
-                                           dest_frame->planeParams.pitch[0], 0,
-                                           pixel_size * (dest_frame->width - dest_width),
-                                           dest_frame->height, nvinfer->convertStream);
-            if (cudaReturn != cudaSuccess) {
-                GST_ERROR_OBJECT(nvinfer,
-                                 "cudaMemset2DAsync failed with error %s while converting buffer",
-                                 cudaGetErrorName(cudaReturn));
-                return GST_FLOW_ERROR;
-            }
-            cudaReturn = cudaMemset2DAsync(
-                (uint8_t *)destCudaPtr + dest_frame->planeParams.pitch[0] * dest_height,
-                dest_frame->planeParams.pitch[0], 0, pixel_size * dest_width,
-                dest_frame->height - dest_height, nvinfer->convertStream);
-            if (cudaReturn != cudaSuccess) {
-                GST_ERROR_OBJECT(nvinfer,
-                                 "cudaMemset2DAsync failed with error %s while converting buffer",
-                                 cudaGetErrorName(cudaReturn));
-                return GST_FLOW_ERROR;
-            }
-        } else {
-            /* Symmetric Padding. */
-            offset_left = (dest_frame->width - dest_width) / 2;
-            offset_right = dest_frame->width - dest_width - offset_left;
-
-            cudaReturn = cudaMemset2DAsync((uint8_t *)destCudaPtr, dest_frame->planeParams.pitch[0],
-                                           0, pixel_size * offset_left, dest_frame->height,
-                                           nvinfer->convertStream);
-            if (cudaReturn != cudaSuccess) {
-                GST_ERROR_OBJECT(nvinfer,
-                                 "cudaMemset2DAsync failed with error %s while converting buffer",
-                                 cudaGetErrorName(cudaReturn));
-                return GST_FLOW_ERROR;
-            }
-
-            cudaReturn =
-                cudaMemset2DAsync((uint8_t *)destCudaPtr + pixel_size * (dest_width + offset_left),
-                                  dest_frame->planeParams.pitch[0], 0, pixel_size * offset_right,
-                                  dest_frame->height, nvinfer->convertStream);
-            if (cudaReturn != cudaSuccess) {
-                GST_ERROR_OBJECT(nvinfer,
-                                 "cudaMemset2DAsync failed with error %s while converting buffer",
-                                 cudaGetErrorName(cudaReturn));
-                return GST_FLOW_ERROR;
-            }
-
-            offset_top = (dest_frame->height - dest_height) / 2;
-            offset_bottom = dest_frame->height - dest_height - offset_top;
-
-            cudaReturn =
-                cudaMemset2DAsync((uint8_t *)destCudaPtr, dest_frame->planeParams.pitch[0], 0,
-                                  pixel_size * dest_width, offset_top, nvinfer->convertStream);
-            if (cudaReturn != cudaSuccess) {
-                GST_ERROR_OBJECT(nvinfer,
-                                 "cudaMemset2DAsync failed with error %s while converting buffer",
-                                 cudaGetErrorName(cudaReturn));
-                return GST_FLOW_ERROR;
-            }
-
-            cudaReturn =
-                cudaMemset2DAsync((uint8_t *)destCudaPtr +
-                                      dest_frame->planeParams.pitch[0] * (dest_height + offset_top),
-                                  dest_frame->planeParams.pitch[0], 0, pixel_size * dest_width,
-                                  offset_bottom, nvinfer->convertStream);
-            if (cudaReturn != cudaSuccess) {
-                GST_ERROR_OBJECT(nvinfer,
-                                 "cudaMemset2DAsync failed with error %s while converting buffer",
-                                 cudaGetErrorName(cudaReturn));
-                return GST_FLOW_ERROR;
-            }
+        cudaReturn = cudaMemset2DAsync((uint8_t *)destCudaPtr + pixel_size * dest_width,
+                                       dest_frame->planeParams.pitch[0], 0,
+                                       pixel_size * (dest_frame->width - dest_width),
+                                       dest_frame->height, nvinfer->convertStream);
+        if (cudaReturn != cudaSuccess) {
+            GST_ERROR_OBJECT(nvinfer,
+                             "cudaMemset2DAsync failed with error %s while converting buffer",
+                             cudaGetErrorName(cudaReturn));
+            return GST_FLOW_ERROR;
+        }
+        cudaReturn = cudaMemset2DAsync(
+            (uint8_t *)destCudaPtr + dest_frame->planeParams.pitch[0] * dest_height,
+            dest_frame->planeParams.pitch[0], 0, pixel_size * dest_width,
+            dest_frame->height - dest_height, nvinfer->convertStream);
+        if (cudaReturn != cudaSuccess) {
+            GST_ERROR_OBJECT(nvinfer,
+                             "cudaMemset2DAsync failed with error %s while converting buffer",
+                             cudaGetErrorName(cudaReturn));
+            return GST_FLOW_ERROR;
         }
     } else {
         dest_width = nvinfer->network_width;
@@ -1258,16 +1097,10 @@ static GstFlowReturn get_converted_buffer(GstNvInfer *nvinfer,
                                                                        src_height};
     /* Set the dest ROI. Could be the entire destination frame or part of it to
      * maintain aspect ratio. */
-    if (!nvinfer->symmetric_padding) {
-        nvinfer->transform_params.dst_rect[nvinfer->tmp_surf.numFilled] = {0, 0, dest_width,
-                                                                           dest_height};
-    } else {
-        nvinfer->transform_params.dst_rect[nvinfer->tmp_surf.numFilled] = {offset_top, offset_left,
-                                                                           dest_width, dest_height};
-    }
+    nvinfer->transform_params.dst_rect[nvinfer->tmp_surf.numFilled] = {0, 0, dest_width,
+                                                                       dest_height};
 
     nvinfer->tmp_surf.numFilled++;
-    nvinfer->tmp_surf.memType = src_surf->memType;
 
     return GST_FLOW_OK;
 }
@@ -1283,16 +1116,8 @@ static gpointer gst_nvinfer_input_queue_loop(gpointer data)
     eventAttrib.version = NVTX_VERSION;
     eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
     eventAttrib.colorType = NVTX_COLOR_ARGB;
-    eventAttrib.color = NVTX_DEEPBLUE_COLOR;
+    eventAttrib.color = 0xFFFF0000;
     eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
-    cudaError_t cudaReturn;
-
-    cudaReturn = cudaSetDevice(nvinfer->gpu_id);
-    if (cudaReturn != cudaSuccess) {
-        GST_ELEMENT_ERROR(nvinfer, RESOURCE, FAILED,
-                          ("Failed to set cuda device %d", nvinfer->gpu_id),
-                          ("cudaSetDevice failed with error %s", cudaGetErrorName(cudaReturn)));
-    }
 
     LockGMutex locker(nvinfer->process_lock);
 
@@ -1354,23 +1179,11 @@ static gpointer gst_nvinfer_input_queue_loop(gpointer data)
         eventAttrib.message.ascii = nvtx_str.c_str();
         nvtxDomainRangePushEx(nvinfer->nvtx_domain, &eventAttrib);
 
-        // Moved outside the lock, blocking preprocess thread
-        if (batch->sync_obj) {
-            NvBufSurfTransformSyncObjWait(batch->sync_obj, -1);
-            NvBufSurfTransformSyncObjDestroy(&(batch->sync_obj));
-        }
-
         status = nvdsinfer_ctx->queueInputBatch(input_batch);
 
         nvtxDomainRangePop(nvinfer->nvtx_domain);
 
         locker.lock();
-
-        if (status == NVDSINFER_MEM_ERROR) {
-            delete batch;
-            batch = NULL;
-            continue;
-        }
 
         if (status != NVDSINFER_SUCCESS) {
             GST_ELEMENT_ERROR(nvinfer, STREAM, FAILED,
@@ -1394,14 +1207,6 @@ static gboolean convert_batch_and_push_to_input_thread(GstNvInfer *nvinfer,
 {
     NvBufSurfTransform_Error err = NvBufSurfTransformError_Success;
     std::string nvtx_str;
-    cudaError_t cudaReturn;
-
-    cudaReturn = cudaSetDevice(nvinfer->gpu_id);
-    if (cudaReturn != cudaSuccess) {
-        GST_ELEMENT_ERROR(nvinfer, RESOURCE, FAILED,
-                          ("Failed to set cuda device %d", nvinfer->gpu_id),
-                          ("cudaSetDevice failed with error %s", cudaGetErrorName(cudaReturn)));
-    }
 
     /* Set the transform session parameters for the conversions executed in this
      * thread. */
@@ -1416,7 +1221,7 @@ static gboolean convert_batch_and_push_to_input_thread(GstNvInfer *nvinfer,
     eventAttrib.version = NVTX_VERSION;
     eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
     eventAttrib.colorType = NVTX_COLOR_ARGB;
-    eventAttrib.color = NVTX_DEEPBLUE_COLOR;
+    eventAttrib.color = 0xFFFF0000;
     eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
     nvtx_str = "convert_buf batch_num=" + std::to_string(nvinfer->current_batch_num);
     eventAttrib.message.ascii = nvtx_str.c_str();
@@ -1425,8 +1230,7 @@ static gboolean convert_batch_and_push_to_input_thread(GstNvInfer *nvinfer,
 
     if (batch->frames.size() > 0) {
         /* Batched tranformation. */
-        err = NvBufSurfTransformAsync(&nvinfer->tmp_surf, mem->surf, &nvinfer->transform_params,
-                                      &batch->sync_obj);
+        err = NvBufSurfTransform(&nvinfer->tmp_surf, mem->surf, &nvinfer->transform_params);
     }
 
     nvtxDomainRangePop(nvinfer->nvtx_domain);
@@ -1460,7 +1264,6 @@ static GstFlowReturn gst_nvinfer_process_full_frame(GstNvInfer *nvinfer,
     GstFlowReturn flow_ret;
     GstNvInferMemory *memory = nullptr;
     gdouble scale_ratio_x, scale_ratio_y;
-    guint offset_left = 0, offset_top = 0;
     gboolean skip_batch;
 
     /* Process batch only when interval_counter is 0. */
@@ -1525,8 +1328,7 @@ static GstFlowReturn gst_nvinfer_process_full_frame(GstNvInfer *nvinfer,
         /* Scale and convert the buffer. */
         if (get_converted_buffer(nvinfer, in_surf, in_surf->surfaceList + i, &rect_params,
                                  memory->surf, memory->surf->surfaceList + idx, scale_ratio_x,
-                                 scale_ratio_y, offset_left, offset_top,
-                                 memory->frame_memory_ptrs[idx]) != GST_FLOW_OK) {
+                                 scale_ratio_y, memory->frame_memory_ptrs[idx]) != GST_FLOW_OK) {
             GST_ELEMENT_ERROR(nvinfer, STREAM, FAILED, ("Buffer conversion failed"), (NULL));
             return GST_FLOW_ERROR;
         }
@@ -1536,8 +1338,6 @@ static GstFlowReturn gst_nvinfer_process_full_frame(GstNvInfer *nvinfer,
         frame.converted_frame_ptr = memory->frame_memory_ptrs[idx];
         frame.scale_ratio_x = scale_ratio_x;
         frame.scale_ratio_y = scale_ratio_y;
-        frame.offset_left = offset_left;
-        frame.offset_top = offset_top;
         frame.obj_meta = nullptr;
         frame.frame_meta = nvds_get_nth_frame_meta(batch_meta->frame_meta_list, i);
         frame.frame_num = frame.frame_meta->frame_num;
@@ -1549,12 +1349,13 @@ static GstFlowReturn gst_nvinfer_process_full_frame(GstNvInfer *nvinfer,
         /* Submit batch if the batch size has reached max_batch_size or
          * if this is the last frame in the input batched buffer. */
         if (batch->frames.size() == nvinfer->max_batch_size || i == num_filled - 1) {
-            if (!convert_batch_and_push_to_input_thread(nvinfer, batch.release(), memory)) {
+            if (!convert_batch_and_push_to_input_thread(nvinfer, batch.get(), memory)) {
                 return GST_FLOW_ERROR;
             }
 
             /* Batch submitted. Set batch to nullptr so that a new GstNvInferBatch
              * structure can be allocated if required. */
+            batch.release();
             conv_gst_buf = nullptr;
             nvinfer->tmp_surf.numFilled = 0;
         }
@@ -1625,6 +1426,7 @@ static inline gboolean should_infer_object(GstNvInfer *nvinfer,
         return FALSE;
     }
 
+    /* History is irrevelavant for detectors. */
     if (history && IS_CLASSIFIER_INSTANCE(nvinfer)) {
         gboolean should_reinfer = FALSE;
 
@@ -1636,16 +1438,6 @@ static inline gboolean should_infer_object(GstNvInfer *nvinfer,
             should_reinfer = TRUE;
 
         if (frame_num - history->last_inferred_frame_num > nvinfer->secondary_reinfer_interval)
-            should_reinfer = TRUE;
-
-        return should_reinfer;
-    }
-
-    if (history && IS_DETECTOR_INSTANCE(nvinfer)) {
-        gboolean should_reinfer = FALSE;
-
-        if (frame_num - history->last_inferred_frame_num > nvinfer->secondary_reinfer_interval ||
-            nvinfer->secondary_reinfer_interval == DEFAULT_REINFER_INTERVAL)
             should_reinfer = TRUE;
 
         return should_reinfer;
@@ -1672,7 +1464,6 @@ static GstFlowReturn gst_nvinfer_process_objects(GstNvInfer *nvinfer,
     GstNvInferMemory *memory = nullptr;
     GstFlowReturn flow_ret;
     gdouble scale_ratio_x, scale_ratio_y;
-    guint offset_left = 0, offset_top = 0;
     gboolean warn_untracked_object = FALSE;
 
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(inbuf);
@@ -1831,7 +1622,6 @@ static GstFlowReturn gst_nvinfer_process_objects(GstNvInfer *nvinfer,
             if (get_converted_buffer(nvinfer, in_surf, in_surf->surfaceList + frame_meta->batch_id,
                                      &object_meta->rect_params, memory->surf,
                                      memory->surf->surfaceList + idx, scale_ratio_x, scale_ratio_y,
-                                     offset_left, offset_top,
                                      memory->frame_memory_ptrs[idx]) != GST_FLOW_OK) {
                 GST_ELEMENT_ERROR(nvinfer, STREAM, FAILED, ("Buffer conversion failed"), (NULL));
                 return GST_FLOW_ERROR;
@@ -1842,8 +1632,6 @@ static GstFlowReturn gst_nvinfer_process_objects(GstNvInfer *nvinfer,
             frame.converted_frame_ptr = memory->frame_memory_ptrs[idx];
             frame.scale_ratio_x = scale_ratio_x;
             frame.scale_ratio_y = scale_ratio_y;
-            frame.offset_left = offset_left;
-            frame.offset_top = offset_top;
             frame.obj_meta = (nvinfer->classifier_async_mode) ? nullptr : object_meta;
             frame.frame_meta = frame_meta;
             frame.frame_num = frame_num;
@@ -1856,11 +1644,12 @@ static GstFlowReturn gst_nvinfer_process_objects(GstNvInfer *nvinfer,
 
             /* Submit batch if the batch size has reached max_batch_size. */
             if (batch->frames.size() == nvinfer->max_batch_size) {
-                if (!convert_batch_and_push_to_input_thread(nvinfer, batch.release(), memory)) {
+                if (!convert_batch_and_push_to_input_thread(nvinfer, batch.get(), memory)) {
                     return GST_FLOW_ERROR;
                 }
                 /* Batch submitted. Set batch to nullptr so that a new GstNvInferBatch
                  * structure can be allocated if required. */
+                batch.release();
                 conv_gst_buf = nullptr;
                 nvinfer->tmp_surf.numFilled = 0;
             }
@@ -1875,215 +1664,17 @@ static GstFlowReturn gst_nvinfer_process_objects(GstNvInfer *nvinfer,
         if (batch->frames.size() == 0)
             gst_buffer_unref(batch->conv_buf);
 
-        if (!convert_batch_and_push_to_input_thread(nvinfer, batch.release(), memory)) {
+        if (!convert_batch_and_push_to_input_thread(nvinfer, batch.get(), memory)) {
             return GST_FLOW_ERROR;
         }
         conv_gst_buf = nullptr;
+        batch.release();
         nvinfer->tmp_surf.numFilled = 0;
     }
 
     if (nvinfer->current_batch_num - nvinfer->last_map_cleanup_frame_num > MAP_CLEANUP_INTERVAL) {
         cleanup_history_map(nvinfer, inbuf);
         nvinfer->last_map_cleanup_frame_num = nvinfer->current_batch_num;
-    }
-
-    return GST_FLOW_OK;
-}
-
-static GstFlowReturn gst_nvinfer_process_tensor_input(GstNvInfer *nvinfer,
-                                                      GstBuffer *inbuf,
-                                                      NvBufSurface *in_surf)
-{
-    typedef struct {
-        guint batch_size = 0;
-        std::vector<GstNvInferFrame> frames;
-
-        std::unique_ptr<GstNvInferBatch> batch = nullptr;
-        std::vector<NvDsInferLayerInfo> tensors;
-    } TensorInputBatch;
-
-    NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(inbuf);
-    if (batch_meta == nullptr) {
-        GST_ELEMENT_ERROR(nvinfer, STREAM, FAILED, ("NvDsBatchMeta not found for input buffer."),
-                          (NULL));
-        return GST_FLOW_ERROR;
-    }
-    std::unordered_map<guint, TensorInputBatch> tensormeta_map;
-
-    for (NvDsMetaList *l_user = batch_meta->batch_user_meta_list; l_user != NULL;
-         l_user = l_user->next) {
-        NvDsUserMeta *user_meta = (NvDsUserMeta *)(l_user->data);
-        if (user_meta->base_meta.meta_type != NVDS_PREPROCESS_BATCH_META)
-            continue;
-        GstNvDsPreProcessBatchMeta *preproc_meta =
-            (GstNvDsPreProcessBatchMeta *)user_meta->user_meta_data;
-
-        const auto &uids = preproc_meta->target_unique_ids;
-        if (std::find(uids.begin(), uids.end(), nvinfer->unique_id) == uids.end())
-            continue;
-
-        if (!preproc_meta->tensor_meta)
-            continue;
-
-        guint meta_id = preproc_meta->tensor_meta->meta_id;
-
-        if (preproc_meta->tensor_meta->gpu_id != nvinfer->gpu_id) {
-            GST_ELEMENT_ERROR(
-                nvinfer, STREAM, FAILED,
-                ("nvinfer configured with gpu-id %d but received input tensor allocated on gpu %d",
-                 nvinfer->gpu_id, preproc_meta->tensor_meta->gpu_id),
-                (NULL));
-            return GST_FLOW_ERROR;
-        }
-
-        bool layerExists = false;
-
-        for (auto &layer : *nvinfer->layers_info) {
-            if (layer.isInput && preproc_meta->tensor_meta->tensor_name == layer.layerName) {
-                layerExists = true;
-                break;
-            }
-        }
-
-        if (!layerExists) {
-            GST_ELEMENT_WARNING(nvinfer, STREAM, FAILED,
-                                ("nvinfer could not find input layer with name = %s\n",
-                                 preproc_meta->tensor_meta->tensor_name.c_str()),
-                                (NULL));
-            continue;
-        }
-
-        if (tensormeta_map[meta_id].batch == nullptr) {
-            for (auto &roi : preproc_meta->roi_vector) {
-                GstNvInferFrame frame;
-                frame.batch_index = roi.frame_meta->batch_id;
-                frame.scale_ratio_x = roi.scale_ratio_x;
-                frame.scale_ratio_y = roi.scale_ratio_y;
-                frame.offset_left = roi.offset_left;
-                frame.offset_top = roi.offset_top;
-                frame.roi_left = roi.roi.left;
-                frame.roi_top = roi.roi.top;
-                frame.roi_meta = &roi;
-                frame.frame_meta = roi.frame_meta;
-                frame.obj_meta = roi.object_meta;
-                frame.frame_num = roi.frame_meta->frame_num;
-                frame.input_surf_params = &in_surf->surfaceList[roi.frame_meta->batch_id];
-                tensormeta_map[meta_id].frames.push_back(frame);
-            }
-        }
-
-        NvDsInferLayerInfo tensor;
-        tensor.isInput = TRUE;
-        tensor.bindingIndex = -1;
-        tensor.buffer = preproc_meta->tensor_meta->raw_tensor_buffer;
-        tensor.layerName = preproc_meta->tensor_meta->tensor_name.c_str();
-        tensor.inferDims.numDims = preproc_meta->tensor_meta->tensor_shape.size();
-        tensor.inferDims.numElements = 1;
-        for (unsigned int i = 0; i < tensor.inferDims.numDims; i++) {
-            tensor.inferDims.numElements *= preproc_meta->tensor_meta->tensor_shape[i];
-            tensor.inferDims.d[i] = preproc_meta->tensor_meta->tensor_shape[i];
-        }
-
-        if (tensormeta_map[meta_id].batch_size == 0) {
-            tensormeta_map[meta_id].batch_size = tensor.inferDims.d[0];
-        } else if (tensormeta_map[meta_id].batch_size != tensor.inferDims.d[0]) {
-            GST_ELEMENT_ERROR(nvinfer, STREAM, FAILED,
-                              ("Mismatch in input tensor batch sizes %d vs %d",
-                               tensormeta_map[meta_id].batch_size, tensor.inferDims.d[0]),
-                              (nullptr));
-            return GST_FLOW_ERROR;
-        }
-
-        switch (preproc_meta->tensor_meta->data_type) {
-        case NvDsDataType_FP32:
-            tensor.dataType = FLOAT;
-            break;
-        case NvDsDataType_FP16:
-            tensor.dataType = HALF;
-            break;
-        case NvDsDataType_UINT8:
-        case NvDsDataType_INT8:
-            tensor.dataType = INT8;
-            break;
-        case NvDsDataType_UINT32:
-        case NvDsDataType_INT32:
-            tensor.dataType = INT32;
-            break;
-        default:
-            return GST_FLOW_ERROR;
-        }
-
-        tensormeta_map[meta_id].tensors.push_back(tensor);
-    }
-
-    for (auto &it : tensormeta_map) {
-        auto &tensor_input_batch = it.second;
-        for (size_t i = 0; i < tensor_input_batch.frames.size(); i++) {
-            if (!tensor_input_batch.batch) {
-                tensor_input_batch.batch.reset(new GstNvInferBatch);
-                tensor_input_batch.batch->push_buffer = FALSE;
-                tensor_input_batch.batch->inbuf = inbuf;
-                tensor_input_batch.batch->inbuf_batch_num = nvinfer->current_batch_num;
-            }
-            tensor_input_batch.batch->frames.push_back(tensor_input_batch.frames[i]);
-
-            if (i == tensor_input_batch.frames.size() - 1 ||
-                tensor_input_batch.batch->frames.size() == nvinfer->max_batch_size) {
-                NvDsInferContextBatchPreprocessedInput input_batch;
-                input_batch.tensors = tensor_input_batch.tensors.data();
-                input_batch.numInputTensors = tensor_input_batch.tensors.size();
-                input_batch.returnFuncData = nullptr;
-                input_batch.returnInputFunc = nullptr;
-
-                for (auto &tensor : tensor_input_batch.tensors)
-                    tensor.dims.d[0] = tensor_input_batch.batch->frames.size();
-
-                NvDsInferStatus status =
-                    DS_NVINFER_IMPL(nvinfer)->m_InferCtx->queueInputBatchPreprocessed(input_batch);
-
-                if (status == NVDSINFER_MEM_ERROR) {
-                    GstNvInferBatch *raw_batch_ptr = tensor_input_batch.batch.release();
-                    delete raw_batch_ptr;
-                    raw_batch_ptr = NULL;
-                    continue;
-                }
-
-                if (status != NVDSINFER_SUCCESS) {
-                    GST_ELEMENT_ERROR(nvinfer, STREAM, FAILED,
-                                      ("Failed to queue input batch for inferencing"), (nullptr));
-                    return GST_FLOW_ERROR;
-                }
-
-                g_mutex_lock(&nvinfer->process_lock);
-                g_queue_push_tail(nvinfer->process_queue, tensor_input_batch.batch.release());
-                g_cond_broadcast(&nvinfer->process_cond);
-                g_mutex_unlock(&nvinfer->process_lock);
-
-                for (auto &tensor : tensor_input_batch.tensors) {
-                    gsize offset = 0;
-                    switch (tensor.dataType) {
-                    case FLOAT:
-                        offset = 4;
-                        break;
-                    case HALF:
-                        offset = 2;
-                        break;
-                    case INT8:
-                        offset = 1;
-                        break;
-                    case INT32:
-                        offset = 4;
-                        break;
-                    default:
-                        return GST_FLOW_ERROR;
-                    }
-                    for (guint j = 0; j < tensor.inferDims.numDims; j++)
-                        offset *= tensor.inferDims.d[j];
-
-                    tensor.buffer = (char *)tensor.buffer + offset;
-                }
-            }
-        }
     }
 
     return GST_FLOW_OK;
@@ -2117,7 +1708,7 @@ static GstFlowReturn gst_nvinfer_submit_input_buffer(GstBaseTransform *btrans,
     eventAttrib.version = NVTX_VERSION;
     eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
     eventAttrib.colorType = NVTX_COLOR_ARGB;
-    eventAttrib.color = NVTX_DEEPBLUE_COLOR;
+    eventAttrib.color = 0xFFFF0000;
     eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
     nvtx_str = "buffer_process batch_num=" + std::to_string(nvinfer->current_batch_num);
     eventAttrib.message.ascii = nvtx_str.c_str();
@@ -2133,9 +1724,7 @@ static GstFlowReturn gst_nvinfer_submit_input_buffer(GstBaseTransform *btrans,
 
     nvds_set_input_system_timestamp(inbuf, GST_ELEMENT_NAME(nvinfer));
 
-    if (nvinfer->input_tensor_from_meta) {
-        flow_ret = gst_nvinfer_process_tensor_input(nvinfer, inbuf, in_surf);
-    } else if (nvinfer->process_full_frame) {
+    if (nvinfer->process_full_frame) {
         flow_ret = gst_nvinfer_process_full_frame(nvinfer, inbuf, in_surf);
     } else {
         flow_ret = gst_nvinfer_process_objects(nvinfer, inbuf, in_surf);
@@ -2185,10 +1774,7 @@ static GstFlowReturn gst_nvinfer_submit_input_buffer(GstBaseTransform *btrans,
         buf_push_batch->nvtx_complete_buf_range = buf_process_range;
 
         g_mutex_lock(&nvinfer->process_lock);
-        if (nvinfer->input_queue_thread)
-            g_queue_push_tail(nvinfer->input_queue, buf_push_batch);
-        else
-            g_queue_push_tail(nvinfer->process_queue, buf_push_batch);
+        g_queue_push_tail(nvinfer->input_queue, buf_push_batch);
         g_cond_broadcast(&nvinfer->process_cond);
         g_mutex_unlock(&nvinfer->process_lock);
     }
@@ -2272,17 +1858,9 @@ static gpointer gst_nvinfer_output_loop(gpointer data)
     eventAttrib.version = NVTX_VERSION;
     eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
     eventAttrib.colorType = NVTX_COLOR_ARGB;
-    eventAttrib.color = NVTX_DEEPBLUE_COLOR;
+    eventAttrib.color = 0xFFFF0000;
     eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
     std::string nvtx_str;
-    cudaError_t cudaReturn;
-
-    cudaReturn = cudaSetDevice(nvinfer->gpu_id);
-    if (cudaReturn != cudaSuccess) {
-        GST_ELEMENT_ERROR(nvinfer, RESOURCE, FAILED,
-                          ("Failed to set cuda device %d", nvinfer->gpu_id),
-                          ("cudaSetDevice failed with error %s", cudaGetErrorName(cudaReturn)));
-    }
 
     nvtx_str = "gst-nvinfer_output-loop_uid=" + std::to_string(nvinfer->unique_id);
 
@@ -2430,9 +2008,6 @@ static gpointer gst_nvinfer_output_loop(gpointer data)
                     classification_output.attributes,
                     classification_output.attributes + classification_output.numAttributes);
                 new_info.label.assign(classification_output.label);
-                for (guint i = 0; i < classification_output.numAttributes; i++) {
-                    classification_output.attributes[i].attributeLabel = nullptr;
-                }
 
                 /* Object history is available merge the old and new classification
                  * results. */
@@ -2493,7 +2068,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_infer,
                   DESCRIPTION,
                   nvinfer_plugin_init,
-                  "6.3",
+                  "5.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

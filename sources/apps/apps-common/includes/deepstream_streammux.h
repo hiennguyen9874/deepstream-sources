@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,13 +33,8 @@ typedef struct {
     // Struct members to store config / properties for the element
     gint pipeline_width;
     gint pipeline_height;
-    gint buffer_pool_size;
     gint batch_size;
     gint batched_push_timeout;
-    gint compute_hw;
-    gint num_surface_per_frame;
-    gint interpolation_method;
-    guint64 frame_duration;
     guint gpu_id;
     guint nvbuf_memory_type;
     gboolean live_source;
@@ -47,13 +42,6 @@ typedef struct {
     gboolean is_parsed;
     gboolean attach_sys_ts_as_ntp;
     gchar *config_file_path;
-    gboolean sync_inputs;
-    guint64 max_latency;
-    gboolean frame_num_reset_on_eos;
-    gboolean frame_num_reset_on_stream_reset;
-    gboolean async_process;
-    gboolean no_pipeline_eos;
-    gboolean use_nvmultiurisrcbin;
 } NvDsStreammuxConfig;
 
 // Function to create the bin and set properties

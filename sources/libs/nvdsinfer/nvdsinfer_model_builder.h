@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -117,7 +117,13 @@ public:
 
 protected:
     NvDsInferStatus initParser();
+
+private:
+    NvDsInferStatus setPluginFactory();
+
+protected:
     ModelParams m_ModelParams;
+    NvDsInferPluginFactoryUff m_UffPluginFactory{nullptr};
     UniquePtrWDestroy<nvuffparser::IUffParser> m_UffParser;
 };
 
@@ -140,8 +146,6 @@ public:
 
 private:
     std::string m_ModelName;
-
-protected:
     UniquePtrWDestroy<nvonnxparser::IParser> m_OnnxParser;
 };
 
@@ -224,7 +228,6 @@ struct ExplicitBuildParams : public BuildParams {
     int minBatchSize = 1;
     int optBatchSize = 1;
     int maxBatchSize = 1;
-    NvDsInferTensorOrder inputOrder = NvDsInferTensorOrder_kNCHW;
 
 private:
     NvDsInferStatus configBuilder(TrtModelBuilder &builder) override;
@@ -282,7 +285,6 @@ private:
 
     friend bool ::NvDsInferCudaEngineGetFromTltModel(
         nvinfer1::IBuilder *const builder,
-        nvinfer1::IBuilderConfig *const builderConfig,
         const NvDsInferContextInitParams *const initParams,
         nvinfer1::DataType dataType,
         nvinfer1::ICudaEngine *&cudaEngine);
@@ -302,7 +304,7 @@ public:
                     nvinfer1::ILogger &logger,
                     const std::shared_ptr<DlLibHandle> &dlHandle = nullptr);
 
-    ~TrtModelBuilder() { m_Parser.reset(); }
+    ~TrtModelBuilder() {}
 
     void setInt8Calibrator(std::unique_ptr<nvinfer1::IInt8Calibrator> &&calibrator)
     {
@@ -380,7 +382,6 @@ private:
 
     friend bool ::NvDsInferCudaEngineGetFromTltModel(
         nvinfer1::IBuilder *const builder,
-        nvinfer1::IBuilderConfig *const builderConfig,
         const NvDsInferContextInitParams *const initParams,
         nvinfer1::DataType dataType,
         nvinfer1::ICudaEngine *&cudaEngine);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -20,6 +20,34 @@
 #include "nvdsinfer_model_builder.h"
 
 namespace nvdsinfer {
+
+/* Logger for TensorRT info/warning/errors */
+class NvDsInferLogger : public nvinfer1::ILogger {
+public:
+    void log(Severity severity, const char *msg) override
+    {
+        switch (severity) {
+        case Severity::kINTERNAL_ERROR:
+        case Severity::kERROR:
+            dsInferError("[TRT]: %s", msg);
+            break;
+        case Severity::kWARNING:
+            dsInferWarning("[TRT]: %s", msg);
+            break;
+        case Severity::kINFO:
+            dsInferInfo("[TRT]: %s", msg);
+            break;
+        case Severity::kVERBOSE:
+            dsInferDebug("[TRT]: %s", msg);
+            break;
+        default:
+            dsInferLogPrint__((NvDsInferLogLevel)100, "[TRT][severity:%d]: %s", (int)severity, msg);
+            return;
+        }
+    }
+};
+
+std::unique_ptr<nvinfer1::ILogger> gTrtLogger(new NvDsInferLogger);
 
 DlLibHandle::DlLibHandle(const std::string &path, int mode) : m_LibPath(path)
 {
@@ -242,6 +270,55 @@ bool operator==(const NvDsInferDims &a, const NvDsInferDims &b)
 bool operator!=(const NvDsInferDims &a, const NvDsInferDims &b)
 {
     return !(a == b);
+}
+
+static const char *strLogLevel(NvDsInferLogLevel l)
+{
+    switch (l) {
+    case NVDSINFER_LOG_ERROR:
+        return "ERROR";
+    case NVDSINFER_LOG_WARNING:
+        return "WARNING";
+    case NVDSINFER_LOG_INFO:
+        return "INFO";
+    case NVDSINFER_LOG_DEBUG:
+        return "DEBUG";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+struct LogEnv {
+    NvDsInferLogLevel levelLimit = NVDSINFER_LOG_INFO;
+    std::mutex printMutex;
+    LogEnv()
+    {
+        const char *cEnv = std::getenv("NVDSINFER_LOG_LEVEL");
+        if (cEnv) {
+            levelLimit = (NvDsInferLogLevel)std::stoi(cEnv);
+        }
+    }
+};
+
+static LogEnv gLogEnv;
+
+void dsInferLogPrint__(NvDsInferLogLevel level, const char *fmt, ...)
+{
+    if (level > gLogEnv.levelLimit) {
+        return;
+    }
+    constexpr int kMaxBufLen = 4096;
+
+    va_list args;
+    va_start(args, fmt);
+    std::array<char, kMaxBufLen> logMsgBuffer{{'\0'}};
+    vsnprintf(logMsgBuffer.data(), kMaxBufLen - 1, fmt, args);
+    va_end(args);
+
+    FILE *f = (level <= NVDSINFER_LOG_ERROR) ? stderr : stdout;
+
+    std::unique_lock<std::mutex> locker(gLogEnv.printMutex);
+    fprintf(f, "%s: %s\n", strLogLevel(level), logMsgBuffer.data());
 }
 
 bool isValidOutputFormat(const std::string &fmt)

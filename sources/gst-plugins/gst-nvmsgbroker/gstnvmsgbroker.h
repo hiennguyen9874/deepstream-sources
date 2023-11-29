@@ -1,13 +1,12 @@
-/**
- * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+/*
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
+ * NVIDIA Corporation and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA Corporation is strictly prohibited.
+ *
  */
 
 #ifndef _GST_NVMSGBROKER_H_
@@ -63,7 +62,6 @@ struct _GstNvMsgBroker {
     gchar *connStr;
     gchar *topic;
     guint compId;
-    guint sleepTime;
     NvMsgBrokerClientHandle connHandle;
     /** Identifies from input cap capability if the incoming data
      * is video/audio */

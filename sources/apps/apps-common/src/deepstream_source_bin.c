@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <gst/rtp/gstrtcpbuffer.h>
 #include <gst/rtsp/gstrtsptransport.h>
 #include <stdio.h>
@@ -30,7 +29,6 @@
 #include "deepstream_dewarper.h"
 #include "deepstream_sources.h"
 #include "gst-nvdssr.h"
-#include "gst-nvevent.h"
 #include "gstnvdsmeta.h"
 #include "nvdsgstutils.h"
 
@@ -71,6 +69,8 @@ static gboolean create_camera_source_bin(NvDsSourceConfig *config, NvDsSrcBin *b
     switch (config->type) {
     case NV_DS_SOURCE_CAMERA_CSI:
         bin->src_elem = gst_element_factory_make(NVDS_ELEM_SRC_CAMERA_CSI, "src_elem");
+        g_object_set(G_OBJECT(bin->src_elem), "bufapi-version", TRUE, NULL);
+        g_object_set(G_OBJECT(bin->src_elem), "maxperf", TRUE, NULL);
         break;
     case NV_DS_SOURCE_CAMERA_V4L2:
         bin->src_elem = gst_element_factory_make(NVDS_ELEM_SRC_CAMERA_V4L2, "src_elem");
@@ -99,39 +99,29 @@ static gboolean create_camera_source_bin(NvDsSourceConfig *config, NvDsSrcBin *b
         NVGSTDS_ERR_MSG_V("Could not create 'src_cap_filter'");
         goto done;
     }
-
-    if (config->video_format) {
-        caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, config->video_format,
-                                   "width", G_TYPE_INT, config->source_width, "height", G_TYPE_INT,
-                                   config->source_height, "framerate", GST_TYPE_FRACTION,
-                                   config->source_fps_n, config->source_fps_d, NULL);
-    } else {
-        caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "NV12", "width",
-                                   G_TYPE_INT, config->source_width, "height", G_TYPE_INT,
-                                   config->source_height, "framerate", GST_TYPE_FRACTION,
-                                   config->source_fps_n, config->source_fps_d, NULL);
-    }
+    caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "NV12", "width", G_TYPE_INT,
+                               config->source_width, "height", G_TYPE_INT, config->source_height,
+                               "framerate", GST_TYPE_FRACTION, config->source_fps_n,
+                               config->source_fps_d, NULL);
 
     if (config->type == NV_DS_SOURCE_CAMERA_CSI) {
         GstCapsFeatures *feature = NULL;
         feature = gst_caps_features_new("memory:NVMM", NULL);
         gst_caps_set_features(caps, 0, feature);
     }
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, config->gpu_id);
 
     if (config->type == NV_DS_SOURCE_CAMERA_V4L2) {
         GstElement *nvvidconv2;
         GstCapsFeatures *feature = NULL;
-        // Check based on igpu/dgpu instead of x86/aarch64
-        GstElement *nvvidconv1 = NULL;
-        if (!prop.integrated) {
-            nvvidconv1 = gst_element_factory_make("videoconvert", "nvvidconv1");
-            if (!nvvidconv1) {
-                NVGSTDS_ERR_MSG_V("Failed to create 'nvvidconv1'");
-                goto done;
-            }
+
+#ifndef IS_TEGRA
+        GstElement *nvvidconv1;
+        nvvidconv1 = gst_element_factory_make("videoconvert", "nvvidconv1");
+        if (!nvvidconv1) {
+            NVGSTDS_ERR_MSG_V("Failed to create 'nvvidconv1'");
+            goto done;
         }
+#endif
 
         feature = gst_caps_features_new("memory:NVMM", NULL);
         gst_caps_set_features(caps, 0, feature);
@@ -148,23 +138,23 @@ static gboolean create_camera_source_bin(NvDsSourceConfig *config, NvDsSrcBin *b
         g_object_set(G_OBJECT(nvvidconv2), "gpu-id", config->gpu_id, "nvbuf-memory-type",
                      config->nvbuf_memory_type, NULL);
 
-        if (!prop.integrated) {
-            gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem, bin->cap_filter1, nvvidconv1,
-                             nvvidconv2, bin->cap_filter, NULL);
-        } else {
-            gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem, bin->cap_filter1, nvvidconv2,
-                             bin->cap_filter, NULL);
-        }
+#ifndef IS_TEGRA
+        gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem, bin->cap_filter1, nvvidconv1, nvvidconv2,
+                         bin->cap_filter, NULL);
+#else
+        gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem, bin->cap_filter1, nvvidconv2,
+                         bin->cap_filter, NULL);
+#endif
 
         NVGSTDS_LINK_ELEMENT(bin->src_elem, bin->cap_filter1);
 
-        if (!prop.integrated) {
-            NVGSTDS_LINK_ELEMENT(bin->cap_filter1, nvvidconv1);
+#ifndef IS_TEGRA
+        NVGSTDS_LINK_ELEMENT(bin->cap_filter1, nvvidconv1);
 
-            NVGSTDS_LINK_ELEMENT(nvvidconv1, nvvidconv2);
-        } else {
-            NVGSTDS_LINK_ELEMENT(bin->cap_filter1, nvvidconv2);
-        }
+        NVGSTDS_LINK_ELEMENT(nvvidconv1, nvvidconv2);
+#else
+        NVGSTDS_LINK_ELEMENT(bin->cap_filter1, nvvidconv2);
+#endif
 
         NVGSTDS_LINK_ELEMENT(nvvidconv2, bin->cap_filter);
 
@@ -238,53 +228,6 @@ static void cb_newpad(GstElement *decodebin, GstPad *pad, gpointer data)
             GST_CAT_DEBUG(NVDS_APP, "Decodebin linked to pipeline");
         }
         gst_object_unref(sinkpad);
-    } else if (g_str_has_prefix(name, "audio/x-raw")) {
-        NvDsSrcBin *bin = (NvDsSrcBin *)data;
-
-        /** skip linking if we did not prepare for audio */
-        if (!bin->audio_converter) {
-            return;
-        }
-
-        GstPad *sinkpad = gst_element_get_static_pad(bin->audio_converter, "sink");
-
-        if (gst_pad_link(pad, sinkpad) != GST_PAD_LINK_OK)
-            NVGSTDS_ERR_MSG_V("Failed to link decodebin to pipeline");
-        gst_object_unref(sinkpad);
-    }
-}
-
-static void cb_newpad_audio(GstElement *decodebin, GstPad *pad, gpointer data)
-{
-    GstCaps *caps = gst_pad_query_caps(pad, NULL);
-    const GstStructure *str = gst_caps_get_structure(caps, 0);
-    const gchar *name = gst_structure_get_name(str);
-
-    if (g_str_has_prefix(name, "audio/x-raw")) {
-        NvDsSrcBin *bin = (NvDsSrcBin *)data;
-
-        GstPad *sinkpad = gst_element_get_static_pad(bin->audio_converter, "sink");
-
-        if (gst_pad_link(pad, sinkpad) != GST_PAD_LINK_OK)
-            NVGSTDS_ERR_MSG_V("Failed to link decodebin to pipeline");
-        gst_object_unref(sinkpad);
-    } else if (!strncmp(name, "video", 5)) {
-        /** connect video to fakesink and ignore the same */
-        NvDsSrcBin *bin = (NvDsSrcBin *)data;
-        bin->fakesink = gst_element_factory_make("fakesink", "src_fakesink");
-        if (!bin->fakesink) {
-            NVGSTDS_ERR_MSG_V("Could not create 'src_fakesink' for video path");
-            return;
-        }
-
-        g_object_set(G_OBJECT(bin->fakesink), "sync", FALSE, "async", FALSE, NULL);
-        gst_bin_add_many(GST_BIN(bin->bin), bin->fakesink, NULL);
-
-        GstPad *sinkpad = gst_element_get_static_pad(bin->fakesink, "sink");
-
-        if (gst_pad_link(pad, sinkpad) != GST_PAD_LINK_OK)
-            NVGSTDS_ERR_MSG_V("Failed to link decodebin to pipeline");
-        gst_object_unref(sinkpad);
     }
     gst_caps_unref(caps);
 }
@@ -293,11 +236,8 @@ static void cb_sourcesetup(GstElement *object, GstElement *arg0, gpointer data)
 {
     NvDsSrcBin *bin = (NvDsSrcBin *)data;
     if (g_object_class_find_property(G_OBJECT_GET_CLASS(arg0), "latency")) {
+        g_print("cb_sourcesetup set %d latency\n", bin->latency);
         g_object_set(G_OBJECT(arg0), "latency", bin->latency, NULL);
-    }
-    if (bin->udp_buffer_size &&
-        g_object_class_find_property(G_OBJECT_GET_CLASS(arg0), "udp-buffer-size")) {
-        g_object_set(G_OBJECT(arg0), "udp-buffer-size", bin->udp_buffer_size, NULL);
     }
 }
 
@@ -405,22 +345,14 @@ static void decodebin_child_added(GstChildProxy *child_proxy,
         g_object_set(object, "DeepStream", TRUE, NULL);
     }
     if (g_strstr_len(name, -1, "nvv4l2decoder") == name) {
-        if (config->low_latency_mode)
-            g_object_set(object, "low-latency-mode", TRUE, NULL);
         if (config->Intra_decode)
             g_object_set(object, "skip-frames", 2, NULL);
 #ifdef __aarch64__
-        if (g_object_class_find_property(G_OBJECT_GET_CLASS(object), "enable-max-performance")) {
-            g_object_set(object, "enable-max-performance", TRUE, NULL);
-        }
+        g_object_set(object, "enable-max-performance", TRUE, NULL);
+#else
+        g_object_set(object, "gpu-id", config->gpu_id, NULL);
+        g_object_set(G_OBJECT(object), "cudadec-memtype", config->cuda_memory_type, NULL);
 #endif
-
-        if (g_object_class_find_property(G_OBJECT_GET_CLASS(object), "gpu-id")) {
-            g_object_set(object, "gpu-id", config->gpu_id, NULL);
-        }
-        if (g_object_class_find_property(G_OBJECT_GET_CLASS(object), "cudadec-memtype")) {
-            g_object_set(G_OBJECT(object), "cudadec-memtype", config->cuda_memory_type, NULL);
-        }
         g_object_set(object, "drop-frame-interval", config->drop_frame_interval, NULL);
         g_object_set(object, "num-extra-surfaces", config->num_extra_surfaces, NULL);
 
@@ -553,7 +485,6 @@ void destroy_smart_record_bin(gpointer data)
         if (src_bin && src_bin->recordCtx)
             NvDsSRDestroy((NvDsSRContext *)src_bin->recordCtx);
     }
-    pbin->num_bins = 0;
 }
 
 static gpointer smart_record_callback(NvDsSRRecordingInfo *info, gpointer userData)
@@ -605,40 +536,6 @@ static gboolean smart_record_event_generator(gpointer data)
     return TRUE;
 }
 
-static void check_rtsp_reconnection_attempts(NvDsSrcBin *src_bin)
-{
-    gboolean remove_probe = TRUE;
-    guint i = 0;
-    for (i = 0; i < src_bin->parent_bin->num_bins; i++) {
-        if (src_bin->parent_bin->sub_bins[i].config->type != NV_DS_SOURCE_RTSP)
-            continue;
-        if (src_bin->parent_bin->sub_bins[i].have_eos &&
-            (src_bin->parent_bin->sub_bins[i].rtsp_reconnect_interval_sec == 0 ||
-             src_bin->parent_bin->sub_bins[i].rtsp_reconnect_attempts == 0)) {
-            remove_probe = FALSE;
-            break;
-        }
-        if (src_bin->parent_bin->sub_bins[i].num_rtsp_reconnects <=
-            src_bin->parent_bin->sub_bins[i].rtsp_reconnect_attempts) {
-            if (src_bin->parent_bin->sub_bins[i].rtsp_reconnect_interval_sec ||
-                !src_bin->parent_bin->sub_bins[i].have_eos) {
-                remove_probe = FALSE;
-                break;
-            }
-        }
-    }
-
-    if (remove_probe) {
-        GstElement *pipeline = GST_ELEMENT_PARENT(GST_ELEMENT_PARENT(src_bin->bin));
-        NVGSTDS_ELEM_REMOVE_PROBE(src_bin->parent_bin->nvstreammux_eosmonitor_probe,
-                                  src_bin->parent_bin->streammux, "src");
-        GST_ELEMENT_ERROR(pipeline, STREAM, FAILED,
-                          ("Reconnection attempts exceeded for all sources or EOS received."
-                           " Stopping pipeline"),
-                          (NULL));
-    }
-}
-
 /**
  * Function called at regular interval to check if NV_DS_SOURCE_RTSP type
  * source in the pipeline is down / disconnected. This function try to
@@ -659,41 +556,9 @@ static gboolean watch_source_status(gpointer data)
             current_time.tv_sec - src_bin->last_reconnect_time.tv_sec;
         if (time_since_last_reconnect_sec >= SOURCE_RESET_INTERVAL_SEC) {
             if (time_diff_msec_since_last_reset > 3000) {
-                if (src_bin->rtsp_reconnect_attempts == -1 ||
-                    ++src_bin->num_rtsp_reconnects <= src_bin->rtsp_reconnect_attempts) {
-                    last_reset_time_global = current_time;
-                    // source is still not up, reconfigure it again.
-                    reset_source_pipeline(src_bin);
-                } else {
-                    GST_ELEMENT_WARNING(
-                        src_bin->bin, STREAM, FAILED,
-                        ("Number of RTSP reconnect attempts exceeded, stopping source: %d",
-                         src_bin->source_id),
-                        (NULL));
-
-                    check_rtsp_reconnection_attempts(src_bin);
-
-                    GstElement *send_event_element = NULL;
-                    if (src_bin->dewarper_bin.bin != NULL) {
-                        send_event_element = src_bin->dewarper_bin.bin;
-                    } else {
-                        send_event_element = src_bin->cap_filter1;
-                    }
-
-                    gst_element_send_event(GST_ELEMENT(send_event_element),
-                                           gst_event_new_flush_stop(TRUE));
-                    if (!gst_element_send_event(GST_ELEMENT(send_event_element),
-                                                gst_event_new_eos())) {
-                        GST_ERROR_OBJECT(send_event_element,
-                                         "Interrupted, Reconnection event not sent");
-                    }
-                    if (gst_element_set_state(src_bin->bin, GST_STATE_NULL) ==
-                        GST_STATE_CHANGE_FAILURE) {
-                        GST_ERROR_OBJECT(src_bin->bin, "Can't set source bin to NULL");
-                    }
-
-                    return FALSE;
-                }
+                last_reset_time_global = current_time;
+                // source is still not up, reconfigure it again.
+                reset_source_pipeline(src_bin);
             }
         }
     } else {
@@ -709,44 +574,11 @@ static gboolean watch_source_status(gpointer data)
         if (src_bin->rtsp_reconnect_interval_sec > 0 &&
             time_since_last_buf_sec >= src_bin->rtsp_reconnect_interval_sec) {
             if (time_diff_msec_since_last_reset > 3000) {
-                if (src_bin->rtsp_reconnect_attempts == -1 ||
-                    ++src_bin->num_rtsp_reconnects <= src_bin->rtsp_reconnect_attempts) {
-                    last_reset_time_global = current_time;
+                last_reset_time_global = current_time;
 
-                    NVGSTDS_WARN_MSG_V(
-                        "No data from source %d since last %u sec. Trying reconnection",
-                        src_bin->bin_id, time_since_last_buf_sec);
-                    reset_source_pipeline(src_bin);
-                } else {
-                    GST_ELEMENT_WARNING(
-                        src_bin->bin, STREAM, FAILED,
-                        ("Number of RTSP reconnect attempts exceeded, stopping source: %d",
-                         src_bin->source_id),
-                        (NULL));
-
-                    check_rtsp_reconnection_attempts(src_bin);
-
-                    GstElement *send_event_element = NULL;
-                    if (src_bin->dewarper_bin.bin != NULL) {
-                        send_event_element = src_bin->dewarper_bin.bin;
-                    } else {
-                        send_event_element = src_bin->cap_filter1;
-                    }
-
-                    gst_element_send_event(GST_ELEMENT(send_event_element),
-                                           gst_event_new_flush_stop(TRUE));
-                    if (!gst_element_send_event(GST_ELEMENT(send_event_element),
-                                                gst_event_new_eos())) {
-                        GST_ERROR_OBJECT(send_event_element,
-                                         "Interrupted, Reconnection event not sent");
-                    }
-                    if (gst_element_set_state(src_bin->bin, GST_STATE_NULL) ==
-                        GST_STATE_CHANGE_FAILURE) {
-                        GST_ERROR_OBJECT(src_bin->bin, "Can't set source bin to NULL");
-                    }
-
-                    return FALSE;
-                }
+                NVGSTDS_WARN_MSG_V("No data from source %d since last %u sec. Trying reconnection",
+                                   src_bin->bin_id, time_since_last_buf_sec);
+                reset_source_pipeline(src_bin);
             }
         }
     }
@@ -780,13 +612,14 @@ static gboolean watch_source_async_state_change(gpointer data)
         src_bin->async_state_watch_running = FALSE;
         return FALSE;
     }
+
     // Bin successfully changed state to PLAYING. Stop watching state
     if (state == GST_STATE_PLAYING) {
         src_bin->reconfiguring = FALSE;
         src_bin->async_state_watch_running = FALSE;
-        src_bin->num_rtsp_reconnects = 0;
         return FALSE;
     }
+
     // Bin has stopped ASYNC state change but has not gone into
     // PLAYING. Expliclity set state to PLAYING and keep watching
     // state
@@ -806,14 +639,7 @@ static GstPadProbeReturn rtspsrc_monitor_probe_func(GstPad *pad,
     if (info->type & GST_PAD_PROBE_TYPE_BUFFER) {
         g_mutex_lock(&bin->bin_lock);
         gettimeofday(&bin->last_buffer_time, NULL);
-        bin->have_eos = FALSE;
         g_mutex_unlock(&bin->bin_lock);
-    }
-    if (info->type & GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM) {
-        if (GST_EVENT_TYPE(info->data) == GST_EVENT_EOS) {
-            bin->have_eos = TRUE;
-            check_rtsp_reconnection_attempts(bin);
-        }
     }
     return GST_PAD_PROBE_OK;
 }
@@ -845,10 +671,7 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
     GstCapsFeatures *feature = NULL;
 
     bin->latency = config->latency;
-    bin->udp_buffer_size = config->udp_buffer_size;
     bin->rtsp_reconnect_interval_sec = config->rtsp_reconnect_interval_sec;
-    bin->rtsp_reconnect_attempts = config->rtsp_reconnect_attempts;
-    bin->num_rtsp_reconnects = 0;
 
     g_snprintf(elem_name, sizeof(elem_name), "src_elem%d", bin->bin_id);
     bin->src_elem = gst_element_factory_make("rtspsrc", elem_name);
@@ -859,10 +682,6 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
 
     g_signal_connect(G_OBJECT(bin->src_elem), "select-stream", G_CALLBACK(cb_rtspsrc_select_stream),
                      bin);
-
-    if (config->udp_buffer_size) {
-        g_object_set(G_OBJECT(bin->src_elem), "udp-buffer-size", config->udp_buffer_size, NULL);
-    }
 
     g_object_set(G_OBJECT(bin->src_elem), "location", config->uri, NULL);
     g_object_set(G_OBJECT(bin->src_elem), "latency", config->latency, NULL);
@@ -887,13 +706,6 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
         goto done;
     }
 
-    g_snprintf(elem_name, sizeof(elem_name), "tee_rtsp_post_decode_elem%d", bin->bin_id);
-    bin->tee_rtsp_post_decode = gst_element_factory_make("tee", elem_name);
-    if (!bin->tee_rtsp_post_decode) {
-        NVGSTDS_ERR_MSG_V("Failed to create '%s'", elem_name);
-        goto done;
-    }
-
     if (config->smart_record) {
         NvDsSRInitParams params = {0};
         params.containerType = (NvDsSRContainerType)config->smart_rec_container;
@@ -901,7 +713,7 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
             params.fileNamePrefix =
                 g_strdup_printf("%s_%d", config->file_prefix, config->camera_id);
         params.dirpath = config->dir_path;
-        params.cacheSize = config->smart_rec_cache_size;
+        params.videoCacheSize = config->video_cache_size;
         params.defaultDuration = config->smart_rec_def_duration;
         params.callback = smart_record_callback;
         if (NvDsSRCreate(&ctx, &params) != NVDSSR_STATUS_OK) {
@@ -925,10 +737,6 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
         NVGSTDS_ELEM_ADD_PROBE(bin->rtspsrc_monitor_probe, bin->dec_que, "sink",
                                rtspsrc_monitor_probe_func, GST_PAD_PROBE_TYPE_BUFFER, bin);
         install_mux_eosmonitor_probe = TRUE;
-    } else {
-        NVGSTDS_ELEM_ADD_PROBE(bin->rtspsrc_monitor_probe, bin->dec_que, "sink",
-                               rtspsrc_monitor_probe_func, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
-                               bin);
     }
 
     g_snprintf(elem_name, sizeof(elem_name), "decodebin_elem%d", bin->bin_id);
@@ -956,8 +764,7 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
             goto done;
         }
         gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem, bin->tee_rtsp_pre_decode, bin->dec_que,
-                         bin->decodebin, bin->cap_filter, bin->tee_rtsp_post_decode,
-                         bin->dewarper_bin.bin, NULL);
+                         bin->decodebin, bin->dewarper_bin.bin, bin->cap_filter, NULL);
     } else {
         g_snprintf(elem_name, sizeof(elem_name), "nvvidconv_elem%d", bin->bin_id);
         bin->nvvidconv = gst_element_factory_make(NVDS_ELEM_VIDEO_CONV, elem_name);
@@ -965,14 +772,7 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
             NVGSTDS_ERR_MSG_V("Could not create element 'nvvidconv_elem'");
             goto done;
         }
-        g_object_set(G_OBJECT(bin->nvvidconv), "gpu-id", config->gpu_id, "nvbuf-memory-type",
-                     config->nvbuf_memory_type, NULL);
-        if (config->video_format) {
-            caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, config->video_format,
-                                       NULL);
-        } else {
-            caps = gst_caps_new_empty_simple("video/x-raw");
-        }
+        caps = gst_caps_new_empty_simple("video/x-raw");
         feature = gst_caps_features_new("memory:NVMM", NULL);
         gst_caps_set_features(caps, 0, feature);
 
@@ -986,8 +786,7 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
         g_object_set(G_OBJECT(bin->cap_filter1), "caps", caps, NULL);
         gst_caps_unref(caps);
         gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem, bin->tee_rtsp_pre_decode, bin->dec_que,
-                         bin->decodebin, bin->cap_filter, bin->tee_rtsp_post_decode, bin->nvvidconv,
-                         bin->cap_filter1, NULL);
+                         bin->decodebin, bin->cap_filter, bin->nvvidconv, bin->cap_filter1, NULL);
     }
 
     link_element_to_tee_src_pad(bin->tee_rtsp_pre_decode, bin->dec_que);
@@ -996,12 +795,11 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
     if (ctx)
         link_element_to_tee_src_pad(bin->tee_rtsp_pre_decode, ctx->recordbin);
 
-    NVGSTDS_LINK_ELEMENT(bin->cap_filter, bin->tee_rtsp_post_decode);
     if (config->dewarper_config.enable) {
-        link_element_to_tee_src_pad(bin->tee_rtsp_post_decode, bin->dewarper_bin.bin);
+        NVGSTDS_LINK_ELEMENT(bin->cap_filter, bin->dewarper_bin.bin);
         NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->dewarper_bin.bin, "src");
     } else {
-        link_element_to_tee_src_pad(bin->tee_rtsp_post_decode, bin->nvvidconv);
+        NVGSTDS_LINK_ELEMENT(bin->cap_filter, bin->nvvidconv);
         NVGSTDS_LINK_ELEMENT(bin->nvvidconv, bin->cap_filter1);
         NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->cap_filter1, "src");
     }
@@ -1019,177 +817,6 @@ static gboolean create_rtsp_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
         else
             g_timeout_add(10000, smart_record_event_generator, bin);
     }
-
-    GST_CAT_DEBUG(NVDS_APP, "Decode bin created. Waiting for a new pad from decodebin to link");
-
-done:
-
-    if (!ret) {
-        NVGSTDS_ERR_MSG_V("%s failed", __func__);
-    }
-    return ret;
-}
-
-static gboolean create_audiodecode_src_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
-{
-    gboolean ret = FALSE;
-    guint const MAX_CAPS_LEN = 256;
-    gchar caps_audio_resampler[MAX_CAPS_LEN];
-    GstCaps *caps = NULL;
-    bin->config = config;
-
-    config->live_source = FALSE;
-
-    if (config->type == NV_DS_SOURCE_AUDIO_WAV) {
-        bin->src_elem = gst_element_factory_make(NVDS_ELEM_SRC_MULTIFILE, "src_elem");
-        if (!bin->src_elem) {
-            NVGSTDS_ERR_MSG_V("Could not create element 'src_elem'");
-            goto done;
-        }
-
-        g_object_set(G_OBJECT(bin->src_elem), "location", config->uri, NULL);
-        g_object_set(G_OBJECT(bin->src_elem), "loop", config->loop, NULL);
-
-        bin->decodebin = gst_element_factory_make(NVDS_ELEM_WAVPARSE, "decodebin_elem");
-        if (!bin->decodebin) {
-            NVGSTDS_ERR_MSG_V("Could not create element 'decodebin_elem'");
-            goto done;
-        }
-        g_object_set(G_OBJECT(bin->decodebin), "ignore-length", config->loop, NULL);
-    } else if (config->type == NV_DS_SOURCE_ALSA_SRC) {
-        bin->src_elem = gst_element_factory_make(NVDS_ELEM_SRC_ALSA, "src_elem");
-        if (!bin->src_elem) {
-            NVGSTDS_ERR_MSG_V("Could not create element 'src_elem'");
-            goto done;
-        }
-        if (config->alsa_device) {
-            g_object_set(G_OBJECT(bin->src_elem), "device", config->alsa_device, NULL);
-        }
-    } else {
-        NVGSTDS_ERR_MSG_V("Source Type (%d) not supported\n", config->type);
-        goto done;
-    }
-
-    bin->audio_converter = gst_element_factory_make("audioconvert", "audio-convert");
-    if (!bin->audio_converter) {
-        NVGSTDS_ERR_MSG_V("Could not create 'audioconvert'");
-        goto done;
-    }
-
-    bin->audio_resample = gst_element_factory_make("audioresample", "audio-resample");
-    if (!bin->audio_resample) {
-        NVGSTDS_ERR_MSG_V("Could not create 'audioresample'");
-        goto done;
-    }
-
-    bin->cap_filter =
-        gst_element_factory_make(NVDS_ELEM_CAPS_FILTER, "src_cap_filter_audioresample");
-    if (!bin->cap_filter) {
-        NVGSTDS_ERR_MSG_V("Could not create src_cap_filter_audioresample");
-        goto done;
-    }
-
-    if (snprintf(caps_audio_resampler, MAX_CAPS_LEN, "audio/x-raw, rate=%d",
-                 config->input_audio_rate) <= 0) {
-        NVGSTDS_ERR_MSG_V("Could not create caps to force rate=%d", config->input_audio_rate);
-        goto done;
-    }
-    caps = gst_caps_from_string(caps_audio_resampler);
-    g_object_set(G_OBJECT(bin->cap_filter), "caps", caps, NULL);
-    gst_caps_unref(caps);
-
-    if (config->type == NV_DS_SOURCE_AUDIO_WAV) {
-        gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem, bin->decodebin, bin->audio_converter,
-                         bin->audio_resample, bin->cap_filter, NULL);
-
-        gst_element_link_many(bin->src_elem, bin->decodebin, bin->audio_converter,
-                              bin->audio_resample, bin->cap_filter, NULL);
-    } else if (config->type == NV_DS_SOURCE_ALSA_SRC) {
-        gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem, bin->audio_converter,
-                         bin->audio_resample, bin->cap_filter, NULL);
-
-        gst_element_link_many(bin->src_elem, bin->audio_converter, bin->audio_resample,
-                              bin->cap_filter, NULL);
-    }
-
-    NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->cap_filter, "src");
-
-    ret = TRUE;
-
-    GST_CAT_DEBUG(NVDS_APP, "Decode bin created. Waiting for a new pad from decodebin to link");
-
-done:
-
-    if (!ret) {
-        NVGSTDS_ERR_MSG_V("%s failed", __func__);
-    }
-    return ret;
-}
-
-static gboolean create_uridecode_src_bin_audio(NvDsSourceConfig *config, NvDsSrcBin *bin)
-{
-    gboolean ret = FALSE;
-    guint const MAX_CAPS_LEN = 256;
-    gchar caps_audio_resampler[MAX_CAPS_LEN];
-    GstCaps *caps = NULL;
-    bin->config = config;
-
-    bin->src_elem = gst_element_factory_make(NVDS_ELEM_SRC_URI, "src_elem");
-    if (!bin->src_elem) {
-        NVGSTDS_ERR_MSG_V("Could not create element 'src_elem'");
-        goto done;
-    }
-    bin->latency = config->latency;
-    bin->udp_buffer_size = config->udp_buffer_size;
-
-    if (g_strrstr(config->uri, "file:/")) {
-        config->live_source = FALSE;
-    }
-    if (g_strrstr(config->uri, "rtsp://") == config->uri) {
-        configure_source_for_ntp_sync(bin->src_elem);
-    }
-
-    g_object_set(G_OBJECT(bin->src_elem), "uri", config->uri, NULL);
-    g_signal_connect(G_OBJECT(bin->src_elem), "pad-added", G_CALLBACK(cb_newpad_audio), bin);
-
-    bin->audio_converter = gst_element_factory_make(NVDS_ELEM_AUDIO_CONV, "audioconv_elem");
-    if (!bin->audio_converter) {
-        NVGSTDS_ERR_MSG_V("Could not create element audio_converter");
-        goto done;
-    }
-
-    bin->audio_resample =
-        gst_element_factory_make(NVDS_ELEM_AUDIO_RESAMPLER, "audioresampler_elem");
-    if (!bin->audio_resample) {
-        NVGSTDS_ERR_MSG_V("Could not create element audio_resample");
-        goto done;
-    }
-
-    bin->cap_filter =
-        gst_element_factory_make(NVDS_ELEM_CAPS_FILTER, "src_cap_filter_audioresample");
-    if (!bin->cap_filter) {
-        NVGSTDS_ERR_MSG_V("Could not create src_cap_filter_audioresample");
-        goto done;
-    }
-
-    if (snprintf(caps_audio_resampler, MAX_CAPS_LEN, "audio/x-raw, rate=%d",
-                 config->input_audio_rate) <= 0) {
-        NVGSTDS_ERR_MSG_V("Could not create caps to force rate=%d", config->input_audio_rate);
-        goto done;
-    }
-    caps = gst_caps_from_string(caps_audio_resampler);
-    g_object_set(G_OBJECT(bin->cap_filter), "caps", caps, NULL);
-    gst_caps_unref(caps);
-
-    gst_bin_add_many(GST_BIN(bin->bin), bin->src_elem, bin->audio_converter, bin->audio_resample,
-                     bin->cap_filter, NULL);
-
-    NVGSTDS_LINK_ELEMENT(bin->audio_converter, bin->audio_resample);
-    NVGSTDS_LINK_ELEMENT(bin->audio_resample, bin->cap_filter);
-
-    NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->cap_filter, "src");
-
-    ret = TRUE;
 
     GST_CAT_DEBUG(NVDS_APP, "Decode bin created. Waiting for a new pad from decodebin to link");
 
@@ -1221,7 +848,6 @@ static gboolean create_uridecode_src_bin(NvDsSourceConfig *config, NvDsSrcBin *b
         }
     }
     bin->latency = config->latency;
-    bin->udp_buffer_size = config->udp_buffer_size;
 
     if (g_strrstr(config->uri, "file:/")) {
         config->live_source = FALSE;
@@ -1247,14 +873,7 @@ static gboolean create_uridecode_src_bin(NvDsSourceConfig *config, NvDsSrcBin *b
         goto done;
     }
 
-    g_object_set(G_OBJECT(bin->nvvidconv), "gpu-id", config->gpu_id, "nvbuf-memory-type",
-                 config->nvbuf_memory_type, NULL);
-    if (config->video_format) {
-        caps =
-            gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, config->video_format, NULL);
-    } else {
-        caps = gst_caps_new_empty_simple("video/x-raw");
-    }
+    caps = gst_caps_new_empty_simple("video/x-raw");
     feature = gst_caps_features_new("memory:NVMM", NULL);
     gst_caps_set_features(caps, 0, feature);
 
@@ -1319,28 +938,6 @@ done:
         NVGSTDS_ERR_MSG_V("%s failed", __func__);
     }
     return ret;
-}
-
-gboolean create_audio_source_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
-{
-    static guint bin_cnt = 0;
-    gchar bin_name[64];
-
-    g_snprintf(bin_name, 64, "src_bin_%d", bin_cnt++);
-    bin->bin = gst_bin_new(bin_name);
-    if (!bin->bin) {
-        NVGSTDS_ERR_MSG_V("Failed to create 'src_bin'");
-        return FALSE;
-    }
-
-    if (!create_audiodecode_src_bin(config, bin)) {
-        return FALSE;
-    }
-    bin->live_source = config->live_source;
-
-    GST_CAT_DEBUG(NVDS_APP, "Source bin created");
-
-    return TRUE;
 }
 
 gboolean create_source_bin(NvDsSourceConfig *config, NvDsSrcBin *bin)
@@ -1424,8 +1021,6 @@ gboolean create_multi_source_bin(guint num_sub_bins,
         bin->sub_bins[i].eos_done = TRUE;
         bin->sub_bins[i].reset_done = TRUE;
 
-        bin->sub_bins[i].parent_bin = bin;
-
         switch (configs[i].type) {
         case NV_DS_SOURCE_CAMERA_CSI:
         case NV_DS_SOURCE_CAMERA_V4L2:
@@ -1444,22 +1039,6 @@ gboolean create_multi_source_bin(guint num_sub_bins,
                 return FALSE;
             }
             break;
-        case NV_DS_SOURCE_AUDIO_WAV:
-            if (!create_audio_source_bin(&configs[i], &bin->sub_bins[i])) {
-                return FALSE;
-            }
-            break;
-        case NV_DS_SOURCE_AUDIO_URI:
-            if (!create_uridecode_src_bin_audio(&configs[i], &bin->sub_bins[i])) {
-                return FALSE;
-            }
-            bin->live_source = configs->live_source;
-            break;
-        case NV_DS_SOURCE_ALSA_SRC:
-            if (!create_audio_source_bin(&configs[i], &bin->sub_bins[i])) {
-                return FALSE;
-            }
-            break;
         default:
             NVGSTDS_ERR_MSG_V("Source type not yet implemented!\n");
             return FALSE;
@@ -1473,94 +1052,13 @@ gboolean create_multi_source_bin(guint num_sub_bins,
             goto done;
         }
 
+        if (configs->dewarper_config.enable) {
+            g_object_set(G_OBJECT(bin->sub_bins[i].dewarper_bin.nvdewarper), "source-id",
+                         configs[i].source_id, NULL);
+        }
+
         bin->num_bins++;
     }
-    NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->streammux, "src");
-
-    if (install_mux_eosmonitor_probe) {
-        NVGSTDS_ELEM_ADD_PROBE(bin->nvstreammux_eosmonitor_probe, bin->streammux, "src",
-                               nvstreammux_eosmonitor_probe_func,
-                               GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, bin);
-    }
-
-    ret = TRUE;
-
-done:
-    if (!ret) {
-        NVGSTDS_ERR_MSG_V("%s failed", __func__);
-    }
-    return ret;
-}
-
-static void set_properties_nvuribin(GstElement *element_, NvDsSourceConfig const *config)
-{
-    GstElementFactory *factory = GST_ELEMENT_GET_CLASS(element_)->elementfactory;
-    if (!g_strcmp0(GST_OBJECT_NAME(factory), "nvurisrcbin"))
-        g_object_set(element_, "uri", config->uri, NULL);
-    if (config->num_extra_surfaces)
-        g_object_set(element_, "num-extra-surfaces", config->num_extra_surfaces, NULL);
-    if (config->gpu_id)
-        g_object_set(element_, "gpu-id", config->gpu_id, NULL);
-    g_object_set(element_, "cudadec-memtype", config->cuda_memory_type, NULL);
-    if (config->drop_frame_interval)
-        g_object_set(element_, "drop-frame-interval", config->drop_frame_interval, NULL);
-    if (config->select_rtp_protocol)
-        g_object_set(element_, "select-rtp-protocol", config->select_rtp_protocol, NULL);
-    if (config->loop)
-        g_object_set(element_, "file-loop", config->loop, NULL);
-    if (config->smart_record)
-        g_object_set(element_, "smart-record", config->smart_record, NULL);
-    if (config->smart_rec_cache_size)
-        g_object_set(element_, "smart-rec-cache", config->smart_rec_cache_size, NULL);
-    if (config->smart_rec_container)
-        g_object_set(element_, "smart-rec-container", config->smart_rec_container, NULL);
-    if (config->smart_rec_def_duration)
-        g_object_set(element_, "smart-rec-default-duration", config->smart_rec_def_duration, NULL);
-    if (config->rtsp_reconnect_interval_sec)
-        g_object_set(element_, "rtsp-reconnect-interval", config->rtsp_reconnect_interval_sec,
-                     NULL);
-    if (config->latency)
-        g_object_set(element_, "latency", config->latency, NULL);
-    if (config->udp_buffer_size)
-        g_object_set(element_, "udp-buffer-size", config->udp_buffer_size, NULL);
-}
-
-gboolean create_nvmultiurisrcbin_bin(guint num_sub_bins,
-                                     NvDsSourceConfig *configs,
-                                     NvDsSrcParentBin *bin)
-{
-    gboolean ret = FALSE;
-    guint i = 0;
-
-    bin->reset_thread = NULL;
-
-    bin->bin = gst_bin_new("multiuri_src_bin");
-    if (!bin->bin) {
-        NVGSTDS_ERR_MSG_V("Failed to create element 'multiuri_src_bin'");
-        goto done;
-    }
-
-    g_object_set(bin->bin, "message-forward", TRUE, NULL);
-
-    bin->nvmultiurisrcbin = bin->streammux =
-        gst_element_factory_make(NVDS_ELEM_NVMULTIURISRCBIN, "src_nvmultiurisrcbin");
-    if (!bin->streammux) {
-        NVGSTDS_ERR_MSG_V("Failed to create element 'src_nvmultiurisrcbin'");
-        goto done;
-    }
-    gst_bin_add(GST_BIN(bin->bin), bin->streammux);
-
-    /** set properties for the nvurisrcbin if atleast one uri was provided */
-    for (i = 0; i < num_sub_bins; i++) {
-        if (!configs[i].enable) {
-            continue;
-        }
-        set_properties_nvuribin(bin->nvmultiurisrcbin, &configs[i]);
-    }
-    if (num_sub_bins == 0) {
-        set_properties_nvuribin(bin->nvmultiurisrcbin, configs);
-    }
-
     NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->streammux, "src");
 
     if (install_mux_eosmonitor_probe) {
@@ -1589,13 +1087,6 @@ gboolean reset_source_pipeline(gpointer data)
     gettimeofday(&src_bin->last_reconnect_time, NULL);
     g_mutex_unlock(&src_bin->bin_lock);
 
-    GstElement *send_event_element = NULL;
-    if (src_bin->dewarper_bin.bin != NULL) {
-        send_event_element = src_bin->dewarper_bin.bin;
-    } else {
-        send_event_element = src_bin->cap_filter1;
-    }
-    gst_element_send_event(GST_ELEMENT(send_event_element), gst_event_new_flush_stop(TRUE));
     if (gst_element_set_state(src_bin->bin, GST_STATE_NULL) == GST_STATE_CHANGE_FAILURE) {
         GST_ERROR_OBJECT(src_bin->bin, "Can't set source bin to NULL");
         return FALSE;
@@ -1605,11 +1096,6 @@ gboolean reset_source_pipeline(gpointer data)
     GST_CAT_INFO(NVDS_APP, "Reset source pipeline %s %p\n,", __func__, src_bin);
     if (!gst_element_sync_state_with_parent(src_bin->bin)) {
         GST_ERROR_OBJECT(src_bin->bin, "Couldn't sync state with parent");
-    }
-
-    if (src_bin->parser != NULL) {
-        if (!gst_element_send_event(GST_ELEMENT(src_bin->parser), gst_nvevent_new_stream_reset(0)))
-            GST_ERROR_OBJECT(src_bin->parser, "Interrupted, Reconnection event not sent");
     }
 
     ret = gst_element_get_state(src_bin->bin, &state, &pending, 0);

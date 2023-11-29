@@ -20,7 +20,12 @@ Dependencies
 
 Install rabbitmq-c library
 --------------------------
- sudo apt-get install librabbitmq-dev
+ git clone -b v0.8.0  --recursive https://github.com/alanxz/rabbitmq-c.git
+ mkdir build && cd build
+ cmake ..
+ cmake --build .
+ sudo cp /librabbitmq/librabbitmq.so.4 /opt/nvidia/deepstream/deepstream-<version>/lib/
+ sudo ldconfig
 
 If you plan to have AMQP broker installed on your local machine
 ---------------------------------------------------------------
@@ -70,15 +75,6 @@ used for making a connection
 Uncommenting this field signifies that the connection created can be shared
 with other components within the same process.
 
-
-Specify heartbeat
---------------------------
-#amqp-heartbeat=0
-Uncomment the field amqp-heartbeat in cfg_amqp.txt and set its value to an integer > 0 to enable the heartbeat protocol.
-This integer is the number of seconds between heartbeat frames requested of the broker. After 2 missed frames, rabbitmq
-will consider the connection unreachable. A value of 0 disables the heartbeat protocol.
-
-
 Setup and enable logging:
 -------------------------
 Before running the sample applications, enable logs by running the logger setup script:
@@ -92,12 +88,11 @@ On Jetson,
 To run test program:
 --------------------
  make -f Makefile.test
- ./test_amqp_proto_async
- ./test_amqp_proto_sync
+ ./test_amqp_proto_async <path_to_libnvds_amqp_proto.so>
+ ./test_amqp_proto_sync <path_to_libnvds_amqp_proto.so>
 
  NOTE:
- 1. To compile the sources, run make with "sudo" or root permission.
- 2. libnvds_amqp_proto.so can be found at /opt/nvidia/deepstream/deepstream-<version>/lib/
+ libnvds_amqp_proto.so can be found at /opt/nvidia/deepstream/deepstream-<version>/lib/
 
 Limitations:
 ------------

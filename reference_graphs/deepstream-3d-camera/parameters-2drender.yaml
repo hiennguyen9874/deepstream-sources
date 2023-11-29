@@ -1,5 +1,0 @@
-components:
-  - name: 3d_sink
-    parameters:
-      config-file: ds_3d_render_depth2d.yaml
-name: 3d_sink

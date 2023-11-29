@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -75,16 +75,15 @@ interval=0
 gie-unique-id=1
 output-blob-names=Layer18_cov;Layer18_bbox
 #parse-bbox-func-name=NvDsInferParseCustomResnet
-#custom-lib-path=/path/to/this/directory/libnvds_infercustomparser.so
-## 1=DBSCAN, 2=NMS, 3= DBSCAN+NMS Hybrid, 4 = None(No clustering)
-cluster-mode=2
+#custom-lib-path=/path/to/libnvdsparsebbox.so
+## 0=Group Rectangles, 1=DBSCAN, 2=NMS, 3= DBSCAN+NMS Hybrid, 4 = None(No clustering)
+#cluster-mode=1
 #scaling-filter=0
 #scaling-compute-hw=0
 
 [class-attrs-all]
 pre-cluster-threshold=0.2
-topk=20
-nms-iou-threshold=0.5
+group-threshold=1
 ## Set eps=0.7 and minBoxes for cluster-mode=1(DBSCAN)
 eps=0.2
 #minBoxes=3

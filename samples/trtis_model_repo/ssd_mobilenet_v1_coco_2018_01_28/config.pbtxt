@@ -75,13 +75,13 @@ instance_group {
 
 # Enable TensorRT acceleration running in gpu instance. It might take several
 # minutes during intialization to generate tensorrt online caches.
-# Limit max_workspace_size_bytes to ~256MB for Nano
+# Limit max_workspace_size_bytes to ~64MB for Nano
+
 #optimization { execution_accelerators {
-#  gpu_execution_accelerator {
+#  gpu_execution_accelerator : [ {
 #    name : "tensorrt"
 #    parameters { key: "precision_mode" value: "FP16" }
-#    parameters { key: "max_workspace_size_bytes" value: "268435456"}
-#    #parameters { key: "minimum_segment_size" value: "10"}
-#}
+#    parameters { key: "max_workspace_size_bytes" value: "64000000"}
+#}]
 #}}
 

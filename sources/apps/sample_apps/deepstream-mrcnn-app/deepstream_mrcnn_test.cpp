@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <math.h>
@@ -33,27 +32,19 @@
 #include <vector>
 
 /* Open CV headers */
-#pragma GCC diagnostic push
-#if __GNUC__ >= 8
-#pragma GCC diagnostic ignored "-Wclass-memaccess"
-#endif
-#ifdef WITH_OPENCV
-#include "opencv2/imgproc/imgproc.hpp"
-#endif
-#pragma GCC diagnostic pop
-
 #include "gstnvdsmeta.h"
 #include "nvdsmeta_schema.h"
+#include "opencv2/imgproc/imgproc.hpp"
 
+using namespace cv;
 using namespace std;
 
 #define MAX_DISPLAY_LEN 64
 #define MAX_TIME_STAMP_LEN 32
 
 #define PGIE_CLASS_ID_BG 0
-/* Unused for peopleSegNet. */
-#define PGIE_CLASS_ID_VEHICLE -1
-#define PGIE_CLASS_ID_PERSON 1
+#define PGIE_CLASS_ID_VEHICLE 1
+#define PGIE_CLASS_ID_PERSON 2
 
 #define PGIE_CONFIG_FILE "dsmrcnn_pgie_config.txt"
 #define MSCONV_CONFIG_FILE "dsmrcnn_msgconv_config.txt"
@@ -94,7 +85,6 @@ GOptionEntry entries[] = {
     {"no-display", 0, 0, G_OPTION_ARG_NONE, &display_off, "Disable display", NULL},
     {NULL}};
 
-#ifdef WITH_OPENCV
 static void resizeMask(float *src,
                        int original_width,
                        int original_height,
@@ -146,7 +136,7 @@ static void resizeMask(float *src,
         }
     }
 }
-#endif
+
 static void generate_ts_rfc3339(char *buf, int buf_size)
 {
     time_t tloc;
@@ -281,7 +271,6 @@ static void meta_free_func(gpointer data, gpointer user_data)
     user_meta->user_meta_data = NULL;
 }
 
-#ifdef WITH_OPENCV
 static GList *generate_mask_polygon(float *mask,
                                     int mask_width,
                                     int mask_height,
@@ -295,7 +284,7 @@ static GList *generate_mask_polygon(float *mask,
 
     resizeMask(mask, mask_width, mask_height, dst, threshold);
 
-    findContours(dst, contours, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
+    findContours(dst, contours, RETR_TREE, CHAIN_APPROX_SIMPLE);
 
     for (size_t i = 0; i < contours.size(); i++) {
         GArray *polygon;
@@ -312,7 +301,6 @@ static GList *generate_mask_polygon(float *mask,
     }
     return mask_list;
 }
-#endif
 
 static void generate_vehicle_meta(gpointer data, NvDsObjectMeta *obj_params)
 {
@@ -325,12 +313,10 @@ static void generate_vehicle_meta(gpointer data, NvDsObjectMeta *obj_params)
     obj->license = g_strdup("XX1234");
     obj->region = g_strdup("CA");
 
-#ifdef WITH_OPENCV
     obj->mask =
         generate_mask_polygon(obj_params->mask_params.data, obj_params->mask_params.width,
                               obj_params->mask_params.height, obj_params->rect_params.width,
                               obj_params->rect_params.height, obj_params->mask_params.threshold);
-#endif
 }
 
 static void generate_person_meta(gpointer data, NvDsObjectMeta *obj_params)
@@ -342,12 +328,10 @@ static void generate_person_meta(gpointer data, NvDsObjectMeta *obj_params)
     obj->gender = g_strdup("male");
     obj->apparel = g_strdup("formal");
 
-#ifdef WITH_OPENCV
     obj->mask =
         generate_mask_polygon(obj_params->mask_params.data, obj_params->mask_params.width,
                               obj_params->mask_params.height, obj_params->rect_params.width,
                               obj_params->rect_params.height, obj_params->mask_params.threshold);
-#endif
 }
 
 static void generate_event_msg_meta(gpointer data, gint class_id, NvDsObjectMeta *obj_params)
@@ -514,6 +498,9 @@ int main(int argc, char *argv[])
                *pgie = NULL, *nvvidconv = NULL, *nvosd = NULL, *nvstreammux;
     GstElement *msgconv = NULL, *msgbroker = NULL, *tee = NULL;
     GstElement *queue1 = NULL, *queue2 = NULL;
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *osd_sink_pad = NULL;
@@ -524,11 +511,6 @@ int main(int argc, char *argv[])
     GOptionContext *ctx = NULL;
     GOptionGroup *group = NULL;
     GError *error = NULL;
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
 
     ctx = g_option_context_new("Nvidia DeepStream MaskRCNN");
     group = g_option_group_new("MaskRCNN", NULL, NULL, NULL, NULL);
@@ -597,10 +579,16 @@ int main(int argc, char *argv[])
     /* Finally render the osd output */
     if (display_off) {
         sink = gst_element_factory_make("fakesink", "nvvideo-renderer");
-    } else if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
     } else {
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+
+#ifdef PLATFORM_TEGRA
+        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+        if (!transform) {
+            g_printerr("nvegltransform element could not be created. Exiting.\n");
+            return -1;
+        }
+#endif
     }
 
     if (!pipeline || !source || !h264parser || !decoder || !nvstreammux || !pgie || !nvvidconv ||
@@ -620,10 +608,6 @@ int main(int argc, char *argv[])
     /* Set all the necessary properties of the nvinfer element,
      * the necessary ones are : */
     g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
-
-    /** Enable display-mask;
-     * Note: display-mask is supported only for process-mode=0 (CPU): */
-    g_object_set(G_OBJECT(nvosd), "display-mask", TRUE, "process-mode", 0, NULL);
 
     g_object_set(G_OBJECT(msgconv), "config", MSCONV_CONFIG_FILE, NULL);
     g_object_set(G_OBJECT(msgconv), "payload-type", schema_type, NULL);
@@ -651,6 +635,10 @@ int main(int argc, char *argv[])
     gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, nvstreammux, pgie, nvvidconv,
                      nvosd, tee, queue1, queue2, msgconv, msgbroker, sink, NULL);
 
+#ifdef PLATFORM_TEGRA
+    if (!display_off)
+        gst_bin_add(GST_BIN(pipeline), transform);
+#endif
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder -> nvstreammux ->
      * nvinfer -> nvvidconv -> nvosd -> tee -> video-renderer
@@ -692,10 +680,24 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+#ifdef PLATFORM_TEGRA
+    if (!display_off) {
+        if (!gst_element_link_many(queue2, transform, sink, NULL)) {
+            g_printerr("Elements could not be linked. Exiting.\n");
+            return -1;
+        }
+    } else {
+        if (!gst_element_link(queue2, sink)) {
+            g_printerr("Elements could not be linked. Exiting.\n");
+            return -1;
+        }
+    }
+#else
     if (!gst_element_link(queue2, sink)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }
+#endif
 
     sink_pad = gst_element_get_static_pad(queue1, "sink");
     tee_msg_pad = gst_element_get_request_pad(tee, "src_%u");

@@ -68,6 +68,11 @@ typedef struct {
     GstNvInferMemory mem_infer;
 } GstNvInferMem;
 
+#ifdef IS_TEGRA
+extern "C" EGLImageKHR NvEGLImageFromFd(EGLDisplay display, int dmabuf_fd);
+extern "C" int NvDestroyEGLImage(EGLDisplay display, EGLImageKHR eglImage);
+#endif
+
 /* Function called by GStreamer buffer pool to allocate memory using this
  * allocator. */
 static GstMemory *gst_nvinfer_allocator_alloc(GstAllocator *allocator,
@@ -93,38 +98,40 @@ static GstMemory *gst_nvinfer_allocator_alloc(GstAllocator *allocator,
         return nullptr;
     }
 
-    if (tmem->surf->memType == NVBUF_MEM_SURFACE_ARRAY) {
-        if (NvBufSurfaceMapEglImage(tmem->surf, -1) != 0) {
-            GST_ERROR("Error: Could not map EglImage from NvBufSurface for nvinfer");
-            return nullptr;
-        }
-
-        tmem->egl_frames.resize(inferallocator->batch_size);
-        tmem->cuda_resources.resize(inferallocator->batch_size);
+#ifdef IS_TEGRA
+    if (NvBufSurfaceMapEglImage(tmem->surf, -1) != 0) {
+        GST_ERROR("Error: Could not map EglImage from NvBufSurface for nvinfer");
+        return nullptr;
     }
+#endif
+
+#ifdef IS_TEGRA
+    tmem->egl_frames.resize(inferallocator->batch_size);
+    tmem->cuda_resources.resize(inferallocator->batch_size);
+#endif
 
     tmem->frame_memory_ptrs.assign(inferallocator->batch_size, nullptr);
 
     for (guint i = 0; i < inferallocator->batch_size; i++) {
-        if (tmem->surf->memType == NVBUF_MEM_SURFACE_ARRAY) {
-            if (cuGraphicsEGLRegisterImage(&tmem->cuda_resources[i],
-                                           tmem->surf->surfaceList[i].mappedAddr.eglImage,
-                                           CU_GRAPHICS_MAP_RESOURCE_FLAGS_NONE) != CUDA_SUCCESS) {
-                g_printerr("Failed to register EGLImage in cuda\n");
-                return nullptr;
-            }
-
-            if (cuGraphicsResourceGetMappedEglFrame(&tmem->egl_frames[i], tmem->cuda_resources[i],
-                                                    0, 0) != CUDA_SUCCESS) {
-                g_printerr("Failed to get mapped EGL Frame\n");
-                return nullptr;
-            }
-            tmem->frame_memory_ptrs[i] = (char *)tmem->egl_frames[i].frame.pPitch[0];
-        } else {
-            /* Calculate pointers to individual frame memories in the batch memory and
-             * insert in the vector. */
-            tmem->frame_memory_ptrs[i] = (char *)tmem->surf->surfaceList[i].dataPtr;
+#ifdef IS_TEGRA
+        if (cuGraphicsEGLRegisterImage(&tmem->cuda_resources[i],
+                                       tmem->surf->surfaceList[i].mappedAddr.eglImage,
+                                       CU_GRAPHICS_MAP_RESOURCE_FLAGS_NONE) != CUDA_SUCCESS) {
+            g_printerr("Failed to register EGLImage in cuda\n");
+            return nullptr;
         }
+
+        if (cuGraphicsResourceGetMappedEglFrame(&tmem->egl_frames[i], tmem->cuda_resources[i], 0,
+                                                0) != CUDA_SUCCESS) {
+            g_printerr("Failed to get mapped EGL Frame\n");
+            return nullptr;
+        }
+        tmem->frame_memory_ptrs[i] = (char *)tmem->egl_frames[i].frame.pPitch[0];
+#else
+        /* Calculate pointers to individual frame memories in the batch memory and
+         * insert in the vector. */
+        tmem->frame_memory_ptrs[i] = (char *)tmem->surf->surfaceList[i].dataPtr;
+#endif
     }
 
     /* Initialize the GStreamer memory structure. */
@@ -139,13 +146,13 @@ static void gst_nvinfer_allocator_free(GstAllocator *allocator, GstMemory *memor
 {
     GstNvInferMem *nvmem = (GstNvInferMem *)memory;
     GstNvInferMemory *tmem = &nvmem->mem_infer;
-    if (tmem->surf->memType == NVBUF_MEM_SURFACE_ARRAY) {
-        GstNvInferAllocator *inferallocator = GST_NVINFER_ALLOCATOR(allocator);
+#ifdef IS_TEGRA
+    GstNvInferAllocator *inferallocator = GST_NVINFER_ALLOCATOR(allocator);
 
-        for (size_t i = 0; i < inferallocator->batch_size; i++) {
-            cuGraphicsUnregisterResource(tmem->cuda_resources[i]);
-        }
+    for (size_t i = 0; i < inferallocator->batch_size; i++) {
+        cuGraphicsUnregisterResource(tmem->cuda_resources[i]);
     }
+#endif
 
     NvBufSurfaceUnMapEglImage(tmem->surf, -1);
     NvBufSurfaceDestroy(tmem->surf);

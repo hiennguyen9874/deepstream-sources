@@ -82,8 +82,7 @@ extern "C" bool NvDsInferClassiferParseCustomSoftmax(
         if (attrFound) {
             if (labels.size() > attr.attributeIndex &&
                 attr.attributeValue < labels[attr.attributeIndex].size())
-                attr.attributeLabel =
-                    strdup(labels[attr.attributeIndex][attr.attributeValue].c_str());
+                attr.attributeLabel = labels[attr.attributeIndex][attr.attributeValue].c_str();
             else
                 attr.attributeLabel = nullptr;
             attrList.push_back(attr);

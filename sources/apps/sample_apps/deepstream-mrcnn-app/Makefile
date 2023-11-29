@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -20,22 +20,22 @@
 # DEALINGS IN THE SOFTWARE.
 ################################################################################
 
-CUDA_VER?=
-ifeq ($(CUDA_VER),)
-  $(error "CUDA_VER is not set")
-endif
-
 APP:= deepstream-mrcnn-app
-
-WITH_OPENCV?=1
 
 CC=g++
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=5.0
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
+
+ifeq ($(TARGET_DEVICE),aarch64)
+  CFLAGS:= -DPLATFORM_TEGRA
+  PKGS+= opencv4
+else
+  PKGS+= opencv
+endif
 
 SRCS:= $(wildcard *.cpp)
 
@@ -43,29 +43,16 @@ INCS:= $(wildcard *.h)
 
 PKGS+= gstreamer-1.0 gstreamer-video-1.0
 
-ifeq ($(WITH_OPENCV),1)
-CFLAGS+= -DWITH_OPENCV
-PKGS+= opencv4
-endif
-
 OBJS:= $(SRCS:.cpp=.o)
 
-CFLAGS+= -I../../../includes -std=c++11 \
-		-I /usr/local/cuda-$(CUDA_VER)/include \
-		-I /usr/include/opencv4
+CFLAGS+= -I../../../includes -std=c++11
 
 CFLAGS+= $(shell pkg-config --cflags $(PKGS))
 
 LIBS:= $(shell pkg-config --libs $(PKGS))
 
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_meta -lnvds_meta -lrt \
-       -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart \
-       -lcuda -Wl,-rpath,$(LIB_INSTALL_DIR)
-
-ifeq ($(WITH_OPENCV),1)
-LIBS += -lopencv_imgproc -lopencv_core
-endif
-
+       -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 all: $(APP)
 

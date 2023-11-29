@@ -21,7 +21,6 @@
  */
 
 #include "nvdsinfer_custom_impl.h"
-#include "nvdssample_fasterRCNN_common.h"
 
 /* Assumes only one input layer "im_info" needs to be initialized */
 bool NvDsInferInitializeInputLayers(std::vector<NvDsInferLayerInfo> const &inputLayersInfo,

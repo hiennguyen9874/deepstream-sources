@@ -24,8 +24,6 @@
 
 #include <gst/gst.h>
 
-#define _DS_DEPRECATED_(STR) __attribute__((deprecated(STR)))
-
 /**
  *
  * @defgroup  gstreamer_nvdssr  Smart Record
@@ -82,12 +80,8 @@ typedef struct NvDsSRInitParams {
     gchar *dirpath;
     /** default recording duration in seconds */
     guint defaultDuration;
-    union {
-        /** size of video cache in seconds. */
-        guint videoCacheSize _DS_DEPRECATED_("videoCacheSize is deprecated. Use cacheSize instead");
-        /** size of cache in seconds, applies to video and audio. */
-        guint cacheSize;
-    };
+    /** size of video cache in seconds. */
+    guint videoCacheSize;
 } NvDsSRInitParams;
 
 /**
@@ -142,14 +136,6 @@ typedef struct NvDsSRRecordingInfo {
     guint width;
     /** recorded video height*/
     guint height;
-    /** Boolean indicating if recorded stream contains video. */
-    gboolean containsVideo;
-    /** channels in recorded audio */
-    guint channels;
-    /** sampling rate of recorded audio  in Hz */
-    guint samplingRate;
-    /** Boolean indicating if recorded stream contains audio. */
-    gboolean containsAudio;
 } NvDsSRRecordingInfo;
 
 /**

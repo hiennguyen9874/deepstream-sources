@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -57,35 +57,10 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
 
         /* Scale the bounding boxes proportionally based on how the object/frame was
          * scaled during input. */
-        obj.left = (obj.left - frame.offset_left) / frame.scale_ratio_x + frame.roi_left;
-        obj.top = (obj.top - frame.offset_top) / frame.scale_ratio_y + frame.roi_top;
+        obj.left /= frame.scale_ratio_x;
+        obj.top /= frame.scale_ratio_y;
         obj.width /= frame.scale_ratio_x;
         obj.height /= frame.scale_ratio_y;
-
-        /** Clipping the object bounding-box which lies outside the roi
-         * specified by nvdspreprosess plugin. */
-        if (nvinfer->input_tensor_from_meta && nvinfer->clip_object_outside_roi) {
-            if (obj.left + obj.width >= frame.roi_meta->roi.left + frame.roi_meta->roi.width) {
-                obj.width = frame.roi_meta->roi.left + frame.roi_meta->roi.width - obj.left;
-            }
-            if (obj.top + obj.height >= frame.roi_meta->roi.top + frame.roi_meta->roi.height) {
-                obj.height = frame.roi_meta->roi.top + frame.roi_meta->roi.height - obj.top;
-            }
-            if (obj.left < frame.roi_meta->roi.left) {
-                obj.left = frame.roi_meta->roi.left;
-                obj.width = obj.width - frame.roi_meta->roi.left + obj.left;
-            }
-            if (obj.top < frame.roi_meta->roi.top) {
-                obj.top = frame.roi_meta->roi.top;
-                obj.height = obj.height - frame.roi_meta->roi.top + obj.top;
-            }
-        }
-
-        /* top and left should not be less than 0 */
-        if (obj.top < 0)
-            obj.top = 0;
-        if (obj.left < 0)
-            obj.left = 0;
 
         /* Check if the scaled box co-ordinates meet the detection filter criteria.
          * Skip the box if it does not. */
@@ -100,23 +75,11 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
             continue;
         if (filter_params.detectionMaxHeight > 0 && obj.height > filter_params.detectionMaxHeight)
             continue;
-        if (nvinfer->crop_objects_to_roi_boundary) {
-            if (obj.top < filter_params.roiTopOffset)
-                obj.top = filter_params.roiTopOffset;
-            if (obj.left + obj.width >= frame.input_surf_params->width)
-                obj.width = frame.input_surf_params->width - obj.left;
-            if (obj.top + obj.height >
-                (frame.input_surf_params->height - filter_params.roiBottomOffset))
-                obj.height =
-                    frame.input_surf_params->height - filter_params.roiBottomOffset - obj.top;
-        } else {
-            if (obj.top < filter_params.roiTopOffset)
-                continue;
-            if (obj.top + obj.height >
-                (frame.input_surf_params->height - filter_params.roiBottomOffset))
-                continue;
-        }
-
+        if (obj.top < filter_params.roiTopOffset)
+            continue;
+        if (obj.top + obj.height >
+            (frame.input_surf_params->height - filter_params.roiBottomOffset))
+            continue;
         obj_meta = nvds_acquire_obj_meta_from_pool(batch_meta);
 
         obj_meta->unique_component_id = nvinfer->unique_id;
@@ -136,7 +99,7 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
         rect_params.width = obj.width;
         rect_params.height = obj.height;
 
-        if (!nvinfer->process_full_frame && !nvinfer->input_tensor_from_meta) {
+        if (!nvinfer->process_full_frame) {
             rect_params.left += parent_obj_meta->rect_params.left;
             rect_params.top += parent_obj_meta->rect_params.top;
         }
@@ -161,7 +124,7 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
         }
 
         if (obj.label)
-            g_strlcpy(obj_meta->obj_label, obj.label, MAX_LABEL_SIZE);
+            strncpy(obj_meta->obj_label, obj.label, MAX_LABEL_SIZE);
         /* display_text requires heap allocated memory. */
         text_params.display_text = g_strdup(obj.label);
         /* Display text above the left top corner of the object. */
@@ -208,7 +171,7 @@ void attach_metadata_classifier(GstNvInfer *nvinfer,
         return;
 
     nvds_acquire_meta_lock(batch_meta);
-    if (nvinfer->process_full_frame && !nvinfer->input_tensor_from_meta) {
+    if (nvinfer->process_full_frame) {
         /* Attach only one object in the meta since this is a full frame
          * classification. */
         object_meta = nvds_acquire_obj_meta_from_pool(batch_meta);
@@ -264,7 +227,6 @@ void attach_metadata_classifier(GstNvInfer *nvinfer,
     NvDsClassifierMeta *classifier_meta = nvds_acquire_classifier_meta_from_pool(batch_meta);
 
     classifier_meta->unique_component_id = nvinfer->unique_id;
-    classifier_meta->classifier_type = nvinfer->classifier_type;
 
     for (unsigned int i = 0; i < num_attrs; i++) {
         NvDsLabelInfo *label_info = nvds_acquire_label_info_meta_from_pool(batch_meta);
@@ -283,37 +245,11 @@ void attach_metadata_classifier(GstNvInfer *nvinfer,
 
     if (string_label.length() > 0 && object_meta) {
         gchar *temp = object_meta->text_params.display_text;
-        if (temp == nullptr) {
-            NvOSD_TextParams &text_params = object_meta->text_params;
-            NvOSD_RectParams &rect_params = object_meta->rect_params;
-            /* display_text requires heap allocated memory. Actual string formation
-             * is done later in the function. */
-            text_params.display_text = g_strdup("");
-            /* Display text above the left top corner of the object. */
-            text_params.x_offset = rect_params.left;
-            text_params.y_offset = rect_params.top - 10;
-            /* Set black background for the text. */
-            text_params.set_bg_clr = 1;
-            text_params.text_bg_clr = (NvOSD_ColorParams){0, 0, 0, 1};
-            /* Font face, size and color. */
-            text_params.font_params.font_name = const_cast<gchar *>("Serif");
-            text_params.font_params.font_size = 11;
-            text_params.font_params.font_color = (NvOSD_ColorParams){1, 1, 1, 1};
-        }
-        temp = object_meta->text_params.display_text;
         object_meta->text_params.display_text =
             g_strconcat(temp, " ", string_label.c_str(), nullptr);
         g_free(temp);
     }
-    if (nvinfer->input_tensor_from_meta) {
-        nvds_add_classifier_meta_to_roi(frame.roi_meta, classifier_meta);
-        /* if object is roi itself */
-        if (object_meta) {
-            nvds_add_classifier_meta_to_object(object_meta, classifier_meta);
-        }
-    } else {
-        nvds_add_classifier_meta_to_object(object_meta, classifier_meta);
-    }
+    nvds_add_classifier_meta_to_object(object_meta, classifier_meta);
     nvds_release_meta_lock(batch_meta);
 }
 
@@ -325,14 +261,8 @@ void attach_metadata_classifier(GstNvInfer *nvinfer,
  */
 void merge_classification_output(GstNvInferObjectHistory &history, GstNvInferObjectInfo &new_result)
 {
-    for (auto &attr : history.cached_info.attributes) {
-        free(attr.attributeLabel);
-    }
     history.cached_info.attributes.assign(new_result.attributes.begin(),
                                           new_result.attributes.end());
-    for (auto &attr : history.cached_info.attributes) {
-        attr.attributeLabel = attr.attributeLabel ? strdup(attr.attributeLabel) : nullptr;
-    }
     history.cached_info.label.assign(new_result.label);
 }
 
@@ -357,7 +287,6 @@ static gpointer copy_segmentation_meta(gpointer data, gpointer user_data)
     NvDsInferSegmentationMeta *meta =
         (NvDsInferSegmentationMeta *)g_malloc(sizeof(NvDsInferSegmentationMeta));
 
-    meta->unique_id = src_meta->unique_id;
     meta->classes = src_meta->classes;
     meta->width = src_meta->width;
     meta->height = src_meta->height;
@@ -384,7 +313,6 @@ void attach_metadata_segmentation(GstNvInfer *nvinfer,
     NvDsInferSegmentationMeta *meta =
         (NvDsInferSegmentationMeta *)g_malloc(sizeof(NvDsInferSegmentationMeta));
 
-    meta->unique_id = nvinfer->unique_id;
     meta->classes = segmentation_output.classes;
     meta->width = segmentation_output.width;
     meta->height = segmentation_output.height;
@@ -397,9 +325,7 @@ void attach_metadata_segmentation(GstNvInfer *nvinfer,
     user_meta->base_meta.release_func = release_segmentation_meta;
     user_meta->base_meta.copy_func = copy_segmentation_meta;
 
-    if (nvinfer->input_tensor_from_meta) {
-        nvds_add_user_meta_to_roi(frame.roi_meta, user_meta);
-    } else if (nvinfer->process_full_frame) {
+    if (nvinfer->process_full_frame) {
         nvds_add_user_meta_to_frame(frame.frame_meta, user_meta);
     } else {
         nvds_add_user_meta_to_obj(frame.obj_meta, user_meta);
@@ -412,49 +338,10 @@ static void release_tensor_output_meta(gpointer data, gpointer user_data)
 {
     NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
     NvDsInferTensorMeta *meta = (NvDsInferTensorMeta *)user_meta->user_meta_data;
-
-    g_free(meta->output_layers_info);
     gst_mini_object_unref(GST_MINI_OBJECT(meta->priv_data));
     delete[] meta->out_buf_ptrs_dev;
     delete[] meta->out_buf_ptrs_host;
     delete meta;
-}
-
-static gpointer copy_tensor_output_meta(gpointer data, gpointer user_data)
-{
-    NvDsUserMeta *src_user_meta = (NvDsUserMeta *)data;
-    NvDsInferTensorMeta *src_meta = (NvDsInferTensorMeta *)src_user_meta->user_meta_data;
-    NvDsInferTensorMeta *tensor_output_meta = new NvDsInferTensorMeta;
-
-    tensor_output_meta->unique_id = src_meta->unique_id;
-    tensor_output_meta->num_output_layers = src_meta->num_output_layers;
-    tensor_output_meta->output_layers_info = (NvDsInferLayerInfo *)g_memdup(
-        src_meta->output_layers_info, src_meta->num_output_layers * sizeof(NvDsInferLayerInfo));
-    tensor_output_meta->out_buf_ptrs_host = new void *[src_meta->num_output_layers];
-    tensor_output_meta->out_buf_ptrs_dev = new void *[src_meta->num_output_layers];
-
-    for (unsigned int i = 0; i < src_meta->num_output_layers; i++) {
-        NvDsInferLayerInfo *info = &tensor_output_meta->output_layers_info[i];
-
-        if (src_meta->out_buf_ptrs_host[i]) {
-            tensor_output_meta->out_buf_ptrs_host[i] = src_meta->out_buf_ptrs_host[i];
-        } else {
-            tensor_output_meta->out_buf_ptrs_host[i] = NULL;
-        }
-        info->buffer = tensor_output_meta->out_buf_ptrs_host[i];
-
-        if (src_meta->out_buf_ptrs_dev[i]) {
-            tensor_output_meta->out_buf_ptrs_dev[i] = src_meta->out_buf_ptrs_dev[i];
-        } else {
-            tensor_output_meta->out_buf_ptrs_dev[i] = NULL;
-        }
-    }
-
-    tensor_output_meta->gpu_id = src_meta->gpu_id;
-    tensor_output_meta->priv_data =
-        (void *)gst_mini_object_ref((GstMiniObject *)src_meta->priv_data);
-
-    return tensor_output_meta;
 }
 
 /* Attaches the raw tensor output to the GstBuffer as metadata. */
@@ -463,7 +350,7 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer,
                                GstNvInferBatch *batch,
                                NvDsInferContextBatchOutput *batch_output)
 {
-    NvDsBatchMeta *batch_meta = (nvinfer->process_full_frame || nvinfer->input_tensor_from_meta)
+    NvDsBatchMeta *batch_meta = (nvinfer->process_full_frame)
                                     ? batch->frames[0].frame_meta->base_meta.batch_meta
                                     : batch->frames[0].obj_meta->base_meta.batch_meta;
 
@@ -471,21 +358,15 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer,
      * increment the refcount of GstNvInferTensorOutputObject. */
     for (size_t j = 0; j < batch->frames.size(); j++) {
         GstNvInferFrame &frame = batch->frames[j];
-
-        /* Processing on ROIs (not frames or objects) skip attaching tensor output
-         * to frames or objects. */
         NvDsInferTensorMeta *meta = new NvDsInferTensorMeta;
         meta->unique_id = nvinfer->unique_id;
         meta->num_output_layers = nvinfer->output_layers_info->size();
-        meta->output_layers_info =
-            (NvDsInferLayerInfo *)g_memdup(nvinfer->output_layers_info->data(),
-                                           meta->num_output_layers * sizeof(NvDsInferLayerInfo));
+        meta->output_layers_info = nvinfer->output_layers_info->data();
         meta->out_buf_ptrs_host = new void *[meta->num_output_layers];
         meta->out_buf_ptrs_dev = new void *[meta->num_output_layers];
         meta->gpu_id = nvinfer->gpu_id;
         meta->priv_data = gst_mini_object_ref(tensor_out_object);
         meta->network_info = nvinfer->network_info;
-        meta->maintain_aspect_ratio = nvinfer->maintain_aspect_ratio;
 
         for (unsigned int i = 0; i < meta->num_output_layers; i++) {
             NvDsInferLayerInfo &info = meta->output_layers_info[i];
@@ -501,50 +382,13 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer,
         user_meta->user_meta_data = meta;
         user_meta->base_meta.meta_type = (NvDsMetaType)NVDSINFER_TENSOR_OUTPUT_META;
         user_meta->base_meta.release_func = release_tensor_output_meta;
-        user_meta->base_meta.copy_func = copy_tensor_output_meta;
+        user_meta->base_meta.copy_func = nullptr;
         user_meta->base_meta.batch_meta = batch_meta;
 
-        if (nvinfer->input_tensor_from_meta) {
-            nvds_add_user_meta_to_roi(frame.roi_meta, user_meta);
-            /* if object is roi itself */
-            if (frame.obj_meta) {
-                nvds_add_user_meta_to_obj(frame.obj_meta, user_meta);
-            }
-        } else if (nvinfer->process_full_frame) {
+        if (nvinfer->process_full_frame) {
             nvds_add_user_meta_to_frame(frame.frame_meta, user_meta);
         } else {
             nvds_add_user_meta_to_obj(frame.obj_meta, user_meta);
         }
-    }
-
-    /* NvInfer is receiving input from tensor meta, also attach output tensor meta
-     * at batch level. */
-    if (nvinfer->input_tensor_from_meta) {
-        NvDsInferTensorMeta *meta = new NvDsInferTensorMeta;
-        meta->unique_id = nvinfer->unique_id;
-        meta->num_output_layers = nvinfer->output_layers_info->size();
-        meta->output_layers_info =
-            (NvDsInferLayerInfo *)g_memdup(nvinfer->output_layers_info->data(),
-                                           meta->num_output_layers * sizeof(NvDsInferLayerInfo));
-        meta->out_buf_ptrs_host = new void *[meta->num_output_layers];
-        meta->out_buf_ptrs_dev = new void *[meta->num_output_layers];
-        meta->gpu_id = nvinfer->gpu_id;
-        meta->priv_data = gst_mini_object_ref(tensor_out_object);
-        meta->network_info = nvinfer->network_info;
-
-        for (unsigned int i = 0; i < meta->num_output_layers; i++) {
-            NvDsInferLayerInfo &info = meta->output_layers_info[i];
-            meta->out_buf_ptrs_dev[i] = (uint8_t *)batch_output->outputDeviceBuffers[i];
-            meta->out_buf_ptrs_host[i] = (uint8_t *)batch_output->hostBuffers[info.bindingIndex];
-        }
-
-        NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(batch_meta);
-        user_meta->user_meta_data = meta;
-        user_meta->base_meta.meta_type = (NvDsMetaType)NVDSINFER_TENSOR_OUTPUT_META;
-        user_meta->base_meta.release_func = release_tensor_output_meta;
-        user_meta->base_meta.copy_func = copy_tensor_output_meta;
-        user_meta->base_meta.batch_meta = batch_meta;
-
-        nvds_add_user_meta_to_batch(batch_meta, user_meta);
     }
 }

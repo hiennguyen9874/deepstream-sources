@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <math.h>
@@ -29,7 +28,7 @@
 #include <sys/time.h>
 
 #include "gstnvdsmeta.h"
-// #include "gstnvstreammeta.h"
+//#include "gstnvstreammeta.h"
 #ifndef PLATFORM_TEGRA
 #include "gst-nvmessage.h"
 #endif
@@ -55,11 +54,6 @@
 /* NVIDIA Decoder source pad memory feature. This feature signifies that source
  * pads having this capability will push GstBuffers containing cuda buffers. */
 #define GST_CAPS_FEATURES_NVMM "memory:NVMM"
-
-#define NVINFER_PLUGIN "nvinfer"
-#define NVINFERSERVER_PLUGIN "nvinferserver"
-#define PGIE_CONFIG_FILE "dstest_image_decode_pgie_config.txt"
-#define PGIE_NVINFERSERVER_CONFIG_FILE "dstest_image_decode_pgie_nvinferserver_config.txt"
 
 gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "RoadSign"};
 
@@ -189,11 +183,6 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     gchar bin_name[16] = {};
     gboolean multi_file_src = FALSE;
 
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
-
     g_snprintf(bin_name, 15, "source-bin-%02d", index);
     /* Create a source GstBin to abstract this bin's content from the rest of the
      * pipeline */
@@ -219,11 +208,10 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     g_object_set(G_OBJECT(source), "location", uri, NULL);
 
     const char *dot = strrchr(uri, '.');
-    if ((!strcmp(dot + 1, "mjpeg")) || (!strcmp(dot + 1, "mjpg")) || (!strcmp(dot + 1, "mp4")) ||
-        (multi_file_src == TRUE)) {
-        if (prop.integrated) {
-            g_object_set(G_OBJECT(decoder), "mjpeg", 1, NULL);
-        }
+    if ((!strcmp(dot + 1, "mjpeg")) || (!strcmp(dot + 1, "mjpg")) || (multi_file_src == TRUE)) {
+#ifdef PLATFORM_TEGRA
+        g_object_set(G_OBJECT(decoder), "mjpeg", 1, NULL);
+#endif
     }
 
     gst_bin_add_many(GST_BIN(bin), source, jpegparser, decoder, NULL);
@@ -253,54 +241,30 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     return bin;
 }
 
-static void usage(const char *bin)
-{
-    g_printerr("Usage: %s <elementary JPEG file1> <elementary JPEG file2> ...\n", bin);
-    g_printerr(
-        "For nvinferserver, Usage: %s -t inferserver <elementary JPEG file1> <elementary JPEG "
-        "file2> ...\n",
-        bin);
-}
-
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
-    GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *nvvideoconv = NULL, *pgie = NULL,
-               *nvvidconv = NULL, *nvosd = NULL, *tiler = NULL;
+    GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL,
+               *nvosd = NULL, *tiler = NULL;
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *tiler_src_pad = NULL;
     guint i, num_sources;
     guint tiler_rows, tiler_columns;
     guint pgie_batch_size;
-    gboolean is_nvinfer_server = FALSE;
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
 
     /* Check input arguments */
     if (argc < 2) {
-        usage(argv[0]);
+        g_printerr(
+            "Usage: %s <elementary JPEG file1> <elementary JPEG file2> ..."
+            " <elementary JPEG fileN> \n",
+            argv[0]);
         return -1;
     }
-
-    if (argc >= 2 && !strcmp("-t", argv[1])) {
-        if (!strcmp("inferserver", argv[2])) {
-            is_nvinfer_server = TRUE;
-        } else {
-            usage(argv[0]);
-            return -1;
-        }
-        g_print("Using nvinferserver as the inference plugin\n");
-    }
-
-    if (is_nvinfer_server) {
-        num_sources = argc - 3;
-    } else {
-        num_sources = argc - 1;
-    }
+    num_sources = argc - 1;
 
     /* Standard GStreamer initialization */
     gst_init(&argc, &argv);
@@ -321,13 +285,8 @@ int main(int argc, char *argv[])
 
     for (i = 0; i < num_sources; i++) {
         GstPad *sinkpad, *srcpad;
-        GstElement *source_bin;
         gchar pad_name[16] = {};
-        if (is_nvinfer_server) {
-            source_bin = create_source_bin(i, argv[i + 3]);
-        } else {
-            source_bin = create_source_bin(i, argv[i + 1]);
-        }
+        GstElement *source_bin = create_source_bin(i, argv[i + 1]);
 
         if (!source_bin) {
             g_printerr("Failed to create source bin. Exiting.\n");
@@ -358,12 +317,8 @@ int main(int argc, char *argv[])
         gst_object_unref(sinkpad);
     }
 
-    /* Use convertor to convert to appropriate format */
-    nvvideoconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter1");
-
     /* Use nvinfer to infer on batched frame. */
-    pgie = gst_element_factory_make(is_nvinfer_server ? NVINFERSERVER_PLUGIN : NVINFER_PLUGIN,
-                                    "primary-nvinference-engine");
+    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
 
     /* Use nvtiler to composite the batched frames into a 2D tiled array based
      * on the source of the frames. */
@@ -376,27 +331,29 @@ int main(int argc, char *argv[])
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
-    } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-    }
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     g_object_set(G_OBJECT(sink), "sync", 0, NULL);
 
-    if (!nvvideoconv || !pgie || !tiler || !nvvidconv || !nvosd || !sink) {
+    if (!pgie || !tiler || !nvvidconv || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
+#ifdef PLATFORM_TEGRA
+    if (!transform) {
+        g_printerr("One tegra element could not be created. Exiting.\n");
+        return -1;
+    }
+#endif
+
     g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
                  "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
-    /* Configure the nvinfer/nvinferserver element using the config file. */
-    if (is_nvinfer_server) {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_NVINFERSERVER_CONFIG_FILE, NULL);
-    } else {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
-    }
+    /* Configure the nvinfer element using the nvinfer config file. */
+    g_object_set(G_OBJECT(pgie), "config-file-path", "dstest_image_decode_pgie_config.txt", NULL);
 
     /* Override the batch-size set in the config file with the number of sources. */
     g_object_get(G_OBJECT(pgie), "batch-size", &pgie_batch_size, NULL);
@@ -419,13 +376,23 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    gst_bin_add_many(GST_BIN(pipeline), nvvideoconv, pgie, tiler, nvvidconv, nvosd, sink, NULL);
+#ifdef PLATFORM_TEGRA
+    gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, nvvidconv, nvosd, transform, sink, NULL);
     /* we link the elements together
-     * nvstreammux -> nvvideoconv -> pgie -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
-    if (!gst_element_link_many(streammux, nvvideoconv, pgie, tiler, nvvidconv, nvosd, sink, NULL)) {
+     * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+    if (!gst_element_link_many(streammux, pgie, tiler, nvvidconv, nvosd, transform, sink, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }
+#else
+    gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, nvvidconv, nvosd, sink, NULL);
+    /* we link the elements together
+     * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+    if (!gst_element_link_many(streammux, pgie, tiler, nvvidconv, nvosd, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
+    }
+#endif
 
     /* Lets add probe to get informed of the meta data generated, we add probe to
      * the sink pad of the osd element, since by that time, the buffer would have
@@ -439,7 +406,11 @@ int main(int argc, char *argv[])
     gst_object_unref(tiler_src_pad);
 
     /* Set the pipeline to "playing" state */
-    g_print("Now playing...");
+    g_print("Now playing:");
+    for (i = 0; i < num_sources; i++) {
+        g_print(" %s,", argv[i + 1]);
+    }
+    g_print("\n");
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

@@ -264,9 +264,6 @@ typedef struct _NvDsInferContextInitParams {
     /** Holds the name of the input layer for the UFF model. */
     char uffInputBlobName[_MAX_STR_LENGTH];
 
-    /** Holds the original input order for the network. */
-    NvDsInferTensorOrder netInputOrder;
-
     /** Holds the string key for decoding the TLT encoded model. */
     char tltModelKey[_MAX_STR_LENGTH];
 
@@ -395,30 +392,6 @@ typedef struct _NvDsInferContextInitParams {
     /** Holds number of layer device precisions specified */
     unsigned int numLayerDevicePrecisions;
 
-    /** Holds output order for segmentation network */
-    NvDsInferTensorOrder segmentationOutputOrder;
-
-    /** Boolean flag indicating that caller will supply preprocessed tensors for
-     *  inferencing. NvDsInferContext will skip preprocessing initialization steps
-     *  and will not interpret network input layer dimensions.
-     */
-    int inputFromPreprocessedTensor;
-
-    /** Boolean flag indicating that whether we will post processing on GPU
-     *  if this flag enabled, nvinfer will return gpu buffer to prossprocessing
-     *  user must write cuda post processing code
-     */
-    int disableOutputHostCopy;
-
-    /** Boolean flag indicating that whether we will automatically increase
-     *  bufferpool size when facing a bottleneck.
-     */
-    int autoIncMem;
-
-    /** Max gpu memory that can be occupied while expanding the bufferpool.
-     */
-    double maxGPUMemPer;
-
 } NvDsInferContextInitParams;
 
 /**
@@ -449,17 +422,6 @@ typedef struct {
      @a returnInputFunc. */
     void *returnFuncData;
 } NvDsInferContextBatchInput;
-
-typedef struct {
-    NvDsInferLayerInfo *tensors;
-    /** Holds the number of input tensors. */
-    unsigned int numInputTensors;
-    /** Holds a callback for returning the input buffers to the client. */
-    NvDsInferContextReturnInputAsyncFunc returnInputFunc;
-    /** A pointer to the data to be supplied with the callback in
-     @a returnInputFunc. */
-    void *returnFuncData;
-} NvDsInferContextBatchPreprocessedInput;
 
 /**
  * Holds information about one detected object.
@@ -725,18 +687,6 @@ public:
 
     /** Destructor for a C++ object. */
     virtual ~INvDsInferContext() {}
-
-    /**
-     * Queues a batch of preprocessed input tensors for inferencing.
-     *
-     * The input tensor sizes must be compatible with network dimensions.
-     *
-     * @param[in] batchInput    Reference to a batch input structure.
-     * @return  NVDSINFER_SUCCESS if preprocessing and queueing succeeded, or
-     *  an error status otherwise.
-     */
-    virtual NvDsInferStatus queueInputBatchPreprocessed(
-        NvDsInferContextBatchPreprocessedInput &batchInput) = 0;
 };
 
 /**

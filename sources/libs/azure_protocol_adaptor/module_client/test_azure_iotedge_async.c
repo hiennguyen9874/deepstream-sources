@@ -1,6 +1,6 @@
 /*
 ################################################################################
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -70,7 +70,7 @@ void *func(void *ptr)
     pid_t myid = syscall(SYS_gettid);
     for (int i = 0; i < 200000; i++) {
         struct send_info_t myinfo = {myid, i, msg};
-        nvds_msgapi_send_async_ptr(ah, (char *)"sample_topic", (const uint8_t *)msg, strlen(msg),
+        nvds_msgapi_send_async_ptr(ah, "sample_topic", (const uint8_t *)msg, strlen(msg),
                                    send_callback, &myinfo);
         sleep(1);
     }
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
 
     // For azure module client - the edge device connection details should be mentioned in
     // /etc/iotedge/config.yaml
-    NvDsMsgApiHandle ah = nvds_msgapi_connect_ptr(NULL, connect_cb, (char *)"/root/cfg_azure.txt");
+    NvDsMsgApiHandle ah = nvds_msgapi_connect_ptr(NULL, connect_cb, "/root/cfg_azure.txt");
     if (ah == NULL) {
         printf("COnnect to Azure failed\n");
         exit(0);

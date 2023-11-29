@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2019-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -20,16 +20,11 @@
 # DEALINGS IN THE SOFTWARE.
 ################################################################################
 
-CUDA_VER?=
-ifeq ($(CUDA_VER),)
-  $(error "CUDA_VER is not set")
-endif
-
 APP:= deepstream-segmentation-app
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=5.0
 
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 APP_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/bin/
@@ -46,16 +41,14 @@ PKGS:= gstreamer-1.0
 
 OBJS:= $(SRCS:.c=.o)
 
-CFLAGS+= -I../../../includes \
-		 -I /usr/local/cuda-$(CUDA_VER)/include
+CFLAGS+= -I../../../includes
 
-CFLAGS+= $(shell pkg-config --cflags $(PKGS))
+CFLAGS+= `pkg-config --cflags $(PKGS)`
 
-LIBS:= $(shell pkg-config --libs $(PKGS))
+LIBS:= `pkg-config --libs $(PKGS)`
 
 LIBS+= -lm -L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_meta \
-	   -L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart \
-       -lcuda -Wl,-rpath,$(LIB_INSTALL_DIR)
+       -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 all: $(APP)
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,8 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <ctype.h>
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <math.h>
@@ -53,12 +51,6 @@
 #define TILED_OUTPUT_WIDTH 1920
 #define TILED_OUTPUT_HEIGHT 1080
 
-#define NVINFER_PLUGIN "nvinfer"
-#define NVINFERSERVER_PLUGIN "nvinferserver"
-
-#define PGIE_CONFIG_FILE "ds_image_meta_pgie_config.txt"
-#define PGIE_NVINFERSERVER_CONFIG_FILE "ds_image_meta_pgie_nvinferserver_config.txt"
-
 /* NVIDIA Decoder source pad memory feature. This feature signifies that source
  * pads having this capability will push GstBuffers containing cuda buffers. */
 #define GST_CAPS_FEATURES_NVMM "memory:NVMM"
@@ -70,7 +62,7 @@ gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "RoadSign"};
 #define save_img TRUE
 #define attach_user_meta TRUE
 
-gint frame_number = 0, frame_count = 0;
+gint frame_number = 0;
 
 /* osd_sink_pad_buffer_probe will extract metadata received on OSD sink pad
  * and update params for drawing rectangle, object information. We also iterate
@@ -81,7 +73,6 @@ static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad,
                                                    gpointer u_data)
 {
     GstBuffer *buf = (GstBuffer *)info->data;
-
     guint num_rects = 0;
     NvDsObjectMeta *obj_meta = NULL;
     guint vehicle_count = 0;
@@ -90,41 +81,9 @@ static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad,
     NvDsMetaList *l_obj = NULL;
     NvDsDisplayMeta *display_meta = NULL;
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
-
     for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
         NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)(l_frame->data);
         int offset = 0;
-        /* To verify  encoded metadata of cropped frames, we iterate through the
-         * user metadata of each frame and if a metadata of the type
-         * 'NVDS_CROP_IMAGE_META' is found then we write that to a file as
-         * implemented below.
-         */
-        char fileFrameNameString[FILE_NAME_SIZE];
-        const char *osd_string = "OSD";
-
-        /* For Demonstration Purposes we are writing metadata to jpeg images of
-         * the first 10 frames only.
-         * The files generated have an 'OSD' prefix. */
-        if (frame_number < 11) {
-            NvDsUserMetaList *usrMetaList = frame_meta->frame_user_meta_list;
-            FILE *file;
-            int stream_num = 0;
-            while (usrMetaList != NULL) {
-                NvDsUserMeta *usrMetaData = (NvDsUserMeta *)usrMetaList->data;
-                if (usrMetaData->base_meta.meta_type == NVDS_CROP_IMAGE_META) {
-                    snprintf(fileFrameNameString, FILE_NAME_SIZE, "%s_frame_%d_%d.jpg", osd_string,
-                             frame_number, stream_num++);
-                    NvDsObjEncOutParams *enc_jpeg_image =
-                        (NvDsObjEncOutParams *)usrMetaData->user_meta_data;
-                    /* Write to File */
-                    file = fopen(fileFrameNameString, "wb");
-                    fwrite(enc_jpeg_image->outBuffer, sizeof(uint8_t), enc_jpeg_image->outLen,
-                           file);
-                    fclose(file);
-                }
-                usrMetaList = usrMetaList->next;
-            }
-        }
         for (l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next) {
             obj_meta = (NvDsObjectMeta *)(l_obj->data);
             if (obj_meta->class_id == PGIE_CLASS_ID_VEHICLE) {
@@ -140,13 +99,17 @@ static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad,
              * 'NVDS_CROP_IMAGE_META' is found then we write that to a file as
              * implemented below.
              */
-            char fileObjNameString[FILE_NAME_SIZE];
-
+            char fileNameString[FILE_NAME_SIZE];
+            const char *osd_string = "OSD";
+            int obj_res_width = GST_ROUND_DOWN_2((int)obj_meta->rect_params.width);
+            int obj_res_height = GST_ROUND_DOWN_2((int)obj_meta->rect_params.height);
+            snprintf(fileNameString, FILE_NAME_SIZE, "%s_%d_%d_%d_%s_%dx%d.jpg", osd_string,
+                     frame_number, frame_meta->source_id, num_rects, obj_meta->obj_label,
+                     obj_res_width, obj_res_height);
             /* For Demonstration Purposes we are writing metadata to jpeg images of
-             * vehicles or persons for the first 100 frames only.
+             * only vehicles for the first 100 frames only.
              * The files generated have a 'OSD' prefix. */
-            if (frame_number < 100 && (obj_meta->class_id == PGIE_CLASS_ID_PERSON ||
-                                       obj_meta->class_id == PGIE_CLASS_ID_VEHICLE)) {
+            if (frame_number < 100 && obj_meta->class_id == PGIE_CLASS_ID_VEHICLE) {
                 NvDsUserMetaList *usrMetaList = obj_meta->obj_user_meta_list;
                 FILE *file;
                 while (usrMetaList != NULL) {
@@ -154,12 +117,8 @@ static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad,
                     if (usrMetaData->base_meta.meta_type == NVDS_CROP_IMAGE_META) {
                         NvDsObjEncOutParams *enc_jpeg_image =
                             (NvDsObjEncOutParams *)usrMetaData->user_meta_data;
-
-                        snprintf(fileObjNameString, FILE_NAME_SIZE, "%s_%d_%d_%d_%s.jpg",
-                                 osd_string, frame_number, frame_meta->batch_id, num_rects,
-                                 obj_meta->obj_label);
                         /* Write to File */
-                        file = fopen(fileObjNameString, "wb");
+                        file = fopen(fileNameString, "wb");
                         fwrite(enc_jpeg_image->outBuffer, sizeof(uint8_t), enc_jpeg_image->outLen,
                                file);
                         fclose(file);
@@ -198,11 +157,11 @@ static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad,
 
         nvds_add_display_meta_to_frame(frame_meta, display_meta);
     }
+    frame_number++;
     g_print(
         "Frame Number = %d Number of objects = %d "
         "Vehicle Count = %d Person Count = %d\n",
         frame_number, num_rects, vehicle_count, person_count);
-    frame_number++;
     return GST_PAD_PROBE_OK;
 }
 
@@ -216,7 +175,7 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo 
     GstMapInfo inmap = GST_MAP_INFO_INIT;
     if (!gst_buffer_map(buf, &inmap, GST_MAP_READ)) {
         GST_ERROR("input buffer mapinfo failed");
-        return GST_PAD_PROBE_DROP;
+        return GST_FLOW_ERROR;
     }
     NvBufSurface *ip_surf = (NvBufSurface *)inmap.data;
     gst_buffer_unmap(buf, &inmap);
@@ -230,23 +189,6 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo 
 
     for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
         NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)(l_frame->data);
-        /* For demonstration purposes, we will encode the first 10 frames. */
-        if (frame_count <= 10) {
-            NvDsObjEncUsrArgs frameData = {0};
-            /* Preset */
-            frameData.isFrame = 1;
-            /* To be set by user */
-            frameData.saveImg = save_img;
-            frameData.attachUsrMeta = attach_user_meta;
-            /* Set if Image scaling Required */
-            frameData.scaleImg = FALSE;
-            frameData.scaledWidth = 0;
-            frameData.scaledHeight = 0;
-            /* Quality */
-            frameData.quality = 80;
-            /* Main Function Call */
-            nvds_obj_enc_process(ctx, &frameData, ip_surf, NULL, frame_meta);
-        }
         guint num_rects = 0;
         for (l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next) {
             obj_meta = (NvDsObjectMeta *)(l_obj->data);
@@ -260,29 +202,22 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo 
             }
             /* Conditions that user needs to set to encode the detected objects of
              * interest. Here, by default all the detected objects are encoded.
-             * For demonstration, we will encode the first object in the frame. */
+             * For demonstration, we will encode the first object in the frame */
             if ((obj_meta->class_id == PGIE_CLASS_ID_PERSON ||
                  obj_meta->class_id == PGIE_CLASS_ID_VEHICLE) &&
                 num_rects == 1) {
-                NvDsObjEncUsrArgs objData = {0};
+                NvDsObjEncUsrArgs userData = {0};
                 /* To be set by user */
-                objData.saveImg = save_img;
-                objData.attachUsrMeta = attach_user_meta;
-                /* Set if Image scaling Required */
-                objData.scaleImg = FALSE;
-                objData.scaledWidth = 0;
-                objData.scaledHeight = 0;
+                userData.saveImg = save_img;
+                userData.attachUsrMeta = attach_user_meta;
                 /* Preset */
-                objData.objNum = num_rects;
-                /* Quality */
-                objData.quality = 80;
+                userData.objNum = num_rects;
                 /*Main Function Call */
-                nvds_obj_enc_process(ctx, &objData, ip_surf, obj_meta, frame_meta);
+                nvds_obj_enc_process(ctx, &userData, ip_surf, obj_meta, frame_meta);
             }
         }
     }
     nvds_obj_enc_finish(ctx);
-    frame_count++;
     return GST_PAD_PROBE_OK;
 }
 
@@ -367,14 +302,9 @@ static void decodebin_child_added(GstChildProxy *child_proxy,
         g_signal_connect(G_OBJECT(object), "child-added", G_CALLBACK(decodebin_child_added),
                          user_data);
     }
-
-    if (g_object_class_find_property(G_OBJECT_GET_CLASS(object), "gpu-id")) {
-        guint *gpu_id = (guint *)user_data;
-        g_object_set(object, "gpu-id", *gpu_id, NULL);
-    }
 }
 
-static GstElement *create_source_bin(guint index, gchar *uri, guint *gpu_id)
+static GstElement *create_source_bin(guint index, gchar *uri)
 {
     GstElement *bin = NULL, *uri_decode_bin = NULL;
     gchar bin_name[16] = {};
@@ -401,7 +331,7 @@ static GstElement *create_source_bin(guint index, gchar *uri, guint *gpu_id)
      * callback once a new pad for raw data has beed created by the decodebin */
     g_signal_connect(G_OBJECT(uri_decode_bin), "pad-added", G_CALLBACK(cb_newpad), bin);
     g_signal_connect(G_OBJECT(uri_decode_bin), "child-added", G_CALLBACK(decodebin_child_added),
-                     gpu_id);
+                     bin);
 
     gst_bin_add(GST_BIN(bin), uri_decode_bin);
 
@@ -418,18 +348,14 @@ static GstElement *create_source_bin(guint index, gchar *uri, guint *gpu_id)
     return bin;
 }
 
-static void usage(const char *bin)
-{
-    g_printerr("Usage: %s <gpu_id> <uri1> [uri2] ... [uriN] \n", bin);
-    g_printerr("For nvinferserver, Usage: %s -t inferserver <gpu_id> <uri1> [uri2] ... [uriN]\n",
-               bin);
-}
-
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL,
                *nvosd = NULL, *tiler = NULL;
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *pgie_src_pad = NULL;
@@ -437,44 +363,13 @@ int main(int argc, char *argv[])
     guint i, num_sources;
     guint tiler_rows, tiler_columns;
     guint pgie_batch_size;
-    guint gpu_id = 0;
-    gboolean is_nvinfer_server = FALSE;
-
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, gpu_id);
 
     /* Check input arguments */
-    if (argc < 3) {
-        usage(argv[0]);
+    if (argc < 2) {
+        g_printerr("Usage: %s <uri1> [uri2] ... [uriN] \n", argv[0]);
         return -1;
     }
-
-    if (argc >= 3 && !strcmp("-t", argv[1])) {
-        if (!strcmp("inferserver", argv[2])) {
-            is_nvinfer_server = TRUE;
-        } else {
-            usage(argv[0]);
-            return -1;
-        }
-        g_print("Using nvinferserver as the inference plugin\n");
-    }
-
-    /* Check if gpuID is provided for multiple streams */
-    if (is_nvinfer_server) {
-        if ((argc >= 5) && (!(isdigit(*argv[3])))) {
-            usage(argv[0]);
-            return -1;
-        }
-        gpu_id = atoi(argv[3]);
-        num_sources = argc - 4;
-    } else {
-        if ((argc >= 3) && (!(isdigit(*argv[1])))) {
-            usage(argv[0]);
-            return -1;
-        }
-        gpu_id = atoi(argv[1]);
-        num_sources = argc - 2;
-    }
+    num_sources = argc - 1;
 
     /* Standard GStreamer initialization */
     gst_init(&argc, &argv);
@@ -495,13 +390,8 @@ int main(int argc, char *argv[])
 
     for (i = 0; i < num_sources; i++) {
         GstPad *sinkpad, *srcpad;
-        GstElement *source_bin;
         gchar pad_name[16] = {};
-        if (is_nvinfer_server) {
-            source_bin = create_source_bin(i, argv[i + 4], &gpu_id);
-        } else {
-            source_bin = create_source_bin(i, argv[i + 2], &gpu_id);
-        }
+        GstElement *source_bin = create_source_bin(i, argv[i + 1]);
 
         if (!source_bin) {
             g_printerr("Failed to create source bin. Exiting.\n");
@@ -532,9 +422,8 @@ int main(int argc, char *argv[])
         gst_object_unref(sinkpad);
     }
 
-    /* Use nvinfer or nvinferserver to infer on batched frame. */
-    pgie = gst_element_factory_make(is_nvinfer_server ? NVINFERSERVER_PLUGIN : NVINFER_PLUGIN,
-                                    "primary-nvinference-engine");
+    /* Use nvinfer to infer on batched frame. */
+    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
 
     /* Use nvtiler to composite the batched frames into a 2D tiled array based
      * on the source of the frames. */
@@ -547,28 +436,27 @@ int main(int argc, char *argv[])
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
-    } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-    }
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!pgie || !tiler || !nvvidconv || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
+#ifdef PLATFORM_TEGRA
+    if (!transform) {
+        g_printerr("One tegra element could not be created. Exiting.\n");
+        return -1;
+    }
+#endif
 
     g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
-                 "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC,
-                 "gpu-id", gpu_id, NULL);
+                 "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
-    /* Configure the pgie element using the nvinfer config file. */
-    if (is_nvinfer_server) {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_NVINFERSERVER_CONFIG_FILE, "gpu-id",
-                     gpu_id, NULL);
-    } else {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, "gpu-id", gpu_id, NULL);
-    }
+    /* Configure the nvinfer element using the nvinfer config file. */
+    g_object_set(G_OBJECT(pgie), "config-file-path", "ds_image_meta_pgie_config.txt", NULL);
 
     /* Override the batch-size set in the config file with the number of sources. */
     g_object_get(G_OBJECT(pgie), "batch-size", &pgie_batch_size, NULL);
@@ -578,15 +466,11 @@ int main(int argc, char *argv[])
         g_object_set(G_OBJECT(pgie), "batch-size", num_sources, NULL);
     }
 
-    g_object_set(G_OBJECT(nvvidconv), "gpu-id", gpu_id, NULL);
-    g_object_set(G_OBJECT(nvosd), "gpu-id", gpu_id, NULL);
-    g_object_set(G_OBJECT(sink), "gpu-id", gpu_id, NULL);
-
     tiler_rows = (guint)sqrt(num_sources);
     tiler_columns = (guint)ceil(1.0 * num_sources / tiler_rows);
     /* we set the tiler properties here */
     g_object_set(G_OBJECT(tiler), "rows", tiler_rows, "columns", tiler_columns, "width",
-                 TILED_OUTPUT_WIDTH, "height", TILED_OUTPUT_HEIGHT, "gpu-id", gpu_id, NULL);
+                 TILED_OUTPUT_WIDTH, "height", TILED_OUTPUT_HEIGHT, NULL);
 
     /* we add a message handler */
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
@@ -595,21 +479,29 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
+#ifdef PLATFORM_TEGRA
+    gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, nvvidconv, nvosd, transform, sink, NULL);
+    /* we link the elements together
+     * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+    if (!gst_element_link_many(streammux, pgie, tiler, nvvidconv, nvosd, transform, sink, NULL)) {
+        g_printerr("Elements could not be linked. Exiting.\n");
+        return -1;
+    }
+#else
     gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, nvvidconv, nvosd, sink, NULL);
     /* we link the elements together
-     * nvstreammux -> pgie -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
+     * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
     if (!gst_element_link_many(streammux, pgie, tiler, nvvidconv, nvosd, sink, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }
+#endif
     /* Lets add probe to get informed of the meta data generated, we add probe to
      * the srd pad of the pgie element, since by that time, the buffer would have
      * had got all the nvinfer metadata. */
     pgie_src_pad = gst_element_get_static_pad(pgie, "src");
-    /* Create Context for Object Encoding.
-     * Takes GPU ID as a parameter. Passed by user through commandline.
-     * Initialized as 0. */
-    NvDsObjEncCtxHandle obj_ctx_handle = nvds_obj_enc_create_context(gpu_id);
+    /*Creat Context for Object Encoding */
+    NvDsObjEncCtxHandle obj_ctx_handle = nvds_obj_enc_create_context();
     if (!obj_ctx_handle) {
         g_print("Unable to create context\n");
         return -1;
@@ -633,7 +525,11 @@ int main(int argc, char *argv[])
     gst_object_unref(osd_sink_pad);
 
     /* Set the pipeline to "playing" state */
-    g_print("Now playing...\n");
+    g_print("Now playing:");
+    for (i = 0; i < num_sources; i++) {
+        g_print(" %s,", argv[i + 1]);
+    }
+    g_print("\n");
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

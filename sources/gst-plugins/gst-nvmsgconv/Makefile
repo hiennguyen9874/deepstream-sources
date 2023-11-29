@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2023 NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018-2020 NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -15,12 +15,12 @@ LIB:=libnvdsgst_msgconv.so
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=5.0
 
 GST_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/gst-plugins/
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"5.0.0\" \
 	 -I../../includes \
 	 -I../../libs/nvmsgconv/
 
@@ -31,8 +31,8 @@ LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvds_meta -lnvds_msgconv -ldl \
 OBJS:= $(SRCS:.c=.o)
 
 PKGS:= gstreamer-1.0 gstreamer-base-1.0
-CFLAGS+= $(shell pkg-config --cflags $(PKGS))
-LIBS+= $(shell pkg-config --libs $(PKGS))
+CFLAGS+= `pkg-config --cflags $(PKGS)`
+LIBS+= `pkg-config --libs $(PKGS)`
 
 all: $(LIB)
 

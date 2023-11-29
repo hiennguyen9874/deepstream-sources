@@ -243,28 +243,6 @@ NvDsInferStatus ImplicitTrtBackendContext::enqueueBuffer(
         return NVDSINFER_INVALID_PARAMS;
     }
 
-    for (int iL = 0; iL < (int)m_AllLayers.size(); ++iL) {
-        if (!m_AllLayers[iL].isInput)
-            continue;
-
-        NvDsInferBatchDims batchDims = buffer->getBatchDims(iL);
-        if (batchDims.batchSize != buffer->getBatchDims(0).batchSize) {
-            dsInferError(
-                "Failed to enqueue buffer because input tensors have mismatched batch size: %d and "
-                "%d",
-                batchDims.batchSize, buffer->getBatchDims(0).batchSize);
-            return NVDSINFER_INVALID_PARAMS;
-        }
-
-        if (!canSupportBatchDims(iL, batchDims)) {
-            dsInferError(
-                "Failed to enqueue buffer in fulldims mode because "
-                "binding idx: %d with batchDims: %s is not supported ",
-                iL, safeStr(batchDims2Str(batchDims)));
-            return NVDSINFER_INVALID_PARAMS;
-        }
-    }
-
     if (!m_Context->enqueue(batchDims.batchSize, bindingBuffers.data(), stream,
                             (consumeEvent ? &consumeEvent->ptr() : nullptr))) {
         dsInferError("Failed to enqueue inference batch");
@@ -299,28 +277,6 @@ NvDsInferStatus DlaImplicitTrtBackendContext::enqueueBuffer(
         dsInferError("enqueue buffer failed. batchSize:%d > maxBatchSize:%d", batchDims.batchSize,
                      m_MaxBatchSize);
         return NVDSINFER_INVALID_PARAMS;
-    }
-
-    for (int iL = 0; iL < (int)m_AllLayers.size(); ++iL) {
-        if (!m_AllLayers[iL].isInput)
-            continue;
-
-        NvDsInferBatchDims batchDims = buffer->getBatchDims(iL);
-        if (batchDims.batchSize != buffer->getBatchDims(0).batchSize) {
-            dsInferError(
-                "Failed to enqueue buffer because input tensors have mismatched batch size: %d and "
-                "%d",
-                batchDims.batchSize, buffer->getBatchDims(0).batchSize);
-            return NVDSINFER_INVALID_PARAMS;
-        }
-
-        if (!canSupportBatchDims(iL, batchDims)) {
-            dsInferError(
-                "Failed to enqueue buffer in fulldims mode because "
-                "binding idx: %d with batchDims: %s is not supported ",
-                iL, safeStr(batchDims2Str(batchDims)));
-            return NVDSINFER_INVALID_PARAMS;
-        }
     }
 
     /* Parallel enqueue for multiple DLA engines fails. Serialize enqueue
@@ -415,10 +371,6 @@ NvDsInferStatus FullDimTrtBackendContext::enqueueBuffer(
 
         NvDsInferBatchDims batchDims = buffer->getBatchDims(iL);
         assert(batchDims.batchSize == buffer->getBatchDims(0).batchSize);
-
-        if (batchDims.batchSize < m_AllLayers[iL].profileDims[kSELECTOR_MIN].batchSize)
-            batchDims.batchSize = m_AllLayers[iL].profileDims[kSELECTOR_MIN].batchSize;
-
         if (!canSupportBatchDims(iL, batchDims)) {
             dsInferError(
                 "Failed to enqueue buffer in fulldims mode because "

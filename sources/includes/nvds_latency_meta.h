@@ -37,20 +37,6 @@ extern "C" {
 #endif
 
 /**
- * Holds information about latency of the given subcomponent
- */
-typedef struct _NvDsMetaSubCompLatency {
-    /** Holds the subcomponent names. */
-    gchar sub_comp_name[MAX_COMPONENT_LEN];
-    /** Holds the system timestamp of the buffer when it arrives
-     at the input of the component. */
-    gdouble in_system_timestamp;
-    /** Holds the system timestamp of the buffer when it leaves
-     at the output of the component. */
-    gdouble out_system_timestamp;
-} NvDsMetaSubCompLatency;
-
-/**
  * Holds information about latency of the given component
  */
 typedef struct _NvDsMetaCompLatency {
@@ -69,10 +55,6 @@ typedef struct _NvDsMetaCompLatency {
     /** Holds the pad or port index of the stream muxer for the frame
      in the batch. */
     guint pad_index;
-    /** Holds latency information of subcomponent in an array */
-    NvDsMetaSubCompLatency sub_comp_latencies[16];
-    /** Holds the number of subcomponents for the given component */
-    guint num_sub_comps;
 } NvDsMetaCompLatency;
 
 /**
@@ -141,22 +123,6 @@ guint nvds_measure_buffer_latency(GstBuffer *buf, NvDsFrameLatencyInfo *latency_
  * @returns  True if the environment variable is exported, or false otherwise.
  */
 gboolean nvds_get_enable_latency_measurement(void);
-
-/**
- * Adds the reference timestamp metadata for this buffer
- * Note: element_name == "audiodecoder" and "nvv4l2decoder" will be used for
- * latency measurement calculations where the timestamp will be used
- * by API: nvds_measure_buffer_latency()
- * to calculate the latency of buffers downstream relative to the decoder.
- *
- * @param[in] buffer        A pointer to the arriving Gst Buffer.
- * @param[in] element_name  A pointer to the name of the component for which
- *                          latency is to be measured.
- * @param[in] frame_id      The id/number of this frame/buffer produced by
- *                          the component that produces this buffer.
- *
- */
-void nvds_add_reference_timestamp_meta(GstBuffer *buffer, gchar *element_name, guint frame_id);
 
 /**
  * Defines a pseudo-variable whose value is the return value of

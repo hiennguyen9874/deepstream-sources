@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2019-2023 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2019-2020 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -8,14 +8,7 @@
 * license agreement from NVIDIA Corporation is strictly prohibited.
 *****************************************************************************
 
-*****************************************************************************
-                     deepstream-infer-tensor-meta-app
-                             README
-*****************************************************************************
-
-===============================================================================
-1. Prerequisites:
-===============================================================================
+Prequisites:
 
 Please follow instructions in the
 apps/sample_apps/deepstream-infer-tensor-meta-test/README on how to install the
@@ -32,48 +25,19 @@ To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libopencv-dev libx11-dev
 
-This example can be configured to use either the nvinfer or the nvinferserver
-element for inference.
-If nvinferserver is selected, the Triton Inference Server is used for inference
-processing. In this case, the example needs to be run inside the
-DeepStream-Triton docker container  for dGPU platforms. For Jetson platforms,
-this example can be executed on target device directly or inside DeepStream L4T
-Triton container. Please refer samples/configs/deepstream-app-triton/README for
-the steps to download the container image and setup model repository.
-
-===============================================================================
-2. Purpose:
-===============================================================================
+Compilation Steps:
+  $ cd apps/sample_apps/deepstream-infer-tensor-meta-test/
+  # Export correct CUDA version (e.g. 10.2, 10.1)
+  $ export CUDA_VER=10.2
+  $ make
+  $ ./deepstream-infer-tensor-meta-app -t <infer-type> <h264_elementary_stream>
+    # <infer-type> is selected from "infer" or "inferserver"
 
 This document shall describe about the sample deepstream-infer-tensor-meta-test
 application.
 
-It demonstrates, how to access infer-plugin's output tensor
+It is meant for simple demonstration of how to access infer-plugin's output tensor
 data for DeepStream SDK elements in the pipeline.
-
-===============================================================================
-3. To compile:
-===============================================================================
-
-  $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
-  $ sudo make (sudo not required in case of docker containers)
-
-NOTE: To compile the sources, run make with "sudo" or root permission.
-Due to deprecation of OpenCV, the binary of this app is not packaged,
-to use this application, follow the compilation steps mentioned above.
-
-===============================================================================
-4. Usage:
-===============================================================================
-
-  $ ./deepstream-infer-tensor-meta-app <H264 filename1> [H264 filename2] ...[H264 filenameN]
-    ./deepstream-infer-tensor-meta-app /opt/nvidia/deepstream/deepstream/samples/streams/sample_720p.h264 /opt/nvidia/deepstream/deepstream/samples/streams/sample_720p.h264
-
-Use option "-t inferserver" to select nvinferserver as the inference plugin
-  $ ./deepstream-infer-tensor-meta-app -t inferserver <H264 filename1> [H264 filename2] ...[H264 filenameN]
-    ./deepstream-infer-tensor-meta-app -t inferserver /opt/nvidia/deepstream/deepstream/samples/streams/sample_720p.h264 /opt/nvidia/deepstream/deepstream/samples/streams/sample_720p.h264
 
 This sample creates multiple instances of infer-plugin element. Each instance of
 the infer-plugin uses TensorRT API or TRT-IS model to infer on frames/objects. Every
@@ -94,11 +58,11 @@ For reference, here are the config files used for this sample :
    sample) uses
     dstensor_sgie3_config.txt or  inferserver/dstensor_sgie3_config.txt
 
-In this sample, one infer-plugin instance, referred as the pgie.
+In this sample, we first create one infer-plugin instance, referred as the pgie.
 This is the first inference and "pgie_pad_buffer_probe" function parse the
 tensor output data and get detection objects as "Vehicle , RoadSign, TwoWheeler,
-Person". After this, 3 more instances of infer-plugin referred to as
-sgie1, sgie2, sgie3 respectively are created. The 3 instances would crop pgie's detected
+Person". After this we create 3 more instances of infer-plugin referred to as
+sgie1, sgie2, sgie3 respectively. The 3 instances would crop pgie's detected
 objects and do secondary inference. "sgie_pad_buffer_probe" function parse all
 sgies inference tensor data and classify them for OSD to drawing box and text.
 
@@ -107,10 +71,7 @@ a. for nvinfer plugin, we need set property or attribute
     "output-tensor-meta=true".
    In the sample code, We also set attribute "network-type=100" in config file but
    this is not mandatory.
-b. OpenCV has been deprecated by default, so GroupRectangles will not work.
-   for nvinfer plugin, to see the grouping, enable `WITH_OPENCV:=1` in the Makefile
-   (/opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-infer-tensor-meta-test/Makefile)
-c. for nvinferserver plugin, we set field
+b. for nvinferserver plugin, we set field
     " output_control { output_tensor_meta: true } "
     In the sample code, We also set field
     " postprocess { other {} } " and

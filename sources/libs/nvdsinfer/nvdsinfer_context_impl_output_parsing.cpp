@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -82,7 +82,7 @@ bool DetectPostprocessor::parseBoundingBox(vector<NvDsInferLayerInfo> const &out
         gcCenters1[i] /= (float)bboxNorm[1];
     }
 
-    unsigned int numClasses = std::min(outputCoverageDims.c, detectionParams.numClassesConfigured);
+    unsigned int numClasses = MIN(outputCoverageDims.c, detectionParams.numClassesConfigured);
     for (unsigned int classIndex = 0; classIndex < numClasses; classIndex++) {
         /* Pointers to memory regions containing the (x1,y1) and (x2,y2) coordinates
          * of rectangles in the output bounding box layer. */
@@ -253,12 +253,13 @@ void DetectPostprocessor::clusterAndFillDetectionOutputNMS(NvDsInferDetectionOut
             for (size_t r = 0; r < m_PerClassObjectList[c].size(); ++r) {
                 scoreIndex.emplace_back(
                     std::make_pair(m_PerClassObjectList[c][r].detectionConfidence, r));
+                std::stable_sort(
+                    scoreIndex.begin(), scoreIndex.end(),
+                    [](const std::pair<float, int> &pair1, const std::pair<float, int> &pair2) {
+                        return pair1.first > pair2.first;
+                    });
             }
-            std::stable_sort(
-                scoreIndex.begin(), scoreIndex.end(),
-                [](const std::pair<float, int> &pair1, const std::pair<float, int> &pair2) {
-                    return pair1.first > pair2.first;
-                });
+
             // Apply NMS algorithm
             const std::vector<int> indices = nonMaximumSuppression(
                 scoreIndex, m_PerClassObjectList[c], m_PerClassDetectionParams[c].nmsIOUThreshold);
@@ -295,8 +296,6 @@ void DetectPostprocessor::clusterAndFillDetectionOutputNMS(NvDsInferDetectionOut
         output.numObjects++;
     }
 }
-
-#ifdef WITH_OPENCV
 /**
  * Cluster objects using OpenCV groupRectangles and fill the output structure.
  */
@@ -348,7 +347,6 @@ void DetectPostprocessor::clusterAndFillDetectionOutputCV(NvDsInferDetectionOutp
         }
     }
 }
-#endif
 
 /**
  * Cluster objects using DBSCAN and fill the output structure.
@@ -511,6 +509,7 @@ void InstanceSegmentPostprocessor::fillUnclusteredOutput(NvDsInferDetectionOutpu
             if (obj.classId < m_Labels.size() && m_Labels[obj.classId].size() > 0)
                 object.label = strdup(m_Labels[obj.classId][0].c_str());
             object.confidence = obj.detectionConfidence;
+
             object.mask = nullptr;
             if (obj.mask) {
                 object.mask = std::move(obj.mask);
@@ -605,8 +604,7 @@ bool ClassifyPostprocessor::parseAttributesFromSoftmaxLayers(
         if (attrFound) {
             if (m_Labels.size() > attr.attributeIndex &&
                 attr.attributeValue < m_Labels[attr.attributeIndex].size())
-                attr.attributeLabel =
-                    strdup(m_Labels[attr.attributeIndex][attr.attributeValue].c_str());
+                attr.attributeLabel = m_Labels[attr.attributeIndex][attr.attributeValue].c_str();
             else
                 attr.attributeLabel = nullptr;
             attrList.push_back(attr);
@@ -684,13 +682,8 @@ NvDsInferStatus DetectPostprocessor::fillDetectionOutput(
 
     /* The above functions will add all objects in the m_ObjectList vector.
      * Need to seperate them per class for grouping. */
-#ifndef WITH_OPENCV
-    if (m_ClusterMode != NVDSINFER_CLUSTER_NONE)
-#else
     if ((m_ClusterMode != NVDSINFER_CLUSTER_GROUP_RECTANGLES) &&
-        (m_ClusterMode != NVDSINFER_CLUSTER_NONE))
-#endif
-    {
+        (m_ClusterMode != NVDSINFER_CLUSTER_NONE)) {
         for (auto &object : m_ObjectList) {
             m_PerClassObjectList[object.classId].emplace_back(object);
         }
@@ -705,11 +698,9 @@ NvDsInferStatus DetectPostprocessor::fillDetectionOutput(
         clusterAndFillDetectionOutputDBSCAN(output);
         break;
 
-#ifdef WITH_OPENCV
     case NVDSINFER_CLUSTER_GROUP_RECTANGLES:
         clusterAndFillDetectionOutputCV(output);
         break;
-#endif
 
     case NVDSINFER_CLUSTER_DBSCAN_NMS_HYBRID:
         clusterAndFillDetectionOutputHybrid(output);
@@ -768,20 +759,8 @@ NvDsInferStatus SegmentPostprocessor::fillSegmentationOutput(
     const std::vector<NvDsInferLayerInfo> &outputLayers,
     NvDsInferSegmentationOutput &output)
 {
-    std::function<unsigned int(unsigned int, unsigned int, unsigned int)> indAlongChannel = nullptr;
     NvDsInferDimsCHW outputDimsCHW;
-
-    if (m_SegmentationOutputOrder == NvDsInferTensorOrder_kNCHW) {
-        getDimsCHWFromDims(outputDimsCHW, outputLayers[0].inferDims);
-        indAlongChannel = [&outputDimsCHW](int x, int y, int c) -> int {
-            return c * outputDimsCHW.w * outputDimsCHW.h + y * outputDimsCHW.w + x;
-        };
-    } else if (m_SegmentationOutputOrder == NvDsInferTensorOrder_kNHWC) {
-        getDimsHWCFromDims(outputDimsCHW, outputLayers[0].inferDims);
-        indAlongChannel = [&outputDimsCHW](int x, int y, int c) -> int {
-            return outputDimsCHW.c * (y * outputDimsCHW.w + x) + c;
-        };
-    }
+    getDimsCHWFromDims(outputDimsCHW, outputLayers[0].inferDims);
 
     output.width = outputDimsCHW.w;
     output.height = outputDimsCHW.h;
@@ -795,7 +774,8 @@ NvDsInferStatus SegmentPostprocessor::fillSegmentationOutput(
             float max_prob = -1;
             int &cls = output.class_map[y * output.width + x] = -1;
             for (unsigned int c = 0; c < output.classes; c++) {
-                float prob = output.class_probability_map[indAlongChannel(x, y, c)];
+                float prob = output.class_probability_map[c * output.width * output.height +
+                                                          y * output.width + x];
                 if (prob > max_prob && prob > m_SegmentationThreshold) {
                     cls = c;
                     max_prob = prob;
@@ -816,10 +796,6 @@ void InferPostprocessor::releaseFrameOutput(NvDsInferFrameOutput &frameOutput)
         delete[] frameOutput.detectionOutput.objects;
         break;
     case NvDsInferNetworkType_Classifier:
-        for (unsigned int j = 0; j < frameOutput.classificationOutput.numAttributes; j++) {
-            if (frameOutput.classificationOutput.attributes[j].attributeLabel)
-                free(frameOutput.classificationOutput.attributes[j].attributeLabel);
-        }
         free(frameOutput.classificationOutput.label);
         delete[] frameOutput.classificationOutput.attributes;
         break;
@@ -829,7 +805,7 @@ void InferPostprocessor::releaseFrameOutput(NvDsInferFrameOutput &frameOutput)
     case NvDsInferNetworkType_InstanceSegmentation:
         for (unsigned int j = 0; j < frameOutput.detectionOutput.numObjects; j++) {
             free(frameOutput.detectionOutput.objects[j].label);
-            delete[] frameOutput.detectionOutput.objects[j].mask;
+            delete frameOutput.detectionOutput.objects[j].mask;
         }
         delete[] frameOutput.detectionOutput.objects;
         break;

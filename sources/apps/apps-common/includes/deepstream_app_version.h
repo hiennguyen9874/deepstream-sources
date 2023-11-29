@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,8 +23,8 @@
 #ifndef __NVGSTDS_APP_VERSION_H__
 #define __NVGSTDS_APP_VERSION_H__
 
-#define NVDS_APP_VERSION_MAJOR 6
-#define NVDS_APP_VERSION_MINOR 3
+#define NVDS_APP_VERSION_MAJOR 5
+#define NVDS_APP_VERSION_MINOR 0
 #define NVDS_APP_VERSION_MICRO 0
 
 #endif

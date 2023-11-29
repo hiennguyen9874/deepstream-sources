@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,6 @@
 #include <unistd.h>
 
 #include <cstring>
-#include <memory>
 #include <string>
 
 #include "deepstream_app.h"
@@ -113,15 +112,11 @@ static bool save_image(const std::string &path,
                   << "Should be less than " << sizeof(userData.fileNameImg) << " characters.";
         return false;
     }
-    if (obj_meta == NULL) {
-        userData.isFrame = 1;
-    }
     userData.saveImg = TRUE;
     userData.attachUsrMeta = FALSE;
     path.copy(userData.fileNameImg, path.size());
     userData.fileNameImg[path.size()] = '\0';
     userData.objNum = obj_counter++;
-    userData.quality = 80;
 
     g_img_meta_consumer.init_image_save_library_on_first_time();
     nvds_obj_enc_process(g_img_meta_consumer.get_obj_ctx_handle(), &userData, ip_surf, obj_meta,
@@ -245,7 +240,7 @@ static void after_pgie_image_meta_save(AppCtx *appCtx,
         unsigned obj_counter = 0;
 
         bool at_least_one_confidence_is_within_range = false;
-        /// first loop to check if it is useful to save metadata for the current frame
+        /// first loop to check if it is usefull to save metadata for the current frame
         for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != nullptr;
              l_obj = l_obj->next) {
             NvDsObjectMeta *obj_meta = static_cast<NvDsObjectMeta *>(l_obj->data);
@@ -277,11 +272,17 @@ static void after_pgie_image_meta_save(AppCtx *appCtx,
                 if (data_was_stacked && !full_frame_written &&
                     g_img_meta_consumer.get_save_full_frame_enabled()) {
                     unsigned dummy_counter = 0;
-
+                    /// Creating a special object meta in order to save a full frame
+                    NvDsObjectMeta dummy_obj_meta;
+                    dummy_obj_meta.rect_params.width =
+                        ip_surf->surfaceList[frame_meta->batch_id].width;
+                    dummy_obj_meta.rect_params.height =
+                        ip_surf->surfaceList[frame_meta->batch_id].height;
+                    dummy_obj_meta.rect_params.top = 0;
+                    dummy_obj_meta.rect_params.left = 0;
                     at_least_one_image_saved |=
-                        save_image(img_producer.get_image_full_frame_path_saved(), ip_surf, NULL,
-                                   frame_meta, dummy_counter);
-
+                        save_image(img_producer.get_image_full_frame_path_saved(), ip_surf,
+                                   &dummy_obj_meta, frame_meta, dummy_counter);
                     full_frame_written = true;
                 }
                 at_least_one_metadata_saved |= data_was_stacked;
@@ -800,17 +801,12 @@ int main(int argc, char *argv[])
                 can_start = false;
             }
             if (can_start) {
-                /* Initiating the encode process for images. Each init function creates a context
-                 * on the specified gpu and can then be used to encode images. Multiple contexts
-                 * (even on different gpus) can also be initialized according to user requirements.
-                 * Only one is shown here for demonstration purposes. */
-                g_img_meta_consumer.init(nvds_imgsave.gpu_id, nvds_imgsave.output_folder_path,
-                                         nvds_imgsave.frame_to_skip_rules_path,
-                                         nvds_imgsave.min_confidence, nvds_imgsave.max_confidence,
-                                         nvds_imgsave.min_box_width, nvds_imgsave.min_box_height,
-                                         nvds_imgsave.save_image_full_frame,
-                                         nvds_imgsave.save_image_cropped_object,
-                                         nvds_imgsave.second_to_skip_interval, MAX_SOURCE_BINS);
+                g_img_meta_consumer.init(
+                    nvds_imgsave.output_folder_path, nvds_imgsave.frame_to_skip_rules_path,
+                    nvds_imgsave.min_confidence, nvds_imgsave.max_confidence,
+                    nvds_imgsave.min_box_width, nvds_imgsave.min_box_height,
+                    nvds_imgsave.save_image_full_frame, nvds_imgsave.save_image_cropped_object,
+                    nvds_imgsave.second_to_skip_interval, MAX_SOURCE_BINS);
             }
             if (g_img_meta_consumer.get_is_stopped()) {
                 std::cerr << "Consumer could not be started => exiting...\n\n";
@@ -823,7 +819,6 @@ int main(int argc, char *argv[])
                       << "or adding [img-save] part in config file. (example below)\n"
                       << "[img-save]\n"
                       << "enable=1\n"
-                      << "gpu_id=0\n"
                       << "output-folder-path=./output\n"
                       << "save-img-cropped-obj=0\n"
                       << "save-img-full-frame=1\n"

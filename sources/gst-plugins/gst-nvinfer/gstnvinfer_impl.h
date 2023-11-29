@@ -28,7 +28,6 @@
 #include "nvdsinfer_context.h"
 #include "nvdsinfer_func_utils.h"
 #include "nvdsmeta.h"
-#include "nvdspreprocess_meta.h"
 #include "nvtx3/nvToolsExt.h"
 
 G_BEGIN_DECLS
@@ -59,17 +58,9 @@ typedef struct {
      * direction. Required when scaling the detector boxes from the network
      * resolution to input resolution. Not required for classifiers. */
     gdouble scale_ratio_y = 0;
-    /** Offsets if symmetric padding was performed whille scaling objects to
-     * network resolition. */
-    guint offset_left = 0;
-    guint offset_top = 0;
-    /** roi left and top for preprocessed tensor */
-    guint roi_left = 0;
-    guint roi_top = 0;
     /** NvDsObjectParams belonging to the object to be classified. */
     NvDsObjectMeta *obj_meta = nullptr;
     NvDsFrameMeta *frame_meta = nullptr;
-    NvDsRoiMeta *roi_meta = nullptr;
     /** Index of the frame in the batched input GstBuffer. Not required for
      * classifiers. */
     guint batch_index = 0;
@@ -112,10 +103,6 @@ typedef struct {
     /** Buffer containing the intermediate conversion output for the batch. */
     GstBuffer *conv_buf = nullptr;
     nvtxRangeId_t nvtx_complete_buf_range = 0;
-
-    /** Sync object for allowing asynchronous call to nvbufsurftransform API
-     * Wait and Destroy to be done before preprocess call of nvinfer */
-    NvBufSurfTransformSyncObj_t sync_obj = NULL;
 
     /** List of objects not inferred on in the current batch but pending
      * attachment of lastest available classification metadata. */

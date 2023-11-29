@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -22,5 +22,3 @@ Install using:
 --------------------------------------------------------------------------------
 Compiling and installing the plugin:
 Run make and sudo make install
-
-NOTE: To compile the sources, run make with "sudo" or root permission.

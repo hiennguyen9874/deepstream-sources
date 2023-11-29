@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2017-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -249,7 +249,6 @@ static void gst_dsexample_init(GstDsExample *dsexample)
     dsexample->process_full_frame = DEFAULT_PROCESS_FULL_FRAME;
     dsexample->blur_objects = DEFAULT_BLUR_OBJECTS;
     dsexample->gpu_id = DEFAULT_GPU_ID;
-
     /* This quark is required to identify NvDsMeta when iterating through
      * the buffer metadatas */
     if (!_dsmeta_quark)
@@ -336,7 +335,6 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
 
     GstQuery *queryparams = NULL;
     guint batch_size = 1;
-    int val = -1;
 
     /* Algorithm specific initializations and resource allocation. */
     dsexample->dsexamplelib_ctx = DsExampleCtxInit(&init_params);
@@ -344,9 +342,6 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
     GST_DEBUG_OBJECT(dsexample, "ctx lib %p \n", dsexample->dsexamplelib_ctx);
 
     CHECK_CUDA_STATUS(cudaSetDevice(dsexample->gpu_id), "Unable to set cuda device");
-
-    cudaDeviceGetAttribute(&val, cudaDevAttrIntegrated, dsexample->gpu_id);
-    dsexample->is_integrated = val;
 
     dsexample->batch_size = 1;
     queryparams = gst_nvquery_batch_size_new();
@@ -364,17 +359,6 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
         goto error;
     }
 
-#ifndef WITH_OPENCV
-    if (dsexample->blur_objects) {
-        GST_ELEMENT_ERROR(
-            dsexample, STREAM, FAILED,
-            ("OpenCV has been deprecated, hence object blurring will not work."
-             "Enable OpenCV compilation in gst-dsexample Makefile by setting 'WITH_OPENCV:=1"),
-            (NULL));
-        goto error;
-    }
-#endif
-
     CHECK_CUDA_STATUS(cudaStreamCreate(&dsexample->cuda_stream), "Could not create cuda stream");
 
     if (dsexample->inter_buf)
@@ -389,12 +373,11 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
     create_params.size = 0;
     create_params.colorFormat = NVBUF_COLOR_FORMAT_RGBA;
     create_params.layout = NVBUF_LAYOUT_PITCH;
-
-    if (dsexample->is_integrated) {
-        create_params.memType = NVBUF_MEM_DEFAULT;
-    } else {
-        create_params.memType = NVBUF_MEM_CUDA_PINNED;
-    }
+#ifdef __aarch64__
+    create_params.memType = NVBUF_MEM_DEFAULT;
+#else
+    create_params.memType = NVBUF_MEM_CUDA_UNIFIED;
+#endif
 
     if (NvBufSurfaceCreate(&dsexample->inter_buf, 1, &create_params) != 0) {
         GST_ERROR("Error: Could not allocate internal buffer for dsexample");
@@ -409,7 +392,6 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
 
     GST_DEBUG_OBJECT(dsexample, "allocated cuda buffer %p \n", dsexample->host_rgb_buf);
 
-#ifdef WITH_OPENCV
     /* CV Mat containing interleaved RGB data. This call does not allocate memory.
      * It uses host_rgb_buf as data. */
     dsexample->cvmat =
@@ -420,7 +402,6 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
         goto error;
 
     GST_DEBUG_OBJECT(dsexample, "created CV Mat\n");
-#endif
 
     return TRUE;
 error:
@@ -453,10 +434,8 @@ static gboolean gst_dsexample_stop(GstBaseTransform *btrans)
         cudaStreamDestroy(dsexample->cuda_stream);
     dsexample->cuda_stream = NULL;
 
-#ifdef WITH_OPENCV
     delete dsexample->cvmat;
     dsexample->cvmat = NULL;
-#endif
 
     if (dsexample->host_rgb_buf) {
         cudaFreeHost(dsexample->host_rgb_buf);
@@ -520,9 +499,7 @@ static GstFlowReturn get_converted_mat(GstDsExample *dsexample,
     NvBufSurfTransformRect src_rect;
     NvBufSurfTransformRect dst_rect;
     NvBufSurface ip_surf;
-#ifdef WITH_OPENCV
     cv::Mat in_mat;
-#endif
     ip_surf = *input_buf;
 
     ip_surf.numFilled = ip_surf.batchSize = 1;
@@ -603,12 +580,10 @@ static GstFlowReturn get_converted_mat(GstDsExample *dsexample,
     if (NvBufSurfaceMap(dsexample->inter_buf, 0, 0, NVBUF_MAP_READ) != 0) {
         goto error;
     }
-    if (dsexample->inter_buf->memType == NVBUF_MEM_SURFACE_ARRAY) {
-        /* Cache the mapped data for CPU access */
-        NvBufSurfaceSyncForCpu(dsexample->inter_buf, 0, 0);
-    }
 
-#ifdef WITH_OPENCV
+    /* Cache the mapped data for CPU access */
+    NvBufSurfaceSyncForCpu(dsexample->inter_buf, 0, 0);
+
     /* Use openCV to remove padding and convert RGBA to BGR. Can be skipped if
      * algorithm can handle padded RGBA data. */
     in_mat = cv::Mat(dsexample->processing_height, dsexample->processing_width, CV_8UC4,
@@ -620,30 +595,27 @@ static GstFlowReturn get_converted_mat(GstDsExample *dsexample,
 #else
     cv::cvtColor(in_mat, *dsexample->cvmat, CV_RGBA2BGR);
 #endif
-#endif
 
     if (NvBufSurfaceUnMap(dsexample->inter_buf, 0, 0)) {
         goto error;
     }
 
-    if (dsexample->is_integrated) {
 #ifdef __aarch64__
-        /* To use the converted buffer in CUDA, create an EGLImage and then use
-         * CUDA-EGL interop APIs */
-        if (USE_EGLIMAGE) {
-            if (NvBufSurfaceMapEglImage(dsexample->inter_buf, 0) != 0) {
-                goto error;
-            }
-
-            /* dsexample->inter_buf->surfaceList[0].mappedAddr.eglImage
-             * Use interop APIs cuGraphicsEGLRegisterImage and
-             * cuGraphicsResourceGetMappedEglFrame to access the buffer in CUDA */
-
-            /* Destroy the EGLImage */
-            NvBufSurfaceUnMapEglImage(dsexample->inter_buf, 0);
+    /* To use the converted buffer in CUDA, create an EGLImage and then use
+     * CUDA-EGL interop APIs */
+    if (USE_EGLIMAGE) {
+        if (NvBufSurfaceMapEglImage(dsexample->inter_buf, 0) != 0) {
+            goto error;
         }
-#endif
+
+        /* dsexample->inter_buf->surfaceList[0].mappedAddr.eglImage
+         * Use interop APIs cuGraphicsEGLRegisterImage and
+         * cuGraphicsResourceGetMappedEglFrame to access the buffer in CUDA */
+
+        /* Destroy the EGLImage */
+        NvBufSurfaceUnMapEglImage(dsexample->inter_buf, 0);
     }
+#endif
 
     /* We will first convert only the Region of Interest (the entire frame or the
      * object bounding box) to RGB and then scale the converted RGB frame to
@@ -654,7 +626,6 @@ error:
     return GST_FLOW_ERROR;
 }
 
-#ifdef WITH_OPENCV
 /*
  * Blur the detected objects when processing in object mode (full-frame=0)
  */
@@ -680,7 +651,6 @@ static GstFlowReturn blur_objects(GstDsExample *dsexample,
 
     return GST_FLOW_OK;
 }
-#endif
 
 /**
  * Called when element recieves an input buffer from upstream element.
@@ -742,13 +712,7 @@ static GstFlowReturn gst_dsexample_transform_ip(GstBaseTransform *btrans, GstBuf
             }
 
             /* Process to get the output */
-#ifdef WITH_OPENCV
             output = DsExampleProcess(dsexample->dsexamplelib_ctx, dsexample->cvmat->data);
-#else
-            output = DsExampleProcess(
-                dsexample->dsexamplelib_ctx,
-                (unsigned char *)dsexample->inter_buf->surfaceList[0].mappedAddr.addr[0]);
-#endif
             /* Attach the metadata for the full frame */
             attach_metadata_full_frame(dsexample, frame_meta, scale_ratio, output, i);
             i++;
@@ -761,24 +725,20 @@ static GstFlowReturn gst_dsexample_transform_ip(GstBaseTransform *btrans, GstBuf
         NvDsMetaList *l_obj = NULL;
         NvDsObjectMeta *obj_meta = NULL;
 
-        if (!dsexample->is_integrated) {
-            if (dsexample->blur_objects) {
-                if (!(surface->memType == NVBUF_MEM_CUDA_UNIFIED ||
-                      surface->memType == NVBUF_MEM_CUDA_PINNED)) {
-                    GST_ELEMENT_ERROR(dsexample, STREAM, FAILED,
-                                      ("%s:need NVBUF_MEM_CUDA_UNIFIED or NVBUF_MEM_CUDA_PINNED "
-                                       "memory for opencv blurring",
-                                       __func__),
-                                      (NULL));
-                    return GST_FLOW_ERROR;
-                }
+#ifndef __aarch64__
+        if (dsexample->blur_objects) {
+            if (surface->memType != NVBUF_MEM_CUDA_UNIFIED) {
+                GST_ELEMENT_ERROR(
+                    dsexample, STREAM, FAILED,
+                    ("%s:need NVBUF_MEM_CUDA_UNIFIED memory for opencv blurring", __func__),
+                    (NULL));
+                return GST_FLOW_ERROR;
             }
         }
+#endif
 
         for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
             frame_meta = (NvDsFrameMeta *)(l_frame->data);
-
-#ifdef WITH_OPENCV
             cv::Mat in_mat;
 
             if (dsexample->blur_objects) {
@@ -794,8 +754,7 @@ static GstFlowReturn gst_dsexample_transform_ip(GstBaseTransform *btrans, GstBuf
                 }
 
                 /* Cache the mapped data for CPU access */
-                if (dsexample->inter_buf->memType == NVBUF_MEM_SURFACE_ARRAY)
-                    NvBufSurfaceSyncForCpu(surface, frame_meta->batch_id, 0);
+                NvBufSurfaceSyncForCpu(surface, frame_meta->batch_id, 0);
 
                 in_mat =
                     cv::Mat(surface->surfaceList[frame_meta->batch_id].planeParams.height[0],
@@ -803,14 +762,12 @@ static GstFlowReturn gst_dsexample_transform_ip(GstBaseTransform *btrans, GstBuf
                             CV_8UC4, surface->surfaceList[frame_meta->batch_id].mappedAddr.addr[0],
                             surface->surfaceList[frame_meta->batch_id].planeParams.pitch[0]);
             }
-#endif
 
             for (l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next) {
                 obj_meta = (NvDsObjectMeta *)(l_obj->data);
 
                 if (dsexample->blur_objects) {
                     /* gaussian blur the detected objects using opencv */
-#ifdef WITH_OPENCV
                     if (blur_objects(dsexample, frame_meta->batch_id, &obj_meta->rect_params,
                                      in_mat) != GST_FLOW_OK) {
                         /* Error in blurring, skip processing on object. */
@@ -824,15 +781,6 @@ static GstFlowReturn gst_dsexample_transform_ip(GstBaseTransform *btrans, GstBuf
                         return GST_FLOW_ERROR;
                     }
                     continue;
-#else
-                    GST_ELEMENT_ERROR(
-                        dsexample, STREAM, FAILED,
-                        ("OpenCV has been deprecated, hence object blurring will not work."
-                         "Enable OpenCV compilation in gst-dsexample Makefile by setting "
-                         "'WITH_OPENCV:=1"),
-                        (NULL));
-                    return GST_FLOW_ERROR;
-#endif
                 }
 
                 /* Should not process on objects smaller than MIN_INPUT_OBJECT_WIDTH x
@@ -850,15 +798,8 @@ static GstFlowReturn gst_dsexample_transform_ip(GstBaseTransform *btrans, GstBuf
                     continue;
                 }
 
-#ifdef WITH_OPENCV
                 /* Process the object crop to obtain label */
                 output = DsExampleProcess(dsexample->dsexamplelib_ctx, dsexample->cvmat->data);
-#else
-                /* Process the object crop to obtain label */
-                output = DsExampleProcess(
-                    dsexample->dsexamplelib_ctx,
-                    (unsigned char *)dsexample->inter_buf->surfaceList[0].mappedAddr.addr[0]);
-#endif
 
                 /* Attach labels for the object */
                 attach_metadata_object(dsexample, obj_meta, output);
@@ -868,13 +809,11 @@ static GstFlowReturn gst_dsexample_transform_ip(GstBaseTransform *btrans, GstBuf
 
             if (dsexample->blur_objects) {
                 /* Cache the mapped data for device access */
-                if (dsexample->inter_buf->memType == NVBUF_MEM_SURFACE_ARRAY)
-                    NvBufSurfaceSyncForDevice(surface, frame_meta->batch_id, 0);
+                NvBufSurfaceSyncForDevice(surface, frame_meta->batch_id, 0);
 
-#ifdef WITH_OPENCV
 #ifdef DSEXAMPLE_DEBUG
-                    /* Use openCV to remove padding and convert RGBA to BGR. Can be skipped if
-                     * algorithm can handle padded RGBA data. */
+                /* Use openCV to remove padding and convert RGBA to BGR. Can be skipped if
+                 * algorithm can handle padded RGBA data. */
 #if (CV_MAJOR_VERSION >= 4)
                 cv::cvtColor(in_mat, *dsexample->cvmat, cv::COLOR_RGBA2BGR);
 #else
@@ -884,7 +823,6 @@ static GstFlowReturn gst_dsexample_transform_ip(GstBaseTransform *btrans, GstBuf
                 static guint cnt = 0;
                 cv::imwrite("out_" + std::to_string(cnt) + ".jpeg", *dsexample->cvmat);
                 cnt++;
-#endif
 #endif
             }
         }
@@ -1028,7 +966,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dsexample,
                   DESCRIPTION,
                   dsexample_plugin_init,
-                  "6.3",
+                  "5.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

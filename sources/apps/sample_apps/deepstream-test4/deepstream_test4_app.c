@@ -1,6 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -14,14 +13,13 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <stdlib.h>
@@ -30,7 +28,6 @@
 #include <time.h>
 
 #include "gstnvdsmeta.h"
-#include "nvds_yml_parser.h"
 #include "nvdsmeta_schema.h"
 
 #define MAX_DISPLAY_LEN 64
@@ -51,14 +48,6 @@
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
 #define MUXER_BATCH_TIMEOUT_USEC 40000
-#define IS_YAML(file) (g_str_has_suffix(file, ".yml") || g_str_has_suffix(file, ".yaml"))
-
-/* Check for parsing error. */
-#define RETURN_ON_PARSER_ERROR(parse_expr)                    \
-    if (NVDS_YAML_PARSER_SUCCESS != parse_expr) {             \
-        g_printerr("Error in parsing configuration file.\n"); \
-        return -1;                                            \
-    }
 
 static gchar *cfg_file = NULL;
 static gchar *input_file = NULL;
@@ -66,8 +55,6 @@ static gchar *topic = NULL;
 static gchar *conn_str = NULL;
 static gchar *proto_lib = NULL;
 static gint schema_type = 0;
-static gint msg2p_meta = 0;
-static gint frame_interval = 30;
 static gboolean display_off = FALSE;
 
 gint frame_number = 0;
@@ -84,11 +71,7 @@ GOptionEntry entries[] = {
     {"proto-lib", 'p', 0, G_OPTION_ARG_STRING, &proto_lib, "Absolute path of adaptor library",
      NULL},
     {"schema", 's', 0, G_OPTION_ARG_INT, &schema_type,
-     "Type of message schema (0=Full, 1=minimal, 2=protobuf), default=0", NULL},
-    {"msg2p-meta", 0, 0, G_OPTION_ARG_INT, &msg2p_meta,
-     "msg2payload generation metadata type (0=Event Msg meta, 1=nvds meta), default=0", NULL},
-    {"frame-interval", 0, 0, G_OPTION_ARG_INT, &frame_interval,
-     "Frame interval at which payload is generated , default=30", NULL},
+     "Type of message schema (0=Full, 1=minimal), default=0", NULL},
     {"no-display", 0, 0, G_OPTION_ARG_NONE, &display_off, "Disable display", NULL},
     {NULL}};
 
@@ -367,9 +350,9 @@ static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad,
              * component implementing detection / recognition logic.
              * Here it demonstrates how to use / attach that meta data.
              */
-            if (is_first_object && !(frame_number % frame_interval)) {
+            if (is_first_object && !(frame_number % 30)) {
                 /* Frequency of messages to be send will be based on use case.
-                 * Here message is being sent for first object every frame_interval(default=30).
+                 * Here message is being sent for first object every 30 frames.
                  */
 
                 NvDsEventMsgMeta *msg_meta =
@@ -439,6 +422,9 @@ int main(int argc, char *argv[])
                *pgie = NULL, *nvvidconv = NULL, *nvosd = NULL, *nvstreammux;
     GstElement *msgconv = NULL, *msgbroker = NULL, *tee = NULL;
     GstElement *queue1 = NULL, *queue2 = NULL;
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *osd_sink_pad = NULL;
@@ -449,12 +435,6 @@ int main(int argc, char *argv[])
     GOptionContext *ctx = NULL;
     GOptionGroup *group = NULL;
     GError *error = NULL;
-    NvDsGieType pgie_type = NVDS_GIE_PLUGIN_INFER;
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
 
     ctx = g_option_context_new("Nvidia DeepStream Test4");
     group = g_option_group_new("test4", NULL, NULL, NULL, NULL);
@@ -471,31 +451,15 @@ int main(int argc, char *argv[])
     g_option_context_free(ctx);
 
     if (!proto_lib || !input_file) {
-        if (argc > 1 && !IS_YAML(argv[1])) {
-            g_printerr("missing arguments\n");
-            g_printerr("Usage: %s <yml file>\n", argv[0]);
-            g_printerr(
-                "Usage: %s -i <H264 filename> -p <Proto adaptor library> --conn-str=<Connection "
-                "string>\n",
-                argv[0]);
-            return -1;
-        } else if (!argv[1]) {
-            g_printerr("missing arguments\n");
-            g_printerr("Usage: %s <yml file>\n", argv[0]);
-            g_printerr(
-                "Usage: %s -i <H264 filename> -p <Proto adaptor library> --conn-str=<Connection "
-                "string>\n",
-                argv[0]);
-            return -1;
-        }
+        g_printerr("missing arguments\n");
+        g_printerr(
+            "Usage: %s -i <H264 filename> -p <Proto adaptor library> --conn-str=<Connection "
+            "string>\n",
+            argv[0]);
+        return -1;
     }
 
     loop = g_main_loop_new(NULL, FALSE);
-
-    /* Parse inference plugin type */
-    if (argc > 1 && IS_YAML(argv[1])) {
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&pgie_type, argv[1], "primary-gie"));
-    }
 
     /* Create gstreamer elements */
     /* Create Pipeline element that will form a connection of other elements */
@@ -513,13 +477,9 @@ int main(int argc, char *argv[])
 
     nvstreammux = gst_element_factory_make("nvstreammux", "nvstreammux");
 
-    /* Use nvinfer or nvinferserver to run inferencing on decoder's output,
+    /* Use nvinfer to run inferencing on decoder's output,
      * behaviour of inferencing is set through config file */
-    if (pgie_type == NVDS_GIE_PLUGIN_INFER_SERVER) {
-        pgie = gst_element_factory_make("nvinferserver", "primary-nvinference-engine");
-    } else {
-        pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
-    }
+    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
 
     /* Use convertor to convert from NV12 to RGBA as required by nvosd */
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
@@ -533,7 +493,7 @@ int main(int argc, char *argv[])
     /* Create msg broker to send payload to server */
     msgbroker = gst_element_factory_make("nvmsgbroker", "nvmsg-broker");
 
-    /* Create tee to render buffer and send message simultaneously */
+    /* Create tee to render buffer and send message simultaneously*/
     tee = gst_element_factory_make("tee", "nvsink-tee");
 
     /* Create queues */
@@ -543,10 +503,16 @@ int main(int argc, char *argv[])
     /* Finally render the osd output */
     if (display_off) {
         sink = gst_element_factory_make("fakesink", "nvvideo-renderer");
-    } else if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
     } else {
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+
+#ifdef PLATFORM_TEGRA
+        transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+        if (!transform) {
+            g_printerr("nvegltransform element could not be created. Exiting.\n");
+            return -1;
+        }
+#endif
     }
 
     if (!pipeline || !source || !h264parser || !decoder || !nvstreammux || !pgie || !nvvidconv ||
@@ -555,56 +521,34 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (argc > 1 && IS_YAML(argv[1])) {
-        RETURN_ON_PARSER_ERROR(nvds_parse_file_source(source, argv[1], "source"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_streammux(nvstreammux, argv[1], "streammux"));
+    /* we set the input filename to the source element */
+    g_object_set(G_OBJECT(source), "location", input_file, NULL);
 
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie(pgie, argv[1], "primary-gie"));
+    g_object_set(G_OBJECT(nvstreammux), "batch-size", 1, NULL);
 
-        g_object_set(G_OBJECT(msgconv), "config", "dstest4_msgconv_config.yml", NULL);
-        RETURN_ON_PARSER_ERROR(nvds_parse_msgconv(msgconv, argv[1], "msgconv"));
+    g_object_set(G_OBJECT(nvstreammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
+                 "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
-        RETURN_ON_PARSER_ERROR(nvds_parse_msgbroker(msgbroker, argv[1], "msgbroker"));
+    /* Set all the necessary properties of the nvinfer element,
+     * the necessary ones are : */
+    g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
 
-        if (display_off) {
-            RETURN_ON_PARSER_ERROR(nvds_parse_fake_sink(sink, argv[1], "sink"));
-        } else if (prop.integrated) {
-            RETURN_ON_PARSER_ERROR(nvds_parse_3d_sink(sink, argv[1], "sink"));
-        } else {
-            RETURN_ON_PARSER_ERROR(nvds_parse_egl_sink(sink, argv[1], "sink"));
-        }
+    g_object_set(G_OBJECT(msgconv), "config", MSCONV_CONFIG_FILE, NULL);
+    g_object_set(G_OBJECT(msgconv), "payload-type", schema_type, NULL);
 
-    } else {
-        /* we set the input filename to the source element */
-        g_object_set(G_OBJECT(source), "location", input_file, NULL);
+    g_object_set(G_OBJECT(msgbroker), "proto-lib", proto_lib, "conn-str", conn_str, "sync", FALSE,
+                 NULL);
 
-        g_object_set(G_OBJECT(nvstreammux), "batch-size", 1, NULL);
-
-        g_object_set(G_OBJECT(nvstreammux), "width", MUXER_OUTPUT_WIDTH, "height",
-                     MUXER_OUTPUT_HEIGHT, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
-
-        /* Set all the necessary properties of the nvinfer element,
-         * the necessary ones are : */
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
-
-        g_object_set(G_OBJECT(msgconv), "config", MSCONV_CONFIG_FILE, NULL);
-        g_object_set(G_OBJECT(msgconv), "payload-type", schema_type, NULL);
-        g_object_set(G_OBJECT(msgconv), "msg2p-newapi", msg2p_meta, NULL);
-        g_object_set(G_OBJECT(msgconv), "frame-interval", frame_interval, NULL);
-
-        g_object_set(G_OBJECT(msgbroker), "proto-lib", proto_lib, "conn-str", conn_str, "sync",
-                     FALSE, NULL);
-
-        if (topic) {
-            g_object_set(G_OBJECT(msgbroker), "topic", topic, NULL);
-        }
-
-        if (cfg_file) {
-            g_object_set(G_OBJECT(msgbroker), "config", cfg_file, NULL);
-        }
-
-        g_object_set(G_OBJECT(sink), "sync", TRUE, NULL);
+    if (topic) {
+        g_object_set(G_OBJECT(msgbroker), "topic", topic, NULL);
     }
+
+    if (cfg_file) {
+        g_object_set(G_OBJECT(msgbroker), "config", cfg_file, NULL);
+    }
+
+    g_object_set(G_OBJECT(sink), "sync", TRUE, NULL);
+
     /* we add a message handler */
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
     bus_watch_id = gst_bus_add_watch(bus, bus_call, loop);
@@ -615,9 +559,13 @@ int main(int argc, char *argv[])
     gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, nvstreammux, pgie, nvvidconv,
                      nvosd, tee, queue1, queue2, msgconv, msgbroker, sink, NULL);
 
+#ifdef PLATFORM_TEGRA
+    if (!display_off)
+        gst_bin_add(GST_BIN(pipeline), transform);
+#endif
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder -> nvstreammux ->
-     * pgie -> nvvidconv -> nvosd -> tee -> video-renderer
+     * nvinfer -> nvvidconv -> nvosd -> tee -> video-renderer
      *                                      |
      *                                      |-> msgconv -> msgbroker  */
 
@@ -656,10 +604,24 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+#ifdef PLATFORM_TEGRA
+    if (!display_off) {
+        if (!gst_element_link_many(queue2, transform, sink, NULL)) {
+            g_printerr("Elements could not be linked. Exiting.\n");
+            return -1;
+        }
+    } else {
+        if (!gst_element_link(queue2, sink)) {
+            g_printerr("Elements could not be linked. Exiting.\n");
+            return -1;
+        }
+    }
+#else
     if (!gst_element_link(queue2, sink)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }
+#endif
 
     sink_pad = gst_element_get_static_pad(queue1, "sink");
     tee_msg_pad = gst_element_get_request_pad(tee, "src_%u");
@@ -692,19 +654,13 @@ int main(int argc, char *argv[])
     osd_sink_pad = gst_element_get_static_pad(nvosd, "sink");
     if (!osd_sink_pad)
         g_print("Unable to get sink pad\n");
-    else {
-        if (msg2p_meta == 0) // generate payload using eventMsgMeta
-            gst_pad_add_probe(osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER, osd_sink_pad_buffer_probe,
-                              NULL, NULL);
-    }
+    else
+        gst_pad_add_probe(osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER, osd_sink_pad_buffer_probe, NULL,
+                          NULL);
     gst_object_unref(osd_sink_pad);
 
     /* Set the pipeline to "playing" state */
-    if (argc > 1 && IS_YAML(argv[1])) {
-        g_print("Using file: %s\n", argv[1]);
-    } else {
-        g_print("Now playing: %s\n", input_file);
-    }
+    g_print("Now playing: %s\n", input_file);
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

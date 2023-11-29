@@ -20,6 +20,10 @@ Dependencies:
  sudo apt-get update
  sudo apt-get install -y libcurl4-openssl-dev libssl-dev uuid-dev libglib2.0 libglib2.0-dev
 
+#If your host machine is x86 and using ubuntu 18.04, additionally install the below
+ sudo apt-get install -y libcurl3
+
+
 Azure cfg:
 ----------
 You can add Azure connection and message details in the cfg file.
@@ -82,5 +86,4 @@ To run test program:
  ./test_azure_proto_sync <path_to_libnvds_azure_proto.so>
 
  NOTE:
- 1. To compile the sources, run make with "sudo" or root permission.
- 2. libnvds_azure_proto.so can be found at /opt/nvidia/deepstream/deepstream-<version>/lib/libnvds_azure_proto.so
+ libnvds_azure_proto.so can be found at /opt/nvidia/deepstream/deepstream-<version>/lib/libnvds_azure_proto.so

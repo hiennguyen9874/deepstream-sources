@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -51,7 +51,6 @@ typedef void *NvOSDCtxHandle;
  */
 typedef struct _NvOSD_FrameTextParams {
     /** Holds a pointer to a buffer containing a frame. */
-    /** buf_ptr is deprecated. Use NvBufSurface *surf instead */
     NvBufSurfaceParams *buf_ptr;
     /** Holds the OSD mode to be used for processing. */
     NvOSD_Mode mode;
@@ -59,14 +58,11 @@ typedef struct _NvOSD_FrameTextParams {
     int num_strings;
     /** Holds the strings' text parameters. */
     NvOSD_TextParams *text_params_list;
-    /** Holds information about batched buffers. */
-    NvBufSurface *surf;
 } NvOSD_FrameTextParams;
 
 /** Holds information about the rectangles in a frame. */
 typedef struct _NvOSD_FrameRectParams {
     /** Holds a pointer to the buffer containing the frame. */
-    /** buf_ptr is deprecated. Use NvBufSurface *surf instead */
     NvBufSurfaceParams *buf_ptr;
     /** Holds the OSD mode to be used for processing. */
     NvOSD_Mode mode;
@@ -74,14 +70,11 @@ typedef struct _NvOSD_FrameRectParams {
     int num_rects;
     /** Holds the rectangles' parameters. */
     NvOSD_RectParams *rect_params_list;
-    /** Holds information about batched buffers. */
-    NvBufSurface *surf;
 } NvOSD_FrameRectParams;
 
 /** Holds information about the rectangles in a frame. */
 typedef struct _NvOSD_FrameSegmentMaskParams {
     /** Holds a pointer to the buffer containing the frame. */
-    /** buf_ptr is deprecated. Use NvBufSurface *surf instead */
     NvBufSurfaceParams *buf_ptr;
     /** Holds the OSD mode to be used for processing. */
     NvOSD_Mode mode;
@@ -91,14 +84,11 @@ typedef struct _NvOSD_FrameSegmentMaskParams {
     NvOSD_RectParams *rect_params_list;
     /** Holds mask parameters */
     NvOSD_MaskParams *mask_params_list;
-    /** Holds information about batched buffers. */
-    NvBufSurface *surf;
 } NvOSD_FrameSegmentMaskParams;
 
 /** Holds information about the lines in a frame. */
 typedef struct _NvOSD_FrameLineParams {
     /** Holds a pointer to the buffer containing the frame. */
-    /** buf_ptr is deprecated. Use NvBufSurface *surf instead */
     NvBufSurfaceParams *buf_ptr;
     /** Holds the OSD mode to be used for processing. */
     NvOSD_Mode mode;
@@ -106,14 +96,11 @@ typedef struct _NvOSD_FrameLineParams {
     int num_lines;
     /** Holds the lines' parameters. */
     NvOSD_LineParams *line_params_list;
-    /** Holds information about batched buffers. */
-    NvBufSurface *surf;
 } NvOSD_FrameLineParams;
 
 /** Holds information about the arrows in a frame. */
 typedef struct _NvOSD_FrameArrowParams {
     /** Holds a pointer to the buffer containing the frame. */
-    /** buf_ptr is deprecated. Use NvBufSurface *surf instead */
     NvBufSurfaceParams *buf_ptr;
     /** Holds the OSD mode to be used for processing. */
     NvOSD_Mode mode;
@@ -121,14 +108,11 @@ typedef struct _NvOSD_FrameArrowParams {
     int num_arrows;
     /** Holds the parameters of the arrows. */
     NvOSD_ArrowParams *arrow_params_list;
-    /** Holds information about batched buffers. */
-    NvBufSurface *surf;
 } NvOSD_FrameArrowParams;
 
 /** Holds information about the circles in a frame. */
 typedef struct _NvOSD_FrameCircleParams {
     /** Holds a pointer to the buffer containing the frame. */
-    /** buf_ptr is deprecated. Use NvBufSurface *surf instead */
     NvBufSurfaceParams *buf_ptr;
     /** Holds the OSD mode to be used for processing. */
     NvOSD_Mode mode;
@@ -136,8 +120,6 @@ typedef struct _NvOSD_FrameCircleParams {
     int num_circles;
     /** Holds the parameters of the circles. */
     NvOSD_CircleParams *circle_params_list;
-    /** Holds information about batched buffers. */
-    NvBufSurface *surf;
 } NvOSD_FrameCircleParams;
 
 /**
@@ -301,16 +283,6 @@ void *nvll_osd_set_params(NvOSDCtxHandle nvosd_ctx, int width, int height);
 int nvll_osd_init_colors_for_hw_blend(void *nvosd_ctx,
                                       NvOSD_Color_info *color_info,
                                       int num_classes);
-
-/**
- * Apply OSD to the video frame for GPU backend.
- *
- * @param[in] nvosd_ctx A handle for the NvOSD context.
- * @param[in] buf_ptr Surface which the OSD apply.
- *            This is now deprecated. 'NvBufSurface *surf' is used instead.
- * @param[in] surf Holds information of batched buffer
- */
-int nvll_osd_apply(NvOSDCtxHandle nvosd_ctx, NvBufSurfaceParams *buf_ptr, NvBufSurface *surf);
 
 #ifdef __cplusplus
 }

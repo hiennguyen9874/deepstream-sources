@@ -1,3 +1,20 @@
 {
-    "makefile.extensionOutputFolder": "./.vscode"
+  "makefile.extensionOutputFolder": "./.vscode",
+  "files.associations": {
+    "*.html": "html",
+    "**/templates/**/*.html": "django-html",
+    "*.json": "jsonc",
+    "**/*.html": "html",
+    "*.js": "javascriptreact",
+    "**/templates/**/*": "django-txt",
+    "**/requirements{/**,*}.{txt,in}": "pip-requirements",
+    "*.txt": "django-txt",
+    "*.h": "c",
+    "any": "cpp",
+    "bitset": "cpp",
+    "memory": "cpp",
+    "random": "cpp",
+    "future": "cpp",
+    "optional": "cpp"
+  }
 }

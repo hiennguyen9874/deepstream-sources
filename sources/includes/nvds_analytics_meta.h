@@ -60,8 +60,6 @@ typedef struct {
     std::string dirStatus;
     /** Holds unique identifier for nvdsanalytics instance */
     guint unique_id;
-    /** Holds the status string for the tracked object */
-    std::string objStatus;
 } NvDsAnalyticsObjInfo;
 
 /**

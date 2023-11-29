@@ -43,8 +43,6 @@ typedef struct {
 
     gchar *config_file_path;
 
-    gboolean input_tensor_meta;
-
     gboolean override_colors;
 
     gint operate_on_gie_id;
@@ -72,13 +70,6 @@ typedef struct {
     gboolean is_gpu_id_set;
     guint nvbuf_memory_type;
     gchar *model_engine_file_path;
-
-    gchar *audio_transform;
-    guint frame_size;
-    gboolean is_frame_size_set;
-    guint hop_size;
-    gboolean is_hop_size_set;
-    guint input_audio_rate;
 
     gchar *label_file_path;
     guint n_labels;

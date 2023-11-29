@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -40,13 +40,11 @@ typedef struct {
     guint tracking_surf_type;
     gchar *ll_config_file;
     gchar *ll_lib_file;
+    gboolean enable_batch_process;
+    gboolean enable_past_frame;
+    gboolean batch_config_set;
     guint tracking_surface_type;
     gboolean display_tracking_id;
-    guint tracking_id_reset_mode;
-    gboolean input_tensor_meta;
-    guint input_tensor_gie_id;
-    guint compute_hw;
-    guint user_meta_pool_size;
 } NvDsTrackerConfig;
 
 typedef struct {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
 #include <stdio.h>
@@ -42,11 +41,6 @@
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
 #define MUXER_BATCH_TIMEOUT_USEC 40000
-
-#define NVINFER_PLUGIN "nvinfer"
-#define NVINFERSERVER_PLUGIN "nvinferserver"
-#define PGIE_CONFIG_FILE "dsopencvtest_pgie_config.txt"
-#define PGIE_NVINFERSERVER_CONFIG_FILE "dsopencvtest_pgie_nvinferserver_config.txt"
 
 /* NVIDIA Decoder source pad memory feature. This feature signifies that source
  * pads having this capability will push GstBuffers containing NvBufSurface. */
@@ -235,42 +229,22 @@ static GstElement *create_source_bin(guint index, gchar *uri)
     return bin;
 }
 
-static void usage(const char *bin)
-{
-    g_printerr("Usage: %s <uri>\n", bin);
-    g_printerr("For nvinferserver, Usage: %s -t inferserver <uri>\n", bin);
-}
-
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL,
                *caps_filter = NULL, *dsexample = NULL, *nvosd = NULL;
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *osd_sink_pad = NULL;
-    gboolean is_nvinfer_server = FALSE;
-    gchar *input_stream = NULL;
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
 
     /* Check input arguments */
-    if (argc < 2) {
-        usage(argv[0]);
+    if (argc != 2) {
+        g_printerr("Usage: %s <uri>\n", argv[0]);
         return -1;
-    }
-
-    if (argc >= 2 && !strcmp("-t", argv[1])) {
-        if (!strcmp("inferserver", argv[2])) {
-            is_nvinfer_server = TRUE;
-        } else {
-            usage(argv[0]);
-            return -1;
-        }
-        g_print("Using nvinferserver as the inference plugin\n");
     }
 
     /* Standard GStreamer initialization */
@@ -291,18 +265,10 @@ int main(int argc, char *argv[])
     gst_bin_add(GST_BIN(pipeline), streammux);
 
     GstPad *sinkpad, *srcpad;
-    GstElement *source_bin;
-
     gchar pad_name_sink[16] = "sink_0";
     gchar pad_name_src[16] = "src";
 
-    if (is_nvinfer_server) {
-        source_bin = create_source_bin(0, argv[3]);
-        input_stream = argv[3];
-    } else {
-        source_bin = create_source_bin(0, argv[1]);
-        input_stream = argv[1];
-    }
+    GstElement *source_bin = create_source_bin(0, argv[1]);
 
     if (!source_bin) {
         g_printerr("Failed to create source bin. Exiting.\n");
@@ -331,10 +297,9 @@ int main(int argc, char *argv[])
     gst_object_unref(srcpad);
     gst_object_unref(sinkpad);
 
-    /* Use nvinfer/nvinferserver to run inferencing on decoder's output,
+    /* Use nvinfer to run inferencing on decoder's output,
      * behaviour of inferencing is set through config file */
-    pgie = gst_element_factory_make(is_nvinfer_server ? NVINFERSERVER_PLUGIN : NVINFER_PLUGIN,
-                                    "primary-nvinference-engine");
+    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
 
     /* Use convertor to convert from NV12 to RGBA as required by dsexample */
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
@@ -347,34 +312,35 @@ int main(int argc, char *argv[])
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
     /* Finally render the osd output */
-    if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
-    } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-    }
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
 
     if (!pgie || !nvvidconv || !caps_filter || !dsexample || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
+#ifdef PLATFORM_TEGRA
+    if (!transform) {
+        g_printerr("One tegra element could not be created. Exiting.\n");
+        return -1;
+    }
+#endif
 
     g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
                  "batch-size", 1, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
     /* Set all the necessary properties of the nvinfer element,
      * the necessary ones are : */
-    if (is_nvinfer_server) {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_NVINFERSERVER_CONFIG_FILE, NULL);
-    } else {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
-    }
+    g_object_set(G_OBJECT(pgie), "config-file-path", "dsopencvtest_pgie_config.txt", NULL);
 
-    if (!prop.integrated) {
-        /* Set properties of the nvvideoconvert element
-         * requires unified cuda memory for opencv blurring on CPU
-         */
-        g_object_set(G_OBJECT(nvvidconv), "nvbuf-memory-type", 1, NULL);
-    }
+#ifndef PLATFORM_TEGRA
+    /* Set properties of the nvvideoconvert element
+     * requires unified cuda memory for opencv blurring on CPU
+     */
+    g_object_set(G_OBJECT(nvvidconv), "nvbuf-memory-type", 3, NULL);
+#endif
 
     /* Set properties of the caps_filter element */
     GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "RGBA", NULL);
@@ -397,16 +363,29 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    gst_bin_add_many(GST_BIN(pipeline), pgie, nvvidconv, caps_filter, dsexample, nvosd, sink, NULL);
+    gst_bin_add_many(GST_BIN(pipeline), pgie, nvvidconv, caps_filter, dsexample, nvosd, NULL);
 
+#ifdef PLATFORM_TEGRA
+    gst_bin_add_many(GST_BIN(pipeline), transform, sink, NULL);
+#else
+    gst_bin_add_many(GST_BIN(pipeline), sink, NULL);
+#endif
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder ->
-     * pgie -> nvvidconv -> nvosd -> video-renderer */
+     * nvinfer -> nvvidconv -> nvosd -> video-renderer */
+#ifdef PLATFORM_TEGRA
+    if (!gst_element_link_many(streammux, pgie, nvvidconv, caps_filter, dsexample, nvosd, transform,
+                               sink, NULL)) {
+        g_printerr("Elements could not be linked: 2. Exiting.\n");
+        return -1;
+    }
+#else
     if (!gst_element_link_many(streammux, pgie, nvvidconv, caps_filter, dsexample, nvosd, sink,
                                NULL)) {
         g_printerr("Elements could not be linked: 2. Exiting.\n");
         return -1;
     }
+#endif
 
     /* Lets add probe to get informed of the meta data generated, we add probe to
      * the sink pad of the osd element, since by that time, the buffer would have
@@ -420,7 +399,7 @@ int main(int argc, char *argv[])
     gst_object_unref(osd_sink_pad);
 
     /* Set the pipeline to "playing" state */
-    g_print("Now playing: %s\n", input_stream);
+    g_print("Now playing: %s\n", argv[1]);
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

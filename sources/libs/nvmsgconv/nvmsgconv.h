@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -38,21 +38,6 @@ typedef struct NvDsMsg2pCtx {
     /** private to component. Don't change this field. */
     gpointer privData;
 } NvDsMsg2pCtx;
-
-/**
- * @ref NvDsMsg2pMetaInfo is structure to hold
- *      the NvDs metadata related information
-        to be processed to generate payloads
- */
-
-typedef struct {
-    /** Holds the object metadata */
-    void *objMeta;
-    /** Holds the frame metadata */
-    void *frameMeta;
-    /** media type: (ex: audio, video) */
-    gchar *mediaType;
-} NvDsMsg2pMetaInfo;
 
 /**
  * This function initializes the library with user defined options mentioned
@@ -113,41 +98,6 @@ NvDsPayload **nvds_msg2p_generate_multiple(NvDsMsg2pCtx *ctx,
                                            NvDsEvent *events,
                                            guint size,
                                            guint *payloadCount);
-
-/**
- * This function will parse the @ref NvDsMsg2pMetaInfo and will generate
- * message payloads. Payloads will be combination of static values read from
- * configuration file and the deepstream metadata fields passed @ref NvDsMsg2pMetaInfo
- * Payloads will be generated based on the @ref NvDsPayloadType type provided
- * in context creation (e.g. Deepstream, Custom etc.).
- *
- * @param[in] ctx pointer to library context.
- * @param[in] pointer to type NvDsMsg2pMetaInfo
- *
- * @return pointer to @ref NvDsPayload generated or NULL in case of error.
- * This payload should be freed with @ref nvds_msg2p_release
- */
-NvDsPayload *nvds_msg2p_generate_new(NvDsMsg2pCtx *ctx, void *metadataInfo);
-
-/**
- * This function will parse the @ref NvDsMsg2pMetaInfo and will generate multiple
- * message payloads. Payloads will be combination of static values read from
- * configuration file and the deepstream metadata fields passed @ref NvDsMsg2pMetaInfo
- * Payloads will be generated based on the @ref NvDsPayloadType type provided
- * in context creation (e.g. Deepstream, Custom etc.).
- *
- * @param[in] ctx pointer to library context.
- * @param[in] pointer to type NvDsMsg2pMetaInfo
- * @param[out] payloadCount number of payloads being returned by the function.
- *
- * @return pointer to @ref array of NvDsPayload pointers generated or NULL in
- * case of error. The number of payloads in the array is returned through
- * payloadCount. This pointer should be freed by calling g_free() and the
- * individual payloads should be freed with @ref nvds_msg2p_release
- */
-NvDsPayload **nvds_msg2p_generate_multiple_new(NvDsMsg2pCtx *ctx,
-                                               void *metadataInfo,
-                                               guint *payloadCount);
 
 /**
  * This function should be called to release memory allocated for payload.

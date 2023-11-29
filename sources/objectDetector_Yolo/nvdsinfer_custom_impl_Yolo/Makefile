@@ -30,15 +30,6 @@ NVCC:=/usr/local/cuda-$(CUDA_VER)/bin/nvcc
 CFLAGS:= -Wall -std=c++11 -shared -fPIC -Wno-error=deprecated-declarations
 CFLAGS+= -I../../includes -I/usr/local/cuda-$(CUDA_VER)/include
 
-CUFLAGS:= -I../../includes -I/usr/local/cuda-$(CUDA_VER)/include \
-	-gencode arch=compute_60,code=compute_60 -gencode arch=compute_61,code=compute_61 \
-	-gencode arch=compute_70,code=compute_70 -gencode arch=compute_75,code=compute_75 \
-	-gencode arch=compute_80,code=compute_80
-
-ifneq ($(CUDA_VER), 11.4)
-CUFLAGS+= -gencode arch=compute_89,code=compute_89 -gencode arch=compute_90,code=compute_90
-endif
-
 LIBS:= -lnvinfer_plugin -lnvinfer -lnvparsers -L/usr/local/cuda-$(CUDA_VER)/lib64 -lcudart -lcublas -lstdc++fs
 LFLAGS:= -shared -Wl,--start-group $(LIBS) -Wl,--end-group
 
@@ -47,9 +38,8 @@ SRCFILES:= nvdsinfer_yolo_engine.cpp \
            nvdsparsebbox_Yolo.cpp   \
            yoloPlugins.cpp    \
            trt_utils.cpp              \
-           yolo.cpp           \
-           kernels.cu           \
-           NvDsInferParseCustomYolov3_cuda.cu
+           yolo.cpp              \
+           kernels.cu
 TARGET_LIB:= libnvdsinfer_custom_impl_Yolo.so
 
 TARGET_OBJS:= $(SRCFILES:.cpp=.o)
@@ -61,10 +51,10 @@ all: $(TARGET_LIB)
 	$(CC) -c -o $@ $(CFLAGS) $<
 
 %.o: %.cu $(INCS) Makefile
-	$(NVCC) -c -o $@ --compiler-options '-fPIC' $(CUFLAGS) $<
+	$(NVCC) -c -o $@ --compiler-options '-fPIC' $<
 
 $(TARGET_LIB) : $(TARGET_OBJS)
 	$(CC) -o $@  $(TARGET_OBJS) $(LFLAGS)
 
 clean:
-	rm -rf $(TARGET_LIB) *.o
+	rm -rf $(TARGET_LIB)

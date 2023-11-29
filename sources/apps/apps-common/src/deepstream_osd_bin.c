@@ -25,10 +25,8 @@
 
 gboolean create_osd_bin(NvDsOSDConfig *config, NvDsOSDBin *bin)
 {
+    GstCaps *caps = NULL;
     gboolean ret = FALSE;
-    guint clk_color = ((((guint)(config->clock_color.red * 255)) & 0xFF) << 24) |
-                      ((((guint)(config->clock_color.green * 255)) & 0xFF) << 16) |
-                      ((((guint)(config->clock_color.blue * 255)) & 0xFF) << 8) | 0xFF;
 
     bin->bin = gst_bin_new("osd_bin");
     if (!bin->bin) {
@@ -47,6 +45,21 @@ gboolean create_osd_bin(NvDsOSDConfig *config, NvDsOSDBin *bin)
         NVGSTDS_ERR_MSG_V("Failed to create 'osd_queue'");
         goto done;
     }
+#ifdef IS_TEGRA
+    bin->cap_filter = gst_element_factory_make(NVDS_ELEM_CAPS_FILTER, "osd_caps");
+    if (!bin->cap_filter) {
+        NVGSTDS_ERR_MSG_V("Failed to create 'osd_caps'");
+        goto done;
+    }
+
+    caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "RGBA", NULL);
+
+    GstCapsFeatures *feature = NULL;
+    feature = gst_caps_features_new(MEMORY_FEATURES, NULL);
+    gst_caps_set_features(caps, 0, feature);
+
+    g_object_set(G_OBJECT(bin->cap_filter), "caps", caps, NULL);
+#endif
 
     bin->conv_queue = gst_element_factory_make(NVDS_ELEM_QUEUE, "osd_conv_queue");
     if (!bin->conv_queue) {
@@ -59,6 +72,10 @@ gboolean create_osd_bin(NvDsOSDConfig *config, NvDsOSDBin *bin)
         NVGSTDS_ERR_MSG_V("Failed to create 'nvosd0'");
         goto done;
     }
+
+    guint clk_color = ((((guint)(config->clock_color.red * 255)) & 0xFF) << 24) |
+                      ((((guint)(config->clock_color.green * 255)) & 0xFF) << 16) |
+                      ((((guint)(config->clock_color.blue * 255)) & 0xFF) << 8) | 0xFF;
 
     g_object_set(G_OBJECT(bin->nvosd), "display-clock", config->enable_clock, "clock-font",
                  config->font, "x-clock-offset", config->clock_x_offset, "y-clock-offset",

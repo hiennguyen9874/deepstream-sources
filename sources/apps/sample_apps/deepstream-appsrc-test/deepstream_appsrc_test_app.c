@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
@@ -36,11 +35,6 @@
 #define PGIE_CLASS_ID_PERSON 2
 
 #define CUSTOM_PTS 1
-
-#define NVINFER_PLUGIN "nvinfer"
-#define NVINFERSERVER_PLUGIN "nvinferserver"
-#define PGIE_CONFIG_FILE "dstest_appsrc_config.txt"
-#define PGIE_NVINFERSERVER_CONFIG_FILE "dstest_appsrc_nvinferserver_config.txt"
 
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
@@ -203,21 +197,15 @@ static void stop_feed(GstElement *source, AppSrcData *data)
     }
 }
 
-static void usage(const char *bin)
-{
-    g_printerr("Usage: %s <Raw filename> <width> <height> <fps> <format(I420, NV12, RGBA)>\n", bin);
-    g_printerr(
-        "For nvinferserver, Usage: %s -t inferserver <Raw filename> <width> <height> <fps> "
-        "<format(I420, NV12, RGBA)>\n",
-        bin);
-}
-
 int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *nvvidconv1 = NULL, *caps_filter = NULL, *streammux = NULL,
                *sink = NULL, *pgie = NULL, *nvvidconv2 = NULL, *nvosd = NULL, *tee = NULL,
                *appsink = NULL;
+#ifdef PLATFORM_TEGRA
+    GstElement *transform = NULL;
+#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
     AppSrcData data;
@@ -226,56 +214,24 @@ int main(int argc, char *argv[])
     gchar *endptr1 = NULL, *endptr2 = NULL, *endptr3 = NULL, *vidconv_format = NULL;
     GstPad *tee_source_pad1, *tee_source_pad2;
     GstPad *osd_sink_pad, *appsink_sink_pad;
-    gboolean is_nvinfer_server = FALSE;
-
-    int current_device = -1;
-    cudaGetDevice(&current_device);
-    struct cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, current_device);
 
     /* Check input arguments */
-    if (argc < 6) {
-        usage(argv[0]);
+    if (argc != 6) {
+        g_printerr("Usage: %s <Raw filename> <width> <height> <fps> <format(I420, NV12, RGBA)>\n",
+                   argv[0]);
         return -1;
     }
 
-    if (argc >= 6 && !strcmp("-t", argv[1])) {
-        if (!strcmp("inferserver", argv[2])) {
-            is_nvinfer_server = TRUE;
-        } else {
-            usage(argv[0]);
-            return -1;
-        }
-        g_print("Using nvinferserver as the inference plugin\n");
+    long width = g_ascii_strtoll(argv[2], &endptr1, 10);
+    long height = g_ascii_strtoll(argv[3], &endptr2, 10);
+    long fps = g_ascii_strtoll(argv[4], &endptr3, 10);
+    gchar *format = argv[5];
+    if ((width == 0 && endptr1 == argv[2]) || (height == 0 && endptr2 == argv[3]) ||
+        (fps == 0 && endptr3 == argv[4])) {
+        g_printerr("Incorrect width, height or FPS\n");
+        return -1;
     }
 
-    gchar *format = NULL, *input_stream = NULL;
-    long fps = 0, width = 0, height = 0;
-    if (is_nvinfer_server) {
-        width = g_ascii_strtoll(argv[4], &endptr1, 10);
-        height = g_ascii_strtoll(argv[5], &endptr2, 10);
-        fps = g_ascii_strtoll(argv[6], &endptr3, 10);
-        format = argv[7];
-        input_stream = argv[3];
-
-        if ((width == 0 && endptr1 == argv[4]) || (height == 0 && endptr2 == argv[5]) ||
-            (fps == 0 && endptr3 == argv[6])) {
-            g_printerr("Incorrect width, height or FPS\n");
-            return -1;
-        }
-    } else {
-        width = g_ascii_strtoll(argv[2], &endptr1, 10);
-        height = g_ascii_strtoll(argv[3], &endptr2, 10);
-        fps = g_ascii_strtoll(argv[4], &endptr3, 10);
-        format = argv[5];
-        input_stream = argv[1];
-
-        if ((width == 0 && endptr1 == argv[2]) || (height == 0 && endptr2 == argv[3]) ||
-            (fps == 0 && endptr3 == argv[4])) {
-            g_printerr("Incorrect width, height or FPS\n");
-            return -1;
-        }
-    }
     if (width == 0 || height == 0 || fps == 0) {
         g_printerr("Width, height or FPS cannot be 0\n");
         return -1;
@@ -296,11 +252,7 @@ int main(int argc, char *argv[])
         data.frame_size = width * height * 1.5;
         vidconv_format = "NV12";
     }
-    if (is_nvinfer_server) {
-        data.file = fopen(argv[3], "r");
-    } else {
-        data.file = fopen(argv[1], "r");
-    }
+    data.file = fopen(argv[1], "r");
     data.fps = fps;
 
     /* Standard GStreamer initialization */
@@ -343,8 +295,7 @@ int main(int argc, char *argv[])
 
     /* Use nvinfer to run inferencing on streammux's output,
      * behaviour of inferencing is set through config file */
-    pgie = gst_element_factory_make(is_nvinfer_server ? NVINFERSERVER_PLUGIN : NVINFER_PLUGIN,
-                                    "primary-nvinference-engine");
+    pgie = gst_element_factory_make("nvinfer", "primary-nvinference-engine");
     if (!pgie) {
         g_printerr("Primary nvinfer could not be created. Exiting.\n");
         return -1;
@@ -372,11 +323,14 @@ int main(int argc, char *argv[])
         g_printerr("Tee could not be created. Exiting.\n");
         return -1;
     }
-    if (prop.integrated) {
-        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
-    } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#ifdef PLATFORM_TEGRA
+    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
+    if (!transform) {
+        g_printerr("Tegra transform element could not be created. Exiting.\n");
+        return -1;
     }
+#endif
+    sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     if (!sink) {
         g_printerr("Display sink could not be created. Exiting.\n");
         return -1;
@@ -400,6 +354,10 @@ int main(int argc, char *argv[])
     g_signal_connect(data.app_source, "need-data", G_CALLBACK(start_feed), &data);
     g_signal_connect(data.app_source, "enough-data", G_CALLBACK(stop_feed), &data);
 
+#ifndef PLATFORM_TEGRA
+    g_object_set(G_OBJECT(nvvidconv1), "nvbuf-memory-type", 3, NULL);
+#endif
+
     caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, vidconv_format, NULL);
     feature = gst_caps_features_new("memory:NVMM", NULL);
     gst_caps_set_features(caps, 0, feature);
@@ -411,11 +369,7 @@ int main(int argc, char *argv[])
 
     /* Set all the necessary properties of the nvinfer element,
      * the necessary ones are : */
-    if (is_nvinfer_server) {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_NVINFERSERVER_CONFIG_FILE, NULL);
-    } else {
-        g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
-    }
+    g_object_set(G_OBJECT(pgie), "config-file-path", "dstest_appsrc_config.txt", NULL);
 
     /* we add a message handler */
     bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
@@ -426,6 +380,9 @@ int main(int argc, char *argv[])
     /* we add all elements into the pipeline */
     gst_bin_add_many(GST_BIN(pipeline), data.app_source, nvvidconv1, caps_filter, streammux, pgie,
                      nvvidconv2, nvosd, tee, sink, appsink, NULL);
+#ifdef PLATFORM_TEGRA
+    gst_bin_add(GST_BIN(pipeline), transform);
+#endif
 
     GstPad *sinkpad, *srcpad;
     gchar pad_name_sink[16] = "sink_0";
@@ -453,10 +410,13 @@ int main(int argc, char *argv[])
 
     /* we link the elements together */
     /* app-source -> nvvidconv -> caps filter ->
-     * pgie -> nvvidconv -> nvosd -> video-renderer */
-
+     * nvinfer -> nvvidconv -> nvosd -> video-renderer */
     if (!gst_element_link_many(data.app_source, nvvidconv1, caps_filter, NULL) ||
+#ifdef PLATFORM_TEGRA
+        !gst_element_link_many(nvosd, transform, sink, NULL) ||
+#else
         !gst_element_link_many(nvosd, sink, NULL) ||
+#endif
         !gst_element_link_many(streammux, pgie, nvvidconv2, tee, NULL)) {
         g_printerr("Elements could not be linked: Exiting.\n");
         return -1;
@@ -483,13 +443,12 @@ int main(int argc, char *argv[])
 
     /* Configure appsink to extract data from DeepStream pipeline */
     g_object_set(appsink, "emit-signals", TRUE, "async", FALSE, NULL);
-    g_object_set(sink, "sync", FALSE, NULL);
 
     /* Callback to access buffer and object info. */
     g_signal_connect(appsink, "new-sample", G_CALLBACK(new_sample), NULL);
 
     /* Set the pipeline to "playing" state */
-    g_print("Now playing: %s\n", input_stream);
+    g_print("Now playing: %s\n", argv[1]);
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
     /* Wait till pipeline encounters an error or EOS */

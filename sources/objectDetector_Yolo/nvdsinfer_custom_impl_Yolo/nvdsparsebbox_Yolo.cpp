@@ -55,6 +55,11 @@ extern "C" bool NvDsInferParseCustomYoloV2Tiny(
     NvDsInferParseDetectionParams const &detectionParams,
     std::vector<NvDsInferParseObjectInfo> &objectList);
 
+extern "C" bool NvDsInferParseCustomYoloTLT(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+                                            NvDsInferNetworkInfo const &networkInfo,
+                                            NvDsInferParseDetectionParams const &detectionParams,
+                                            std::vector<NvDsInferParseObjectInfo> &objectList);
+
 /* This is a sample bounding box parsing function for the sample YoloV3 detector model */
 static NvDsInferParseObjectInfo convertBBox(const float &bx,
                                             const float &by,
@@ -357,8 +362,60 @@ extern "C" bool NvDsInferParseCustomYoloV2Tiny(
     return NvDsInferParseYoloV2(outputLayersInfo, networkInfo, detectionParams, objectList);
 }
 
+extern "C" bool NvDsInferParseCustomYoloTLT(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+                                            NvDsInferNetworkInfo const &networkInfo,
+                                            NvDsInferParseDetectionParams const &detectionParams,
+                                            std::vector<NvDsInferParseObjectInfo> &objectList)
+{
+    if (outputLayersInfo.size() != 4) {
+        std::cerr << "Mismatch in the number of output buffers."
+                  << "Expected 4 output buffers, detected in the network :"
+                  << outputLayersInfo.size() << std::endl;
+        return false;
+    }
+
+    const int topK = 200;
+    const int *keepCount = static_cast<const int *>(outputLayersInfo.at(0).buffer);
+    const float *boxes = static_cast<const float *>(outputLayersInfo.at(1).buffer);
+    const float *scores = static_cast<const float *>(outputLayersInfo.at(2).buffer);
+    const float *cls = static_cast<const float *>(outputLayersInfo.at(3).buffer);
+
+    for (int i = 0; (i < keepCount[0]) && (objectList.size() <= topK); ++i) {
+        const float *loc = &boxes[0] + (i * 4);
+        const float *conf = &scores[0] + i;
+        const float *cls_id = &cls[0] + i;
+
+        if (conf[0] > 1.001)
+            continue;
+
+        if ((loc[0] < 0) || (loc[1] < 0) || (loc[2] < 0) || (loc[3] < 0))
+            continue;
+
+        if ((loc[0] > networkInfo.width) || (loc[2] > networkInfo.width) ||
+            (loc[1] > networkInfo.height) || (loc[3] > networkInfo.width))
+            continue;
+
+        if ((loc[2] < loc[0]) || (loc[3] < loc[1]))
+            continue;
+
+        if (((loc[3] - loc[1]) > networkInfo.height) || ((loc[2] - loc[0]) > networkInfo.width))
+            continue;
+
+        NvDsInferParseObjectInfo curObj{static_cast<unsigned int>(cls_id[0]),
+                                        loc[0],
+                                        loc[1],
+                                        (loc[2] - loc[0]),
+                                        (loc[3] - loc[1]),
+                                        conf[0]};
+        objectList.push_back(curObj);
+    }
+
+    return true;
+}
+
 /* Check that the custom function has been defined correctly */
 CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomYoloV3);
 CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomYoloV3Tiny);
 CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomYoloV2);
 CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomYoloV2Tiny);
+CHECK_CUSTOM_PARSE_FUNC_PROTOTYPE(NvDsInferParseCustomYoloTLT);

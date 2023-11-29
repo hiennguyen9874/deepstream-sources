@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2019, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -26,16 +26,12 @@ CFLAGS:= -Wall -std=c++11
 
 CFLAGS+= -shared -fPIC
 
-CFLAGS+= -I../../includes \
-         -I /usr/local/cuda-$(CUDA_VER)/include
+CFLAGS+= -I../../includes
 
 LIBS:= -lnvinfer -lnvparsers
 LFLAGS:= -Wl,--start-group $(LIBS) -Wl,--end-group
 
-SRCFILES:= nvdsinfer_custombboxparser.cpp \
-	nvdsinfer_customclassifierparser.cpp \
-	nvdsinfer_customsegmentationparser.cpp
-
+SRCFILES:= nvdsinfer_custombboxparser.cpp nvdsinfer_customclassifierparser.cpp
 TARGET_LIB:= libnvds_infercustomparser.so
 
 all: $(TARGET_LIB)

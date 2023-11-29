@@ -32,11 +32,11 @@ infer_config {
       {name: "conv2d_bbox"},
       {name: "conv2d_cov/Sigmoid"}
     ]
-    triton {
+    trt_is {
       model_name: "Primary_Detector"
       version: -1
       model_repo {
-        root: "../../../../../samples/triton_model_repo"
+        root: "../../../../../samples/trtis_model_repo"
         strict_model_config: true
       }
     }
