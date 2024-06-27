@@ -1,5 +1,5 @@
 #############################################################################
-# Copyright (c) 2022 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2022-2024 NVIDIA Corporation.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -40,8 +40,8 @@ https://docs.nvidia.com/metropolis/deepstream/dev-guide/index.html
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.3
-- Graph-Composer 3.0.0
+- DeepStreamSDK 7.0
+- Graph-Composer 4.0.0
 - Realsense SDK
 
 Follow Realsense SDK documentation to add realsense public key and list of repositories.
@@ -80,7 +80,7 @@ provided for this sample.
 
 * Building a DGPU container and running on the same host
   $ container_builder build -c ds_3d_depth_camera_container_builder_dgpu.yaml \
-        -d ../common/target_x86_64.yaml -wd $(pwd)
+        -d x86 -wd $(pwd)
   $ xhost +
   $ docker run -it --rm --gpus all --device /dev/video0 --device /dev/video1 \
         --device /dev/video2 --device /dev/video3 --device /dev/video4 \

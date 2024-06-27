@@ -1,13 +1,15 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
+
 /**
  * @file
  * <b>NVIDIA DeepStream: Object Encoder</b>
@@ -23,6 +25,8 @@
 
 #ifndef __NVDS_ENCODE_OBJECT_H__
 #define __NVDS_ENCODE_OBJECT_H__
+
+#include <sys/time.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,6 +81,8 @@ typedef struct _NvDsObjEncUsrArgs {
      * 1: Encodes the entire frame.
      * 0: Encodes object of specified resolution. */
     bool isFrame;
+    /** Boolean variable to calculate time of encode */
+    bool calcEncodeTime;
 } NvDsObjEncUsrArgs;
 
 /** Create context and return a handle to NvObjEncCtx */

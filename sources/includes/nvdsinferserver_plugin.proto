@@ -93,7 +93,12 @@ message PluginControl {
     repeated int32 operate_on_class_ids = 3;
     /** Specifies the number of consecutive,  batches to be skipped for
      *  inference. Default is 0. */
-    uint32 interval = 4;
+    oneof inference_interval {
+      /* For primary inference */
+      uint32 interval = 4;
+      /* For secondary inferrence */
+      uint32 secondary_reinfer_interval = 7;
+    }
     /** Enables inference on detected objects and asynchronous metadata
      *  attachments. Works only when tracker-id is valid. It's used for
      *  classifier with secondary GIE only. */

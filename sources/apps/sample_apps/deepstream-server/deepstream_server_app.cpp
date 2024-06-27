@@ -1,24 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <cuda_runtime_api.h>
@@ -163,8 +152,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_WARNING: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_warning(msg, &error, &debug);
         g_printerr("WARNING from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         g_free(debug);
@@ -173,8 +162,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         break;
     }
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -187,7 +176,7 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
     }
     case GST_MESSAGE_ELEMENT: {
         if (gst_nvmessage_is_stream_eos(msg)) {
-            guint stream_id;
+            guint stream_id = 0;
             if (gst_nvmessage_parse_stream_eos(msg, &stream_id)) {
                 g_print("Got EOS from stream %d\n", stream_id);
             }
@@ -212,6 +201,8 @@ int main(int argc, char *argv[])
 {
     AppCtx appctx = {0};
     appctx.sourceIdCounter = 0;
+    /*Default httpport is set to 0 to disable REST API Server */
+    appctx.httpPort = 0;
     g_mutex_init(&appctx.bincreator_lock);
 
     GMainLoop *loop = NULL;
@@ -232,34 +223,36 @@ int main(int argc, char *argv[])
         NvDsServerCallbacks server_cb = {};
         /* Set REST Server callbacks */
         g_print("Setting rest server callbacks \n");
-        server_cb.stream_cb = [&appctx](NvDsStreamInfo *stream_info, void *ctx) {
+        server_cb.stream_cb = [&appctx](NvDsServerStreamInfo *stream_info, void *ctx) {
             s_stream_callback_impl(stream_info, (void *)&appctx);
         };
-        server_cb.roi_cb = [&appctx](NvDsRoiInfo *roi_info, void *ctx) {
+        server_cb.roi_cb = [&appctx](NvDsServerRoiInfo *roi_info, void *ctx) {
             s_roi_callback_impl(roi_info, (void *)&appctx);
         };
-        server_cb.dec_cb = [&appctx](NvDsDecInfo *dec_info, void *ctx) {
+        server_cb.dec_cb = [&appctx](NvDsServerDecInfo *dec_info, void *ctx) {
             s_dec_callback_impl(dec_info, (void *)&appctx);
         };
-        server_cb.infer_cb = [&appctx](NvDsInferInfo *infer_info, void *ctx) {
+        server_cb.infer_cb = [&appctx](NvDsServerInferInfo *infer_info, void *ctx) {
             s_infer_callback_impl(infer_info, (void *)&appctx);
         };
-        server_cb.inferserver_cb = [&appctx](NvDsInferServerInfo *inferserver_info, void *ctx) {
+        server_cb.inferserver_cb = [&appctx](NvDsServerInferServerInfo *inferserver_info,
+                                             void *ctx) {
             s_inferserver_callback_impl(inferserver_info, (void *)&appctx);
         };
-        server_cb.conv_cb = [&appctx](NvDsConvInfo *conv_info, void *ctx) {
+        server_cb.conv_cb = [&appctx](NvDsServerConvInfo *conv_info, void *ctx) {
             s_conv_callback_impl(conv_info, (void *)&appctx);
         };
-        server_cb.enc_cb = [&appctx](NvDsEncInfo *enc_info, void *ctx) {
+        server_cb.enc_cb = [&appctx](NvDsServerEncInfo *enc_info, void *ctx) {
             s_enc_callback_impl(enc_info, (void *)&appctx);
         };
-        server_cb.mux_cb = [&appctx](NvDsMuxInfo *mux_info, void *ctx) {
+        server_cb.mux_cb = [&appctx](NvDsServerMuxInfo *mux_info, void *ctx) {
             s_mux_callback_impl(mux_info, (void *)&appctx);
         };
-        server_cb.osd_cb = [&appctx](NvDsOsdInfo *osd_info, void *ctx) {
+        server_cb.osd_cb = [&appctx](NvDsServerOsdInfo *osd_info, void *ctx) {
             s_osd_callback_impl(osd_info, (void *)&appctx);
         };
-        server_cb.appinstance_cb = [&appctx](NvDsAppInstanceInfo *appinstance_info, void *ctx) {
+        server_cb.appinstance_cb = [&appctx](NvDsServerAppInstanceInfo *appinstance_info,
+                                             void *ctx) {
             s_appinstance_callback_impl(appinstance_info, (void *)&appctx);
         };
 
@@ -418,7 +411,11 @@ int main(int argc, char *argv[])
             appctx.sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
         } else {
             if (!enc_enable) {
+#ifdef __aarch64__
+                appctx.sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
                 appctx.sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
             } else {
                 appctx.sink = gst_element_factory_make("filesink", "file-sink");
                 if (codec_status.codec_type == 1) {
@@ -465,7 +462,11 @@ int main(int argc, char *argv[])
             if (PERF_MODE) {
                 nvds_parse_fake_sink(appctx.sink, argv[1], "sink");
             } else {
+#ifdef __aarch64__
+                nvds_parse_3d_sink(appctx.sink, argv[1], "sink");
+#else
                 nvds_parse_egl_sink(appctx.sink, argv[1], "sink");
+#endif
             }
         }
     }

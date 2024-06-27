@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -73,6 +73,8 @@ static constexpr const char *kTimeStamp = DS3D_KEY_NAME("Timestamp");
 static constexpr const char *kColorFrame = DS3D_KEY_NAME("ColorFrame");
 // get from Frame2DGuard
 static constexpr const char *kDepthFrame = DS3D_KEY_NAME("DepthFrame");
+// nvdspreprocess output tensor
+static constexpr const char *kVideoPreProcTensor = DS3D_KEY_NAME("VideoPreprocessTensor");
 // structure DepthScale
 static constexpr const char *kDepthScaleUnit = DS3D_KEY_NAME("DepthScaleUnit");
 // structure IntrinsicsParam
@@ -97,8 +99,15 @@ static constexpr const char *kPointXYZ = DS3D_KEY_NAME("PointXYZ");
 static constexpr const char *kPointCoordUV = DS3D_KEY_NAME("PointColorCoord");
 // get from FrameGuard
 static constexpr const char *kLidarXYZI = DS3D_KEY_NAME("LidarXYZI");
+// lidar preprocess output tenor
+static constexpr const char *kLidarFeatureTensor = DS3D_KEY_NAME("LidarFeatureTensor");
+static constexpr const char *kLidarCoordTensor = DS3D_KEY_NAME("LidarCoordTensor");
+static constexpr const char *kLidarPointNumTensor = DS3D_KEY_NAME("LidarPointNumTensor");
 // get from FrameGuard
+// LidarInferenceParas is deprecated, use kDs3dInferenceParas instead
 static constexpr const char *kLidarInferenceParas = DS3D_KEY_NAME("LidarInferenceParas");
+// get from FrameGuard
+static constexpr const char *kDs3dInferenceParas = DS3D_KEY_NAME("DS3DInferneceParasKey");
 // get from FrameGuard
 static constexpr const char *kLidarRefDataMap = DS3D_KEY_NAME("LidarRefDataMap");
 /// get array of Lidar3DBbox from FrameGuard [N, sizeof(Lidar3DBbox)]

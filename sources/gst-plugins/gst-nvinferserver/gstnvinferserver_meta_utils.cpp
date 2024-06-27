@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -235,6 +235,8 @@ void attachClassificationMetadata(NvDsObjectMeta *objMeta,
     assert(frameMeta);
     NvDsBatchMeta *batchMeta =
         objMeta ? objMeta->base_meta.batch_meta : frameMeta->base_meta.batch_meta;
+    if (frameMeta)
+        frameMeta->bInferDone = TRUE;
 
     if (objInfo.attributes.size() == 0 || objInfo.label.length() == 0)
         return;
@@ -360,10 +362,10 @@ static gpointer copySegmentationMeta(gpointer data, gpointer user_data)
     meta->width = src_meta->width;
     meta->height = src_meta->height;
     meta->class_map =
-        (gint *)g_memdup(src_meta->class_map, meta->width * meta->height * sizeof(gint));
+        (gint *)g_memdup2(src_meta->class_map, meta->width * meta->height * sizeof(gint));
     meta->class_probabilities_map =
-        (gfloat *)g_memdup(src_meta->class_probabilities_map,
-                           meta->classes * meta->width * meta->height * sizeof(gfloat));
+        (gfloat *)g_memdup2(src_meta->class_probabilities_map,
+                            meta->classes * meta->width * meta->height * sizeof(gfloat));
     meta->priv_data = NULL;
 
     return meta;
@@ -378,6 +380,8 @@ void attachSegmentationMetadata(NvDsObjectMeta *objMeta,
     assert(frameMeta);
     NvDsBatchMeta *batchMeta =
         objMeta ? objMeta->base_meta.batch_meta : frameMeta->base_meta.batch_meta;
+    if (frameMeta)
+        frameMeta->bInferDone = TRUE;
 
     MetaLock locker(batchMeta);
     NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(batchMeta);
@@ -432,7 +436,7 @@ static gpointer copy_tensor_output_meta(gpointer data, gpointer user_data)
 
     tensor_output_meta->unique_id = src_meta->unique_id;
     tensor_output_meta->num_output_layers = src_meta->num_output_layers;
-    tensor_output_meta->output_layers_info = (NvDsInferLayerInfo *)g_memdup(
+    tensor_output_meta->output_layers_info = (NvDsInferLayerInfo *)g_memdup2(
         src_meta->output_layers_info, src_meta->num_output_layers * sizeof(NvDsInferLayerInfo));
 
     tensor_output_meta->out_buf_ptrs_host = new void *[src_meta->num_output_layers];

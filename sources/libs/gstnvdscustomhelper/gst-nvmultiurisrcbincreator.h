@@ -1,24 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #ifndef _GST_NVMULTIURISRCBIN_CREATOR_H_
@@ -27,10 +16,10 @@
 
 #include "gst-nvdscommonconfig.h"
 
-typedef struct NvDsDecInfo NvDsDecInfo;
-typedef struct NvDsMuxInfo NvDsMuxInfo;
-typedef struct NvDsConvInfo NvDsConvInfo;
-typedef struct NvDsAppInstanceInfo NvDsAppInstanceInfo;
+typedef struct NvDsServerDecInfo NvDsServerDecInfo;
+typedef struct NvDsServerMuxInfo NvDsServerMuxInfo;
+typedef struct NvDsServerConvInfo NvDsServerConvInfo;
+typedef struct NvDsServerAppInstanceInfo NvDsServerAppInstanceInfo;
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,7 +49,7 @@ gboolean find_source(NvDst_Handle_NvMultiUriSrcCreator apiHandle, guint sourceId
  */
 gboolean set_nvuribin_dec_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
                                guint sourceId,
-                               NvDsDecInfo *dec_info);
+                               NvDsServerDecInfo *dec_info);
 
 /**
  * API to set property value on nvvideoconvert of nvmultiurisrcbin instance
@@ -73,7 +62,7 @@ gboolean set_nvuribin_dec_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
  */
 gboolean set_nvuribin_conv_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
                                 guint sourceId,
-                                NvDsConvInfo *conv_info);
+                                NvDsServerConvInfo *conv_info);
 
 /**
  * API to set property value on nvstreammux of nvmultiurisrcbin instance
@@ -82,7 +71,8 @@ gboolean set_nvuribin_conv_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
  * @param[in] mux_info info structure with property value to be used to set on the nvstreammux
  * @return  TRUE if successful, else FALSE
  */
-gboolean set_nvuribin_mux_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle, NvDsMuxInfo *mux_info);
+gboolean set_nvuribin_mux_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
+                               NvDsServerMuxInfo *mux_info);
 
 /**
  * API to set EOS related properties on nvstreammux of nvmultiurisrcbin instance
@@ -93,7 +83,7 @@ gboolean set_nvuribin_mux_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle, NvDs
  * @return  TRUE if successful, else FALSE
  */
 gboolean s_force_eos_handle(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
-                            NvDsAppInstanceInfo *appinstance_info);
+                            NvDsServerAppInstanceInfo *appinstance_info);
 /**
  * Initialize the API for nvmultiurisrcbin creation
  * Note: nvmultiurisrcbin is a collection of DeepStream plugins viz:
@@ -251,6 +241,18 @@ gboolean gst_nvmultiurisrcbincreator_get_active_sources_list(
     NvDst_Handle_NvMultiUriSrcCreator apiHandle,
     guint *count,
     GstDsNvUriSrcConfig ***configs);
+
+/**
+ * API to procure the list of active sources
+ *
+ * @param[in] apiHandle   The nvmultiurisrcbincreator API handle returned by init
+ * @param[in/out] sensor_info_list A list which would contain the sensor realted info
+ * @return  TRUE if API was successful; FALSE otherwise
+ */
+
+gboolean gst_nvmultiurisrcbincreator_get_source_info_list(
+    NvDst_Handle_NvMultiUriSrcCreator apiHandle,
+    GList **sensor_info_list);
 
 /**
  * API to destroy the memory allocation for list of sources procured with API:

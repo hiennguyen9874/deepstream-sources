@@ -1,6 +1,6 @@
 %YAML 1.2
 ################################################################################
-# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021-2024 NVIDIA Corporation.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -24,11 +24,11 @@
 platform:
   arch: x86_64
   os: linux
-  distribution: ubuntu_20.04
+  distribution: ubuntu_22.04
 compute:
-  cuda: 12.1
-  tensorrt: 8.5.3
-  cudnn: 8.8.1
-  deepstream: 6.3
+  cuda: 12.2
+  tensorrt: 8.6.1
+  cudnn: 8.9.2
+  deepstream: 7.0
   triton: null
   vpi: 2.3.1

@@ -1,29 +1,20 @@
-################################################################################
-# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+####################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2019 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-################################################################################
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+####################################################################################################
 
 CUDA_VER?=
 ifeq ($(CUDA_VER),)
   $(error "CUDA_VER is not set")
 endif
+TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 CC:= g++
 NVCC:=/usr/local/cuda-$(CUDA_VER)/bin/nvcc
 
@@ -31,12 +22,14 @@ CFLAGS:= -Wall -std=c++11 -shared -fPIC -Wno-error=deprecated-declarations
 CFLAGS+= -I../../includes -I/usr/local/cuda-$(CUDA_VER)/include
 
 CUFLAGS:= -I../../includes -I/usr/local/cuda-$(CUDA_VER)/include \
-	-gencode arch=compute_60,code=compute_60 -gencode arch=compute_61,code=compute_61 \
-	-gencode arch=compute_70,code=compute_70 -gencode arch=compute_75,code=compute_75 \
-	-gencode arch=compute_80,code=compute_80
+        -gencode arch=compute_61,code=compute_61 -gencode arch=compute_70,code=compute_70 \
+        -gencode arch=compute_75,code=compute_75 -gencode arch=compute_80,code=compute_80 \
+        -gencode arch=compute_86,code=compute_86 -gencode arch=compute_90,code=compute_90
 
-ifneq ($(CUDA_VER), 11.4)
-CUFLAGS+= -gencode arch=compute_89,code=compute_89 -gencode arch=compute_90,code=compute_90
+ifeq ($(TARGET_DEVICE),aarch64)
+CUFLAGS+= -gencode arch=compute_72,code=compute_72 -gencode arch=compute_87,code=compute_87
+else
+CUFLAGS+= -gencode arch=compute_60,code=compute_60 -gencode arch=compute_89,code=compute_89
 endif
 
 LIBS:= -lnvinfer_plugin -lnvinfer -lnvparsers -L/usr/local/cuda-$(CUDA_VER)/lib64 -lcudart -lcublas -lstdc++fs

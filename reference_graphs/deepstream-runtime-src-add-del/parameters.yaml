@@ -31,7 +31,6 @@ name: object_detector
 components:
   - name: tracker
     parameters:
-      enable-batch-process: true
       ll-lib-file: /opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
       ll-config-file: /opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_tracker_IOU.yml
       tracker-height: 384

@@ -65,8 +65,7 @@ single-stream inference, bounding-box overlay, and rendering.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
+      For both Jetson & x86, CUDA_VER=12.2
   $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.

@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #ifndef __GST_DS_NVURISRC_BIN_H__
@@ -40,10 +41,16 @@ enum {
     PROP_SMART_RECORD_DEFAULT_DURATION,
     PROP_SMART_RECORD_STATUS,
     PROP_RTSP_RECONNECT_INTERVAL,
+    PROP_RTSP_RECONNECT_ATTEMPTS,
     PROP_LATENCY,
     PROP_SOURCE_ID,
     PROP_UDP_BUFFER_SIZE,
     PROP_DISABLE_PASSTHROUGH,
+    PROP_DISABLE_AUDIO,
+    PROP_SOCK_FD,
+    PROP_EXTRACT_SEI_TYPE5_DATA,
+    PROP_LOW_LATENCY_MODE,
+    PROP_SEI_UUID,
     PROP_LAST
 };
 

@@ -312,7 +312,7 @@ private:
 
 public:
     template <typename... Args>
-    ThreadPreprocessor(Args &&...args)
+    ThreadPreprocessor(Args &&... args)
         : BasePreprocessorT(std::forward<Args>(args)...),
           m_Worker(
               [this](Item i) -> bool {
@@ -355,7 +355,7 @@ class ThreadCudaPostprocessor : public BasePostprocessorT {
 
 public:
     template <typename... Args>
-    ThreadCudaPostprocessor(Args &&...args)
+    ThreadCudaPostprocessor(Args &&... args)
         : BasePostprocessorT(std::forward<Args>(args)...),
           m_CudaWorker(
               [this](ItemCuda i) -> bool {
@@ -397,7 +397,7 @@ class ThreadHostPostprocessor : public BasePostprocessorT {
 
 public:
     template <typename... Args>
-    ThreadHostPostprocessor(Args &&...args)
+    ThreadHostPostprocessor(Args &&... args)
         : BasePostprocessorT(std::forward<Args>(args)...),
           m_HostWorker(
               [this](ItemHost i) -> bool {

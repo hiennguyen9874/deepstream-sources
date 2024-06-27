@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <cuda_runtime_api.h>
@@ -73,7 +63,7 @@ gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "Roadsign"};
  */
 #define SMART_REC_DEFAULT_DURATION 10
 
-/* Time at which the recording is started
+/* Time at which it recording is started
  */
 #define START_TIME 2
 
@@ -358,9 +348,6 @@ int main(int argc, char *argv[])
     /* Use convertor to convert from RGBA to CAPS filter data format */
     nvvidconv2 = gst_element_factory_make("nvvideoconvert", "nvvideo-converter2");
 
-    g_object_set(G_OBJECT(nvvidconv), "output-buffers", 5, NULL);
-    g_object_set(G_OBJECT(nvvidconv2), "output-buffers", 5, NULL);
-
     /* Create OSD to draw on the converted RGBA buffer */
     nvosd = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
 
@@ -374,8 +361,12 @@ int main(int argc, char *argv[])
         if (prop.integrated) {
             sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
         } else {
+#ifdef __aarch64__
+            sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
             sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
             g_object_set(G_OBJECT(sink), "async", FALSE, NULL);
+#endif
         }
     } else if (sink_type == 3) {
         sink = gst_element_factory_make("nvrtspoutsinkbin", "nvvideo-renderer");
@@ -385,7 +376,6 @@ int main(int argc, char *argv[])
     }
 
     g_object_set(G_OBJECT(streammux), "live-source", 1, NULL);
-    g_object_set(G_OBJECT(streammux), "buffer-pool-size", 5, NULL);
 
     caps = gst_caps_from_string("video/x-raw(memory:NVMM), format=(string)I420");
     cap_filter = gst_element_factory_make("capsfilter", "src_cap_filter_nvvidconv");
@@ -450,7 +440,7 @@ int main(int argc, char *argv[])
     gchar pad_name_sink[16] = "sink_0";
     gchar pad_name_src[16] = "src";
 
-    sinkpad = gst_element_get_request_pad(streammux, pad_name_sink);
+    sinkpad = gst_element_request_pad_simple(streammux, pad_name_sink);
     if (!sinkpad) {
         g_printerr("Streammux request sink pad failed. Exiting.\n");
         return -1;
@@ -515,7 +505,6 @@ int main(int argc, char *argv[])
             encoder_post_osd = gst_element_factory_make("x264enc", "encoder-post-osd");
 
             nvvidconv3 = gst_element_factory_make("nvvideoconvert", "nvvidconv3");
-            g_object_set(G_OBJECT(nvvidconv3), "output-buffers", 5, NULL);
             gst_bin_add_many(GST_BIN(pipeline), swenc_caps, nvvidconv3, NULL);
         }
 

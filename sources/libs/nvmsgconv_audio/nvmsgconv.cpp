@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -380,7 +380,7 @@ static bool nvds_msg2p_parse_sensor(NvDsMsg2pCtx *ctx, GKeyFile *key_file, gchar
     gchar **key = NULL;
     GError *error = NULL;
     NvDsPayloadPriv *privObj = NULL;
-    NvDsSensorObject sensorObj;
+    NvDsSensorObject sensorObj = {{0}};
     gint sensorId;
     gchar *keyVal;
 
@@ -481,7 +481,7 @@ static bool nvds_msg2p_parse_place(NvDsMsg2pCtx *ctx, GKeyFile *key_file, gchar 
     gchar **key = NULL;
     GError *error = NULL;
     NvDsPayloadPriv *privObj = NULL;
-    NvDsPlaceObject placeObj;
+    NvDsPlaceObject placeObj = {{0}};
     gint placeId;
     gchar *keyVal;
 
@@ -630,8 +630,8 @@ done:
 static bool nvds_msg2p_parse_csv(NvDsMsg2pCtx *ctx, const gchar *file)
 {
     NvDsPayloadPriv *privObj = NULL;
-    NvDsSensorObject sensorObj;
-    NvDsPlaceObject placeObj;
+    NvDsSensorObject sensorObj = {{0}};
+    NvDsPlaceObject placeObj = {{0}};
     bool retVal = true;
     bool firstRow = true;
     string line;
@@ -739,8 +739,11 @@ done:
     if (groups)
         g_strfreev(groups);
 
-    if (cfgFile)
-        g_key_file_free(cfgFile);
+    g_key_file_free(cfgFile);
+
+    if (error) {
+        g_error_free(error);
+    }
 
     return retVal;
 }
@@ -821,7 +824,7 @@ NvDsPayload **nvds_msg2p_generate_multiple(NvDsMsg2pCtx *ctx,
             payloads[*payloadCount] = (NvDsPayload *)g_malloc0(sizeof(NvDsPayload));
             len = strlen(message);
             // Remove '\0' character at the end of string and just copy the content.
-            payloads[*payloadCount]->payload = g_memdup(message, len);
+            payloads[*payloadCount]->payload = g_memdup2(message, len);
             payloads[*payloadCount]->payloadSize = len;
             ++(*payloadCount);
             g_free(message);
@@ -832,7 +835,7 @@ NvDsPayload **nvds_msg2p_generate_multiple(NvDsMsg2pCtx *ctx,
             len = strlen(message);
             payloads[*payloadCount] = (NvDsPayload *)g_malloc0(sizeof(NvDsPayload));
             // Remove '\0' character at the end of string and just copy the content.
-            payloads[*payloadCount]->payload = g_memdup(message, len);
+            payloads[*payloadCount]->payload = g_memdup2(message, len);
             payloads[*payloadCount]->payloadSize = len;
             ++(*payloadCount);
             g_free(message);
@@ -842,8 +845,10 @@ NvDsPayload **nvds_msg2p_generate_multiple(NvDsMsg2pCtx *ctx,
         payloads[*payloadCount]->payload = (gpointer)g_strdup("CUSTOM Schema");
         payloads[*payloadCount]->payloadSize = strlen((char *)payloads[*payloadCount]->payload) + 1;
         ++(*payloadCount);
-    } else
+    } else {
+        g_free(payloads);
         payloads = NULL;
+    }
 
     return payloads;
 }
@@ -859,7 +864,7 @@ NvDsPayload *nvds_msg2p_generate(NvDsMsg2pCtx *ctx, NvDsEvent *events, guint siz
         if (message) {
             len = strlen(message);
             // Remove '\0' character at the end of string and just copy the content.
-            payload->payload = g_memdup(message, len);
+            payload->payload = g_memdup2(message, len);
             payload->payloadSize = len;
             g_free(message);
         }
@@ -868,7 +873,7 @@ NvDsPayload *nvds_msg2p_generate(NvDsMsg2pCtx *ctx, NvDsEvent *events, guint siz
         if (message) {
             len = strlen(message);
             // Remove '\0' character at the end of string and just copy the content.
-            payload->payload = g_memdup(message, len);
+            payload->payload = g_memdup2(message, len);
             payload->payloadSize = len;
             g_free(message);
         }

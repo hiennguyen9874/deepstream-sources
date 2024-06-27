@@ -1,24 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <string.h>
@@ -403,10 +392,25 @@ static int create_asr_pipeline(AppCtx *appctx,
     if (enable_playback) {
         /* tts -> audio sink */
 
-        if (!gst_element_link_many(tts, audio_queue, *p_proxy_audio_sink, NULL)) {
+        if (!gst_element_link_many(tts, audio_queue, out_resampler, NULL)) {
             g_printerr("Elements could not be linked. \n");
             return -1;
         }
+
+        /* Resample to 48 kHz signal required by OPUS encoder for RTSP output */
+        GstCaps *out_caps =
+            gst_caps_new_simple("audio/x-raw", "format", G_TYPE_STRING, GST_AUDIO_NE(S16), "rate",
+                                G_TYPE_INT, 48000, "channels", G_TYPE_INT, 1, NULL);
+        if (!out_caps) {
+            g_printerr("Creating out_resampler caps failed. \n");
+            return -1;
+        }
+
+        if (!gst_element_link_filtered(out_resampler, *p_proxy_audio_sink, out_caps)) {
+            g_printerr("Falied to link out_resampler and sink. \n");
+            return -1;
+        }
+        gst_caps_unref(out_caps);
 
     } else {
         if (!gst_element_link_many(tts, audio_sink, NULL)) {

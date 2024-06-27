@@ -1,24 +1,14 @@
-################################################################################
-# Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+####################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-################################################################################
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+####################################################################################################
 
 [application]
 enable-perf-measurement=1
@@ -143,7 +133,7 @@ nvbuf-memory-type=0
 [primary-gie]
 enable=1
 gpu-id=0
-model-engine-file=../../models/Primary_Detector/resnet10.caffemodel_b4_gpu0_int8.engine
+model-engine-file=../../models/Primary_Detector/resnet18_trafficcamnet.etlt_b4_gpu0_int8.engine
 batch-size=4
 #Required by the app for OSD, not a plugin property
 bbox-border-color0=1;0;0;1
@@ -172,7 +162,7 @@ display-tracking-id=1
 
 [secondary-gie0]
 enable=1
-model-engine-file=../../models/Secondary_VehicleTypes/resnet18.caffemodel_b16_gpu0_int8.engine
+model-engine-file=../../models/Secondary_VehicleTypes/resnet18_vehicletypenet.etlt_b16_gpu0_int8.engine
 gpu-id=0
 batch-size=16
 gie-unique-id=4
@@ -182,23 +172,13 @@ config-file=config_infer_secondary_vehicletypes.txt
 
 [secondary-gie1]
 enable=1
-model-engine-file=../../models/Secondary_CarColor/resnet18.caffemodel_b16_gpu0_int8.engine
+model-engine-file=../../models/Secondary_VehicleMake/resnet18_vehiclemakenet.etlt_b16_gpu0_int8.engine
 batch-size=16
 gpu-id=0
 gie-unique-id=5
 operate-on-gie-id=1
 operate-on-class-ids=0;
-config-file=config_infer_secondary_carcolor.txt
-
-[secondary-gie2]
-enable=1
-model-engine-file=../../models/Secondary_CarMake/resnet18.caffemodel_b16_gpu0_int8.engine
-batch-size=16
-gpu-id=0
-gie-unique-id=6
-operate-on-gie-id=1
-operate-on-class-ids=0;
-config-file=config_infer_secondary_carmake.txt
+config-file=config_infer_secondary_vehiclemake.txt
 
 [tests]
 file-loop=0

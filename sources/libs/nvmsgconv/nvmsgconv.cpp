@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "nvmsgconv.h"
@@ -81,6 +82,7 @@ NvDsMsg2pCtx *nvds_msg2p_ctx_create(const gchar *file, NvDsPayloadType type)
             ctx = NULL;
         }
     }
+
     return ctx;
 }
 
@@ -205,7 +207,11 @@ NvDsPayload *nvds_msg2p_generate_new(NvDsMsg2pCtx *ctx, void *metadataInfo)
             g_free(message);
         }
     } else if (ctx->payloadType == NVDS_PAYLOAD_DEEPSTREAM_MINIMAL) {
-        message = generate_dsmeta_message_minimal(ctx->privData, frame_meta);
+        if (meta_info->datamap) {
+            message = generate_dsmeta_message_ds3d(ctx->privData, meta_info->datamap, FALSE, len);
+        } else {
+            message = generate_dsmeta_message_minimal(ctx->privData, frame_meta);
+        }
         if (message) {
             len = strlen(message);
             // Remove '\0' character at the end of string and just copy the content.
@@ -214,7 +220,11 @@ NvDsPayload *nvds_msg2p_generate_new(NvDsMsg2pCtx *ctx, void *metadataInfo)
             g_free(message);
         }
     } else if (ctx->payloadType == NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF) {
-        message = generate_dsmeta_message_protobuf(ctx->privData, frame_meta, len);
+        if (meta_info->datamap) {
+            message = generate_dsmeta_message_ds3d(ctx->privData, meta_info->datamap, TRUE, len);
+        } else {
+            message = generate_dsmeta_message_protobuf(ctx->privData, frame_meta, len);
+        }
         if (message) {
             payload->payload = g_memdup(message, len);
             payload->payloadSize = len;
@@ -256,7 +266,11 @@ NvDsPayload **nvds_msg2p_generate_multiple_new(NvDsMsg2pCtx *ctx,
             g_free(message);
         }
     } else if (ctx->payloadType == NVDS_PAYLOAD_DEEPSTREAM_MINIMAL) {
-        message = generate_dsmeta_message_minimal(ctx->privData, frame_meta);
+        if (meta_info->datamap) {
+            message = generate_dsmeta_message_ds3d(ctx->privData, meta_info->datamap, FALSE, len);
+        } else {
+            message = generate_dsmeta_message_minimal(ctx->privData, frame_meta);
+        }
         if (message) {
             len = strlen(message);
             payloads[*payloadCount] = (NvDsPayload *)g_malloc0(sizeof(NvDsPayload));
@@ -267,7 +281,11 @@ NvDsPayload **nvds_msg2p_generate_multiple_new(NvDsMsg2pCtx *ctx,
             g_free(message);
         }
     } else if (ctx->payloadType == NVDS_PAYLOAD_DEEPSTREAM_PROTOBUF) {
-        message = generate_dsmeta_message_protobuf(ctx->privData, frame_meta, len);
+        if (meta_info->datamap) {
+            message = generate_dsmeta_message_ds3d(ctx->privData, meta_info->datamap, TRUE, len);
+        } else {
+            message = generate_dsmeta_message_protobuf(ctx->privData, frame_meta, len);
+        }
         if (message) {
             payloads[*payloadCount] = (NvDsPayload *)g_malloc0(sizeof(NvDsPayload));
             payloads[*payloadCount]->payload = g_memdup(message, len);
@@ -280,8 +298,10 @@ NvDsPayload **nvds_msg2p_generate_multiple_new(NvDsMsg2pCtx *ctx,
         payloads[*payloadCount]->payload = (gpointer)g_strdup("CUSTOM Schema");
         payloads[*payloadCount]->payloadSize = strlen((char *)payloads[*payloadCount]->payload) + 1;
         ++(*payloadCount);
-    } else
+    } else {
+        g_free(payloads);
         payloads = NULL;
+    }
 
     return payloads;
 }

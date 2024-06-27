@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -28,7 +28,7 @@ components:
   - name: triton
     parameters:
       batch-size: 1
-      config-file-path: /opt/nvidia/deepstream/deepstream-6.3/samples/configs/deepstream-app-triton/config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.txt
+      config-file-path: /opt/nvidia/deepstream/deepstream-7.0/samples/configs/deepstream-app-triton/config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.txt
 name: triton
 ---
 components:

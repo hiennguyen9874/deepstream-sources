@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2018-2021 NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2021 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #ifndef _GST_NVMSGCONV_H_
@@ -17,14 +18,12 @@
 #include "nvmsgconv.h"
 
 G_BEGIN_DECLS
-
 #define GST_TYPE_NVMSGCONV (gst_nvmsgconv_get_type())
 #define GST_NVMSGCONV(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_NVMSGCONV, GstNvMsgConv))
 #define GST_NVMSGCONV_CLASS(klass) \
     (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_NVMSGCONV, GstNvMsgConvClass))
 #define GST_IS_NVMSGCONV(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_NVMSGCONV))
 #define GST_IS_NVMSGCONV_CLASS(obj) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_NVMSGCONV))
-
 typedef struct _GstNvMsgConv GstNvMsgConv;
 typedef struct _GstNvMsgConvClass GstNvMsgConvClass;
 
@@ -47,6 +46,8 @@ typedef NvDsPayload **(*nvds_msg2p_generate_multiple_ptr_new)(NvDsMsg2pCtx *ctx,
                                                               void *metadataInfo,
                                                               guint *payloadCount);
 
+typedef enum { kNvDsMsgConv_Video, kNvDsMsgConv_Audio, kNvDsMsgConv_DS3D } NvDsMsgConvInputType;
+
 struct _GstNvMsgConv {
     GstBaseTransform parent;
 
@@ -64,6 +65,7 @@ struct _GstNvMsgConv {
     gint numActivePayloads;
     gboolean stop;
     gboolean selfRef;
+    gboolean dummyPayload;
 
     nvds_msg2p_ctx_create_ptr ctx_create;
     nvds_msg2p_ctx_destroy_ptr ctx_destroy;
@@ -72,9 +74,8 @@ struct _GstNvMsgConv {
     nvds_msg2p_generate_ptr_new msg2p_generate_new;
     nvds_msg2p_generate_multiple_ptr_new msg2p_generate_multiple_new;
     nvds_msg2p_release_ptr msg2p_release;
-    /** Identifies from input cap capability if the incoming data
-     * is video/audio */
-    gboolean is_video;
+    /** Identifies from caps/capability of the incoming data */
+    NvDsMsgConvInputType inputType;
 };
 
 struct _GstNvMsgConvClass {
@@ -84,5 +85,4 @@ struct _GstNvMsgConvClass {
 GType gst_nvmsgconv_get_type(void);
 
 G_END_DECLS
-
 #endif

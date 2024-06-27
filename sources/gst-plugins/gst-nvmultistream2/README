@@ -41,8 +41,7 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
 Ensure below order for build
    $ cd libs/nvstreammux/nvstreammux
    $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
+      For both Jetson & x86, CUDA_VER=12.2
    $ sudo make
    $ cd gst-plugins/gst-nvmultistream2/gst-nvmultistream2
    $ sudo make && sudo make install

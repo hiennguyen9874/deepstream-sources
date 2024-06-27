@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <google/protobuf/util/time_util.h>
@@ -696,6 +697,33 @@ static JsonObject *generate_object_object(void *privData, NvDsEventMsgMeta *meta
         json_object_set_object_member(objectObj, "embedding", jobject);
     }
 
+    // Single-view 3D Tracking metadata
+    jobject = json_object_new();
+    if (meta->has3DTracking) {
+        json_object_set_double_member(jobject, "visibility", meta->singleView3DTracking.visibility);
+
+        JsonArray *footLoc2DArray = json_array_sized_new(2);
+        json_array_add_double_element(footLoc2DArray, meta->singleView3DTracking.ptImgFeet[0]);
+        json_array_add_double_element(footLoc2DArray, meta->singleView3DTracking.ptImgFeet[1]);
+        json_object_set_array_member(jobject, "footLocation2D", footLoc2DArray);
+
+        JsonArray *footLoc3DArray = json_array_sized_new(2);
+        json_array_add_double_element(footLoc2DArray, meta->singleView3DTracking.ptWorldFeet[0]);
+        json_array_add_double_element(footLoc2DArray, meta->singleView3DTracking.ptWorldFeet[1]);
+        json_object_set_array_member(jobject, "footLocation3D", footLoc3DArray);
+
+        JsonArray *convexHullArray =
+            json_array_sized_new(meta->singleView3DTracking.convexHull.numFilled * 2);
+        for (unsigned int idx = 0; idx < meta->singleView3DTracking.convexHull.numFilled * 2;
+             idx++) {
+            json_array_add_double_element(convexHullArray,
+                                          meta->singleView3DTracking.convexHull.points[idx]);
+        }
+        json_object_set_array_member(jobject, "convexHull", convexHullArray);
+
+        json_object_set_object_member(objectObj, "SV3DT", jobject);
+    }
+
     return objectObj;
 }
 
@@ -882,7 +910,7 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
         NvDsEventMsgMeta *meta = events[i].metadata;
         ss << meta->trackingId << "|" << meta->bbox.left << "|" << meta->bbox.top << "|"
            << meta->bbox.left + meta->bbox.width << "|" << meta->bbox.top + meta->bbox.height << "|"
-           << object_enum_to_str(meta->objType, meta->objectId);
+           << object_enum_to_str(meta->objType, meta->objectId) << "|" << meta->confidence;
 
         if (meta->extMsg && meta->extMsgSize) {
             // Attach secondary inference attributes.
@@ -892,8 +920,7 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
                 if (dsObj) {
                     ss << "|#|" << to_str(dsObj->type) << "|" << to_str(dsObj->make) << "|"
                        << to_str(dsObj->model) << "|" << to_str(dsObj->color) << "|"
-                       << to_str(dsObj->license) << "|" << to_str(dsObj->region) << "|"
-                       << meta->confidence;
+                       << to_str(dsObj->license) << "|" << to_str(dsObj->region);
                 }
             } break;
             case NVDS_OBJECT_TYPE_PERSON: {
@@ -901,7 +928,7 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
                 if (dsObj) {
                     ss << "|#|" << to_str(dsObj->gender) << "|" << dsObj->age << "|"
                        << to_str(dsObj->hair) << "|" << to_str(dsObj->cap) << "|"
-                       << to_str(dsObj->apparel) << "|" << meta->confidence;
+                       << to_str(dsObj->apparel);
                     //===Adding pose data to stream for person object types===
                     int joint_index = 0;
                     if (meta->pose.num_joints) {
@@ -951,7 +978,7 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
                        << to_str(dsObj->hair) << "|" << to_str(dsObj->cap) << "|"
                        << to_str(dsObj->glasses) << "|" << to_str(dsObj->facialhair) << "|"
                        << to_str(dsObj->name) << "|"
-                       << "|" << to_str(dsObj->eyecolor) << "|" << meta->confidence;
+                       << "|" << to_str(dsObj->eyecolor);
                 }
             } break;
             case NVDS_OBJECT_TYPE_VEHICLE_EXT: {
@@ -959,8 +986,7 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
                 if (dsObj) {
                     ss << "|#|" << to_str(dsObj->type) << "|" << to_str(dsObj->make) << "|"
                        << to_str(dsObj->model) << "|" << to_str(dsObj->color) << "|"
-                       << to_str(dsObj->license) << "|" << to_str(dsObj->region) << "|"
-                       << meta->confidence;
+                       << to_str(dsObj->license) << "|" << to_str(dsObj->region);
 
                     if (dsObj->mask)
                         objectMask = dsObj->mask;
@@ -971,7 +997,7 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
                 if (dsObj) {
                     ss << "|#|" << to_str(dsObj->gender) << "|" << dsObj->age << "|"
                        << to_str(dsObj->hair) << "|" << to_str(dsObj->cap) << "|"
-                       << to_str(dsObj->apparel) << "|" << meta->confidence;
+                       << to_str(dsObj->apparel);
 
                     if (dsObj->mask)
                         objectMask = dsObj->mask;
@@ -984,7 +1010,7 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
                        << to_str(dsObj->hair) << "|" << to_str(dsObj->cap) << "|"
                        << to_str(dsObj->glasses) << "|" << to_str(dsObj->facialhair) << "|"
                        << to_str(dsObj->name) << "|"
-                       << "|" << to_str(dsObj->eyecolor) << "|" << meta->confidence;
+                       << "|" << to_str(dsObj->eyecolor);
 
                     if (dsObj->mask)
                         objectMask = dsObj->mask;
@@ -995,14 +1021,14 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
                 NvDsProductObject *dsObj = (NvDsProductObject *)meta->extMsg;
                 if (dsObj) {
                     ss << "|#|" << to_str(dsObj->brand) << "|" << to_str(dsObj->type) << "|"
-                       << to_str(dsObj->shape) << "|" << meta->confidence;
+                       << to_str(dsObj->shape);
                 }
             } break;
             case NVDS_OBJECT_TYPE_PRODUCT_EXT: {
                 NvDsProductObjectExt *dsObj = (NvDsProductObjectExt *)meta->extMsg;
                 if (dsObj) {
                     ss << "|#|" << to_str(dsObj->brand) << "|" << to_str(dsObj->type) << "|"
-                       << to_str(dsObj->shape) << "|" << meta->confidence;
+                       << to_str(dsObj->shape);
                     if (dsObj->mask)
                         objectMask = dsObj->mask;
                 }
@@ -1030,6 +1056,25 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
                     ss << (float)meta->embedding.embedding_vector[idx];
                 } else {
                     ss << (float)meta->embedding.embedding_vector[idx] << ",";
+                }
+            }
+            ss << "|";
+        }
+
+        // Single-view 3D Tracking metadata
+        if (meta->has3DTracking) {
+            ss << "#|SV3DT|" << to_string(meta->singleView3DTracking.visibility) << "|"
+               << to_string(meta->singleView3DTracking.ptImgFeet[0]) << ","
+               << to_string(meta->singleView3DTracking.ptImgFeet[1]) << "|"
+               << to_string(meta->singleView3DTracking.ptWorldFeet[0]) << ","
+               << to_string(meta->singleView3DTracking.ptWorldFeet[1]) << "|";
+
+            for (unsigned int idx = 0; idx < meta->singleView3DTracking.convexHull.numFilled * 2;
+                 idx++) {
+                if (idx == meta->singleView3DTracking.convexHull.numFilled * 2 - 1) {
+                    ss << to_string(meta->singleView3DTracking.convexHull.points[idx]);
+                } else {
+                    ss << to_string(meta->singleView3DTracking.convexHull.points[idx]) << ",";
                 }
             }
             ss << "|";
@@ -1223,6 +1268,31 @@ gchar *generate_event_message_protobuf(void *privData,
                 embedding->add_vector((float)meta->embedding.embedding_vector[idx]);
             }
         }
+
+        // Single-view 3D Tracking metadata
+        if (meta->has3DTracking) {
+            auto *info = object->mutable_info();
+            (*info)["visibility"] = std::to_string(meta->singleView3DTracking.visibility);
+            (*info)["footLocation2D"] = to_string(meta->singleView3DTracking.ptImgFeet[0]) + "," +
+                                        to_string(meta->singleView3DTracking.ptImgFeet[1]);
+            (*info)["footLocation3D"] = to_string(meta->singleView3DTracking.ptWorldFeet[0]) + "," +
+                                        to_string(meta->singleView3DTracking.ptWorldFeet[1]);
+
+            stringstream ss;
+            ss.str("");
+            ss.clear();
+
+            for (unsigned int idx = 0; idx < meta->singleView3DTracking.convexHull.numFilled * 2;
+                 idx++) {
+                if (idx == meta->singleView3DTracking.convexHull.numFilled * 2 - 1) {
+                    ss << to_string(meta->singleView3DTracking.convexHull.points[idx]);
+                } else {
+                    ss << to_string(meta->singleView3DTracking.convexHull.points[idx]) << ",";
+                }
+            }
+
+            (*info)["convexHull"] = ss.str();
+        }
     }
 
     std::string msg_str;
@@ -1235,6 +1305,6 @@ gchar *generate_event_message_protobuf(void *privData,
 
     message_len = msg_str.length();
     // Save the content of msg_str before the function returns which puts msg_str out of scope.
-    gchar *message = (gchar *)g_memdup(msg_str.c_str(), message_len);
+    gchar *message = (gchar *)g_memdup2(msg_str.c_str(), message_len);
     return message;
 }

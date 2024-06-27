@@ -1,0 +1,39 @@
+%YAML 1.2
+################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+################################################################################
+# Lidar bin file data loader settings
+---
+name: ds3d_lidar_file_source
+type: ds3d::dataloader
+out_caps: ds3d/datamap
+custom_lib_path: libnvds_lidarfileread.so
+custom_create_function: createLidarFileLoader
+config_body:
+  #path of the frames, data file needs to be placed in order in this path
+  data_config_file: /opt/nvidia/deepstream/deepstream-7.0/sources/apps/sample_apps/deepstream-3d-lidar-sensor-fusion/lidar_data_list.yaml
+  points_num: 204800 #points num
+  lidar_datatype: FP32 #FP32 FP16 INT8 INT32, only support FP32 this version
+  mem_type: cpu #cpu gpu, only support cpu this version
+  mem_pool_size: 4
+  output_datamap_key: DS3D::LidarXYZI
+  file_loop: True # False: read data normally True: read data circularly

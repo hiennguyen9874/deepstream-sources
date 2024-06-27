@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 /**
@@ -76,8 +77,6 @@ typedef struct _NvMOTPerTransformBatchConfig {
     uint32_t maxPitch;
     /** Holds the maximum size of the buffer in bytes. */
     uint32_t maxSize;
-    /** Holds the color format: RGB, NV12 etc. */
-    uint32_t colorFormat;
 } NvMOTPerTransformBatchConfig;
 
 /**
@@ -86,12 +85,6 @@ typedef struct _NvMOTPerTransformBatchConfig {
 typedef struct _NvMOTMiscConfig {
     /** Holds the ID of the GPU to be used. */
     uint32_t gpuId;
-    /** Holds the maximum number of objects to track per stream. 0 means
-     track an unlimited number of objects. */
-    uint32_t maxObjPerStream;
-    /** Holds the maximum number of objects to track per batch. 0 means
-     track an unlimited number of objects. */
-    uint32_t maxObjPerBatch;
     /** Holds a pointer to a callback for logging messages. */
     typedef void (*logMsg)(int logLevel, const char *format, ...);
 } NvMOTMiscConfig;
@@ -231,6 +224,10 @@ typedef struct _NvMOTObjToTrackList {
 typedef struct _NvMOTFrame {
     /** Holds the stream ID of the stream source for this frame. */
     NvMOTStreamId streamID;
+    /** Holds the index of the stream in the sequence of streams */
+    /** Should be constant throughout the tenure of the stream */
+    /** A number ranging from 0 to (maxStreams - 1) */
+    uint32_t seq_index;
     /** Holds the sequential frame number that identifies the frame
      within the stream. */
     uint32_t frameNum;
@@ -274,8 +271,16 @@ typedef struct _NvMOTTrackedObj {
     uint32_t age;
     /** Holds a pointer to the associated input object, if there is one. */
     NvMOTObjToTrack *associatedObjectIn;
-    /** Each target’s reid tensor index in batch.*/
-    int32_t reidInd;
+    /** Each target’s reid vector information.*/
+    NvDsObjReid reid;
+    /** Object visibility. */
+    float visibility;
+    /** Foot location in frame coordinates. */
+    float ptImgFeet[2];
+    /** Foot location in 3D coordinates. */
+    float ptWorldFeet[2];
+    /** Convex hull information projected on frame. */
+    NvDsObjConvexHull convexHull;
     /** Reserved custom data field. */
     uint8_t reserved[128];
 } NvMOTTrackedObj;
@@ -317,7 +322,14 @@ typedef struct _NvMOTTrackedObjBatch {
  */
 typedef struct _NvMOTTrackerMiscData {
     /** Holds past frame data of current batch. */
-    NvDsPastFrameObjBatch *pPastFrameObjBatch;
+    NvDsTargetMiscDataBatch *pPastFrameObjBatch;
+
+    /** Holds the history of terminated tracks*/
+    NvDsTargetMiscDataBatch *pTerminatedTrackBatch;
+
+    /** Holds the frame info of shadow tracks*/
+    NvDsTargetMiscDataBatch *pShadowTrackBatch;
+
 } NvMOTTrackerMiscData;
 
 /**
@@ -329,6 +341,12 @@ typedef struct _NvMOTProcessParams {
     uint32_t numFrames;    /**< Holds the number of frames in the batch. */
     NvMOTFrame *frameList; /**< Holds a pointer to an array of frame data. */
 } NvMOTProcessParams;
+
+/**
+ * @brief Holds an opaque context handle.
+ */
+struct NvMOTContext;
+typedef struct NvMOTContext *NvMOTContextHandle;
 
 typedef struct _NvMOTQuery {
     /** Holds flags for supported compute targets. @see NvMOTCompute. */
@@ -350,17 +368,27 @@ typedef struct _NvMOTQuery {
     uint32_t reidFeatureSize;
     /** Whether to output target trajectories in user meta. */
     bool outputTrajectory;
+    /** Whether to output visibility in user meta. */
+    bool outputVisibility;
+    /** Whether to output foot location in user meta. */
+    bool outputFootLocation;
+    /** Whether to output convex hull in user meta. */
+    bool outputConvexHull;
+    /** Holdes maximum number of points in a convex hull. */
+    uint32_t maxConvexHullSize;
     /** Holds a Boolean which is true if outputing past frame is supported. */
     bool supportPastFrame;
     /** Holds flags for whether batch or none batch mode is supported. */
     NvMOTBatchMode batchMode;
+    /** Whether to output terminted Tacks info in user meta. */
+    bool outputTerminatedTracks;
+    /** maximum frame of history to save per terminated track. */
+    uint32_t maxTrajectoryBufferLength;
+    /** Whether to output Shadow Tracks info in user meta. */
+    bool outputShadowTracks;
+    /** Hold the context handle. */
+    NvMOTContextHandle contextHandle;
 } NvMOTQuery;
-
-/**
- * @brief Holds an opaque context handle.
- */
-struct NvMOTContext;
-typedef struct NvMOTContext *NvMOTContextHandle;
 
 /**
  * @brief Initializes a tracking context for a batch of one or more image

@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <cuda_runtime_api.h>
@@ -376,6 +366,11 @@ static void decodebin_child_added(GstChildProxy *child_proxy,
 {
     NvDsSrcBin *bin = (NvDsSrcBin *)user_data;
     NvDsSourceConfig *config = bin->config;
+    struct cudaDeviceProp prop = {0};
+    cudaGetDeviceProperties(&prop, config->gpu_id);
+    if (cudaGetDeviceProperties(&prop, config->gpu_id) != cudaSuccess) {
+        NVGSTDS_ERR_MSG_V("Failed to get properties for GPU %d", config->gpu_id);
+    }
     if (g_strrstr(name, "decodebin") == name) {
         g_signal_connect(G_OBJECT(object), "child-added", G_CALLBACK(decodebin_child_added),
                          user_data);
@@ -422,6 +417,11 @@ static void decodebin_child_added(GstChildProxy *child_proxy,
             g_object_set(G_OBJECT(object), "cudadec-memtype", config->cuda_memory_type, NULL);
         }
         g_object_set(object, "drop-frame-interval", config->drop_frame_interval, NULL);
+        /* extract-sei-type5-data is a valid parameter for nvv4l2decoder
+           on x86 and ARM_SBSA */
+        if (!prop.integrated) {
+            g_object_set(object, "extract-sei-type5-data", config->extract_sei_type5_data, NULL);
+        }
         g_object_set(object, "num-extra-surfaces", config->num_extra_surfaces, NULL);
 
         /* Seek only if file is the source. */
@@ -679,7 +679,8 @@ static gboolean watch_source_status(gpointer data)
                     } else {
                         send_event_element = src_bin->cap_filter1;
                     }
-
+                    gst_element_send_event(GST_ELEMENT(send_event_element),
+                                           gst_event_new_flush_start());
                     gst_element_send_event(GST_ELEMENT(send_event_element),
                                            gst_event_new_flush_stop(TRUE));
                     if (!gst_element_send_event(GST_ELEMENT(send_event_element),
@@ -732,7 +733,8 @@ static gboolean watch_source_status(gpointer data)
                     } else {
                         send_event_element = src_bin->cap_filter1;
                     }
-
+                    gst_element_send_event(GST_ELEMENT(send_event_element),
+                                           gst_event_new_flush_start());
                     gst_element_send_event(GST_ELEMENT(send_event_element),
                                            gst_event_new_flush_stop(TRUE));
                     if (!gst_element_send_event(GST_ELEMENT(send_event_element),
@@ -762,7 +764,7 @@ static gboolean watch_source_status(gpointer data)
 static gboolean watch_source_async_state_change(gpointer data)
 {
     NvDsSrcBin *src_bin = (NvDsSrcBin *)data;
-    GstState state, pending;
+    GstState state = GST_STATE_NULL, pending = GST_STATE_NULL;
     GstStateChangeReturn ret;
 
     ret = gst_element_get_state(src_bin->bin, &state, &pending, 0);
@@ -1502,8 +1504,11 @@ static void set_properties_nvuribin(GstElement *element_, NvDsSourceConfig const
     if (config->gpu_id)
         g_object_set(element_, "gpu-id", config->gpu_id, NULL);
     g_object_set(element_, "cudadec-memtype", config->cuda_memory_type, NULL);
+    g_object_set(element_, "low-latency-mode", config->low_latency_mode, NULL);
     if (config->drop_frame_interval)
         g_object_set(element_, "drop-frame-interval", config->drop_frame_interval, NULL);
+    if (config->extract_sei_type5_data)
+        g_object_set(element_, "extract-sei-type5-data", config->extract_sei_type5_data, NULL);
     if (config->select_rtp_protocol)
         g_object_set(element_, "select-rtp-protocol", config->select_rtp_protocol, NULL);
     if (config->loop)
@@ -1516,9 +1521,11 @@ static void set_properties_nvuribin(GstElement *element_, NvDsSourceConfig const
         g_object_set(element_, "smart-rec-container", config->smart_rec_container, NULL);
     if (config->smart_rec_def_duration)
         g_object_set(element_, "smart-rec-default-duration", config->smart_rec_def_duration, NULL);
-    if (config->rtsp_reconnect_interval_sec)
+    if (config->rtsp_reconnect_interval_sec) {
         g_object_set(element_, "rtsp-reconnect-interval", config->rtsp_reconnect_interval_sec,
                      NULL);
+        g_object_set(element_, "rtsp-reconnect-attempts", config->rtsp_reconnect_attempts, NULL);
+    }
     if (config->latency)
         g_object_set(element_, "latency", config->latency, NULL);
     if (config->udp_buffer_size)
@@ -1581,7 +1588,7 @@ done:
 gboolean reset_source_pipeline(gpointer data)
 {
     NvDsSrcBin *src_bin = (NvDsSrcBin *)data;
-    GstState state, pending;
+    GstState state = GST_STATE_NULL, pending = GST_STATE_NULL;
     GstStateChangeReturn ret;
 
     g_mutex_lock(&src_bin->bin_lock);
@@ -1595,6 +1602,7 @@ gboolean reset_source_pipeline(gpointer data)
     } else {
         send_event_element = src_bin->cap_filter1;
     }
+    gst_element_send_event(GST_ELEMENT(send_event_element), gst_event_new_flush_start());
     gst_element_send_event(GST_ELEMENT(send_event_element), gst_event_new_flush_stop(TRUE));
     if (gst_element_set_state(src_bin->bin, GST_STATE_NULL) == GST_STATE_CHANGE_FAILURE) {
         GST_ERROR_OBJECT(src_bin->bin, "Can't set source bin to NULL");

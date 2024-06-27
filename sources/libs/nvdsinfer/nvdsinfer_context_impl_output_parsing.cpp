@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2021 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <algorithm>
@@ -769,7 +770,7 @@ NvDsInferStatus SegmentPostprocessor::fillSegmentationOutput(
     NvDsInferSegmentationOutput &output)
 {
     std::function<unsigned int(unsigned int, unsigned int, unsigned int)> indAlongChannel = nullptr;
-    NvDsInferDimsCHW outputDimsCHW;
+    NvDsInferDimsCHW outputDimsCHW = {0};
 
     if (m_SegmentationOutputOrder == NvDsInferTensorOrder_kNCHW) {
         getDimsCHWFromDims(outputDimsCHW, outputLayers[0].inferDims);

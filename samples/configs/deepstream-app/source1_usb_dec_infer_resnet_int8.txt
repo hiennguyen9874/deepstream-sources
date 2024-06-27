@@ -122,7 +122,7 @@ height=720
 # the infer config file.
 [primary-gie]
 enable=1
-model-engine-file=../../models/Primary_Detector/resnet10.caffemodel_b1_gpu0_int8.engine
+model-engine-file=../../models/Primary_Detector/resnet18_trafficcamnet.etlt_b1_gpu0_int8.engine
 #Required to display the PGIE labels, should be added even when using config-file
 #property
 batch-size=1

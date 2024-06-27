@@ -69,9 +69,15 @@ typedef enum {
         FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
     /** Specifies a custom event to indicate start of a particular stream
      in a batch. */
-    GST_NVEVENT_STREAM_START =
-        GST_EVENT_MAKE_TYPE(405,
+    GST_NVEVENT_STREAM_START = GST_EVENT_MAKE_TYPE(
+        405,
+        FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI)),
+    /** Specifies a custom event to indicate update in caps of particular stream
+     in a batch. */
+    GST_NVEVENT_UPDATE_CAPS =
+        GST_EVENT_MAKE_TYPE(406,
                             FLAG(DOWNSTREAM) | FLAG(SERIALIZED) | FLAG(STICKY) | FLAG(STICKY_MULTI))
+
 } GstNvEventType;
 #undef FLAG
 
@@ -137,6 +143,28 @@ GstEvent *gst_nvevent_new_stream_segment(guint source_id, GstSegment *segment);
  *  or NULL otherwise.
  */
 GstEvent *gst_nvevent_new_stream_reset(guint source_id);
+
+/**
+ * Creates a "updated caps" event for the specified source.
+ *
+ * @param[in] pad_id        PadID of the stream for which caps has to be updated;
+ * @param[in] width_val     Width the stream for which caps has to be updated;
+ * @param[in] height_val    Height the stream for which caps has to be updated;
+ * @param[in] caps_str      Incoming CAPS the stream for which caps has to be
+ * 								 updated;
+ * @param[in] stream_id_str String of stream id of the stream for which caps has
+ *  								 to be updated;
+ * @param[in] is_audio      Audio/Video flag of the stream for which caps has to
+ * 								 be updated;
+ * @return  A pointer to the event corresponding to request if sucxessful,
+ *  or NULL otherwise.
+ */
+GstEvent *gst_nvevent_new_update_caps(guint pad_id,
+                                      guint width_val,
+                                      guint height_val,
+                                      GstStructure *caps_str,
+                                      gchar *stream_id_str,
+                                      gboolean is_audio);
 
 /**
  * Parses a "pad added" event received on the sinkpad.

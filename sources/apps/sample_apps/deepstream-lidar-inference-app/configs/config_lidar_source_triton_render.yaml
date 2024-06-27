@@ -22,7 +22,8 @@ config_body:
   data_config_file: lidar_data_list.yaml
   points_num: 204800 #points num
   lidar_datatype: FP32 #FP32 FP16 INT8 INT32, only support FP32 this version
-  mem_type: cpu #cpu gpu, only support cpu this version
+  mem_type: gpu # choose [cpu, gpu] for file lidar data loader
+  gpu_id: 0 # specify gpu id if mem_type: gpu
   mem_pool_size: 4
   output_datamap_key: DS3D::LidarXYZI
   file_loop: True # False: read data normally True: read data circularly

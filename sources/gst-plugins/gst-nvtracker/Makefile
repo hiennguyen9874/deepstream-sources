@@ -1,12 +1,14 @@
 ################################################################################
-# Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
-#################################################################################
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+################################################################################
 
 CUDA_VER?=
 ifeq ($(CUDA_VER),)
@@ -18,9 +20,9 @@ SRCS:= gstnvtracker.cpp convbufmanager.cpp miscdatabufmanager.cpp nvtracker_proc
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_tracker.so
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=7.0
 
-CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"7.0.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes \
      -I ../gst-nvdspreprocess \

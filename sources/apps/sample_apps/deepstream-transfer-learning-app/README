@@ -1,11 +1,13 @@
 *****************************************************************************
-* Copyright (c) 2020-2023 NVIDIA Corporation.  All rights reserved.
-*
-* NVIDIA Corporation and its licensors retain all intellectual property
-* and proprietary rights in and to this software, related documentation
-* and any modifications thereto.  Any use, reproduction, disclosure or
-* distribution of this software and related documentation without an express
-* license agreement from NVIDIA Corporation is strictly prohibited.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
 *****************************************************************************
 
 *****************************************************************************
@@ -47,8 +49,7 @@ The saved images can be used to re-train a neural network.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
+      For both Jetson & x86, CUDA_VER=12.2
   $ sudo make && sudo make install (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
@@ -61,7 +62,15 @@ $ cd apps/sample_apps/deepstream-transfer-learning-app/configs
 $ mkdir output
 $ deepstream-transfer-learning-app -c ds_transfer_learning_app_example.txt
 
-Note: Ensure the output directory has wirte permissions
+When performing the inference with nvinferserver, comment the plugin-type & infer config path
+& uncomment the nvinferserver plugin-type & config path in ds_transfer_learning_app_example.txt
+plugin-type=0
+config-file=config_infer_primary_ds_transfer_learning.txt
+
+#plugin-type=1
+#config-file=config_inferserver_primary_ds_transfer_learning.txt
+
+Note: Ensure the output directory has write permissions
 
 ===============================================================================
 5. Configuration file:

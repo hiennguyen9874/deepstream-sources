@@ -1,15 +1,14 @@
 /*
-################################################################################
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
-#
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
-#
-################################################################################
-*/
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2020 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
+ */
 
 // This is a test program to perform connect, disconnect , send messages to Azure Iothub
 // Use main thread to connect and multiple threads to perform asynchronous send
@@ -120,8 +119,8 @@ int main(int argc, char **argv)
     }
 
     // There are 2 options to provide connection string
-    //           format:
-    //           HostName=<my-hub>.azure-devices.net;DeviceId=<device_id>;SharedAccessKey=<my-policy-key>
+    //          format:
+    //          HostName=<my-hub>.azure-devices.net;DeviceId=<device_id>;SharedAccessKey=<my-policy-key>
     // option 1: Full connection string provided as a param in nvds_msgapi_connect()
     // option 2: The full device connection string is provided in config file.
 

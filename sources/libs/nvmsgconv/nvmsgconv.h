@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2021 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 /**
@@ -44,7 +45,6 @@ typedef struct NvDsMsg2pCtx {
  *      the NvDs metadata related information
         to be processed to generate payloads
  */
-
 typedef struct {
     /** Holds the object metadata */
     void *objMeta;
@@ -52,6 +52,11 @@ typedef struct {
     void *frameMeta;
     /** media type: (ex: audio, video) */
     gchar *mediaType;
+    /** datamap for buffers from ds3d components */
+    // abiRefDataMap* typecasted to void*
+    // NvDs3D_Find1stDataMap() will be used to get this pointer
+    // in LL library, we can:
+    void *datamap;
 } NvDsMsg2pMetaInfo;
 
 /**

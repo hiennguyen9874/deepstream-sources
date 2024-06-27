@@ -1,24 +1,13 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <string.h>
@@ -76,14 +65,8 @@ static inline const char *safeStr(const std::string &str)
     return str.c_str();
 }
 
-// constant values definition
-/** Labels for the CarColor classifier model. */
-static const std::vector<std::string> kCarColorLabels = {"black", "blue",   "brown",  "gold",
-                                                         "green", "grey",   "maroon", "orange",
-                                                         "red",   "silver", "white",  "yellow"};
-
-/** Labels for the CarMake classifier model. */
-static const std::vector<std::string> kCarMakeLabels = {
+/** Labels for the VehicleMake classifier model. */
+static const std::vector<std::string> kVehicleMakeLabels = {
     "acura", "audi",     "bmw",     "chevrolet", "chrysler", "dodge",     "ford",
     "gmc",   "honda",    "hyundai", "infiniti",  "jeep",     "kia",       "lexus",
     "mazda", "mercedes", "nissan",  "subaru",    "toyota",   "volkswagen"};
@@ -342,12 +325,10 @@ public:
         std::vector<const dsis::IBatchBuffer *> classTensorOutput;
         std::vector<std::vector<std::string>> labels;
 
-        classTensorOutput.push_back(tensors["CAR_COLOR"]);
-        classTensorOutput.push_back(tensors["CAR_MAKE"]);
+        classTensorOutput.push_back(tensors["VEHICLE_MAKE"]);
         classTensorOutput.push_back(tensors["VEHICLE_TYPE"]);
 
-        labels.push_back(kCarColorLabels);
-        labels.push_back(kCarMakeLabels);
+        labels.push_back(kVehicleMakeLabels);
         labels.push_back(kVehicleTypeLabels);
 
         /* Get the number of attributes supported by the classifier. */

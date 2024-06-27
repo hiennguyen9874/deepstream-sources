@@ -57,7 +57,7 @@ class GuardDataBridge : public GuardDataProcess<abiDataBridge> {
 
 public:
     template <typename... Args>
-    GuardDataBridge(Args &&...args) : _Base(std::forward<Args>(args)...)
+    GuardDataBridge(Args &&... args) : _Base(std::forward<Args>(args)...)
     {
     }
     ~GuardDataBridge() = default;

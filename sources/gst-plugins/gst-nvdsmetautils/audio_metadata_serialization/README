@@ -65,7 +65,7 @@ NvDsObjectmeta and reconstructs the metadata into NvDsBatchMeta.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=12.1
+      For x86, CUDA_VER=12.2
   $ sudo make
 
 ===============================================================================
@@ -94,3 +94,9 @@ audio-transform="melsdb,fft_length=2560,hop_size=692,dsp_window=hann,num_mels=12
 ! fakesink                      \
 filesrc location= noise_44_1k_16bits.wav ! wavparse ! audioconvert \
 ! audioresample ! "audio/x-raw, rate=(int)44100" ! m.sink_1
+
+===============================================================================
+4. Note:
+===============================================================================
+Clean and build the sources upon any change in the protobuf compiler version
+on the system.

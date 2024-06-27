@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "nvdspreprocess_lib.h"
@@ -85,8 +75,10 @@ static gboolean get_absolute_file_path(const gchar *cfg_file_path,
         /* Ignore error if file does not exist and use the unresolved path. */
         if (errno == ENOENT)
             g_strlcpy(abs_real_file_path, abs_file_path, _PATH_MAX);
-        else
+        else {
+            g_free(abs_file_path);
             return FALSE;
+        }
     }
 
     g_free(abs_file_path);
@@ -107,7 +99,7 @@ NvDsPreProcessStatus CustomTensorPreparation(CustomCtx *ctx,
     buf = acquirer->acquire();
 
     /** Prepare Tensor */
-    status = ctx->tensor_impl->prepare_tensor(batch, buf->memory_ptr);
+    status = ctx->tensor_impl->prepare_tensor(batch, tensorParam, buf->memory_ptr);
     if (status != NVDSPREPROCESS_SUCCESS) {
         printf("Custom Lib: Tensor Preparation failed\n");
         acquirer->release(buf);
@@ -121,11 +113,6 @@ NvDsPreProcessStatus CustomTensorPreparation(CustomCtx *ctx,
     }
 
     tensorParam.params.network_input_shape[0] = (int)batch->units.size();
-
-    if (status != NVDSPREPROCESS_SUCCESS) {
-        printf("CustomTensorPreparation failed\n");
-        acquirer->release(buf);
-    }
 
     return status;
 }

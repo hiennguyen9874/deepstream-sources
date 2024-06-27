@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -38,12 +38,11 @@
 #ifdef IS_TEGRA
 #define TRITON_DEFAULT_MINIMUM_COMPUTE_CAPABILITY 5.3
 #define TRITON_DEFAULT_PINNED_MEMORY_BYTES (1 << 26)
-#define TRITON_DEFAULT_BACKEND_DIR GetTritonBackendDir()
 #else
 #define TRITON_DEFAULT_MINIMUM_COMPUTE_CAPABILITY 6.0
 #define TRITON_DEFAULT_PINNED_MEMORY_BYTES (1 << 28)
-#define TRITON_DEFAULT_BACKEND_DIR "/opt/tritonserver/backends"
 #endif
+#define TRITON_DEFAULT_BACKEND_DIR "/opt/tritonserver/backends"
 
 struct TRITONSERVER_Server;
 
@@ -438,16 +437,6 @@ private:
 };
 
 namespace triton {
-
-#ifdef IS_TEGRA
-static inline const char *GetTritonBackendDir()
-{
-    static char dirBuf[256];
-    snprintf(dirBuf, sizeof(dirBuf), "/opt/nvidia/deepstream/deepstream-%d.%d/lib/triton_backends",
-             NVDS_VERSION_MAJOR, NVDS_VERSION_MINOR);
-    return dirBuf;
-}
-#endif
 
 /**
  * @brief The backend configuration settings.

@@ -1,24 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "gst-nvdscustommessage.h"
@@ -38,9 +27,10 @@
 
 GstMessage *gst_nvmessage_new_stream_add(GstObject *obj, NvDsSensorInfo *sensor_info)
 {
-    GstStructure *str =
-        gst_structure_new(STREAM_ADD_STRUCT_NAME, "source-id", G_TYPE_UINT, sensor_info->source_id,
-                          "sensor-id", G_TYPE_STRING, sensor_info->sensor_id, NULL);
+    GstStructure *str = gst_structure_new(
+        STREAM_ADD_STRUCT_NAME, "source-id", G_TYPE_UINT, sensor_info->source_id, "sensor-id",
+        G_TYPE_STRING, sensor_info->sensor_id, "sensor-name", G_TYPE_STRING,
+        sensor_info->sensor_name, "uri", G_TYPE_STRING, sensor_info->uri, NULL);
 
     GstMessage *message = gst_message_new_custom(GST_MESSAGE_ELEMENT, obj, str);
 
@@ -90,14 +80,32 @@ gboolean gst_nvmessage_parse_stream_add(GstMessage *message, NvDsSensorInfo *sen
     str = gst_message_get_structure(message);
     gst_structure_get_uint(str, "source-id", &sensor_info->source_id);
     sensor_info->sensor_id = gst_structure_get_string(str, "sensor-id");
+    sensor_info->sensor_name = gst_structure_get_string(str, "sensor-name");
+    sensor_info->uri = gst_structure_get_string(str, "uri");
+    return TRUE;
+}
+
+gboolean gst_nvmessage_parse_fps_stream_add(GstMessage *message, NvDsFPSSensorInfo *sensor_info)
+{
+    const GstStructure *str;
+
+    if (!gst_nvmessage_is_stream_add(message))
+        return FALSE;
+
+    str = gst_message_get_structure(message);
+    gst_structure_get_uint(str, "source-id", &sensor_info->source_id);
+    sensor_info->sensor_id = gst_structure_get_string(str, "sensor-id");
+    sensor_info->sensor_name = gst_structure_get_string(str, "sensor-name");
+    sensor_info->uri = gst_structure_get_string(str, "uri");
     return TRUE;
 }
 
 GstMessage *gst_nvmessage_new_stream_remove(GstObject *obj, NvDsSensorInfo *sensor_info)
 {
-    GstStructure *str = gst_structure_new(STREAM_REMOVE_STRUCT_NAME, "source-id", G_TYPE_UINT,
-                                          sensor_info->source_id, "sensor-id", G_TYPE_STRING,
-                                          sensor_info->sensor_id, NULL);
+    GstStructure *str = gst_structure_new(
+        STREAM_REMOVE_STRUCT_NAME, "source-id", G_TYPE_UINT, sensor_info->source_id, "sensor-id",
+        G_TYPE_STRING, sensor_info->sensor_id, "sensor-name", G_TYPE_STRING,
+        sensor_info->sensor_name, "uri", G_TYPE_STRING, sensor_info->uri, NULL);
 
     GstMessage *message = gst_message_new_custom(GST_MESSAGE_ELEMENT, obj, str);
 
@@ -119,5 +127,22 @@ gboolean gst_nvmessage_parse_stream_remove(GstMessage *message, NvDsSensorInfo *
     str = gst_message_get_structure(message);
     gst_structure_get_uint(str, "source-id", &sensor_info->source_id);
     sensor_info->sensor_id = gst_structure_get_string(str, "sensor-id");
+    sensor_info->sensor_name = gst_structure_get_string(str, "sensor-name");
+    sensor_info->uri = gst_structure_get_string(str, "uri");
+    return TRUE;
+}
+
+gboolean gst_nvmessage_parse_fps_stream_remove(GstMessage *message, NvDsFPSSensorInfo *sensor_info)
+{
+    const GstStructure *str;
+
+    if (!gst_nvmessage_is_stream_remove(message))
+        return FALSE;
+
+    str = gst_message_get_structure(message);
+    gst_structure_get_uint(str, "source-id", &sensor_info->source_id);
+    sensor_info->sensor_id = gst_structure_get_string(str, "sensor-id");
+    sensor_info->sensor_name = gst_structure_get_string(str, "sensor-name");
+    sensor_info->uri = gst_structure_get_string(str, "uri");
     return TRUE;
 }

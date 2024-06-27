@@ -1,0 +1,69 @@
+%YAML 1.2
+################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+################################################################################
+#lidar data inference
+---
+name: lidar_inference
+type: ds3d::datafilter
+in_caps: ds3d/datamap
+out_caps: ds3d/datamap
+custom_lib_path: libnvds_tritoninferfilter.so
+custom_create_function: createLidarInferenceFilter
+config_body:
+  in_streams: [lidar]
+  mem_pool_size: 2
+  #datatype: FP32, FP16, INT8, INT32, INT16, UINT8, UINT16, UINT32, FP64, INT64, UINT64, BYTES, BOOL
+  model_inputs:
+    - name: points
+      datatype: FP32
+      shape: [1, 204800, 4]
+    - name: num_points
+      datatype: INT32
+      shape: [1]
+  model_outputs:
+    - name: output_boxes
+      datatype: FP32
+      shape: [1, 321408, 9]
+    - name: num_boxes
+      datatype: INT32
+      shape: [1]
+  gpu_id: 0
+  #input tensor memory type after preprocess: GpuCuda, CpuCuda
+  input_tensor_mem_type: GpuCuda
+  #custom_preprocess_lib_path: path of preprcoess lib
+  custom_preprocess_lib_path: /opt/nvidia/deepstream/deepstream/lib/libnvds_lidar_custom_preprocess_impl.so
+  custom_preprocess_func_name: CreateInferServerCustomPreprocess
+  preprocess:
+    scale_factor: 0.00392157 # 1.0 / 255.0
+    offsets: 0
+  labels:
+    - Vehicle
+    - Pedestrain
+    - Cyclist
+  postprocess_nms_iou_thresh: 0.2
+  postprocess_pre_nms_top_n: 4096
+  postprocess_score_thresh: 0.4
+  #config_file: triton deploy,CAPI is edge deployment, GRPC is cloud deployment
+  config_file: /opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-3d-lidar-sensor-fusion/model_config_files/pointpillars_kitti/triton_mode_CAPI.txt
+  #config_file: triton_mode_GRPC.txt
+  filter_input_datamap_key: DS3D::LidarXYZI

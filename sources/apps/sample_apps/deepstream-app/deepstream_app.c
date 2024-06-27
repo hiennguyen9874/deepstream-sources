@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "deepstream_app.h"
@@ -70,6 +60,8 @@ static NvDsSensorInfo *s_sensor_info_create(NvDsSensorInfo *sensor_info)
     NvDsSensorInfo *sensorInfoToHash = (NvDsSensorInfo *)g_malloc0(sizeof(NvDsSensorInfo));
     *sensorInfoToHash = *sensor_info;
     sensorInfoToHash->sensor_id = (gchar const *)g_strdup(sensor_info->sensor_id);
+    sensorInfoToHash->sensor_name = (gchar const *)g_strdup(sensor_info->sensor_name);
+    sensorInfoToHash->uri = (gchar const *)g_strdup(sensor_info->uri);
     return sensorInfoToHash;
 }
 
@@ -80,6 +72,10 @@ static void s_sensor_info_destroy(NvDsSensorInfo *sensor_info)
     if (sensor_info->sensor_id) {
         g_free((void *)sensor_info->sensor_id);
     }
+    if (sensor_info->sensor_name) {
+        g_free((void *)sensor_info->sensor_name);
+    }
+
     g_free(sensor_info);
 }
 
@@ -106,6 +102,67 @@ NvDsSensorInfo *get_sensor_info(AppCtx *appCtx, guint source_id)
     NvDsSensorInfo *sensorInfo =
         (NvDsSensorInfo *)g_hash_table_lookup(appCtx->sensorInfoHash, source_id + (gchar *)NULL);
     return sensorInfo;
+}
+
+/*Note: Below callbacks/functions defined for FPS logging,
+ *  when nvmultiurisrcbin is being used*/
+static NvDsFPSSensorInfo *s_fps_sensor_info_create(NvDsFPSSensorInfo *sensor_info);
+NvDsFPSSensorInfo *get_fps_sensor_info(AppCtx *appCtx, guint source_id);
+static void s_fps_sensor_info_destroy(NvDsFPSSensorInfo *sensor_info);
+
+static NvDsFPSSensorInfo *s_fps_sensor_info_create(NvDsFPSSensorInfo *sensor_info)
+{
+    NvDsFPSSensorInfo *fpssensorInfoToHash =
+        (NvDsFPSSensorInfo *)g_malloc0(sizeof(NvDsFPSSensorInfo));
+    *fpssensorInfoToHash = *sensor_info;
+    fpssensorInfoToHash->uri = (gchar const *)g_strdup(sensor_info->uri);
+    fpssensorInfoToHash->source_id = sensor_info->source_id;
+    fpssensorInfoToHash->sensor_id = (gchar const *)g_strdup(sensor_info->sensor_id);
+    fpssensorInfoToHash->sensor_name = (gchar const *)g_strdup(sensor_info->sensor_name);
+    return fpssensorInfoToHash;
+}
+
+static void s_fps_sensor_info_destroy(NvDsFPSSensorInfo *sensor_info)
+{
+    if (!sensor_info)
+        return;
+    if (sensor_info->sensor_id) {
+        g_free((void *)sensor_info->sensor_id);
+    }
+    if (sensor_info->sensor_name) {
+        g_free((void *)sensor_info->sensor_name);
+    }
+    if (sensor_info->uri) {
+        g_free((void *)sensor_info->uri);
+    }
+
+    g_free(sensor_info);
+}
+
+static void s_fps_sensor_info_callback_stream_added(AppCtx *appCtx, NvDsFPSSensorInfo *sensorInfo)
+{
+    NvDsFPSSensorInfo *fpssensorInfoToHash = s_fps_sensor_info_create(sensorInfo);
+    /** save the sensor info into the hash map */
+    g_hash_table_insert(appCtx->perf_struct.FPSInfoHash, GUINT_TO_POINTER(sensorInfo->source_id),
+                        fpssensorInfoToHash);
+}
+
+NvDsFPSSensorInfo *get_fps_sensor_info(AppCtx *appCtx, guint source_id)
+{
+    NvDsFPSSensorInfo *sensorInfo = (NvDsFPSSensorInfo *)g_hash_table_lookup(
+        appCtx->perf_struct.FPSInfoHash, GUINT_TO_POINTER(source_id));
+    return sensorInfo;
+}
+
+static void s_fps_sensor_info_callback_stream_removed(AppCtx *appCtx, NvDsFPSSensorInfo *sensorInfo)
+{
+    NvDsFPSSensorInfo *fpsensorInfoFromHash = get_fps_sensor_info(appCtx, sensorInfo->source_id);
+    /** remove the sensor info from the hash map */
+    if (fpsensorInfoFromHash) {
+        g_hash_table_remove(appCtx->perf_struct.FPSInfoHash,
+                            GUINT_TO_POINTER(sensorInfo->source_id));
+        s_fps_sensor_info_destroy(fpsensorInfoFromHash);
+    }
 }
 
 /**
@@ -261,17 +318,43 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer data)
         break;
     }
     case GST_MESSAGE_ELEMENT: {
+        if (gst_nvmessage_is_force_pipeline_eos(message)) {
+            gboolean app_quit;
+            if (gst_nvmessage_parse_force_pipeline_eos(message, &app_quit)) {
+                if (app_quit)
+                    appCtx->quit = TRUE;
+            }
+        }
         if (gst_nvmessage_is_stream_add(message)) {
-            NvDsSensorInfo sensorInfo;
+            g_mutex_lock(&(appCtx->perf_struct).struct_lock);
+
+            NvDsSensorInfo sensorInfo = {0};
             gst_nvmessage_parse_stream_add(message, &sensorInfo);
-            g_print("new stream added [%d:%s]\n\n\n\n", sensorInfo.source_id, sensorInfo.sensor_id);
+            g_print("new stream added [%d:%s:%s]\n\n\n\n", sensorInfo.source_id,
+                    sensorInfo.sensor_id, sensorInfo.sensor_name);
             /** Callback */
             s_sensor_info_callback_stream_added(appCtx, &sensorInfo);
+            gboolean is_rtsp = g_str_has_prefix(sensorInfo.uri, "rtsp://");
+            gboolean is_ipc = g_str_has_prefix(sensorInfo.uri, "ipc://");
+            appCtx->config.multi_source_config[sensorInfo.source_id].uri = g_strdup(sensorInfo.uri);
+            if (is_rtsp) {
+                appCtx->config.multi_source_config[sensorInfo.source_id].type = NV_DS_SOURCE_RTSP;
+            } else if (is_ipc) {
+                appCtx->config.multi_source_config[sensorInfo.source_id].type = NV_DS_SOURCE_IPC;
+            } else {
+                appCtx->config.multi_source_config[sensorInfo.source_id].type = NV_DS_SOURCE_URI;
+            }
             GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN(appCtx->pipeline.pipeline),
                                               GST_DEBUG_GRAPH_SHOW_ALL, "ds-app-added");
+            NvDsFPSSensorInfo fpssensorInfo = {0};
+            gst_nvmessage_parse_fps_stream_add(message, &fpssensorInfo);
+            s_fps_sensor_info_callback_stream_added(appCtx, &fpssensorInfo);
+
+            g_mutex_unlock(&(appCtx->perf_struct).struct_lock);
         }
         if (gst_nvmessage_is_stream_remove(message)) {
-            NvDsSensorInfo sensorInfo;
+            g_mutex_lock(&(appCtx->perf_struct).struct_lock);
+            NvDsSensorInfo sensorInfo = {0};
             gst_nvmessage_parse_stream_remove(message, &sensorInfo);
             g_print("new stream removed [%d:%s]\n\n\n\n", sensorInfo.source_id,
                     sensorInfo.sensor_id);
@@ -279,6 +362,10 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer data)
                                               GST_DEBUG_GRAPH_SHOW_ALL, "ds-app-removed");
             /** Callback */
             s_sensor_info_callback_stream_removed(appCtx, &sensorInfo);
+            NvDsFPSSensorInfo fpssensorInfo = {0};
+            gst_nvmessage_parse_fps_stream_remove(message, &fpssensorInfo);
+            s_fps_sensor_info_callback_stream_removed(appCtx, &fpssensorInfo);
+            g_mutex_unlock(&(appCtx->perf_struct).struct_lock);
         }
         break;
     }
@@ -341,21 +428,21 @@ static void write_kitti_past_track_output(AppCtx *appCtx, NvDsBatchMeta *batch_m
     gchar bbox_file[1024] = {0};
     FILE *bbox_params_dump_file = NULL;
 
-    NvDsPastFrameObjBatch *pPastFrameObjBatch = NULL;
+    NvDsTargetMiscDataBatch *pPastFrameObjBatch = NULL;
     NvDsUserMetaList *bmeta_list = NULL;
     NvDsUserMeta *user_meta = NULL;
     for (bmeta_list = batch_meta->batch_user_meta_list; bmeta_list != NULL;
          bmeta_list = bmeta_list->next) {
         user_meta = (NvDsUserMeta *)bmeta_list->data;
         if (user_meta && user_meta->base_meta.meta_type == NVDS_TRACKER_PAST_FRAME_META) {
-            pPastFrameObjBatch = (NvDsPastFrameObjBatch *)(user_meta->user_meta_data);
+            pPastFrameObjBatch = (NvDsTargetMiscDataBatch *)(user_meta->user_meta_data);
             for (uint si = 0; si < pPastFrameObjBatch->numFilled; si++) {
-                NvDsPastFrameObjStream *objStream = (pPastFrameObjBatch->list) + si;
+                NvDsTargetMiscDataStream *objStream = (pPastFrameObjBatch->list) + si;
                 guint stream_id = (guint)(objStream->streamID);
                 for (uint li = 0; li < objStream->numFilled; li++) {
-                    NvDsPastFrameObjList *objList = (objStream->list) + li;
+                    NvDsTargetMiscDataObject *objList = (objStream->list) + li;
                     for (uint oi = 0; oi < objList->numObj; oi++) {
-                        NvDsPastFrameObj *obj = (objList->list) + oi;
+                        NvDsTargetMiscDataFrame *obj = (objList->list) + oi;
                         g_snprintf(bbox_file, sizeof(bbox_file) - 1, "%s/%02u_%03u_%06lu.txt",
                                    appCtx->config.kitti_track_dir_path, appCtx->index, stream_id,
                                    (gulong)obj->frameNum);
@@ -415,9 +502,35 @@ static void write_kitti_track_output(AppCtx *appCtx, NvDsBatchMeta *batch_meta)
             // Here confidence stores tracker confidence value for tracker output
             float confidence = obj->tracker_confidence;
             guint64 id = obj->object_id;
-            fprintf(bbox_params_dump_file,
-                    "%s %lu 0.0 0 0.0 %f %f %f %f 0.0 0.0 0.0 0.0 0.0 0.0 0.0 %f\n", obj->obj_label,
-                    id, left, top, right, bottom, confidence);
+            bool write_proj_info = false;
+            float visibility = -1.0, x_img_foot = -1.0, y_img_foot = -1.0;
+            // Attach projected object info if stored in user meta
+            for (NvDsUserMetaList *l_obj_user = obj->obj_user_meta_list; l_obj_user != NULL;
+                 l_obj_user = l_obj_user->next) {
+                NvDsUserMeta *user_meta = (NvDsUserMeta *)l_obj_user->data;
+                if (user_meta && user_meta->base_meta.meta_type == NVDS_OBJ_VISIBILITY &&
+                    user_meta->user_meta_data) {
+                    write_proj_info = true;
+                    visibility = *((float *)(user_meta->user_meta_data));
+                } else if (user_meta &&
+                           user_meta->base_meta.meta_type == NVDS_OBJ_IMAGE_FOOT_LOCATION &&
+                           user_meta->user_meta_data) {
+                    write_proj_info = true;
+                    x_img_foot = ((float *)(user_meta->user_meta_data))[0];
+                    y_img_foot = ((float *)(user_meta->user_meta_data))[1];
+                }
+            }
+
+            if (write_proj_info) {
+                fprintf(bbox_params_dump_file,
+                        "%s %lu 0.0 0 0.0 %f %f %f %f 0.0 0.0 0.0 0.0 0.0 0.0 0.0 %f %f %f %f\n",
+                        obj->obj_label, id, left, top, right, bottom, confidence, visibility,
+                        x_img_foot, y_img_foot);
+            } else {
+                fprintf(bbox_params_dump_file,
+                        "%s %lu 0.0 0 0.0 %f %f %f %f 0.0 0.0 0.0 0.0 0.0 0.0 0.0 %f\n",
+                        obj->obj_label, id, left, top, right, bottom, confidence);
+            }
         }
         fclose(bbox_params_dump_file);
     }
@@ -436,15 +549,6 @@ static void write_reid_track_output(AppCtx *appCtx, NvDsBatchMeta *batch_meta)
 
     gchar reid_file[1024] = {0};
     FILE *reid_params_dump_file = NULL;
-    /** Find batch reid tensor in batch user meta. */
-    NvDsReidTensorBatch *pReidTensor = NULL;
-    for (NvDsUserMetaList *l_batch_user = batch_meta->batch_user_meta_list; l_batch_user != NULL;
-         l_batch_user = l_batch_user->next) {
-        NvDsUserMeta *user_meta = (NvDsUserMeta *)l_batch_user->data;
-        if (user_meta && user_meta->base_meta.meta_type == NVDS_TRACKER_BATCH_REID_META) {
-            pReidTensor = (NvDsReidTensorBatch *)(user_meta->user_meta_data);
-        }
-    }
 
     /** Save the reid embedding for each frame. */
     for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
@@ -460,9 +564,6 @@ static void write_reid_track_output(AppCtx *appCtx, NvDsBatchMeta *batch_meta)
         if (!reid_params_dump_file)
             continue;
 
-        if (!pReidTensor)
-            continue;
-
         /** Save the reid embedding for each object. */
         for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next) {
             NvDsObjectMeta *obj = (NvDsObjectMeta *)l_obj->data;
@@ -474,13 +575,12 @@ static void write_reid_track_output(AppCtx *appCtx, NvDsBatchMeta *batch_meta)
                 NvDsUserMeta *user_meta = (NvDsUserMeta *)l_obj_user->data;
                 if (user_meta && user_meta->base_meta.meta_type == NVDS_TRACKER_OBJ_REID_META &&
                     user_meta->user_meta_data) {
-                    gint reidInd = *((int32_t *)(user_meta->user_meta_data));
-                    if (reidInd >= 0 && reidInd < (gint)pReidTensor->numFilled) {
+                    NvDsObjReid *pReidObj = (NvDsObjReid *)(user_meta->user_meta_data);
+                    if (pReidObj != NULL && pReidObj->ptr_host != NULL &&
+                        pReidObj->featureSize > 0) {
                         fprintf(reid_params_dump_file, "%lu", id);
-                        for (guint ele_i = 0; ele_i < pReidTensor->featureSize; ele_i++) {
-                            fprintf(
-                                reid_params_dump_file, " %f",
-                                pReidTensor->ptr_host[reidInd * pReidTensor->featureSize + ele_i]);
+                        for (guint ele_i = 0; ele_i < pReidObj->featureSize; ele_i++) {
+                            fprintf(reid_params_dump_file, " %f", pReidObj->ptr_host[ele_i]);
                         }
                         fprintf(reid_params_dump_file, "\n");
                     }
@@ -489,6 +589,165 @@ static void write_reid_track_output(AppCtx *appCtx, NvDsBatchMeta *batch_meta)
         }
         fclose(reid_params_dump_file);
     }
+}
+
+/**
+ * Function to dump terminated object information to files when the tracker outputs
+ * terminated track info into user meta. For this to work, property "terminated_track_output_path"
+ * must be set in configuration file.
+ * Data of different sources and frames is dumped in separate file.
+ */
+static void write_terminated_track_output(AppCtx *appCtx, NvDsBatchMeta *batch_meta)
+{
+    if (!appCtx->config.terminated_track_output_path)
+        return;
+
+    gchar term_file[1024] = {0};
+    FILE *term_params_dump_file = NULL;
+    /** Find batch terminted tensor in batch user meta. */
+    GList *pTerminatedTrackList = NULL; // list of pointers to NvDsTargetMiscDataBatch
+    NvDsTargetMiscDataBatch *pTerminatedTrackBatch = NULL;
+    for (NvDsUserMetaList *l_batch_user = batch_meta->batch_user_meta_list; l_batch_user != NULL;
+         l_batch_user = l_batch_user->next) {
+        NvDsUserMeta *user_meta = (NvDsUserMeta *)l_batch_user->data;
+        if (user_meta && user_meta->base_meta.meta_type == NVDS_TRACKER_TERMINATED_LIST_META) {
+            pTerminatedTrackBatch = (NvDsTargetMiscDataBatch *)(user_meta->user_meta_data);
+            pTerminatedTrackList = g_list_append(pTerminatedTrackList, pTerminatedTrackBatch);
+        }
+    }
+
+    if (!pTerminatedTrackList)
+        return;
+
+    /** Save the Terminated data for each frame. */
+    for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
+         l_frame = l_frame->next) {
+        NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+
+        for (GList *l = pTerminatedTrackList; l != NULL; l = l->next) {
+            pTerminatedTrackBatch = (NvDsTargetMiscDataBatch *)(l->data);
+
+            for (uint si = 0; si < pTerminatedTrackBatch->numFilled; si++) {
+                NvDsTargetMiscDataStream *objStream = (pTerminatedTrackBatch->list) + si;
+                guint stream_id = (guint)(objStream->streamID);
+
+                if (frame_meta->pad_index != stream_id)
+                    continue;
+
+                g_snprintf(term_file, sizeof(term_file) - 1, "%s/%02u_%03u_%06lu.txt",
+                           appCtx->config.terminated_track_output_path, appCtx->index, stream_id,
+                           (gulong)frame_meta->frame_num);
+
+                term_params_dump_file = fopen(term_file, "w");
+
+                if (!term_params_dump_file)
+                    continue;
+
+                for (uint li = 0; li < objStream->numFilled; li++) {
+                    NvDsTargetMiscDataObject *objList = (objStream->list) + li;
+                    fprintf(term_params_dump_file, "Target: %ld,%d,%hu\n", objList->uniqueId,
+                            objList->classId, stream_id);
+
+                    for (uint oi = 0; oi < objList->numObj; oi++) {
+                        NvDsTargetMiscDataFrame *obj = (objList->list) + oi;
+
+                        float left = obj->tBbox.left;
+                        float right = left + obj->tBbox.width;
+                        float top = obj->tBbox.top;
+                        float bottom = top + obj->tBbox.height;
+
+                        fprintf(
+                            term_params_dump_file,
+                            "%u %lu %u 0 0.0 %f %f %f %f 0.0 0.0 0.0 0.0 0.0 0.0 0.0 %f %d %f\n",
+                            obj->frameNum, objList->uniqueId, objList->classId, left, top, right,
+                            bottom, obj->confidence, obj->trackerState, obj->visibility);
+                    }
+                }
+                fprintf(term_params_dump_file, "\n");
+
+                fclose(term_params_dump_file);
+            }
+        }
+    }
+    g_list_free(pTerminatedTrackList);
+}
+
+/**
+ * Function to dump terminated object information to files when the tracker outputs
+ * terminated track info into user meta. For this to work, property "terminated_track_output_path"
+ * must be set in configuration file.
+ * Data of different sources and frames is dumped in separate file.
+ */
+static void write_shadow_track_output(AppCtx *appCtx, NvDsBatchMeta *batch_meta)
+{
+    if (!appCtx->config.shadow_track_output_path)
+        return;
+
+    gchar term_file[1024] = {0};
+    FILE *shadow_dump_file = NULL;
+    /** Find shadow tracked tensor in batch user meta. */
+    GList *pShadowTrackList = NULL; // list of pointers to NvDsTargetMiscDataBatch
+    NvDsTargetMiscDataBatch *pShadowTrackBatch = NULL;
+    for (NvDsUserMetaList *l_batch_user = batch_meta->batch_user_meta_list; l_batch_user != NULL;
+         l_batch_user = l_batch_user->next) {
+        NvDsUserMeta *user_meta = (NvDsUserMeta *)l_batch_user->data;
+        if (user_meta && user_meta->base_meta.meta_type == NVDS_TRACKER_SHADOW_LIST_META) {
+            // std::cout << "Found Shadow Data" << std::endl;
+            pShadowTrackBatch = (NvDsTargetMiscDataBatch *)(user_meta->user_meta_data);
+            pShadowTrackList = g_list_append(pShadowTrackList, pShadowTrackBatch);
+        }
+    }
+
+    if (!pShadowTrackList)
+        return;
+
+    /** Save the Terminated data for each frame. */
+    for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
+         l_frame = l_frame->next) {
+        NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+
+        for (GList *l = pShadowTrackList; l != NULL; l = l->next) {
+            pShadowTrackBatch = (NvDsTargetMiscDataBatch *)(l->data);
+            for (uint si = 0; si < pShadowTrackBatch->numFilled; si++) {
+                NvDsTargetMiscDataStream *objStream = (pShadowTrackBatch->list) + si;
+                guint stream_id = (guint)(objStream->streamID);
+
+                if (frame_meta->pad_index != stream_id)
+                    continue;
+
+                g_snprintf(term_file, sizeof(term_file) - 1, "%s/%02u_%03u_%06lu.txt",
+                           appCtx->config.shadow_track_output_path, appCtx->index, stream_id,
+                           (gulong)frame_meta->frame_num);
+
+                shadow_dump_file = fopen(term_file, "w");
+
+                if (!shadow_dump_file)
+                    continue;
+
+                for (uint li = 0; li < objStream->numFilled; li++) {
+                    NvDsTargetMiscDataObject *objList = (objStream->list) + li;
+
+                    if (objList->numObj > 0) {
+                        NvDsTargetMiscDataFrame *obj = (objList->list); // get first element only
+
+                        float left = obj->tBbox.left;
+                        float right = left + obj->tBbox.width;
+                        float top = obj->tBbox.top;
+                        float bottom = top + obj->tBbox.height;
+
+                        fprintf(
+                            shadow_dump_file,
+                            "%u %lu %u 0 0.0 %f %f %f %f 0.0 0.0 0.0 0.0 0.0 0.0 0.0 %f %d %f\n",
+                            obj->frameNum, objList->uniqueId, objList->classId, left, top, right,
+                            bottom, obj->confidence, obj->trackerState, obj->visibility);
+                    }
+                }
+
+                fclose(shadow_dump_file);
+            }
+        }
+    }
+    g_list_free(pShadowTrackList);
 }
 
 static gint component_id_compare_func(gconstpointer a, gconstpointer b)
@@ -710,6 +969,8 @@ static GstPadProbeReturn analytics_done_buf_prob(GstPad *pad,
     write_kitti_track_output(appCtx, batch_meta);
     write_kitti_past_track_output(appCtx, batch_meta);
     write_reid_track_output(appCtx, batch_meta);
+    write_terminated_track_output(appCtx, batch_meta);
+    write_shadow_track_output(appCtx, batch_meta);
 
     if (appCtx->bbox_generated_post_analytics_cb) {
         appCtx->bbox_generated_post_analytics_cb(appCtx, buf, batch_meta, index);
@@ -730,6 +991,7 @@ static GstPadProbeReturn latency_measurement_buf_prob(GstPad *pad,
         latency_info = appCtx->latency_info;
         guint64 batch_num = GPOINTER_TO_SIZE(g_object_get_data(G_OBJECT(pad), "latency-batch-num"));
         g_print("\n************BATCH-NUM = %lu**************\n", batch_num);
+
         num_sources_in_batch = nvds_measure_buffer_latency(buf, latency_info);
 
         for (i = 0; i < num_sources_in_batch; i++) {
@@ -1162,6 +1424,8 @@ gboolean create_pipeline(AppCtx *appCtx,
     appCtx->bbox_generated_post_analytics_cb = bbox_generated_post_analytics_cb;
     appCtx->overlay_graphics_cb = overlay_graphics_cb;
     appCtx->sensorInfoHash = g_hash_table_new(NULL, NULL);
+    appCtx->perf_struct.FPSInfoHash =
+        g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, NULL);
 
     if (config->osd_config.num_out_buffers < 8) {
         config->osd_config.num_out_buffers = 8;
@@ -1221,6 +1485,10 @@ gboolean create_pipeline(AppCtx *appCtx,
                                              &config->source_attr_all_config,
                                              &pipeline->multi_src_bin))
                 goto done;
+            //[source-list] added with num-source-bins=0; This means source-bin
+            // will be created and be waiting for source adds over REST API
+            // mark num-source-bins=1 as one source-bin is indeed created
+            config->num_source_sub_bins = 1;
         }
         /** set properties for nvmultiurisrcbin */
         if (config->uri_list) {
@@ -1235,11 +1503,21 @@ gboolean create_pipeline(AppCtx *appCtx,
                          uri_list_comma_sep, NULL);
             g_free(uri_list_comma_sep);
         }
+        if (config->sensor_name_list) {
+            gchar *uri_list_comma_sep = g_strjoinv(",", config->sensor_name_list);
+            g_object_set(pipeline->multi_src_bin.nvmultiurisrcbin, "sensor-name-list",
+                         uri_list_comma_sep, NULL);
+            g_free(uri_list_comma_sep);
+        }
         g_object_set(pipeline->multi_src_bin.nvmultiurisrcbin, "max-batch-size",
                      config->max_batch_size, NULL);
         g_object_set(pipeline->multi_src_bin.nvmultiurisrcbin, "ip-address", config->http_ip, NULL);
         g_object_set(pipeline->multi_src_bin.nvmultiurisrcbin, "port", config->http_port, NULL);
-
+        g_object_set(pipeline->multi_src_bin.nvmultiurisrcbin, "extract-sei-type5-data-dec",
+                     config->extract_sei_type5_data, NULL);
+        g_object_set(pipeline->multi_src_bin.nvmultiurisrcbin, "low-latency-mode",
+                     config->low_latency_mode, NULL);
+        g_object_set(pipeline->multi_src_bin.nvmultiurisrcbin, "sei-uuid", config->sei_uuid, NULL);
     } else {
         if (!create_multi_source_bin(config->num_source_sub_bins, config->multi_source_config,
                                      &pipeline->multi_src_bin))
@@ -1317,7 +1595,7 @@ gboolean create_pipeline(AppCtx *appCtx,
 
             gst_bin_add(GST_BIN(pipeline->pipeline), pipeline->demux_instance_bins[i].bin);
 
-            demux_src_pad = gst_element_get_request_pad(pipeline->demuxer, pad_name);
+            demux_src_pad = gst_element_request_pad_simple(pipeline->demuxer, pad_name);
             NVGSTDS_LINK_ELEMENT_FULL(pipeline->demuxer, pad_name,
                                       pipeline->demux_instance_bins[i].bin, "sink");
             gst_object_unref(demux_src_pad);
@@ -1400,7 +1678,7 @@ gboolean create_pipeline(AppCtx *appCtx,
             gst_bin_add(GST_BIN(pipeline->pipeline), pipeline->instance_bins[i].bin);
 
             g_snprintf(pad_name, 16, "src_%02d", i);
-            demux_src_pad = gst_element_get_request_pad(pipeline->demuxer, pad_name);
+            demux_src_pad = gst_element_request_pad_simple(pipeline->demuxer, pad_name);
             NVGSTDS_LINK_ELEMENT_FULL(pipeline->demuxer, pad_name, pipeline->instance_bins[i].bin,
                                       "sink");
             gst_object_unref(demux_src_pad);
@@ -1464,6 +1742,8 @@ gboolean create_pipeline(AppCtx *appCtx,
     if (config->enable_perf_measurement) {
         appCtx->perf_struct.context = appCtx;
         if (config->use_nvmultiurisrcbin) {
+            appCtx->perf_struct.stream_name_display = config->stream_name_display;
+            appCtx->perf_struct.use_nvmultiurisrcbin = config->use_nvmultiurisrcbin;
             enable_perf_measurement(
                 &appCtx->perf_struct, fps_pad, config->max_batch_size,
                 config->perf_measurement_interval_sec,
@@ -1585,6 +1865,12 @@ void destroy_pipeline(AppCtx *appCtx)
     if (appCtx->latency_info == NULL) {
         free(appCtx->latency_info);
         appCtx->latency_info = NULL;
+    }
+    if (appCtx->sensorInfoHash) {
+        g_hash_table_destroy(appCtx->sensorInfoHash);
+    }
+    if (appCtx->perf_struct.FPSInfoHash) {
+        g_hash_table_destroy(appCtx->perf_struct.FPSInfoHash);
     }
 
     destroy_sink_bin();

@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "nvdsinfer_context_impl.h"
@@ -513,6 +514,19 @@ NvDsInferStatus InferPostprocessor::initResource(const NvDsInferContextInitParam
     m_CopyInputToHostBuffers = initParams.copyInputToHostBuffers;
 
     m_disableOutputHostCopy = initParams.disableOutputHostCopy;
+    m_DumpOpTensor = initParams.dumpOpTensor;
+    m_OverwriteOpTensor = initParams.overwriteOpTensor;
+    if (m_OverwriteOpTensor) {
+        for (unsigned int i = 0; i < initParams.numOutputLayers; i++) {
+            std::pair<std::string, int> file_pair;
+            std::string file_name = initParams.opTensorFilePath[i];
+            std::ifstream *input_file = new std::ifstream(file_name, std::ifstream::binary);
+            file_pair = std::make_pair(file_name, i);
+            m_OverwriteOpTensorFilePairs.push_back(file_pair);
+            m_OverwriteOpTensorFiles.push_back(input_file);
+        }
+    }
+
     if (!string_empty(initParams.labelsFilePath)) {
         RETURN_NVINFER_ERROR(parseLabelsFile(initParams.labelsFilePath),
                              "parse label file:%s failed", initParams.labelsFilePath);
@@ -588,6 +602,42 @@ NvDsInferStatus InferPostprocessor::postProcessHost(NvDsInferBatch &batch,
                     (void *)((uint8_t *)(batch.m_DeviceBuffers[info.bindingIndex]) +
                              info.inferDims.numElements * getElementSize(info.dataType) * index);
             }
+            if (m_DumpOpTensor) {
+                uint32_t dump_size =
+                    m_NetworkInfo.width * m_NetworkInfo.height * m_NetworkInfo.channels;
+                std::string file_path, layer_name;
+                layer_name = info.layerName;
+                for (auto &element : m_DumpOpTensorFiles) {
+                    if (layer_name == element.first) {
+                        file_path = element.second;
+                        break;
+                    }
+                }
+                if (file_path.empty()) {
+                    std::pair<std::string, std::string> file_pair;
+                    file_path = layer_name + "_op_tensor.bin";
+                    std::replace(file_path.begin(), file_path.end(), '/', '-');
+                    file_pair = std::make_pair(layer_name, file_path);
+                    m_DumpOpTensorFiles.push_back(file_pair);
+                }
+                std::ofstream dump_op_file(file_path, std::ios_base::app);
+                dump_op_file.write((char *)info.buffer, dump_size * 4);
+                dump_op_file.close();
+            }
+            if (m_OverwriteOpTensor) {
+                uint32_t dump_size =
+                    m_NetworkInfo.width * m_NetworkInfo.height * m_NetworkInfo.channels;
+                std::string layer_name = info.layerName;
+                for (auto &element : m_OverwriteOpTensorFilePairs) {
+                    std::replace(element.first.begin(), element.first.end(), '-', '/');
+                    std::string sub_file_name = element.first.substr(0, layer_name.size());
+                    if (layer_name == sub_file_name) {
+                        int index = element.second;
+                        m_OverwriteOpTensorFiles[index]->read((char *)info.buffer, dump_size * 4);
+                        break;
+                    }
+                }
+            }
         }
 
         RETURN_NVINFER_ERROR(parseEachBatch(m_OutputLayerInfo, frameOutput),
@@ -625,6 +675,18 @@ void InferPostprocessor::freeBatchOutput(NvDsInferContextBatchOutput &batchOutpu
     delete[] batchOutput.frames;
     delete[] batchOutput.hostBuffers;
     delete[] batchOutput.outputDeviceBuffers;
+}
+
+/**
+ * Clean up and free all resources
+ */
+InferPostprocessor::~InferPostprocessor()
+{
+    while (!m_OverwriteOpTensorFiles.empty()) {
+        std::ifstream *ptr = m_OverwriteOpTensorFiles.back();
+        m_OverwriteOpTensorFiles.pop_back();
+        ptr->close();
+    }
 }
 
 NvDsInferStatus DetectPostprocessor::initResource(const NvDsInferContextInitParams &initParams)
@@ -1012,6 +1074,15 @@ NvDsInferStatus NvDsInferContextImpl::initialize(NvDsInferContextInitParams &ini
     m_OutputBufferPoolSize = initParams.outputBufferPoolSize;
     m_AutoIncMem = initParams.autoIncMem;
     m_MaxGPUMem = initParams.maxGPUMemPer;
+    m_DumpIpTensor = initParams.dumpIpTensor;
+    if (m_DumpIpTensor) {
+        m_DumpIpTensorFilePath = "ip_tensor_dump.bin";
+    }
+    m_OverwriteIpTensor = initParams.overwriteIpTensor;
+    if (m_OverwriteIpTensor) {
+        m_OverwriteIpTensorFilePath = initParams.ipTensorFilePath;
+        m_OverwriteIpTensorFile.open(m_OverwriteIpTensorFilePath, std::ifstream::binary);
+    }
 
     uint32_t uniqueID = initParams.uniqueID;
     m_LoggingFunc = [this, userCtx, logFunc, uniqueID](NvDsInferLogLevel level, const char *msg) {
@@ -1486,6 +1557,40 @@ NvDsInferStatus NvDsInferContextImpl::queueInputBatch(NvDsInferContextBatchInput
                                                    *m_InferStream, preprocWaitEvent.get()),
                          "Preprocessor transform input data failed.");
 
+    if (m_DumpIpTensor) {
+        uint32_t dump_size = m_NetworkInfo.width * m_NetworkInfo.height * m_NetworkInfo.channels;
+        char *dump_cpu_buffer = (char *)calloc(dump_size * 4, sizeof(char));
+        cudaError_t cudaReturn;
+        cudaReturn = cudaStreamSynchronize(*m_InferStream);
+        if (cudaReturn != cudaSuccess) {
+            printError("Failed to synchronize cuda stream(%s)", cudaGetErrorName(cudaReturn));
+            free(dump_cpu_buffer);
+            return NVDSINFER_CUDA_ERROR;
+        }
+        cudaMemcpy(dump_cpu_buffer, m_BindingBuffers[INPUT_LAYER_INDEX], dump_size * 4,
+                   cudaMemcpyDeviceToHost);
+        std::ofstream dump_ip_file(m_DumpIpTensorFilePath, std::ios_base::app);
+        dump_ip_file.write((char *)dump_cpu_buffer, dump_size * 4);
+        dump_ip_file.close();
+        free(dump_cpu_buffer);
+    }
+
+    if (m_OverwriteIpTensor) {
+        uint32_t dump_size = m_NetworkInfo.width * m_NetworkInfo.height * m_NetworkInfo.channels;
+        char *dump_cpu_buffer = (char *)calloc(dump_size * 4, sizeof(char));
+        cudaError_t cudaReturn;
+        cudaReturn = cudaStreamSynchronize(*m_InferStream);
+        if (cudaReturn != cudaSuccess) {
+            printError("Failed to synchronize cuda stream(%s)", cudaGetErrorName(cudaReturn));
+            free(dump_cpu_buffer);
+            return NVDSINFER_CUDA_ERROR;
+        }
+        m_OverwriteIpTensorFile.read(dump_cpu_buffer, dump_size * 4);
+        cudaMemcpy(m_BindingBuffers[INPUT_LAYER_INDEX], dump_cpu_buffer, dump_size * 4,
+                   cudaMemcpyHostToDevice);
+        free(dump_cpu_buffer);
+    }
+
     /* We may use multiple sets of the output device and host buffers since
      * while the output of one batch is being parsed on the CPU, we can queue
      * pre-processing and inference of another on the GPU. Pop an index from the
@@ -1900,6 +2005,8 @@ NvDsInferContextImpl::~NvDsInferContextImpl()
 
     m_Preprocessor.reset();
     m_Postprocessor.reset();
+
+    m_OverwriteIpTensorFile.close();
 
     bool warn = false;
 

@@ -1,5 +1,6 @@
-/**
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -13,7 +14,7 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -192,8 +193,7 @@ GstCaps *SampleAlgorithm::GetCompatibleCaps(GstPadDirection direction,
         hw_caps = true;
     }
 
-    GstCaps *result = gst_caps_copy(in_caps);
-    return result;
+    return othercaps;
 }
 
 char *SampleAlgorithm::QueryProperties()
@@ -285,8 +285,8 @@ SampleAlgorithm::~SampleAlgorithm()
 
 int SampleAlgorithm::doWork(GstBuffer *inbuf, GstBuffer *outbuf)
 {
-    GstMapInfo in_map_info;
-    GstMapInfo out_map_info;
+    GstMapInfo in_map_info = {0};
+    GstMapInfo out_map_info = {0};
 
     memset(&in_map_info, 0, sizeof(in_map_info));
     if (hw_caps == true)
@@ -481,6 +481,10 @@ void SampleAlgorithm::OutputThread(void)
 
         flow_ret = gst_pad_push(GST_BASE_TRANSFORM_SRC_PAD(m_element), outBuffer);
         GST_DEBUG("FLOW RET = %d\n", flow_ret);
+
+        if (hw_caps == true) {
+            gst_buffer_unref(packetInfo.inbuf);
+        }
 
         lk.lock();
         continue;

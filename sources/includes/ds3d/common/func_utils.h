@@ -38,6 +38,11 @@ inline bool isCpuMem(MemType t)
     return t == MemType::kCpu || t == MemType::kCpuPinned;
 }
 
+inline bool isGpuMem(MemType t)
+{
+    return t == MemType::kGpuCuda;
+}
+
 inline const char *ErrCodeStr(ErrCode code)
 {
     static const std::unordered_map<ErrCode, const char *> kCodeTable = {
@@ -74,10 +79,7 @@ template <class F, typename... Args>
 inline ErrCode CatchError(F f, Args... args)
 {
     ErrCode code = ErrCode::kGood;
-    DS3D_TRY
-    {
-        code = f(std::forward<Args>(args)...);
-    }
+    DS3D_TRY { code = f(std::forward<Args>(args)...); }
     DS3D_CATCH_ERROR(Exception, e.code(), "Catch ds3d error")
     DS3D_CATCH_ERROR(std::exception, ErrCode::kUnknown, "Catch std exception")
     DS3D_CATCH_ANY(ErrCode::kUnknown, "Catch unknown error")
@@ -86,10 +88,7 @@ inline ErrCode CatchError(F f, Args... args)
 
 inline ErrCode CatchVoidCall(std::function<void()> f)
 {
-    DS3D_TRY
-    {
-        f();
-    }
+    DS3D_TRY { f(); }
     DS3D_CATCH_ERROR(Exception, e.code(), "Catch ds3d error")
     DS3D_CATCH_ERROR(std::exception, ErrCode::kUnknown, "Catch std exception")
     DS3D_CATCH_ANY(ErrCode::kUnknown, "Catch unknown error")

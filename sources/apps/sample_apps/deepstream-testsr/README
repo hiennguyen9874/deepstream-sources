@@ -1,11 +1,13 @@
 *****************************************************************************
-* Copyright (c) 2020-2023 NVIDIA Corporation.  All rights reserved.
-*
-* NVIDIA Corporation and its licensors retain all intellectual property
-* and proprietary rights in and to this software, related documentation
-* and any modifications thereto.  Any use, reproduction, disclosure or
-* distribution of this software and related documentation without an express
-* license agreement from NVIDIA Corporation is strictly prohibited.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
 *****************************************************************************
 
 *****************************************************************************
@@ -52,8 +54,7 @@ as per the command line arguments. Refer Usage section for command line argument
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
+      For both Jetson & x86, CUDA_VER=12.2
   $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
@@ -97,7 +98,7 @@ This sample creates instance of either "nvinfer" or "nvinferserver" element
 for inference. The "nvinfer" element uses TensorRT API to infer
 on frames/objects. The "nvinferserver" element uses the Triton Inference
 Server to infer on frames/objects. Both elements are configured through the argument
-provided and correspondingly, their respective config files will be set.
+provided and correspondingly, their respective config files while be set.
 
 For reference, here are the config files used for this sample :
 1. The 4-class detector (referred to as pgie in this sample) uses
@@ -117,5 +118,5 @@ Note:
    above mentioned parameters accordingly.
 5. By default OSD_DISPLAY_TEXT is set to 0. Set to 1, in case user needs
    information about type of object detected in bounding box e.g. Person.
-6. Use sink-type and enc-type to use the sink and encoders accordingly.
+6. Use sync-type and enc-type to use the sink and encoders accordingly.
 7. Only video is supported for recording with bboxes enabled

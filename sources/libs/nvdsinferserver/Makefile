@@ -11,7 +11,7 @@
 ################################################################################
 
 LIB:=libnvds_infer_server.so
-NVDS_VERSION := 6.3
+NVDS_VERSION := 7.0
 LIB_INSTALL_DIR ?= /opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 TRITON_SERVER_STUB ?= build/nvdsinferserver
 

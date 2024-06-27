@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -63,8 +63,8 @@ GST_DEBUG_CATEGORY(gst_nvinfer_debug);
 /* Warn about untracked objects in async mode every 5 minutes. */
 #define UNTRACKED_OBJECT_WARN_INTERVAL (GST_SECOND * 60 * 5)
 
-#define MIN_INPUT_OBJECT_WIDTH 16
-#define MIN_INPUT_OBJECT_HEIGHT 16
+#define MIN_INPUT_OBJECT_WIDTH 1
+#define MIN_INPUT_OBJECT_HEIGHT 1
 
 extern const int DEFAULT_REINFER_INTERVAL = G_MAXINT;
 
@@ -155,7 +155,7 @@ static void gst_nvinfer_reset_init_params(GstNvInfer *nvinfer);
 
 static GType gst_nvinfer_process_mode_get_type(void)
 {
-    static volatile gsize process_mode_type = 0;
+    static gsize process_mode_type = 0;
     static const GEnumValue process_mode[] = {
         {PROCESS_MODEL_FULL_FRAME, "Primary (Full Frame)", "primary"},
         {PROCESS_MODEL_OBJECTS, "Secondary (Objects)", "secondary"},
@@ -759,21 +759,21 @@ static gboolean gst_nvinfer_sink_event(GstBaseTransform *trans, GstEvent *event)
 
     if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_PAD_ADDED) {
         /* New source added in the pipeline. Create a source info instance for it. */
-        guint source_id;
+        guint source_id = 0;
         gst_nvevent_parse_pad_added(event, &source_id);
         nvinfer->source_info->emplace(source_id, GstNvInferSourceInfo());
     }
 
     if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_PAD_DELETED) {
         /* Source removed from the pipeline. Remove the related structure. */
-        guint source_id;
+        guint source_id = 0;
         gst_nvevent_parse_pad_deleted(event, &source_id);
         nvinfer->source_info->erase(source_id);
     }
 
     if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_STREAM_EOS) {
         /* Got EOS from a source. Clean up the object history map. */
-        guint source_id;
+        guint source_id = 0;
         gst_nvevent_parse_stream_eos(event, &source_id);
         auto result = nvinfer->source_info->find(source_id);
         if (result != nvinfer->source_info->end())
@@ -842,11 +842,24 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
 
     nvinfer->interval_counter = 0;
 
-    /* Should not infer on objects smaller than MIN_INPUT_OBJECT_WIDTH x MIN_INPUT_OBJECT_HEIGHT
-     * since it will cause hardware scaling issues. */
+    struct cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, nvinfer->gpu_id);
+
+    /* Should not infer on objects smaller than MIN_INPUT_OBJECT_WIDTH x MIN_INPUT_OBJECT_HEIGHT. */
     nvinfer->min_input_object_width = MAX(MIN_INPUT_OBJECT_WIDTH, nvinfer->min_input_object_width);
     nvinfer->min_input_object_height =
         MAX(MIN_INPUT_OBJECT_HEIGHT, nvinfer->min_input_object_height);
+
+    if (prop.integrated) {
+        if (nvinfer->transform_config_params.compute_mode == NvBufSurfTransformCompute_VIC ||
+            nvinfer->transform_config_params.compute_mode == NvBufSurfTransformCompute_Default) {
+            g_print(
+                "Setting min object dimensions as 16x16 instead of 1x1 to support VIC compute "
+                "mode.\n");
+            nvinfer->min_input_object_width = MAX(16, nvinfer->min_input_object_width);
+            nvinfer->min_input_object_height = MAX(16, nvinfer->min_input_object_height);
+        }
+    }
 
     /* Ask NvDsInferContext to copy the input layer contents to host memory if
      * CPU needs to access it. */
@@ -864,7 +877,7 @@ static gboolean gst_nvinfer_start(GstBaseTransform *btrans)
         init_params->outputBufferPoolSize = std::max<uint>(init_params->outputBufferPoolSize,
                                                            NVDSINFER_CTX_OUT_POOL_SIZE_FLOW_META);
 
-    if (nvinfer->output_tensor_meta || init_params->autoIncMem == 0) {
+    if (nvinfer->output_tensor_meta && init_params->autoIncMem == 0) {
         GST_ELEMENT_WARNING(nvinfer, LIBRARY, SETTINGS,
                             ("NvInfer output-tensor-meta is enabled but init_params auto "
                              "increase memory (auto-inc-mem) is disabled. The bufferpool "
@@ -2123,6 +2136,15 @@ static GstFlowReturn gst_nvinfer_submit_input_buffer(GstBaseTransform *btrans,
     eventAttrib.message.ascii = nvtx_str.c_str();
     nvtxRangeId_t buf_process_range = nvtxDomainRangeStartEx(nvinfer->nvtx_domain, &eventAttrib);
 
+    cudaError_t cudaReturn;
+
+    cudaReturn = cudaSetDevice(nvinfer->gpu_id);
+    if (cudaReturn != cudaSuccess) {
+        GST_ELEMENT_ERROR(nvinfer, RESOURCE, FAILED,
+                          ("Failed to set cuda device %d", nvinfer->gpu_id),
+                          ("cudaSetDevice failed with error %s", cudaGetErrorName(cudaReturn)));
+    }
+
     memset(&in_map_info, 0, sizeof(in_map_info));
 
     /* Map the buffer contents and get the pointer to NvBufSurface. */
@@ -2493,7 +2515,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_infer,
                   DESCRIPTION,
                   nvinfer_plugin_init,
-                  "6.3",
+                  "7.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

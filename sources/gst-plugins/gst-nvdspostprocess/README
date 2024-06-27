@@ -42,8 +42,8 @@ NOTE:
 --------------------------------------------------------------------------------
 How to test :
 
-Single Stream and Rendering, set appropriate CUDA_VER, 11.4 for Jetson 12.1 for dGPU
-   $ export CUDA_VER=12.1
+Single Stream and Rendering, set appropriate CUDA_VER, 11.4 for Jetson 12.2 for dGPU
+   $ export CUDA_VER=12.2
    $ make
    $ sudo -E make install
    $ cd postprocesslib_impl
@@ -58,13 +58,10 @@ On dGPU
     ! nvdspostprocess \
     postprocesslib-config-file=config_detector.yml \
     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so \
-    ! queue ! nvinfer config-file-path= config_infer_secondary_carcolor_postprocess.txt \
+    ! queue ! nvinfer \
+    config-file-path= config_infer_secondary_vehiclemake_postprocess.txt \
     ! nvdspostprocess \
-    postprocesslib-config-file=config_classifier_car_color.yml \
-    postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvinfer \
-    config-file-path= config_infer_secondary_carmake_postprocess.txt \
-    ! nvdspostprocess \
-    postprocesslib-config-file=config_classifier_car_make.yml \
+    postprocesslib-config-file= config_classifier_vehicle_make.yml \
     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvinfer \
     config-file-path= config_infer_secondary_vehicletypes_postprocess.txt \
     ! nvdspostprocess  postprocesslib-config-file= \
@@ -81,13 +78,10 @@ On Jetson
     ! nvdspostprocess \
     postprocesslib-config-file=config_detector.yml \
     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so \
-    ! queue ! nvinfer config-file-path= config_infer_secondary_carcolor_postprocess.txt \
+    ! queue ! nvinfer \
+    config-file-path= config_infer_secondary_vehiclemake_postprocess.txt \
     ! nvdspostprocess \
-    postprocesslib-config-file=config_classifier_car_color.yml \
-    postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvinfer \
-    config-file-path= config_infer_secondary_carmake_postprocess.txt \
-    ! nvdspostprocess \
-    postprocesslib-config-file=config_classifier_car_make.yml \
+    postprocesslib-config-file=config_classifier_vehicle_make.yml \
     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvinfer \
     config-file-path= config_infer_secondary_vehicletypes_postprocess.txt \
     ! nvdspostprocess  postprocesslib-config-file= \

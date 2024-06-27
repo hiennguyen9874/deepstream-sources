@@ -1,24 +1,13 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "MuxConfigParser.h"
@@ -241,53 +230,94 @@ void MuxConfigParser::ParseTxtConfigCommonProps(BatchPolicyConfig *batchPolicy,
                                                 GKeyFile *keyFile)
 {
     GError *error = nullptr;
-    guint set_batch_size = batchPolicy->batch_size;
-    batchPolicy->type = static_cast<NvStreammuxBatchMethod>(g_key_file_get_integer(
-        keyFile, group, NVSTREAMMUX_CONFIG_PROP_BATCH_METHOD_ALGO_TYPE.c_str(), &error));
-    CHECK_ERROR(error, batchPolicy->type, NVSTREAMMUX_DEFAULT_PROP_GROUP_BATCH_METHOD_ALGO_TYPE);
-    batchPolicy->adaptive_batching = static_cast<gboolean>(g_key_file_get_integer(
-        keyFile, group, NVSTREAMMUX_CONFIG_PROP_ADAPTIVE_BATCHING.c_str(), &error));
-    CHECK_ERROR(error, batchPolicy->adaptive_batching,
-                NVSTREAMMUX_DEFAULT_PROP_GROUP_ADAPTIVE_BATCHING);
-    batchPolicy->enable_source_rate_control = static_cast<gboolean>(g_key_file_get_integer(
-        keyFile, group, NVSTREAMMUX_CONFIG_PROP_ENABLE_SOURCE_CONTROL.c_str(), &error));
-    CHECK_ERROR(error, batchPolicy->enable_source_rate_control,
-                NVSTREAMMUX_DEFAULT_PROP_GROUP_ENABLE_SOURCE_CONTROL);
-    batchPolicy->enable_max_fps_control = static_cast<gboolean>(g_key_file_get_integer(
-        keyFile, group, NVSTREAMMUX_CONFIG_PROP_MAX_FPS_CONTROL.c_str(), &error));
-    CHECK_ERROR(error, batchPolicy->enable_max_fps_control,
-                NVSTREAMMUX_DEFAULT_PROP_GROUP_MAX_FPS_CONTROL);
-    batchPolicy->batch_size =
-        g_key_file_get_integer(keyFile, group, NVSTREAMMUX_CONFIG_PROP_BATCH_SIZE.c_str(), &error);
-    /** omit setting default for batch-size if its already non-0 */
+    gchar **keys = NULL;
+    gchar **key = NULL;
+
+    keys = g_key_file_get_keys(keyFile, group, NULL, &error);
     if (error) {
-        if (set_batch_size == 0) {
-            CHECK_ERROR(error, batchPolicy->batch_size, NVSTREAMMUX_DEFAULT_PROP_GROUP_BATCH_SIZE);
+        g_printerr("Error while parsing streammux config file: %s\n", error->message);
+    }
+
+    batchPolicy->type = NVSTREAMMUX_DEFAULT_PROP_GROUP_BATCH_METHOD_ALGO_TYPE;
+    batchPolicy->adaptive_batching = NVSTREAMMUX_DEFAULT_PROP_GROUP_ADAPTIVE_BATCHING;
+    batchPolicy->enable_source_rate_control = NVSTREAMMUX_DEFAULT_PROP_GROUP_ENABLE_SOURCE_CONTROL;
+    batchPolicy->enable_max_fps_control = NVSTREAMMUX_DEFAULT_PROP_GROUP_MAX_FPS_CONTROL;
+    batchPolicy->overall_min_fps_n = NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MIN_FPS_N;
+    batchPolicy->overall_min_fps_d = NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MIN_FPS_D;
+    batchPolicy->overall_max_fps_n = NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MAX_FPS_N;
+    batchPolicy->overall_max_fps_d = NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MAX_FPS_D;
+    batchPolicy->max_same_source_frames = NVSTREAMMUX_DEFAULT_SOURCE_GROUP_MAX_FRAMES_PER_BATCH;
+
+    guint set_batch_size = batchPolicy->batch_size;
+    for (key = keys; *key; key++) {
+        if (!g_strcmp0(*key, NVSTREAMMUX_CONFIG_PROP_BATCH_METHOD_ALGO_TYPE.c_str())) {
+            batchPolicy->type = static_cast<NvStreammuxBatchMethod>(g_key_file_get_integer(
+                keyFile, group, NVSTREAMMUX_CONFIG_PROP_BATCH_METHOD_ALGO_TYPE.c_str(), &error));
+            CHECK_ERROR(error, batchPolicy->type,
+                        NVSTREAMMUX_DEFAULT_PROP_GROUP_BATCH_METHOD_ALGO_TYPE);
+        } else if (!g_strcmp0(*key, NVSTREAMMUX_CONFIG_PROP_ADAPTIVE_BATCHING.c_str())) {
+            batchPolicy->adaptive_batching = static_cast<gboolean>(g_key_file_get_integer(
+                keyFile, group, NVSTREAMMUX_CONFIG_PROP_ADAPTIVE_BATCHING.c_str(), &error));
+            CHECK_ERROR(error, batchPolicy->adaptive_batching,
+                        NVSTREAMMUX_DEFAULT_PROP_GROUP_ADAPTIVE_BATCHING);
+        } else if (!g_strcmp0(*key, NVSTREAMMUX_CONFIG_PROP_ENABLE_SOURCE_CONTROL.c_str())) {
+            batchPolicy->enable_source_rate_control = static_cast<gboolean>(g_key_file_get_integer(
+                keyFile, group, NVSTREAMMUX_CONFIG_PROP_ENABLE_SOURCE_CONTROL.c_str(), &error));
+            CHECK_ERROR(error, batchPolicy->enable_source_rate_control,
+                        NVSTREAMMUX_DEFAULT_PROP_GROUP_ENABLE_SOURCE_CONTROL);
+        } else if (!g_strcmp0(*key, NVSTREAMMUX_CONFIG_PROP_MAX_FPS_CONTROL.c_str())) {
+            batchPolicy->enable_max_fps_control = static_cast<gboolean>(g_key_file_get_integer(
+                keyFile, group, NVSTREAMMUX_CONFIG_PROP_MAX_FPS_CONTROL.c_str(), &error));
+            CHECK_ERROR(error, batchPolicy->enable_max_fps_control,
+                        NVSTREAMMUX_DEFAULT_PROP_GROUP_MAX_FPS_CONTROL);
+        } else if (!g_strcmp0(*key, NVSTREAMMUX_CONFIG_PROP_BATCH_SIZE.c_str())) {
+            batchPolicy->batch_size = g_key_file_get_integer(
+                keyFile, group, NVSTREAMMUX_CONFIG_PROP_BATCH_SIZE.c_str(), &error);
+            /** omit setting default for batch-size if its already non-0 */
+            if (error) {
+                if (set_batch_size == 0) {
+                    CHECK_ERROR(error, batchPolicy->batch_size,
+                                NVSTREAMMUX_DEFAULT_PROP_GROUP_BATCH_SIZE);
+                } else {
+                    batchPolicy->batch_size = set_batch_size;
+                    error = nullptr;
+                }
+            }
+        } else if (!g_strcmp0(*key, NVSTREAMMUX_CONFIG_PROP_OVERAL_MAX_FPS_N.c_str())) {
+            batchPolicy->overall_max_fps_n = g_key_file_get_integer(
+                keyFile, group, NVSTREAMMUX_CONFIG_PROP_OVERAL_MAX_FPS_N.c_str(), &error);
+            CHECK_ERROR(error, batchPolicy->overall_max_fps_n,
+                        NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MAX_FPS_N);
+        } else if (!g_strcmp0(*key, NVSTREAMMUX_CONFIG_PROP_OVERAL_MAX_FPS_D.c_str())) {
+            batchPolicy->overall_max_fps_d = g_key_file_get_integer(
+                keyFile, group, NVSTREAMMUX_CONFIG_PROP_OVERAL_MAX_FPS_D.c_str(), &error);
+            CHECK_ERROR(error, batchPolicy->overall_max_fps_d,
+                        NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MAX_FPS_D);
+        } else if (!g_strcmp0(*key, NVSTREAMMUX_CONFIG_PROP_OVERAL_MIN_FPS_N.c_str())) {
+            batchPolicy->overall_min_fps_n = g_key_file_get_integer(
+                keyFile, group, NVSTREAMMUX_CONFIG_PROP_OVERAL_MIN_FPS_N.c_str(), &error);
+            CHECK_ERROR(error, batchPolicy->overall_min_fps_n,
+                        NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MIN_FPS_N);
+        } else if (!g_strcmp0(*key, NVSTREAMMUX_CONFIG_PROP_OVERAL_MIN_FPS_D.c_str())) {
+            batchPolicy->overall_min_fps_d = g_key_file_get_integer(
+                keyFile, group, NVSTREAMMUX_CONFIG_PROP_OVERAL_MIN_FPS_D.c_str(), &error);
+            CHECK_ERROR(error, batchPolicy->overall_min_fps_d,
+                        NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MIN_FPS_D);
+        } else if (!g_strcmp0(*key, NVSTREAMMUX_CONFIG_PROP_MAX_SAME_SOURCE_FRAMES.c_str())) {
+            batchPolicy->max_same_source_frames = g_key_file_get_integer(
+                keyFile, group, NVSTREAMMUX_CONFIG_PROP_MAX_SAME_SOURCE_FRAMES.c_str(), &error);
+            CHECK_ERROR(error, batchPolicy->max_same_source_frames,
+                        NVSTREAMMUX_DEFAULT_SOURCE_GROUP_MAX_FRAMES_PER_BATCH);
         } else {
-            batchPolicy->batch_size = set_batch_size;
-            error = nullptr;
+            g_print("Unknown key '%s' for group [%s]\n", *key, group);
         }
     }
-    batchPolicy->overall_max_fps_n = g_key_file_get_integer(
-        keyFile, group, NVSTREAMMUX_CONFIG_PROP_OVERAL_MAX_FPS_N.c_str(), &error);
-    CHECK_ERROR(error, batchPolicy->overall_max_fps_n,
-                NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MAX_FPS_N);
-    batchPolicy->overall_max_fps_d = g_key_file_get_integer(
-        keyFile, group, NVSTREAMMUX_CONFIG_PROP_OVERAL_MAX_FPS_D.c_str(), &error);
-    CHECK_ERROR(error, batchPolicy->overall_max_fps_d,
-                NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MAX_FPS_D);
-    batchPolicy->overall_min_fps_n = g_key_file_get_integer(
-        keyFile, group, NVSTREAMMUX_CONFIG_PROP_OVERAL_MIN_FPS_N.c_str(), &error);
-    CHECK_ERROR(error, batchPolicy->overall_min_fps_n,
-                NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MIN_FPS_N);
-    batchPolicy->overall_min_fps_d = g_key_file_get_integer(
-        keyFile, group, NVSTREAMMUX_CONFIG_PROP_OVERAL_MIN_FPS_D.c_str(), &error);
-    CHECK_ERROR(error, batchPolicy->overall_min_fps_d,
-                NVSTREAMMUX_DEFAULT_PROP_GROUP_OVERALL_MIN_FPS_D);
-    batchPolicy->max_same_source_frames = g_key_file_get_integer(
-        keyFile, group, NVSTREAMMUX_CONFIG_PROP_MAX_SAME_SOURCE_FRAMES.c_str(), &error);
-    CHECK_ERROR(error, batchPolicy->max_same_source_frames,
-                NVSTREAMMUX_DEFAULT_SOURCE_GROUP_MAX_FRAMES_PER_BATCH);
+
+    // Free allocations
+    if (keys)
+        g_strfreev(keys);
+    if (error)
+        g_error_free(error);
 }
 
 bool MuxConfigParser::ParseTxtConfig(BatchPolicyConfig *batchPolicy)
@@ -335,6 +365,12 @@ bool MuxConfigParser::ParseTxtConfig(BatchPolicyConfig *batchPolicy)
 done:
     g_key_file_free(keyFile);
     keyFile = nullptr;
+    if (groupsMuxConfig) {
+        g_strfreev(groupsMuxConfig);
+    }
+    if (error) {
+        g_error_free(error);
+    }
     if (!ret) {
         std::cout << __func__ << " failed" << std::endl;
     }

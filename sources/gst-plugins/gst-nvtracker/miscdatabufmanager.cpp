@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "miscdatabufmanager.h"
@@ -44,13 +45,18 @@ bool TrackerMiscDataManager::init(uint32_t batchSize,
                                   uint32_t reidFeatureSize,
                                   uint32_t maxBufferPoolSize,
                                   bool pastFrame,
-                                  bool outputReidTensor)
+                                  bool outputReidTensor,
+                                  bool outputTerminatedTracks,
+                                  bool outputShadowTracks,
+                                  uint32_t maxTerminatedFrameHistory)
 {
-    if ((!pastFrame) && (!outputReidTensor)) {
+    if ((!pastFrame) && (!outputReidTensor) && (!outputTerminatedTracks)) {
         m_IntentionallyEmpty = true;
     }
     m_PastFrame = pastFrame;
     m_OutputReidTensor = outputReidTensor;
+    m_OutputTerminatedTracks = outputTerminatedTracks;
+    m_OutputShadowTracks = outputShadowTracks;
 
     if (m_IntentionallyEmpty) {
         return true;
@@ -67,6 +73,9 @@ bool TrackerMiscDataManager::init(uint32_t batchSize,
         NvTrackerMiscDataBuffer *pNewBuf = new NvTrackerMiscDataBuffer;
         allocatePastFrame(pNewBuf, batchSize, maxTargetsPerStream, maxShadowTrackingAge);
         allocateReid(pNewBuf, batchSize, maxTargetsPerStream, reidFeatureSize);
+        allocateTerminatedTracks(pNewBuf, batchSize, maxTargetsPerStream,
+                                 maxTerminatedFrameHistory);
+        allocateShadowTracks(pNewBuf, batchSize, maxTargetsPerStream);
 
         m_BufferSet.push_back(pNewBuf);
         m_FreeQueue.push(pNewBuf);
@@ -83,19 +92,19 @@ void TrackerMiscDataManager::allocatePastFrame(NvTrackerMiscDataBuffer *pNewBuf,
         return;
     }
     /** Past frame memory */
-    NvDsPastFrameObjBatch &objBatch = pNewBuf->pastFrameObjBatch;
-    objBatch.list = new NvDsPastFrameObjStream[batchSize];
+    NvDsTargetMiscDataBatch &objBatch = pNewBuf->pastFrameObjBatch;
+    objBatch.list = new NvDsTargetMiscDataStream[batchSize];
     objBatch.numAllocated = batchSize;
     objBatch.numFilled = 0;
     objBatch.priv_data = nullptr;
     for (uint32_t streamInd = 0; streamInd < objBatch.numAllocated; streamInd++) {
-        NvDsPastFrameObjStream &objStream = objBatch.list[streamInd];
-        objStream.list = new NvDsPastFrameObjList[maxTargetsPerStream];
+        NvDsTargetMiscDataStream &objStream = objBatch.list[streamInd];
+        objStream.list = new NvDsTargetMiscDataObject[maxTargetsPerStream];
         objStream.numAllocated = maxTargetsPerStream;
         objStream.numFilled = 0;
         for (uint32_t targetInd = 0; targetInd < maxTargetsPerStream; targetInd++) {
-            NvDsPastFrameObjList &objList = objStream.list[targetInd];
-            objList.list = new NvDsPastFrameObj[maxShadowTrackingAge];
+            NvDsTargetMiscDataObject &objList = objStream.list[targetInd];
+            objList.list = new NvDsTargetMiscDataFrame[maxShadowTrackingAge];
             objList.numObj = 0;
         }
     }
@@ -107,11 +116,11 @@ void TrackerMiscDataManager::releasePastFrame(NvTrackerMiscDataBuffer *pBuffer)
         return;
     }
     /** Past frame memory */
-    NvDsPastFrameObjBatch &objBatch = pBuffer->pastFrameObjBatch;
+    NvDsTargetMiscDataBatch &objBatch = pBuffer->pastFrameObjBatch;
     for (uint32_t streamInd = 0; streamInd < objBatch.numAllocated; streamInd++) {
-        NvDsPastFrameObjStream &objStream = objBatch.list[streamInd];
+        NvDsTargetMiscDataStream &objStream = objBatch.list[streamInd];
         for (uint32_t targetInd = 0; targetInd < objStream.numAllocated; targetInd++) {
-            NvDsPastFrameObjList &objList = objStream.list[targetInd];
+            NvDsTargetMiscDataObject &objList = objStream.list[targetInd];
             delete[] objList.list;
         }
         delete[] objStream.list;
@@ -124,13 +133,13 @@ void TrackerMiscDataManager::resetPastFrame(NvTrackerMiscDataBuffer *pBuffer)
     if (!m_PastFrame) {
         return;
     }
-    NvDsPastFrameObjBatch &objBatch = pBuffer->pastFrameObjBatch;
+    NvDsTargetMiscDataBatch &objBatch = pBuffer->pastFrameObjBatch;
     objBatch.numFilled = 0;
     for (uint32_t streamInd = 0; streamInd < objBatch.numAllocated; streamInd++) {
-        NvDsPastFrameObjStream &objStream = objBatch.list[streamInd];
+        NvDsTargetMiscDataStream &objStream = objBatch.list[streamInd];
         objStream.numFilled = 0;
         for (uint32_t targetInd = 0; targetInd < objStream.numAllocated; targetInd++) {
-            NvDsPastFrameObjList &objList = objStream.list[targetInd];
+            NvDsTargetMiscDataObject &objList = objStream.list[targetInd];
             objList.numObj = 0;
         }
     }
@@ -146,9 +155,9 @@ void TrackerMiscDataManager::allocateReid(NvTrackerMiscDataBuffer *pNewBuf,
     }
     NvDsReidTensorBatch &reidTensor = pNewBuf->reidTensorBatch;
     CUDA_CHECK(cudaMalloc(reinterpret_cast<void **>(&reidTensor.ptr_dev),
-                          maxTargetsPerStream * reidFeatureSize * sizeof(float)));
+                          batchSize * maxTargetsPerStream * reidFeatureSize * sizeof(float)));
     CUDA_CHECK(cudaMallocHost(reinterpret_cast<void **>(&reidTensor.ptr_host),
-                              maxTargetsPerStream * reidFeatureSize * sizeof(float)));
+                              batchSize * maxTargetsPerStream * reidFeatureSize * sizeof(float)));
     reidTensor.numFilled = 0;
     reidTensor.featureSize = reidFeatureSize;
     reidTensor.priv_data = nullptr;
@@ -167,6 +176,146 @@ void TrackerMiscDataManager::resetReid(NvTrackerMiscDataBuffer *pBuffer)
 {
 }
 
+void TrackerMiscDataManager::allocateTerminatedTracks(NvTrackerMiscDataBuffer *pNewBuf,
+                                                      uint32_t batchSize,
+                                                      uint32_t maxTargetsPerStream,
+                                                      uint32_t maxTermTrackFrameHistory)
+{
+    if (!m_OutputTerminatedTracks) {
+        return;
+    }
+
+    /** allocate Batch memory covering all streams */
+    NvDsTargetMiscDataBatch &objBatch = pNewBuf->terminatedTrackBatch;
+
+    objBatch.list = new NvDsTargetMiscDataStream[batchSize];
+    objBatch.numAllocated = batchSize;
+    objBatch.numFilled = 0;
+    objBatch.priv_data = nullptr;
+
+    /** For all Streams, allocate for max obj per stream */
+    for (uint32_t streamInd = 0; streamInd < objBatch.numAllocated; streamInd++) {
+        NvDsTargetMiscDataStream &objStream = objBatch.list[streamInd];
+        objStream.list = new NvDsTargetMiscDataObject[maxTargetsPerStream];
+        objStream.numAllocated = maxTargetsPerStream;
+        objStream.numFilled = 0;
+
+        /** For each Target, allocate max frames of history */
+        for (uint32_t targetInd = 0; targetInd < maxTargetsPerStream; targetInd++) {
+            NvDsTargetMiscDataObject &objList = objStream.list[targetInd];
+            objList.list = new NvDsTargetMiscDataFrame[maxTermTrackFrameHistory];
+            objList.numAllocated = maxTermTrackFrameHistory;
+            objList.numObj = 0;
+        }
+    }
+}
+
+void TrackerMiscDataManager::releaseTerminatedTracks(NvTrackerMiscDataBuffer *pBuffer)
+{
+    if (!m_OutputTerminatedTracks) {
+        return;
+    }
+
+    /** Past frame memory */
+    NvDsTargetMiscDataBatch &objBatch = pBuffer->terminatedTrackBatch;
+    for (uint32_t streamInd = 0; streamInd < objBatch.numAllocated; streamInd++) {
+        NvDsTargetMiscDataStream &objStream = objBatch.list[streamInd];
+        for (uint32_t targetInd = 0; targetInd < objStream.numAllocated; targetInd++) {
+            NvDsTargetMiscDataObject &objList = objStream.list[targetInd];
+            delete[] objList.list;
+        }
+        delete[] objStream.list;
+    }
+    delete[] objBatch.list;
+}
+
+void TrackerMiscDataManager::resetTerminatedTracks(NvTrackerMiscDataBuffer *pBuffer)
+{
+    if (!m_OutputTerminatedTracks) {
+        return;
+    }
+
+    NvDsTargetMiscDataBatch &objBatch = pBuffer->terminatedTrackBatch;
+    objBatch.numFilled = 0;
+    for (uint32_t streamInd = 0; streamInd < objBatch.numAllocated; streamInd++) {
+        NvDsTargetMiscDataStream &objStream = objBatch.list[streamInd];
+        objStream.numFilled = 0;
+        for (uint32_t targetInd = 0; targetInd < objStream.numAllocated; targetInd++) {
+            NvDsTargetMiscDataObject &objList = objStream.list[targetInd];
+            objList.numObj = 0;
+        }
+    }
+}
+
+void TrackerMiscDataManager::allocateShadowTracks(NvTrackerMiscDataBuffer *pNewBuf,
+                                                  uint32_t batchSize,
+                                                  uint32_t maxTargetsPerStream)
+{
+    if (!m_OutputShadowTracks) {
+        return;
+    }
+
+    /** allocate Batch memory covering all streams */
+    NvDsTargetMiscDataBatch &objBatch = pNewBuf->shadowTracksBatch;
+
+    objBatch.list = new NvDsTargetMiscDataStream[batchSize];
+    objBatch.numAllocated = batchSize;
+    objBatch.numFilled = 0;
+    objBatch.priv_data = nullptr;
+
+    /** For all Streams, allocate for max obj per stream */
+    for (uint32_t streamInd = 0; streamInd < objBatch.numAllocated; streamInd++) {
+        NvDsTargetMiscDataStream &objStream = objBatch.list[streamInd];
+        objStream.list = new NvDsTargetMiscDataObject[maxTargetsPerStream];
+        objStream.numAllocated = maxTargetsPerStream;
+        objStream.numFilled = 0;
+
+        /** For each Target, allocate max frames of history */
+        for (uint32_t targetInd = 0; targetInd < maxTargetsPerStream; targetInd++) {
+            NvDsTargetMiscDataObject &objList = objStream.list[targetInd];
+            objList.list = new NvDsTargetMiscDataFrame[1];
+            objList.numObj = 0;
+        }
+    }
+}
+
+void TrackerMiscDataManager::releaseShadowTracks(NvTrackerMiscDataBuffer *pBuffer)
+{
+    if (!m_OutputShadowTracks) {
+        return;
+    }
+
+    /** Past frame memory */
+    NvDsTargetMiscDataBatch &objBatch = pBuffer->shadowTracksBatch;
+    for (uint32_t streamInd = 0; streamInd < objBatch.numAllocated; streamInd++) {
+        NvDsTargetMiscDataStream &objStream = objBatch.list[streamInd];
+        for (uint32_t targetInd = 0; targetInd < objStream.numAllocated; targetInd++) {
+            NvDsTargetMiscDataObject &objList = objStream.list[targetInd];
+            delete[] objList.list;
+        }
+        delete[] objStream.list;
+    }
+    delete[] objBatch.list;
+}
+
+void TrackerMiscDataManager::resetShadowTracks(NvTrackerMiscDataBuffer *pBuffer)
+{
+    if (!m_OutputShadowTracks) {
+        return;
+    }
+
+    NvDsTargetMiscDataBatch &objBatch = pBuffer->shadowTracksBatch;
+    objBatch.numFilled = 0;
+    for (uint32_t streamInd = 0; streamInd < objBatch.numAllocated; streamInd++) {
+        NvDsTargetMiscDataStream &objStream = objBatch.list[streamInd];
+        objStream.numFilled = 0;
+        for (uint32_t targetInd = 0; targetInd < objStream.numAllocated; targetInd++) {
+            NvDsTargetMiscDataObject &objList = objStream.list[targetInd];
+            objList.numObj = 0;
+        }
+    }
+}
+
 void TrackerMiscDataManager::returnBuffer(NvTrackerMiscDataBuffer *data)
 {
     if (m_IntentionallyEmpty) {
@@ -175,6 +324,8 @@ void TrackerMiscDataManager::returnBuffer(NvTrackerMiscDataBuffer *data)
 
     resetPastFrame(data);
     resetReid(data);
+    resetTerminatedTracks(data);
+    resetShadowTracks(data);
 
     std::unique_lock<std::mutex> lock(m_Mutex);
     m_FreeQueue.push(data);
@@ -215,6 +366,8 @@ void TrackerMiscDataManager::deInit()
 
         releasePastFrame(pBuffer);
         releaseReid(pBuffer);
+        releaseTerminatedTracks(pBuffer);
+        releaseShadowTracks(pBuffer);
 
         delete pBuffer;
     }

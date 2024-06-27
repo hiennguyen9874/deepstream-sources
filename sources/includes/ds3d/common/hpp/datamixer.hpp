@@ -57,7 +57,7 @@ class GuardDataMixer : public GuardDataProcess<abiDataMixer> {
 
 public:
     template <typename... Args>
-    GuardDataMixer(Args &&...args) : _Base(std::forward<Args>(args)...)
+    GuardDataMixer(Args &&... args) : _Base(std::forward<Args>(args)...)
     {
     }
     ~GuardDataMixer() = default;

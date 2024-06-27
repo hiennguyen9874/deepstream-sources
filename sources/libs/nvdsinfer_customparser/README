@@ -15,8 +15,7 @@ Refer to the DeepStream SDK documentation for a description of the library.
 Compile the library :
 
   # Export correct CUDA version as per the platform
-  For Jetson:  $ export CUDA_VER=11.4
-  For x86:     $ export CUDA_VER=12.1
+  For Jetson & x86: $ export CUDA_VER=12.2
 
   $ sudo -E make install
 

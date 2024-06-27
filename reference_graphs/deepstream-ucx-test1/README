@@ -1,5 +1,5 @@
 #############################################################################
-# Copyright (c) 2022 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2022-2024 NVIDIA Corporation.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -27,8 +27,8 @@ https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvdsu
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.3
-- Graph-Composer 3.0.0
+- DeepStreamSDK 7.0
+- Graph-Composer 4.0.0
 
 Some additional pre-requisites are required. Please refer to
 https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvdsucx.html#requirements

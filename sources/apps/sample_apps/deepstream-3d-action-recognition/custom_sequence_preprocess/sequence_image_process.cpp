@@ -1,23 +1,13 @@
-/**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "sequence_image_process.h"
@@ -505,10 +495,11 @@ NvDsPreProcessStatus SequenceImagePreprocess::parseUserConfig()
             auto scales = parseNumList(iScales->second);
             if (scales.size()) {
                 uint32_t c = 0;
+                auto size_of_scales_arr = (sizeof(_scales.d)) / (sizeof(_scales.d[0]));
                 for (; c < _C && c < scales.size(); ++c) {
                     _scales.d[c] = scales[c];
                 }
-                for (; c < _C; ++c) {
+                for (; c > 0 && c < _C && c < size_of_scales_arr; ++c) {
                     _scales.d[c] = _scales.d[c - 1];
                 }
             }
@@ -518,10 +509,11 @@ NvDsPreProcessStatus SequenceImagePreprocess::parseUserConfig()
             auto means = parseNumList(iMeans->second);
             if (means.size()) {
                 uint32_t c = 0;
+                auto size_of_means_arr = (sizeof(_means.d)) / (sizeof(_means.d[0]));
                 for (; c < _C && c < means.size(); ++c) {
                     _means.d[c] = means[c];
                 }
-                for (; c < _C; ++c) {
+                for (; c > 0 && c < _C && c < size_of_means_arr; ++c) {
                     _means.d[c] = _means.d[c - 1];
                 }
             }

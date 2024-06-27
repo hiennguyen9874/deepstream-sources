@@ -1,31 +1,18 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2020-2022 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <string.h>
 
 #include "deepstream_asr_app.h"
-
-static guint grpc_enable = 1;
 
 static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer data)
 {
@@ -236,11 +223,9 @@ static int create_asr_pipeline(AppCtx *appctx,
     /* Create ASR element */
     asr = gst_element_factory_make("nvdsasr", "nvasr");
 
-    if (grpc_enable) {
-        g_object_set(G_OBJECT(asr), "config-file", "riva_asr_grpc_jasper_conf.yml", NULL);
-        g_object_set(G_OBJECT(asr), "customlib-name", "libnvds_riva_asr_grpc.so", NULL);
-        g_object_set(G_OBJECT(asr), "create-speech-ctx-func", "create_riva_asr_grpc_ctx", NULL);
-    }
+    g_object_set(G_OBJECT(asr), "config-file", "riva_asr_grpc_jasper_conf.yml", NULL);
+    g_object_set(G_OBJECT(asr), "customlib-name", "libnvds_riva_asr_grpc.so", NULL);
+    g_object_set(G_OBJECT(asr), "create-speech-ctx-func", "create_riva_asr_grpc_ctx", NULL);
 
     /* create audio renderer component to play input audio */
     if (sctx->audio_config.enable_playback) {
@@ -257,10 +242,6 @@ static int create_asr_pipeline(AppCtx *appctx,
     }
 
     gst_bin_add_many(GST_BIN(pipeline), tee, audio_resampler, asr, displaysink, audio_sink, NULL);
-
-    /* set properties on elements */
-    if (!grpc_enable)
-        g_object_set(G_OBJECT(asr), "config-file", "riva_asr_conf.yml", NULL);
 
     if (sctx->audio_config.enable_playback) {
         g_object_set(G_OBJECT(audio_sink), "async-handling", TRUE, NULL);
@@ -296,12 +277,12 @@ static int create_asr_pipeline(AppCtx *appctx,
     gst_object_unref(link_sinkpad);
 
     /* P1: decoder -> tee -> audio renderer */
-    tee_renderer_srcpad = gst_element_get_request_pad(tee, "src_%u");
+    tee_renderer_srcpad = gst_element_request_pad_simple(tee, "src_%u");
     GstPad *renderer_pad = gst_element_get_static_pad(audio_sink, "sink");
     gst_pad_link(tee_renderer_srcpad, renderer_pad);
 
     /* P2: decoder -> tee -> resampler -> asr -> fakesink */
-    tee_resampler_srcpad = gst_element_get_request_pad(tee, "src_%u");
+    tee_resampler_srcpad = gst_element_request_pad_simple(tee, "src_%u");
     resampler_sinkpad = gst_element_get_static_pad(audio_resampler, "sink");
     if (!resampler_sinkpad) {
         g_printerr("audio_resampler sink pad failed. \n");

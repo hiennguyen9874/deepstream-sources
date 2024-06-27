@@ -264,7 +264,7 @@ static gboolean nvdewarper_parse_surface_attributes(Gstnvdewarper *nvdewarper,
             }
             g_free(matrix);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_DEWARPER_SURFACE_DST_FOCAL_LENGTH)) {
-            gsize length;
+            gsize length = 0;
             gdouble *focal_length = g_key_file_get_double_list(
                 key_file, group, CONFIG_GROUP_DEWARPER_SURFACE_DST_FOCAL_LENGTH, &length, &error);
             CHECK_ERROR(error);

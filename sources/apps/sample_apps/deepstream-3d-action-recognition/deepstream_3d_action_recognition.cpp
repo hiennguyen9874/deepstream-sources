@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "deepstream_action.h"
@@ -135,7 +125,7 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad,
                         NvDsInferTensorMeta *tensor_meta =
                             (NvDsInferTensorMeta *)(user_meta->user_meta_data);
                         gfloat max_prob = 0;
-                        gint class_id = -1;
+                        gint class_id = 0;
                         gfloat *buffer = (gfloat *)tensor_meta->out_buf_ptrs_host[0];
                         for (size_t i = 0; i < tensor_meta->output_layers_info[0].inferDims.d[0];
                              i++) {
@@ -460,7 +450,7 @@ int main(int argc, char *argv[])
         gst_bin_add(GST_BIN(pipeline), source_bin);
 
         g_snprintf(pad_name, 15, "sink_%u", i);
-        sinkpad = gst_element_get_request_pad(streammux, pad_name);
+        sinkpad = gst_element_request_pad_simple(streammux, pad_name);
         if (!sinkpad) {
             g_printerr("Streammux request sink pad failed. Exiting.\n");
             return -1;
@@ -526,7 +516,11 @@ int main(int argc, char *argv[])
         if (prop.integrated) {
             sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
         } else {
+#ifdef __aarch64__
+            sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
             sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
         }
 
         if (!tiler || !nvvidconv || !nvosd || !sink) {

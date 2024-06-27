@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <X11/Xlib.h>
@@ -90,7 +80,7 @@ typedef enum {
  * see in-code documentation and usage of
  * schema_fill_sample_sgie_vehicle_metadata()
  */
-// #define GENERATE_DUMMY_META_EXT
+//#define GENERATE_DUMMY_META_EXT
 
 /** Following class-ID's
  * used for demonstration code
@@ -259,7 +249,8 @@ static GstClockTime generate_ts_rfc3339_from_ts(char *buf,
     GstClockTime ts_generated;
 
     if (playback_utc ||
-        (appCtx[0]->config.multi_source_config[stream_id].type != NV_DS_SOURCE_RTSP)) {
+        ((appCtx[0]->config.multi_source_config[stream_id].type != NV_DS_SOURCE_RTSP) &&
+         (appCtx[0]->config.source_attr_all_config.type != NV_DS_SOURCE_IPC))) {
         if (testAppCtx->streams[stream_id].meta_number == 0) {
             testAppCtx->streams[stream_id].timespec_first_frame = extract_utc_from_uri(src_uri);
             memcpy(&tloc, (void *)(&testAppCtx->streams[stream_id].timespec_first_frame.tv_sec),
@@ -270,9 +261,8 @@ static GstClockTime generate_ts_rfc3339_from_ts(char *buf,
                 GST_TIMESPEC_TO_TIME(testAppCtx->streams[stream_id].timespec_first_frame);
             if (ts_generated == 0) {
                 g_print(
-                    "WARNING; playback mode used with URI [%s] not conforming to timestamp format;"
-                    " check README; using system-time\n",
-                    src_uri);
+                    "WARNING; playback mode used with URI not conforming to timestamp format;"
+                    " check README; using system-time\n");
                 clock_gettime(CLOCK_REALTIME, &testAppCtx->streams[stream_id].timespec_first_frame);
                 ts_generated =
                     GST_TIMESPEC_TO_TIME(testAppCtx->streams[stream_id].timespec_first_frame);
@@ -310,14 +300,14 @@ static gpointer meta_copy_func(gpointer data, gpointer user_data)
     NvDsEventMsgMeta *srcMeta = (NvDsEventMsgMeta *)user_meta->user_meta_data;
     NvDsEventMsgMeta *dstMeta = NULL;
 
-    dstMeta = (NvDsEventMsgMeta *)g_memdup(srcMeta, sizeof(NvDsEventMsgMeta));
+    dstMeta = (NvDsEventMsgMeta *)g_memdup2(srcMeta, sizeof(NvDsEventMsgMeta));
 
     if (srcMeta->ts)
         dstMeta->ts = g_strdup(srcMeta->ts);
 
     if (srcMeta->objSignature.size > 0) {
         dstMeta->objSignature.signature =
-            (gdouble *)g_memdup(srcMeta->objSignature.signature, srcMeta->objSignature.size);
+            (gdouble *)g_memdup2(srcMeta->objSignature.signature, srcMeta->objSignature.size);
         dstMeta->objSignature.size = srcMeta->objSignature.size;
     }
 
@@ -481,7 +471,7 @@ static void generate_event_msg_meta(AppCtx *appCtx,
     strncpy(meta->objectId, obj_params->obj_label, MAX_LABEL_SIZE);
 
     /** INFO: This API is called once for every 30 frames (now) */
-    if (useTs && src_uri) {
+    if ((useTs && src_uri) || appCtx->config.source_attr_all_config.type == NV_DS_SOURCE_IPC) {
         ts_generated =
             generate_ts_rfc3339_from_ts(meta->ts, MAX_TIME_STAMP_LEN, ts, src_uri, stream_id);
     } else {
@@ -582,9 +572,9 @@ static void bbox_generated_probe_after_analytics(AppCtx *appCtx,
             buf_ntp_time = frame_meta->ntp_timestamp;
 
             if (buf_ntp_time < src_stream->last_ntp_time) {
-                NVGSTDS_WARN_MSG_V(
+                GST_WARNING(
                     "Source %d: NTP timestamps are backward in time."
-                    " Current: %lu previous: %lu",
+                    " Current: %lu previous: %lu \n",
                     stream_id, buf_ntp_time, src_stream->last_ntp_time);
             }
             src_stream->last_ntp_time = buf_ntp_time;
@@ -695,34 +685,76 @@ static void perf_cb(gpointer context, NvDsAppPerfStruct *str)
 
     g_mutex_lock(&fps_lock);
     guint active_src_count = 0;
-    for (i = 0; i < numf; i++) {
-        fps[i] = str->fps[i];
-        if (fps[i]) {
-            active_src_count++;
-        }
-        fps_avg[i] = str->fps_avg[i];
-    }
-    g_print("Active sources : %u\n", active_src_count);
-    if (header_print_cnt % 20 == 0) {
-        g_print("\n**PERF:  ");
+
+    if (!str->use_nvmultiurisrcbin) {
         for (i = 0; i < numf; i++) {
-            g_print("FPS %d (Avg)\t", i);
+            fps[i] = str->fps[i];
+            if (fps[i]) {
+                active_src_count++;
+            }
+            fps_avg[i] = str->fps_avg[i];
         }
+        g_print("Active sources : %u\n", active_src_count);
+        if (header_print_cnt % 20 == 0) {
+            g_print("\n**PERF:  ");
+            for (i = 0; i < numf; i++) {
+                g_print("FPS %d (Avg)\t", i);
+            }
+            g_print("\n");
+            header_print_cnt = 0;
+        }
+        header_print_cnt++;
+
+        time_t t = time(NULL);
+        struct tm *tm = localtime(&t);
+        printf("%s", asctime(tm));
+        if (num_instances > 1)
+            g_print("PERF(%d): ", appCtx->index);
+        else
+            g_print("**PERF:  ");
+
+        for (i = 0; i < numf; i++) {
+            g_print("%.2f (%.2f)\t", fps[i], fps_avg[i]);
+        }
+    } else {
+        for (guint j = 0; j < str->active_source_size; j++) {
+            i = str->source_detail[j].source_id;
+            fps[i] = str->fps[i];
+            if (fps[i]) {
+                active_src_count++;
+            }
+            fps_avg[i] = str->fps_avg[i];
+        }
+        g_print("Active sources : %u\n", active_src_count);
+        if (header_print_cnt % 20 == 0) {
+            g_print("\n**PERF:  ");
+            for (guint j = 0; j < str->active_source_size; j++) {
+                i = str->source_detail[j].source_id;
+                g_print("FPS %d (Avg)\t", i);
+            }
+            g_print("\n");
+            header_print_cnt = 0;
+        }
+        header_print_cnt++;
+
+        time_t t = time(NULL);
+        struct tm *tm = localtime(&t);
+        printf("%s", asctime(tm));
+        if (num_instances > 1)
+            g_print("PERF(%d): ", appCtx->index);
+        else
+            g_print("**PERF:  ");
+
         g_print("\n");
-        header_print_cnt = 0;
-    }
-    header_print_cnt++;
-
-    time_t t = time(NULL);
-    struct tm *tm = localtime(&t);
-    printf("%s", asctime(tm));
-    if (num_instances > 1)
-        g_print("PERF(%d): ", appCtx->index);
-    else
-        g_print("**PERF:  ");
-
-    for (i = 0; i < numf; i++) {
-        g_print("%.2f (%.2f)\t", fps[i], fps_avg[i]);
+        for (guint j = 0; j < str->active_source_size; j++) {
+            i = str->source_detail[j].source_id;
+            if (!str->stream_name_display) {
+                g_print("%.2f (%.2f)\t", fps[i], fps_avg[i]);
+            } else {
+                g_print("%s[%s] %.2f (%.2f)\t", str->source_detail[j].sensor_id,
+                        str->source_detail[j].sensor_name, fps[i], fps_avg[i]);
+            }
+        }
     }
     g_print("\n");
     g_mutex_unlock(&fps_lock);
@@ -1438,7 +1470,9 @@ int main(int argc, char *argv[])
 
         if (!show_bbox_text) {
             GstElement *nvosd = appCtx[i]->pipeline.instance_bins[0].osd_bin.nvosd;
-            g_object_set(G_OBJECT(nvosd), "display-text", FALSE, NULL);
+            if (nvosd) {
+                g_object_set(G_OBJECT(nvosd), "display-text", FALSE, NULL);
+            }
         }
 
         if (gst_element_set_state(appCtx[i]->pipeline.pipeline, GST_STATE_PAUSED) ==

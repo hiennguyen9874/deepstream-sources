@@ -1,5 +1,6 @@
-/**
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -13,7 +14,7 @@
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
  * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
@@ -83,8 +84,8 @@ static GstStaticPadTemplate gst_nvdsvideotemplate_sink_template = GST_STATIC_PAD
     GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE_WITH_FEATURES(
         "memory:NVMM",
         "{ "
-        "NV12, RGBA, I420 }") ";" GST_VIDEO_CAPS_MAKE("{ "
-                                                      "NV12, RGBA, I420 }")));
+        "NV12, RGBA, I420 , RGB}") ";" GST_VIDEO_CAPS_MAKE("{ "
+                                                           "NV12, RGBA, I420 }")));
 
 static GstStaticPadTemplate gst_nvdsvideotemplate_src_template = GST_STATIC_PAD_TEMPLATE(
     "src",
@@ -92,8 +93,8 @@ static GstStaticPadTemplate gst_nvdsvideotemplate_src_template = GST_STATIC_PAD_
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE_WITH_FEATURES(
         GST_CAPS_FEATURE_MEMORY_NVMM,
-        "{ NV12, RGBA, I420 }") ";" GST_VIDEO_CAPS_MAKE("{ "
-                                                        "NV12, RGBA, I420 }")));
+        "{ NV12, RGBA, I420, GRAY8 }") ";" GST_VIDEO_CAPS_MAKE("{ "
+                                                               "NV12, RGBA, I420 }")));
 
 /* Define our element type. Standard GObject/GStreamer boilerplate stuff */
 #define gst_nvdsvideotemplate_parent_class parent_class
@@ -107,6 +108,7 @@ static void gst_nvdsvideotemplate_get_property(GObject *object,
                                                guint prop_id,
                                                GValue *value,
                                                GParamSpec *pspec);
+static void gst_nvdsvideotemplate_finalize(GObject *object);
 static gboolean gst_nvdsvideotemplate_sink_event(GstBaseTransform *btrans, GstEvent *event);
 
 static gboolean gst_nvdsvideotemplate_set_caps(GstBaseTransform *btrans,
@@ -143,7 +145,7 @@ static gboolean gst_nvdsvideotemplate_query(GstBaseTransform *trans,
     filter = GST_NVDSVIDEOTEMPLATE(trans);
 
     if (gst_nvquery_is_update_caps(query)) {
-        guint stream_index;
+        guint stream_index = 0;
         const GValue *frame_rate = NULL;
         GstStructure *str;
 
@@ -329,6 +331,7 @@ static void gst_nvdsvideotemplate_class_init(GstNvDsVideoTemplateClass *klass)
     /* Overide base class functions */
     gobject_class->set_property = GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_set_property);
     gobject_class->get_property = GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_get_property);
+    gobject_class->finalize = GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_finalize);
 
     gstbasetransform_class->transform_caps =
         GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_transform_caps);
@@ -580,6 +583,21 @@ error:
     return FALSE;
 }
 
+static void gst_nvdsvideotemplate_finalize(GObject *object)
+{
+    GstNvDsVideoTemplate *nvdsvideotemplate = GST_NVDSVIDEOTEMPLATE(object);
+
+    if (nvdsvideotemplate->vecProp)
+        delete nvdsvideotemplate->vecProp;
+
+    if (nvdsvideotemplate->custom_lib_name) {
+        g_free(nvdsvideotemplate->custom_lib_name);
+        nvdsvideotemplate->custom_lib_name = NULL;
+    }
+
+    G_OBJECT_CLASS(parent_class)->finalize(object);
+}
+
 /**
  * Stop the process thread and free up all the resources
  */
@@ -600,13 +618,6 @@ static gboolean gst_nvdsvideotemplate_stop(GstBaseTransform *btrans)
     if (nvdsvideotemplate->algo_factory)
         delete nvdsvideotemplate->algo_factory;
 
-    if (nvdsvideotemplate->vecProp)
-        delete nvdsvideotemplate->vecProp;
-
-    if (nvdsvideotemplate->custom_lib_name) {
-        g_free(nvdsvideotemplate->custom_lib_name);
-        nvdsvideotemplate->custom_lib_name = NULL;
-    }
     if (nvdsvideotemplate->custom_prop_string) {
         g_free(nvdsvideotemplate->custom_prop_string);
         nvdsvideotemplate->custom_prop_string = NULL;
@@ -674,7 +685,7 @@ static gboolean gst_nvdsvideotemplate_sink_event(GstBaseTransform *btrans, GstEv
 
     ret = GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(btrans, event);
     if (ret == FALSE) {
-        GstState cur_state;
+        GstState cur_state = GST_STATE_NULL;
         gst_element_get_state(GST_ELEMENT(btrans), &cur_state, NULL, 0);
         if (!(event != NULL || cur_state == GST_STATE_NULL || cur_state == GST_STATE_PAUSED))
             GST_ERROR_ON_BUS("sink_event error", "sink_event error");
@@ -766,7 +777,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_videotemplate,
                   DESCRIPTION,
                   nvdsvideotemplate_plugin_init,
-                  "6.3",
+                  "7.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

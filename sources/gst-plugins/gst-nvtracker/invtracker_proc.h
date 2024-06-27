@@ -1,11 +1,13 @@
-/**
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #ifndef _INVTRACKERPROC_H
@@ -46,7 +48,8 @@ struct TrackerConfig {
     uint32_t trackerWidth;
     uint32_t trackerHeight;
     char *trackerLibFile;
-    char *trackerConfigFile;
+    char *trackerConfigFileList;
+    std::vector<std::string> trackerConfigFilePerSubBatch;
 
     bool displayTrackingId;
     TrackingIdResetMode trackingIdResetMode;
@@ -60,6 +63,14 @@ struct TrackerConfig {
 
     bool inputTensorMeta = false;
     uint32_t tensorMetaGieId = 0;
+    /** vector < sub-batch ids : vector <source ids in each sub-batch > >*/
+    std::vector<std::vector<int>> subBatchesConfig = {};
+    std::vector<uint32_t> subBatchSizes = {};
+    /** dynamicSubBatching will be set to "true" when user specifies sub-batch sizes and */
+    /** i.e. the actual mapping from source id (pad index) to sub-batch happens dynamically
+     * (run-time)*/
+    bool dynamicSubBatching = false;
+    int subBatchErrRecoveryTrialCnt;
 
     /** From low level tracker library query. */
     NvBufSurfaceColorFormat colorFormat;
@@ -68,12 +79,20 @@ struct TrackerConfig {
     uint32_t maxTargetsPerStream;
     uint32_t maxShadowTrackingAge;
     bool pastFrame;
+    bool outputTerminatedTracks;
+    uint32_t maxTrajectoryBufferLength;
+
+    bool outputShadowTracks;
 
     /** Store buffer pool size since low level tracker needs this info. */
     uint32_t maxConvBufPoolSize;
     uint32_t maxMiscDataPoolSize;
     uint32_t reidFeatureSize;
+    uint32_t maxConvexHullSize;
     bool outputReidTensor;
+    bool outputVisibility;
+    bool outputFootLocation;
+    bool outputConvexHull;
 
     char *gstName;
 };

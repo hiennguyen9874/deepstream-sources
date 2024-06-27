@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <cstring>
@@ -44,19 +34,19 @@ gboolean parse_msgconsumer_yaml(NvDsMsgConsumerConfig *config,
         } else if (paramKey == "config-file") {
             std::string temp = itr->second.as<std::string>();
             config->config_file_path = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->config_file_path, temp.c_str(), 1024);
+            std::strncpy(config->config_file_path, temp.c_str(), 1023);
         } else if (paramKey == "proto-lib") {
             std::string temp = itr->second.as<std::string>();
             config->proto_lib = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->proto_lib, temp.c_str(), 1024);
+            std::strncpy(config->proto_lib, temp.c_str(), 1023);
         } else if (paramKey == "conn-str") {
             std::string temp = itr->second.as<std::string>();
             config->conn_str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->conn_str, temp.c_str(), 1024);
+            std::strncpy(config->conn_str, temp.c_str(), 1023);
         } else if (paramKey == "sensor-list-file") {
             std::string temp = itr->second.as<std::string>();
             char *str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(str, temp.c_str(), 1024);
+            std::strncpy(str, temp.c_str(), 1023);
             config->sensor_list_file = (char *)malloc(sizeof(char) * 1024);
             if (!get_absolute_file_path_yaml(cfg_file_path, str, config->sensor_list_file)) {
                 g_printerr("Error: Could not parse labels file path\n");
@@ -73,7 +63,7 @@ gboolean parse_msgconsumer_yaml(NvDsMsgConsumerConfig *config,
 
             for (int i = 0; i < length; i++) {
                 char *str2 = (char *)malloc(sizeof(char) * _MAX_STR_LENGTH);
-                std::strncpy(str2, vec[i].c_str(), _MAX_STR_LENGTH);
+                std::strncpy(str2, vec[i].c_str(), _MAX_STR_LENGTH - 1);
                 topicList[i] = str2;
             }
             topicList[length] = NULL;

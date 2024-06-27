@@ -72,7 +72,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvdewarper_debug);
 #define PACKAGE_NAME "GStreamer nVidia Dewarper Plugin"
 #define PACKAGE_URL "http://nvidia.com/"
 
-// #define MEASURE_TIME
+//#define MEASURE_TIME
 #ifdef MEASURE_TIME
 #include <stdio.h>
 #include <sys/time.h>
@@ -329,9 +329,9 @@ static GstCaps *gst_nvdewarper_fixate_caps(GstBaseTransform *trans,
 
     /* we have both PAR but they might not be fixated */
     if (from_par && to_par) {
-        gint from_w, from_h, from_par_n, from_par_d, to_par_n, to_par_d;
+        gint from_w = 0, from_h = 0, from_par_n = 0, from_par_d = 0, to_par_n = 0, to_par_d = 0;
         gint count = 0, w = 0, h = 0;
-        guint num, den;
+        guint num = 0, den = 0;
 
         /* from_par should be fixed */
         g_return_val_if_fail(gst_value_is_fixed(from_par), othercaps);
@@ -482,6 +482,7 @@ static GstCaps *gst_nvdewarper_transform_caps(GstBaseTransform *btrans,
     Gstnvdewarper *nvdewarper = GST_NVDEWARPER(btrans);
     GstCapsFeatures *feature = NULL;
     GstCaps *new_caps = NULL;
+    GstCaps *temp_caps = NULL;
 
     if (direction == GST_PAD_SINK) {
         new_caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "RGBA", "width",
@@ -510,6 +511,11 @@ static GstCaps *gst_nvdewarper_transform_caps(GstBaseTransform *btrans,
             fs = gst_caps_get_structure(new_caps, i);
             gst_structure_set_value(fs, "framerate", fps_value);
         }
+    }
+    if (filter) {
+        temp_caps = gst_caps_intersect(new_caps, filter);
+        gst_caps_unref(new_caps);
+        new_caps = temp_caps;
     }
     return new_caps;
 }
@@ -1378,7 +1384,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dewarper,
                   PACKAGE_DESCRIPTION,
                   nvdewarper_init,
-                  "6.3",
+                  "7.0",
                   PACKAGE_LICENSE,
                   PACKAGE_NAME,
                   PACKAGE_URL)

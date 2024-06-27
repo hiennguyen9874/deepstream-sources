@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2020 NVIDIA Corporation.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2020 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 // This source file presents some common functions/utils used by adapter libraries
@@ -104,6 +105,7 @@ NvDsMsgApiErrorType fetch_config_value(char *config_path,
     if (error) {
         nvds_log(LOG_CAT, LOG_ERR, "config group[%s] in cfg not found. Error:%s\n",
                  CONFIG_GROUP_MSG_BROKER, error->message);
+        free_gobjs(key_file, error, keys, NULL);
         return NVDS_MSGAPI_ERR;
     }
     gchar *str = NULL;
@@ -140,10 +142,7 @@ string generate_sha256_hash(string str)
     unsigned char hashval[SHA256_DIGEST_LENGTH];
     int len = SHA256_DIGEST_LENGTH * 2 + 1;
     char res[len];
-    SHA256_CTX sha256;
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, str.c_str(), str.length());
-    SHA256_Final(hashval, &sha256);
+    SHA256(reinterpret_cast<const unsigned char *>(str.c_str()), str.length(), hashval);
     for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
         sprintf(res + (i * 2), "%02x", hashval[i]);
     }

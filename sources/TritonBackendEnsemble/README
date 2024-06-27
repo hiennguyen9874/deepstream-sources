@@ -20,8 +20,8 @@ The included deepstream-app configuration file sets up a pipeline as follows:
   source -> pgie -> tracker -> sgie -> tiler -> sink.
 The PGIE, Primary_Detector, is a 4 class detector model and it detects the
 classes "Vehicle , RoadSign, TwoWheeler, Person". The SGIE is a Triton
-ensemble model that has Secondary_CarColor, Secondary_CarMake,
-Secondary_VehicleTypes, and a custom Triton C++ backend as it's component
+ensemble model that has Secondary_VehicleMake, Secondary_VehicleTypes,
+and a custom Triton C++ backend as it's component
 models. The vehicle objects detected by the PGIE and tracked by the tracker
 are used as input to the ensemble model along with corresponding stream IDs.
 The objects are inferred by the SGIE component classifier models. The stream
@@ -56,16 +56,14 @@ Sample contents for DeepStream Triton:
   into nvds metadata.
 - triton_model_repo/triton_custom_backend_ensemble/config.pbtxt:
   Configuration file for the example Triton Ensemble model. This ensemble works
-  as a secondary GIE. The component models of this ensemble are Secondary_CarColor,
-  Secondary_CarMake, Secondary_VehicleType and deepstream_triton_custom_cpp_backend.
+  as a secondary GIE. The component models of this ensemble are
+  Secondary_VehicleMake, Secondary_VehicleType and deepstream_triton_custom_cpp_backend.
 - triton_model_repo/deepstream_triton_custom_cpp_backend/config.pbtxt:
   Triton model configuration file for the Triton custom C++ backend that processes
   DeepStream metadata, stream IDs in this example.
 - triton_model_repo/Primary_Detector: Softlink to the Primary_Detector Triton
   model.
-- triton_model_repo/Secondary_CarColor: Softlink to the Secondary_CarColor
-  Triton model.
-- triton_model_repo/Secondary_CarMake: Softlink to the Secondary_CarMake
+- triton_model_repo/Secondary_VehicleMake: Softlink to the Secondary_VehicleMake
   Triton model.
 - triton_model_repo/Secondary_VehicleTypes: Softlink to the Secondary_VehicleTypes
   Triton model.
@@ -78,7 +76,7 @@ Pre-requisites:
   https://catalog.ngc.nvidia.com/orgs/nvidia/containers/deepstream
   to download deepstream-triton image.
   $ docker pull nvcr.io/nvidia/deepstream:[version]-triton
-   [version] means deepstream version numbers e.g. 6.3.0
+   [version] means deepstream version numbers e.g. 7.0.0
   $ xhost +
   Set correct $DISPLAY variables on host, then run deepstream-triton docker container.
    $ docker run --gpus '"'device=0'"' -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix \
@@ -112,9 +110,16 @@ Pre-requisites:
    $ cd nvds_triton_cpp_custom_backend
    $ mkdir build
    $ cd build
+
+   For x86:
    $ ~/.local/bin/cmake -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/install -DTRITON_ENABLE_GPU=ON \
-     -DTRITON_BACKEND_REPO_TAG=r22.09 -DTRITON_CORE_REPO_TAG=r22.09 \
-     -DTRITON_COMMON_REPO_TAG=r22.09  ..
+     -DTRITON_BACKEND_REPO_TAG=r23.08 -DTRITON_CORE_REPO_TAG=r23.08 \
+     -DTRITON_COMMON_REPO_TAG=r23.08  ..
+   For Jetson:
+   $ ~/.local/bin/cmake -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/install -DTRITON_ENABLE_GPU=ON \
+     -DTRITON_BACKEND_REPO_TAG=r23.11 -DTRITON_CORE_REPO_TAG=r23.11 \
+     -DTRITON_COMMON_REPO_TAG=r23.11  ..
+
    $ mkdir -p /opt/tritonserver/backends/recommended/
 
 NOTE: Run with "sudo -E" or root if there is file permission issues.
@@ -124,8 +129,7 @@ NOTE: Run with "sudo -E" or root if there is file permission issues.
 ===============================================================================
  - Compile the custom library:
    Set CUDA_VER in the MakeFile as per platform.
-    For Jetson, CUDA_VER=11.4
-    For x86, CUDA_VER=12.1
+    For both Jetson & x86, CUDA_VER=12.2
 
    $ make -C nvdsinferserver_custom_impl_ensemble
 

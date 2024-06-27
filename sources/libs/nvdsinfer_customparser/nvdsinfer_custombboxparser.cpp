@@ -1,24 +1,13 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <algorithm>
@@ -113,7 +102,7 @@ extern "C" bool NvDsInferParseCustomResnet(std::vector<NvDsInferLayerInfo> const
     /* Find the bbox layer */
     if (bboxLayerIndex == -1) {
         for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
-            if (strcmp(outputLayersInfo[i].layerName, "conv2d_bbox") == 0) {
+            if (strcmp(outputLayersInfo[i].layerName, "output_bbox/BiasAdd") == 0) {
                 bboxLayerIndex = i;
                 getDimsCHWFromDims(bboxLayerDims, outputLayersInfo[i].inferDims);
                 break;
@@ -128,7 +117,7 @@ extern "C" bool NvDsInferParseCustomResnet(std::vector<NvDsInferLayerInfo> const
     /* Find the cov layer */
     if (covLayerIndex == -1) {
         for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
-            if (strcmp(outputLayersInfo[i].layerName, "conv2d_cov/Sigmoid") == 0) {
+            if (strcmp(outputLayersInfo[i].layerName, "output_cov/Sigmoid") == 0) {
                 covLayerIndex = i;
                 getDimsCHWFromDims(covLayerDims, outputLayersInfo[i].inferDims);
                 break;

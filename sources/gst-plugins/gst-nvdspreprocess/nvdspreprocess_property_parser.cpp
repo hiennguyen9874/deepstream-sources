@@ -1,23 +1,13 @@
-/**
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "nvdspreprocess_property_parser.h"
@@ -107,10 +97,12 @@ GST_DEBUG_CATEGORY(NVDSPREPROCESS_CFG_PARSER_CAT);
         CHECK_INT_VALUE_NON_NEGATIVE(property, field, group);              \
     }
 
-#define GET_STRING_PROPERTY(group, property, field)                       \
-    {                                                                     \
-        field = g_key_file_get_string(key_file, group, property, &error); \
-        CHECK_ERROR(error, group);                                        \
+#define GET_STRING_PROPERTY(group, property, field)                             \
+    {                                                                           \
+        gchar *temp = g_key_file_get_string(key_file, group, property, &error); \
+        field = temp;                                                           \
+        g_free(temp);                                                           \
+        CHECK_ERROR(error, group);                                              \
     }
 
 #define READ_UINT_PROPERTY(group, property, field)                         \
@@ -196,8 +188,10 @@ static gboolean get_absolute_file_path(const gchar *cfg_file_path,
         /* Ignore error if file does not exist and use the unresolved path. */
         if (errno == ENOENT)
             g_strlcpy(abs_real_file_path, abs_file_path, _PATH_MAX);
-        else
+        else {
+            g_free(abs_file_path);
             return FALSE;
+        }
     }
 
     g_free(abs_file_path);
@@ -430,7 +424,7 @@ static gboolean nvdspreprocess_parse_property_group(GstNvDsPreProcess *nvdsprepr
         } else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_TENSOR_PREPARATION_FUNCTION)) {
             GET_STRING_PROPERTY(group, *key, nvdspreprocess->custom_tensor_function_name);
             GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%s in group '%s'\n", *key,
-                         nvdspreprocess->custom_tensor_function_name, group);
+                         nvdspreprocess->custom_tensor_function_name.c_str(), group);
             nvdspreprocess->property_set.custom_tensor_function_name = TRUE;
         }
     }
@@ -457,7 +451,8 @@ static gboolean nvdspreprocess_parse_property_group(GstNvDsPreProcess *nvdsprepr
                      nvdspreprocess->tensor_params.network_input_shape[3]);
 
     GST_DEBUG_OBJECT(nvdspreprocess, "Custom Lib = %s\n Custom Tensor Preparation Function = %s\n",
-                     nvdspreprocess->custom_lib_path, nvdspreprocess->custom_tensor_function_name);
+                     nvdspreprocess->custom_lib_path,
+                     nvdspreprocess->custom_tensor_function_name.c_str());
 
     ret = TRUE;
 
@@ -528,9 +523,9 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
             GET_STRING_PROPERTY(group, *key, preprocess_group->custom_transform_function_name);
             GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%s in group '%s'\n",
                          NVDSPREPROCESS_GROUP_CUSTOM_INPUT_PREPROCESS_FUNCTION,
-                         preprocess_group->custom_transform_function_name, group);
+                         preprocess_group->custom_transform_function_name.c_str(), group);
             GST_DEBUG_OBJECT(nvdspreprocess, "Custom Transformation Function = %s\n",
-                             preprocess_group->custom_transform_function_name);
+                             preprocess_group->custom_transform_function_name.c_str());
         } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_OPERATE_ON_CLASS_IDS)) {
             class_list =
                 g_key_file_get_integer_list(key_file, group, *key, &class_list_len, &error);
@@ -592,7 +587,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
                          preprocess_group->max_input_object_height, group);
             nvdspreprocess->property_set.max_input_object_height = TRUE;
         } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_ROI_COLOR)) {
-            gsize roi_color_list_len;
+            gsize roi_color_list_len = 0;
             gdouble *roi_color_list =
                 g_key_file_get_double_list(key_file, group, *key, &roi_color_list_len, &error);
             if (roi_color_list == nullptr) {
@@ -757,6 +752,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
     ret = TRUE;
     preprocess_group = nullptr;
 done:
+    delete preprocess_group;
     return ret;
 }
 
@@ -775,7 +771,9 @@ static gboolean nvdspreprocess_parse_user_configs(GstNvDsPreProcess *nvdspreproc
     CHECK_ERROR(error, group);
 
     for (key = keys; *key; key++) {
-        std::string val = g_key_file_get_string(key_file, group, *key, &error);
+        gchar *temp = g_key_file_get_string(key_file, group, *key, &error);
+        std::string val = temp;
+        g_free(temp);
         GST_DEBUG_OBJECT(nvdspreprocess, "parsed user-config key = %s value = %s\n", *key,
                          val.c_str());
         CHECK_ERROR(error, group);

@@ -1,14 +1,13 @@
 *****************************************************************************
-* SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-* SPDX-License-Identifier: LicenseRef-NvidiaProprietary
-*
-* NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
-* property and proprietary rights in and to this material, related
-* documentation and any modifications thereto. Any use, reproduction,
-* disclosure or distribution of this material and related documentation
-* without an express license agreement from NVIDIA CORPORATION or
-* its affiliates is strictly prohibited.
-*
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
 *****************************************************************************
 
 *****************************************************************************
@@ -74,7 +73,7 @@ how to:
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=12.1
+      For x86, CUDA_VER=12.2
   $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
@@ -140,15 +139,17 @@ Refer "Supported features" section  for curl command and endpoint details.
 4. Supported features:
 ===============================================================================
 
+Note: Currently REST API version "v1" is supported.
+
 Features supported with this application are:
 
 1. Stream add/remove
   a. Stream add
 
-  Endpoint: /stream/add
+  Endpoint: /api/v1/stream/add
   Curl command to add stream:
 
-  curl -XPOST 'http://localhost:9000/stream/add' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/stream/add' -d '{
     "key": "sensor",
     "value": {
         "camera_id": "uniqueSensorID1",
@@ -173,10 +174,10 @@ Features supported with this application are:
 
   b. Stream remove
 
-  Endpoint: /stream/remove
+  Endpoint: /api/v1/stream/remove
   Curl command to remove stream:
 
-  curl -XPOST 'http://localhost:9000/stream/remove' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/stream/remove' -d '{
     "key": "sensor",
     "value": {
         "camera_id": "uniqueSensorID1",
@@ -200,10 +201,10 @@ Features supported with this application are:
 
 2. ROI
 
-  Endpoint: /roi/update
+  Endpoint: /api/v1/roi/update
   Curl command to update ROI:
 
-  curl -XPOST 'http://localhost:9000/roi/update' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/roi/update' -d '{
     "stream": {
         "stream_id": "0",
         "roi_count": 2,
@@ -230,11 +231,11 @@ Features supported with this application are:
 3. Decoder
   a. Drop frame interval
 
-  Endpoint: /dec/drop-frame-interval
+  Endpoint: /api/v1/dec/drop-frame-interval
   Configuration values for "drop_frame_interval" field of the schema: Range [0 - 30]
   Curl command to configure decoder drop-frame-interval property:
 
-  curl -XPOST 'http://localhost:9000/dec/drop-frame-interval' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/dec/drop-frame-interval' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -248,14 +249,14 @@ Features supported with this application are:
 
   b. Skip frame
 
-  Endpoint: /dec/skip-frames
+  Endpoint: /api/v1/dec/skip-frames
   Configuration values for "skip_frames" field of the schema:
     (0): - Decode all frames
     (1): - Decode non-ref frames
     (2): - Decode key frames
   Curl command to configure decoder skip-frames property:
 
-  curl -XPOST 'http://localhost:9000/dec/skip-frames' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/dec/skip-frames' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -270,11 +271,11 @@ Features supported with this application are:
 
 4. Nvinfer
 
-  Endpoint: /infer/set-interval
+  Endpoint: /api/v1/infer/set-interval
 
   Curl command to configure nvinfer interval property:
 
-  curl -XPOST 'http://localhost:9000/infer/set-interval' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/infer/set-interval' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -293,10 +294,10 @@ Features supported with this application are:
 
 5. Nvinferserver
 
-  Endpoint:/inferserver/set-interval
+  Endpoint: /api/v1/inferserver/set-interval
   Curl command to configure nvinferserver interval property:
 
-  curl -XPOST 'http://localhost:9000/inferserver/set-interval' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/inferserver/set-interval' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -320,12 +321,12 @@ Features supported with this application are:
 
   a. Force-idr
 
-  Endpoint: /enc/force-idr
+  Endpoint: /api/v1/enc/force-idr
   Configuration value for "force_idr" field of the schema:
     (1): - Force IDR frame
   Curl command to configure encoder force idr frame property:
 
-  curl -XPOST 'http://localhost:9000/enc/force-idr' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/enc/force-idr' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -337,14 +338,16 @@ Features supported with this application are:
   Encoder force-idr property should reflect with insertion of the IDR frame with the
   encoded bitstream by the encoder.
 
+  Note: By default encoder is disabled. To enable, set enable: 1 in the "encoder" group of dsserver_config.yml
+  
   b. Force-intra
 
-  Endpoint: /enc/force-intra
+  Endpoint: /api/v1/enc/force-intra
   Configuration value for "force_intra" field of the schema:
     (1): - Force Intra frame
   Curl command to configure encoder force intra frame property:
 
-  curl -XPOST 'http://localhost:9000/enc/force-intra' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/enc/force-intra' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -358,11 +361,11 @@ Features supported with this application are:
 
   c. Bitrate
 
-  Endpoint: /enc/bitrate
+  Endpoint: /api/v1/enc/bitrate
 
   Curl command to configure encoder bitrate property:
 
-  curl -XPOST 'http://localhost:9000/enc/bitrate' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/enc/bitrate' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -378,16 +381,34 @@ Features supported with this application are:
   and provide corresponding encoded bitstream. Mediainfo should show Encoder bitrate
   corresponding to updated value.
 
+  d. iframeinterval
+
+  Endpoint: /api/v1/enc/iframe-interval
+
+  Curl command to configure encoder iframeinterval property:
+
+  curl -XPOST 'http://localhost:9000/api/v1/enc/iframe-interval' -d '{
+  "stream":
+    {
+        "stream_id":"0",
+        "iframeinterval":50
+    }
+  }'
+
+  Expected output: The iframeinterval property value will be set on the encoder.
+  Encoder iframeinterval property should reflect with insertion of the I-frame at
+  specified interval with the encoded bitstream by the encoder.
+
 7. Streammux
 
   Note: Applicable for old nvstreammux
 
-  Endpoint: /mux/batched-push-timeout
+  Endpoint: /api/v1/mux/batched-push-timeout
   Configuration value for "batched_push_timeout" field of the schema:
     (microseconds): - Timeout value
   Curl command to configure streammux batched pushed timeout property:
 
-  curl -XPOST 'http://localhost:9000/mux/batched-push-timeout' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/mux/batched-push-timeout' -d '{
   "stream":
     {
         "batched_push_timeout":100000
@@ -407,13 +428,13 @@ Features supported with this application are:
 
   a. src-crop
 
-  Endpoint: /conv/srccrop
+  Endpoint: /api/v1/conv/srccrop
   Configuration value for "src_crop" field of the schema:
   (String) Pixel location left:top:width:height
 
   Curl command to configure nvvideoconvert src-crop property:
 
-  curl -XPOST 'http://localhost:9000/conv/srccrop' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/conv/srccrop' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -427,13 +448,13 @@ Features supported with this application are:
 
   b. dest-crop
 
-  Endpoint: /conv/destcrop
+  Endpoint: /api/v1/conv/destcrop
   Configuration value for "dest_crop" field of the schema:
   (String) Pixel location left:top:width:height
 
   Curl command to configure nvvideoconvert dest-crop property:
 
-  curl -XPOST 'http://localhost:9000/conv/destcrop' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/conv/destcrop' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -449,7 +470,7 @@ Features supported with this application are:
 
   c. flip-method
 
-  Endpoint: /conv/flip-method
+  Endpoint: /api/v1/conv/flip-method
   Configuration value for "flip_method" field of the schema:
     (0): none             - Identity (no rotation)
     (1): counterclockwise - Rotate counter-clockwise 90 degrees
@@ -462,7 +483,7 @@ Features supported with this application are:
 
   Curl command to configure nvvideoconvert flip-method property:
 
-  curl -XPOST 'http://localhost:9000/conv/flip-method' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/conv/flip-method' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -475,7 +496,7 @@ Features supported with this application are:
 
   d. interpolation-method
 
-  Endpoint: /conv/interpolation-method
+  Endpoint: /api/v1/conv/interpolation-method
   Configuration value for "interpolation_method" field of the schema:
     (0): Nearest          - Nearest
     (1): Bilinear         - Bilinear
@@ -487,7 +508,7 @@ Features supported with this application are:
 
   Curl command to configure nvvideoconvert interpolation-method property:
 
-  curl -XPOST 'http://localhost:9000/conv/interpolation-method' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/conv/interpolation-method' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -501,12 +522,12 @@ Features supported with this application are:
 
 9. Nvdsosd
 
-  Endpoint: /osd/process-mode
+  Endpoint: /api/v1/osd/process-mode
   Configuration value for "process_mode" field of the schema:
     0 and 1, 0=CPU mode, 1=GPU mode
   Curl command to configure nvdsosd process_mode property:
 
-  curl -XPOST 'http://localhost:9000/osd/process-mode' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/osd/process-mode' -d '{
   "stream":
     {
         "stream_id":"0",
@@ -521,12 +542,12 @@ Features supported with this application are:
 
   Application quit
 
-  Endpoint: /app/quit
+  Endpoint: /api/v1/app/quit
   Configuration value for "app_quit" field of the schema:
   (1): - Application quit (boolean)
   Curl command to quit the sample application:
 
-  curl -XPOST 'http://localhost:9000/app/quit' -d '{
+  curl -XPOST 'http://localhost:9000/api/v1/app/quit' -d '{
   "stream":
     {
         "app_quit":1
@@ -535,6 +556,34 @@ Features supported with this application are:
 
   Expected output: The application should quit.
 
+11. GET requests
+
+   GET stream info
+
+   Endpoint: /api/v1/stream/get-stream-info
+   Curl command to get the stream info:
+
+   curl -XGET 'http://localhost:9000/api/v1/stream/get-stream-info'
+   OR
+   curl -XGET 'http://localhost:9000/api/v1/stream/get-stream-info' -d '{}'
+
+   Expected output: The sample stream-info response returned to the client:
+
+   {
+        "reason" : "GET_LIVE_STREAM_INFO_SUCCESS",
+        "status" : "HTTP/1.1 200 OK",
+        "stream-info" :
+        {
+                "stream-count" : 1,
+                "stream-info" :
+                [
+                        {
+                                "camera_id" : "UniqueSensorId1",
+                                "camera_name" : "UniqueSensorName1"
+                        }
+                ]
+        }
+  }
 
 This sample accepts one or more comma separated uri(s) . It uses
 a nvmultiurisrcbin which internally creates nvurisrcbin for each uri

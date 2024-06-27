@@ -1,23 +1,13 @@
-/**
- * Copyright (c) 2017-2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2017-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "gstdsexample.h"
@@ -44,6 +34,7 @@ enum {
     PROP_PROCESSING_WIDTH,
     PROP_PROCESSING_HEIGHT,
     PROP_PROCESS_FULL_FRAME,
+    PROP_BATCH_SIZE,
     PROP_BLUR_OBJECTS,
     PROP_GPU_DEVICE_ID
 };
@@ -74,14 +65,15 @@ enum {
 #define DEFAULT_PROCESS_FULL_FRAME TRUE
 #define DEFAULT_BLUR_OBJECTS FALSE
 #define DEFAULT_GPU_ID 0
+#define DEFAULT_BATCH_SIZE 1
 
 #define RGB_BYTES_PER_PIXEL 3
 #define RGBA_BYTES_PER_PIXEL 4
 #define Y_BYTES_PER_PIXEL 1
 #define UV_BYTES_PER_PIXEL 2
 
-#define MIN_INPUT_OBJECT_WIDTH 16
-#define MIN_INPUT_OBJECT_HEIGHT 16
+#define MIN_INPUT_OBJECT_WIDTH 1
+#define MIN_INPUT_OBJECT_HEIGHT 1
 
 #define CHECK_NPP_STATUS(npp_status, error_str)                                                  \
     do {                                                                                         \
@@ -217,6 +209,13 @@ static void gst_dsexample_class_init(GstDsExampleClass *klass)
         g_param_spec_uint(
             "gpu-id", "Set GPU Device ID", "Set GPU Device ID", 0, G_MAXUINT, 0,
             GParamFlags(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_BATCH_SIZE,
+        g_param_spec_uint(
+            "batch-size", "Batch Size", "Maximum batch size for processing", 1,
+            NVDSEXAMPLE_MAX_BATCH_SIZE, DEFAULT_BATCH_SIZE,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
     /* Set sink and src pad capabilities */
     gst_element_class_add_pad_template(gstelement_class,
                                        gst_static_pad_template_get(&gst_dsexample_src_template));
@@ -249,6 +248,7 @@ static void gst_dsexample_init(GstDsExample *dsexample)
     dsexample->process_full_frame = DEFAULT_PROCESS_FULL_FRAME;
     dsexample->blur_objects = DEFAULT_BLUR_OBJECTS;
     dsexample->gpu_id = DEFAULT_GPU_ID;
+    dsexample->max_batch_size = DEFAULT_BATCH_SIZE;
 
     /* This quark is required to identify NvDsMeta when iterating through
      * the buffer metadatas */
@@ -282,6 +282,9 @@ static void gst_dsexample_set_property(GObject *object,
         break;
     case PROP_GPU_DEVICE_ID:
         dsexample->gpu_id = g_value_get_uint(value);
+        break;
+    case PROP_BATCH_SIZE:
+        dsexample->max_batch_size = g_value_get_uint(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -318,6 +321,9 @@ static void gst_dsexample_get_property(GObject *object,
     case PROP_GPU_DEVICE_ID:
         g_value_set_uint(value, dsexample->gpu_id);
         break;
+    case PROP_BATCH_SIZE:
+        g_value_set_uint(value, dsexample->max_batch_size);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -334,8 +340,6 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
     DsExampleInitParams init_params = {dsexample->processing_width, dsexample->processing_height,
                                        dsexample->process_full_frame};
 
-    GstQuery *queryparams = NULL;
-    guint batch_size = 1;
     int val = -1;
 
     /* Algorithm specific initializations and resource allocation. */
@@ -348,16 +352,7 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
     cudaDeviceGetAttribute(&val, cudaDevAttrIntegrated, dsexample->gpu_id);
     dsexample->is_integrated = val;
 
-    dsexample->batch_size = 1;
-    queryparams = gst_nvquery_batch_size_new();
-    if (gst_pad_peer_query(GST_BASE_TRANSFORM_SINK_PAD(btrans), queryparams) ||
-        gst_pad_peer_query(GST_BASE_TRANSFORM_SRC_PAD(btrans), queryparams)) {
-        if (gst_nvquery_batch_size_parse(queryparams, &batch_size)) {
-            dsexample->batch_size = batch_size;
-        }
-    }
-    GST_DEBUG_OBJECT(dsexample, "Setting batch-size %d \n", dsexample->batch_size);
-    gst_query_unref(queryparams);
+    GST_DEBUG_OBJECT(dsexample, "Setting batch-size %d \n", dsexample->max_batch_size);
 
     if (dsexample->process_full_frame && dsexample->blur_objects) {
         GST_ERROR("Error: does not support blurring while processing full frame");
@@ -421,6 +416,10 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
 
     GST_DEBUG_OBJECT(dsexample, "created CV Mat\n");
 #endif
+
+    /* Set the NvBufSurfTransform config parameters. */
+    dsexample->transform_config_params.compute_mode = NvBufSurfTransformCompute_Default;
+    dsexample->transform_config_params.gpu_id = dsexample->gpu_id;
 
     return TRUE;
 error:
@@ -547,7 +546,7 @@ static GstFlowReturn get_converted_mat(GstDsExample *dsexample,
     }
 
     /* Configure transform session parameters for the transformation */
-    transform_config_params.compute_mode = NvBufSurfTransformCompute_Default;
+    transform_config_params.compute_mode = dsexample->transform_config_params.compute_mode;
     transform_config_params.gpu_id = dsexample->gpu_id;
     transform_config_params.cuda_stream = dsexample->cuda_stream;
 
@@ -836,10 +835,22 @@ static GstFlowReturn gst_dsexample_transform_ip(GstBaseTransform *btrans, GstBuf
                 }
 
                 /* Should not process on objects smaller than MIN_INPUT_OBJECT_WIDTH x
-                 * MIN_INPUT_OBJECT_HEIGHT since it will cause hardware scaling issues. */
+                 * MIN_INPUT_OBJECT_HEIGHT */
                 if (obj_meta->rect_params.width < MIN_INPUT_OBJECT_WIDTH ||
                     obj_meta->rect_params.height < MIN_INPUT_OBJECT_HEIGHT)
                     continue;
+
+                /* Extra check for Jetson devices as default compute mode on Jetson is VIC which
+                 * supports min 16x16 */
+                if (dsexample->is_integrated) {
+                    if (dsexample->transform_config_params.compute_mode ==
+                            NvBufSurfTransformCompute_VIC ||
+                        dsexample->transform_config_params.compute_mode ==
+                            NvBufSurfTransformCompute_Default) {
+                        if (obj_meta->rect_params.width < 16 || obj_meta->rect_params.height < 16)
+                            continue;
+                    }
+                }
 
                 /* Crop and scale the object */
                 if (get_converted_mat(dsexample, surface, frame_meta->batch_id,
@@ -1028,7 +1039,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dsexample,
                   DESCRIPTION,
                   dsexample_plugin_init,
-                  "6.3",
+                  "7.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

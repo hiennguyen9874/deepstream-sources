@@ -410,11 +410,14 @@ static GstFlowReturn gst_nvdsanalytics_transform_ip(GstBaseTransform *btrans, Gs
 
         /* Create context if not present for particular stream */
         if (get_ctx == stream_analytics_ctx.end()) {
+            /* if obj_cnt_win_in_ms is not set, use the default value in lowlevel */
+            if (nvdsanalytics->obj_cnt_win_in_ms == 0)
+                nvdsanalytics->obj_cnt_win_in_ms = 50;
             NvDsAnalyticCtxUptr analytics_ctx = NvDsAnalyticCtx::create(
                 stream_analytics_info[frame_meta->pad_index], frame_meta->pad_index,
                 surface->surfaceList[frame_meta->batch_id].width,
-                surface->surfaceList[frame_meta->batch_id].height,
-                nvdsanalytics->obj_cnt_win_in_ms);
+                surface->surfaceList[frame_meta->batch_id].height, nvdsanalytics->obj_cnt_win_in_ms,
+                300, nvdsanalytics->obj_cnt_win_in_ms);
             stream_analytics_ctx[frame_meta->pad_index] = std::move(analytics_ctx);
         }
         process_params.frmPts = frame_meta->buf_pts;
@@ -933,7 +936,7 @@ static gboolean nvdsanalytics_plugin_init(GstPlugin *plugin)
 {
     GST_DEBUG_CATEGORY_INIT(gst_nvdsanalytics_debug, "nvdsanalytics", 1, "nvdsanalytics plugin");
     // gst_debug_category_set_threshold (gst_nvdsanalytics_debug,
-    //     GstDebugLevel level)
+    //    GstDebugLevel level)
 
     return gst_element_register(plugin, "nvdsanalytics", GST_RANK_PRIMARY, GST_TYPE_DSANALYTICS);
 }
@@ -943,7 +946,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dsanalytics,
                   DESCRIPTION,
                   nvdsanalytics_plugin_init,
-                  "6.3",
+                  "7.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# Copyright (c) 2020 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2020-2024 NVIDIA Corporation.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -30,6 +30,32 @@ fi
 
 if [ ! -f "${TRTEXEC_BIN}" ]; then
     echo "trtexec binary not found. Set TRTEXEC_BIN"
+fi
+
+if [[ $(uname -m) == "aarch64" ]]; then
+  TAO_CONVERTER_VERSION="v5.1.0_jp6.0_aarch64"
+  export TRT_LIB_PATH=/usr/lib/aarch64-linux-gnu
+  export TRT_INC_PATH=/usr/include/aarch64-linux-gnu
+else
+  TAO_CONVERTER_VERSION="v5.1.0_8.6.3.1_x86"
+  export TRT_LIB_PATH="/usr/lib/x86_64-linux-gnu"
+  export TRT_INC_PATH="/usr/include/x86_64-linux-gnu"
+fi
+
+if [ -z "$TAO_CONVERTER_BIN" ]; then
+
+    TAO_CONVERTER_DIR="$HOME/bin/tao-converter"
+    TAO_CONVERTER_BIN="$TAO_CONVERTER_DIR/tao-converter"
+
+    if [ ! -f "$TAO_CONVERTER_BIN" ]; then
+        echo "Downloading and installing tao-converter utility into $TAO_CONVERTER_DIR"
+        mkdir -p $TAO_CONVERTER_DIR
+        wget --content-disposition https://api.ngc.nvidia.com/v2/resources/nvidia/tao/tao-converter/versions/$TAO_CONVERTER_VERSION/zip \
+            -O $TAO_CONVERTER_DIR/tao-converter_${TAO_CONVERTER_VERSION}.zip
+        unzip $TAO_CONVERTER_DIR/tao-converter_${TAO_CONVERTER_VERSION}.zip -d $TAO_CONVERTER_DIR
+        chmod +x $TAO_CONVERTER_DIR/tao-converter
+        rm -rf $TAO_CONVERTER_DIR/tao-converter_${TAO_CONVERTER_VERSION}.zip
+    fi
 fi
 
 function updateModelConfig {
@@ -98,6 +124,63 @@ function buildEngineFromCaffe {
     fi
 }
 
+function buildEngineFromEtlt {
+    ModelDir="$1"
+    MaxBatch="$2"
+    TltModelKey="$3"
+    OutputLayers="$4"
+    Dimensions="$5"
+
+    if [[ $# -ne 5 ]]; then
+        exit 1
+    fi
+
+    echo "Building Model ${ModelDir}..."
+
+    CalibFile=$(ls "models/${ModelDir}"/cal_trt.bin)
+    TltEncodedModel=$(ls "models/${ModelDir}"/*.etlt)
+    ModelFileName=$(basename "${TltEncodedModel}")
+
+    mkdir -p "${MODEL_REPO_DIR}/${ModelDir}/1/"
+
+    if [ "${WITH_INT8}" = true ]; then
+        ModelFormat="int8"
+        EngineFile="${MODEL_REPO_DIR}/${ModelDir}/1/${ModelFileName}_b${MaxBatch}_gpu0_int8.engine"
+    else
+        ModelFormat="fp16"
+        EngineFile="${MODEL_REPO_DIR}/${ModelDir}/1/${ModelFileName}_b${MaxBatch}_gpu0_fp16.engine"
+    fi
+
+    TAO_CONVERTER_CMD="${TAO_CONVERTER_BIN} \
+                ${TltEncodedModel} \
+                -c ${CalibFile} \
+                -k ${TltModelKey} \
+                -b ${MaxBatch} \
+                -m ${MaxBatch} \
+                -e ${EngineFile}\
+                -o ${OutputLayers} \
+                -d ${Dimensions} \
+                -t ${ModelFormat}"
+
+    echo "Generating Engine file: ${EngineFile}"
+
+    LOG_FILE="buildModel${ModelDir}.log"
+    LOG_FILE=${LOG_FILE//[\/]/_}
+    if eval "${TAO_CONVERTER_CMD}" >> "${LOG_FILE}" 2>&1 ; then
+        echo "Finished building Model ${ModelDir}"
+        rm "${LOG_FILE}"
+    else
+        echo "ERROR: Failed to build engine for model \"$ModelDir\". Check ${LOG_FILE} for more information."
+        return 1;
+    fi
+
+    if [ "${WITH_INT8}" != true ]; then
+        EngineFileName=$(basename "${EngineFile}")
+        updateModelConfig ${EngineFileName} ${MODEL_REPO_DIR}/${ModelDir}/config.pbtxt
+    fi
+
+}
+
 function buildEngineFromUff {
     ModelDir="$1"
     MaxBatch="$2"
@@ -144,17 +227,16 @@ function buildEngineFromUff {
 echo "Generating Engine files for CaffeModels provided with the SDK"
 
 echo "Checking for INT8 support..."
-if buildEngineFromCaffe "Primary_Detector" 30 "conv2d_bbox conv2d_cov/Sigmoid" > /dev/null; then
+if buildEngineFromEtlt "Primary_Detector" 1 "tlt_encode" "output_cov/Sigmoid,output_bbox/BiasAdd" "3,544,960" > /dev/null; then
     echo "Platform supports INT8. Generating engine files using INT8 mode."
 else
     echo "Platform does not support INT8. Generating engine files using FP16 mode."
     WITH_INT8=false
 fi
 
-buildEngineFromCaffe "Primary_Detector" 30 "conv2d_bbox conv2d_cov/Sigmoid" || exit 1
-buildEngineFromCaffe "Secondary_CarColor" 16 "predictions/Softmax" || exit 1
-buildEngineFromCaffe "Secondary_CarMake" 16 "predictions/Softmax" || exit 1
-buildEngineFromCaffe "Secondary_VehicleTypes" 16 "predictions/Softmax" || exit 1
+buildEngineFromEtlt "Primary_Detector" 30 "tlt_encode" "output_cov/Sigmoid,output_bbox/BiasAdd" "3,544,960" || exit 1
+buildEngineFromEtlt "Secondary_VehicleMake" 16 "tlt_encode" "predictions/Softmax" "3,224,224" || exit 1
+buildEngineFromEtlt "Secondary_VehicleTypes" 16 "tlt_encode" "predictions/Softmax" "3,224,224" || exit 1
 
 echo "Generating Engine files for segmentation UFF models provided with the SDK"
 

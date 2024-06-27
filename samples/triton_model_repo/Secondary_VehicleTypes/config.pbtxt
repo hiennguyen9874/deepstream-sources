@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2020 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2023 NVIDIA Corporation.  All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,7 @@
 name: "Secondary_VehicleTypes"
 platform: "tensorrt_plan"
 max_batch_size: 16
-default_model_filename: "resnet18.caffemodel_b16_gpu0_int8.engine"
+default_model_filename: "resnet18_vehicletypenet.etlt_b16_gpu0_int8.engine"
 input [
   {
     name: "input_1"

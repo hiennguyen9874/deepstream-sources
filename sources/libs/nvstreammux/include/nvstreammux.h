@@ -290,6 +290,12 @@ public:
     void set_batch_size(unsigned int size);
 
     /**
+     * @brief  set batch_policy.set_batch_push_timeout()
+     * @param  batch-size [IN]
+     */
+    void set_batch_push_timeout(unsigned int timeout);
+
+    /**
      * @brief  return batch_policy.get_batch_size()
      * @return the batch-size
      */

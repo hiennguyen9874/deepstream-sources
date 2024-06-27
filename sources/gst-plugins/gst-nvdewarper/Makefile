@@ -31,9 +31,9 @@ SRCS:= gstnvdewarper.cpp nvdewarper.cpp nvdewarper_property_parser.cpp
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_dewarper.so
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=7.0
 
-CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"7.0.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes \
 	 -DNDEBUG

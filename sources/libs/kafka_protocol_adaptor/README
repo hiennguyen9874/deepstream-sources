@@ -1,13 +1,15 @@
-################################################################################
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+#######################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 #
-################################################################################
+#######################################################################################################
  
 This project implements protocol adaptor for kafka.
 The adaptor implements and exposed the DSMI API for client applications to interface with it.
@@ -20,9 +22,9 @@ Build dependencies with installation instructions:
   SSL suport enabled by using the enable_ssl option while running
   'configure', as shown below.
 
-  git clone https://github.com/edenhill/librdkafka.git
+  git clone https://github.com/confluentinc/librdkafka.git
   cd librdkafka
-  git reset --hard 063a9ae7a65cebdf1cc128da9815c05f91a2a996
+  git checkout tags/v2.2.0
   ./configure --enable-ssl
   make
   sudo make install

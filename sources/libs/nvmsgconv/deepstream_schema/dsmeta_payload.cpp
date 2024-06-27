@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <google/protobuf/util/time_util.h>
@@ -20,10 +21,18 @@
 #include <vector>
 
 #include "deepstream_schema.h"
-// #include "nv-schema/src/main/c++/schema.pb.h"
+//#include "nv-schema/src/main/c++/schema.pb.h"
+#include <cuda_runtime.h>
+#include <ds3d/common/func_utils.h>
+#include <ds3d/common/impl/impl_frames.h>
+
+#include <ds3d/common/hpp/datamap.hpp>
+
+#include "ds3d/common/ds3d_analysis_datatype.h"
+#include "lidar_schema.pb.h"
 #include "schema.pb.h"
 
-using namespace std;
+using namespace ds3d;
 
 #define MAX_TIME_STAMP_LEN (64)
 
@@ -578,5 +587,205 @@ gchar *generate_dsmeta_message_protobuf(void *privData, void *frameMeta, size_t 
     message_len = msg_str.length();
     // Save the content of msg_str before the function returns which puts msg_str out of scope.
     gchar *message = (gchar *)g_memdup(msg_str.c_str(), message_len);
+    return message;
+}
+
+static std::string print_2d_obj(Object2DBbox *obj2D)
+{
+    stringstream ss;
+    ss.str("");
+    ss.clear();
+    ss << obj2D->centerX << "|" << obj2D->centerY << "|" << obj2D->dx << "|" << obj2D->dy << "|"
+       << obj2D->score << "|" << obj2D->labels;
+    LOG_DEBUG("[%5.3f, %5.3f, %5.3f, %5.3f], score: %2.3f, %s", obj2D->centerX, obj2D->centerY,
+              obj2D->dx, obj2D->dy, obj2D->score, obj2D->labels);
+    return ss.str();
+}
+
+static std::string print_3d_obj(Lidar3DBbox *obj3D)
+{
+    stringstream ss;
+    ss.str("");
+    ss.clear();
+    ss << obj3D->centerX << "|" << obj3D->centerY << "|" << obj3D->centerZ << "|" << obj3D->dx
+       << "|" << obj3D->dy << "|" << obj3D->dz << "|" << obj3D->score << "|" << obj3D->labels;
+    LOG_DEBUG("[%5.3f, %5.3f, %5.3f, %5.3f, %5.3f, %5.3f], score: %2.3f, %s", obj3D->centerX,
+              obj3D->centerY, obj3D->centerZ, obj3D->dx, obj3D->dy, obj3D->dz, obj3D->score,
+              obj3D->labels);
+    return ss.str();
+}
+
+static gchar *ds3d_append_pointcloud(NvDsPayloadPriv *privObj,
+                                     GuardDataMap datamap,
+                                     gchar *msg,
+                                     size_t &message_len)
+{
+    std::string message(msg ? msg : "", message_len);
+    ds3dmsg::LidarPointCloud pc;
+
+    FrameGuard lidarFrame;
+    if (!isGood(datamap.getGuardData(privObj->datamapCfg.lidar_data_key, lidarFrame))) {
+        LOG_DEBUG("No lidar data found in datamap from alignment filter\n");
+        return msg;
+    }
+    Shape pShape = lidarFrame->shape(); // N x 3 | N x 4
+    DS_ASSERT(pShape.numDims);
+    // XYZ | XYZI
+    uint32_t frameEleSize = pShape.d[pShape.numDims - 1];
+    uint32_t numPoints = (uint32_t)(ShapeSize(pShape) / frameEleSize);
+    numPoints = std::min<uint32_t>(numPoints, privObj->datamapCfg.lidar_element_max_points);
+    if (!numPoints) {
+        LOG_DEBUG("lidar data has 0 points\n");
+        return msg;
+    }
+    LOG_DEBUG("adding lidar %d point data into message\n", (int32_t)numPoints);
+    void *basePtr = lidarFrame->base();
+    float *inputLidarPoints = (float *)basePtr;
+    std::vector<float> hBuf;
+    if (lidarFrame->memType() == MemType::kGpuCuda) {
+        hBuf.resize(numPoints * frameEleSize);
+        inputLidarPoints = &hBuf[0];
+        cudaMemcpy((void *)inputLidarPoints, basePtr, hBuf.size() * sizeof(float),
+                   cudaMemcpyDeviceToHost);
+    }
+
+    for (uint32_t p = 0; p < numPoints; p++) {
+        ds3dmsg::Point *point = pc.add_points();
+        point->set_x(inputLidarPoints[0]);
+        point->set_y(inputLidarPoints[1]);
+        point->set_z(inputLidarPoints[2]);
+        float w = ((frameEleSize == 4) ? inputLidarPoints[3] : 1.0);
+        point->set_intensity(w);
+        inputLidarPoints += frameEleSize;
+    }
+    std::string pc_str("");
+    pc.SerializeToString(&pc_str);
+    LOG_DEBUG("lidar data protobuf size:%d", (int32_t)pc_str.size());
+    message += pc_str;
+    message_len = message.size();
+    gchar *out_msg = (gchar *)g_memdup2(message.c_str(), message_len);
+
+    if (msg) {
+        g_free(msg);
+    }
+    return out_msg;
+}
+
+uint32_t add_2d_objects(FrameGuard &video2dBboxData, JsonObject *jobject)
+{
+    Shape obj2DShape = video2dBboxData->shape();
+    JsonArray *jArray;
+    DS_ASSERT(obj2DShape.numDims);
+    uint32_t per2DObjBytes = obj2DShape.d[obj2DShape.numDims - 1];
+    uint32_t num2DBbox = ShapeSize(obj2DShape) / per2DObjBytes;
+    Object2DBbox *obj2D = (Object2DBbox *)video2dBboxData->base();
+    LOG_DEBUG("msgconv Received %d 2D bbox.", num2DBbox);
+    jArray = json_array_new();
+    for (uint32_t i = 0; i < num2DBbox; ++i) {
+        json_array_add_string_element(jArray, print_2d_obj(&obj2D[i]).c_str());
+    }
+    json_object_set_array_member(jobject, "2d_objects", jArray);
+    return num2DBbox;
+}
+
+uint32_t add_3d_objects(FrameGuard &lidar3dBboxData, JsonObject *jobject)
+{
+    JsonArray *jArray;
+    Shape obj3DShape = lidar3dBboxData->shape(); // 1 X N X sizeof(Lidar3DBbox)
+    DS_ASSERT(obj3DShape.numDims);
+    uint32_t per3DObjBytes = obj3DShape.d[obj3DShape.numDims - 1];
+    uint32_t num3DBbox = ShapeSize(obj3DShape) / per3DObjBytes;
+    Lidar3DBbox *obj3D = (Lidar3DBbox *)lidar3dBboxData->base();
+    LOG_DEBUG("msgconv Received %d 3D bbox.", num3DBbox);
+    jArray = json_array_new();
+    for (uint32_t i = 0; i < num3DBbox; ++i) {
+        json_array_add_string_element(jArray, print_3d_obj(&obj3D[i]).c_str());
+    }
+    json_object_set_array_member(jobject, "3d_objects", jArray);
+    return num3DBbox;
+}
+
+uint32_t add_fused_objects(FrameGuard &fusedDetectionData, JsonObject *jobject)
+{
+    JsonArray *jArray;
+    Shape objFusedShape = fusedDetectionData->shape();
+    DS_ASSERT(objFusedShape.numDims);
+    FusedDetection *objFused = (FusedDetection *)fusedDetectionData->base();
+    uint32_t perFusedObjBytes = objFusedShape.d[objFusedShape.numDims - 1];
+    uint32_t numFused = ShapeSize(objFusedShape) / perFusedObjBytes;
+
+    jArray = json_array_new();
+    for (uint32_t i = 0; i < numFused; ++i) {
+        JsonObject *result = json_object_new();
+        json_object_set_string_member(result, "2d", print_2d_obj(&objFused[i].obj2D).c_str());
+        json_object_set_string_member(result, "3d", print_3d_obj(&objFused[i].obj3D).c_str());
+        json_object_set_double_member(result, "score", objFused[i].score);
+        json_array_add_object_element(jArray, result);
+    }
+    json_object_set_array_member(jobject, "fusion_results", jArray);
+    return numFused;
+}
+
+gchar *generate_dsmeta_message_ds3d(void *privData,
+                                    void *ptrDataMap,
+                                    gboolean addLidarData,
+                                    size_t &message_len)
+{
+    const abiRefDataMap *refDataMap = (const abiRefDataMap *)ptrDataMap;
+    NvDsPayloadPriv *privObj = (NvDsPayloadPriv *)privData;
+    GuardDataMap inputData(*refDataMap);
+
+    // extract 3d lidar and 2d video bbox from datamap
+    GuardDataMap datamap(*refDataMap);
+    FrameGuard lidar3dBboxData;
+    FrameGuard video2dBboxData;
+    FrameGuard fusedDetectionData;
+    JsonNode *rootNode;
+    JsonObject *jobject;
+    gchar *message = NULL;
+    message_len = 0;
+
+    uint32_t num2DBbox = 0;
+    uint32_t num3DBbox = 0;
+    uint32_t numFused = 0;
+
+    jobject = json_object_new();
+    json_object_set_string_member(jobject, "version", "ds3d/1.0");
+
+    TimeStamp ts{0};
+    if (isGood(datamap.getData(kTimeStamp, ts))) {
+        json_object_set_string_member(jobject, "datamap@timestamp", std::to_string(ts.t0).c_str());
+    }
+
+    if (!isGood(datamap.getGuardData(privObj->datamapCfg.obj_key_2d, video2dBboxData))) {
+        LOG_WARNING("No 2d bbox data: found in datamap in sensor fusion\n");
+    } else {
+        num2DBbox = add_2d_objects(video2dBboxData, jobject);
+    }
+    if (!isGood(datamap.getGuardData(privObj->datamapCfg.obj_key_3d, lidar3dBboxData))) {
+        LOG_WARNING("No 3d bbox data: found in datamap in sensor fusion\n");
+    } else {
+        num3DBbox = add_3d_objects(lidar3dBboxData, jobject);
+    }
+    if (!isGood(datamap.getGuardData(privObj->datamapCfg.obj_key_fusion, fusedDetectionData))) {
+        LOG_WARNING("No fusion data: found in datamap in sensor fusion\n");
+    } else {
+        numFused = add_fused_objects(fusedDetectionData, jobject);
+    }
+
+    rootNode = json_node_new(JSON_NODE_OBJECT);
+    json_node_set_object(rootNode, jobject);
+
+    if (num2DBbox + num3DBbox + numFused > 0) {
+        message = json_to_string(rootNode, TRUE);
+        message_len = strlen(message);
+    }
+    json_node_free(rootNode);
+    json_object_unref(jobject);
+
+    if (addLidarData) {
+        message = ds3d_append_pointcloud(privObj, inputData, message, message_len);
+    }
+
     return message;
 }

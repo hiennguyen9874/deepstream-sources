@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <cuda_runtime_api.h>
@@ -35,6 +25,7 @@
 #endif
 
 #define MEMORY_FEATURES "memory:NVMM"
+#define MAX_FILE_LENGTH 500
 
 /* The muxer output resolution must be set if the input streams will be of
  * different resolution. The muxer will scale all the input frames to this
@@ -200,8 +191,9 @@ int main(int argc, char *argv[])
     guint enc_type = 0;  // Hardware encoder
     guint source_index_start = 0;
     GstElement *h264enc = NULL, *capfilt = NULL, *nvvidconv1 = NULL;
-    char dewarp_filename[500] = {};
-    strcpy(dewarp_filename, "config_dewarper.txt");
+    char dewarp_filename[MAX_FILE_LENGTH] = {};
+    int length = strlen("config_dewarper.txt");
+    strncpy(dewarp_filename, "config_dewarper.txt", length + 1);
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -245,7 +237,12 @@ int main(int argc, char *argv[])
         if (!strcmp(argv[arg_index], "--config")) {
             num_sources = num_sources - 1;
             arg_index++;
-            strcpy(dewarp_filename, argv[arg_index++]);
+            length = strlen(argv[arg_index]);
+            if (length > MAX_FILE_LENGTH) {
+                g_printerr("Config file name exceeds max length\n");
+            } else {
+                strncpy(dewarp_filename, argv[arg_index++], MAX_FILE_LENGTH);
+            }
         }
         if (!strcmp(argv[arg_index], "--sink")) {
             num_sources = num_sources - 1;
@@ -320,7 +317,7 @@ int main(int argc, char *argv[])
         }
 
         g_snprintf(pad_name, 15, "sink_%u", i);
-        mux_sinkpad = gst_element_get_request_pad(streammux, pad_name);
+        mux_sinkpad = gst_element_request_pad_simple(streammux, pad_name);
         if (!mux_sinkpad) {
             g_printerr("Streammux request sink pad failed. Exiting.\n");
             return -1;
@@ -372,7 +369,11 @@ int main(int argc, char *argv[])
         if (prop.integrated) {
             sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
         } else {
+#ifdef __aarch64__
+            sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
             sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
         }
     } else if (sink_type == 3) {
         h264parser = gst_element_factory_make("h264parse", "h264-parser");

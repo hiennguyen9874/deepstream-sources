@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <ctype.h>
@@ -227,6 +217,8 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo 
     NvDsMetaList *l_frame = NULL;
     NvDsMetaList *l_obj = NULL;
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
+    const gchar *calc_enc_str = g_getenv("CALCULATE_ENCODE_TIME");
+    gboolean calc_enc = !g_strcmp0(calc_enc_str, "yes");
 
     for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
         NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)(l_frame->data);
@@ -244,6 +236,10 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo 
             frameData.scaledHeight = 0;
             /* Quality */
             frameData.quality = 80;
+            /* Set to calculate time taken to encode JPG image. */
+            if (calc_enc) {
+                frameData.calcEncodeTime = 1;
+            }
             /* Main Function Call */
             nvds_obj_enc_process(ctx, &frameData, ip_surf, NULL, frame_meta);
         }
@@ -276,6 +272,10 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo 
                 objData.objNum = num_rects;
                 /* Quality */
                 objData.quality = 80;
+                /* Set to calculate time taken to encode JPG image. */
+                if (calc_enc) {
+                    objData.calcEncodeTime = 1;
+                }
                 /*Main Function Call */
                 nvds_obj_enc_process(ctx, &objData, ip_surf, obj_meta, frame_meta);
             }
@@ -439,6 +439,8 @@ int main(int argc, char *argv[])
     guint pgie_batch_size;
     guint gpu_id = 0;
     gboolean is_nvinfer_server = FALSE;
+    const gchar *new_mux_str = g_getenv("USE_NEW_NVSTREAMMUX");
+    gboolean use_new_mux = !g_strcmp0(new_mux_str, "yes");
 
     struct cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, gpu_id);
@@ -511,7 +513,7 @@ int main(int argc, char *argv[])
         gst_bin_add(GST_BIN(pipeline), source_bin);
 
         g_snprintf(pad_name, 15, "sink_%u", i);
-        sinkpad = gst_element_get_request_pad(streammux, pad_name);
+        sinkpad = gst_element_request_pad_simple(streammux, pad_name);
         if (!sinkpad) {
             g_printerr("Streammux request sink pad failed. Exiting.\n");
             return -1;
@@ -550,7 +552,11 @@ int main(int argc, char *argv[])
     if (prop.integrated) {
         sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
     } else {
+#ifdef __aarch64__
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
     }
 
     if (!pgie || !tiler || !nvvidconv || !nvosd || !sink) {
@@ -558,9 +564,14 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
-                 "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC,
-                 "gpu-id", gpu_id, NULL);
+    if (!use_new_mux) {
+        g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
+                     MUXER_OUTPUT_HEIGHT, "batch-size", num_sources, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, "gpu-id", gpu_id, NULL);
+    } else {
+        g_object_set(G_OBJECT(streammux), "batch-size", num_sources, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, NULL);
+    }
 
     /* Configure the pgie element using the nvinfer config file. */
     if (is_nvinfer_server) {
@@ -580,7 +591,12 @@ int main(int argc, char *argv[])
 
     g_object_set(G_OBJECT(nvvidconv), "gpu-id", gpu_id, NULL);
     g_object_set(G_OBJECT(nvosd), "gpu-id", gpu_id, NULL);
-    g_object_set(G_OBJECT(sink), "gpu-id", gpu_id, NULL);
+    /* gpu-id is a valid property for nveglglessink only on x86 platform. */
+    if (!prop.integrated) {
+#ifndef __aarch64__
+        g_object_set(G_OBJECT(sink), "gpu-id", gpu_id, NULL);
+#endif
+    }
 
     tiler_rows = (guint)sqrt(num_sources);
     tiler_columns = (guint)ceil(1.0 * num_sources / tiler_rows);

@@ -170,12 +170,12 @@ typedef struct nvwarpParams_t {
     float rotAngles[3]; //!< Rotation angles in radians, corresponding to the list of rotation axes
                         //!< below..
     char rotAxes[4];    //!< 3 rotation axes: upper case 'X', 'Y', and 'Z' are rotation about the
-                        //!< positive X, Y and Z axes, whereas lower case 'x', 'y', and 'z' are
-    //!< rotation about the negative axes. Set the 4th to '\0'. X rotation rotates
-    //!< the view upward, Y rightward, and Z clockwise. To specify an embedding of
-    //!< the image in 3D rather than a view of a straightahead image, specify the
-    //!< angles in the opposite order. The default is "YXZ", a.k.a. yaw, pitch,
-    //!< roll (as set by nvwarpInitParams()). Other characters are treated as 'Z'.
+                     //!< positive X, Y and Z axes, whereas lower case 'x', 'y', and 'z' are
+                     //!< rotation about the negative axes. Set the 4th to '\0'. X rotation rotates
+                     //!< the view upward, Y rightward, and Z clockwise. To specify an embedding of
+                     //!< the image in 3D rather than a view of a straightahead image, specify the
+                     //!< angles in the opposite order. The default is "YXZ", a.k.a. yaw, pitch,
+                     //!< roll (as set by nvwarpInitParams()). Other characters are treated as 'Z'.
 
     float topAngle;    //!< Top    angle of view. (default +pi/2)
     float bottomAngle; //!< Bottom angle of view. (default -pi/2)
@@ -189,10 +189,7 @@ typedef struct nvwarpParams_t {
     //! Constructor for C++ automatically initializes nvwarpParams_t.
     //! C users are recommended to call nvwarpInitParams() explicitly, for consistent
     //! initialization.
-    nvwarpParams_t()
-    {
-        nvwarpInitParams(this);
-    }
+    nvwarpParams_t() { nvwarpInitParams(this); }
 #endif // __cplusplus
 
 } nvwarpParams_t; //!< Parameters typedef.

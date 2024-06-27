@@ -128,7 +128,7 @@ extern "C" bool NvDsPostProcessParseCustomResnet(
     /* Find the bbox layer */
     if (bboxLayerIndex == -1) {
         for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
-            if (strcmp(outputLayersInfo[i].layerName, "conv2d_bbox") == 0) {
+            if (strcmp(outputLayersInfo[i].layerName, "output_bbox/BiasAdd") == 0) {
                 bboxLayerIndex = i;
                 getDimsCHWFromDims(bboxLayerDims, outputLayersInfo[i].inferDims);
                 break;
@@ -143,7 +143,7 @@ extern "C" bool NvDsPostProcessParseCustomResnet(
     /* Find the cov layer */
     if (covLayerIndex == -1) {
         for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
-            if (strcmp(outputLayersInfo[i].layerName, "conv2d_cov/Sigmoid") == 0) {
+            if (strcmp(outputLayersInfo[i].layerName, "output_cov/Sigmoid") == 0) {
                 covLayerIndex = i;
                 getDimsCHWFromDims(covLayerDims, outputLayersInfo[i].inferDims);
                 break;
@@ -869,7 +869,12 @@ static NvDsPostProcessParseObjectInfo convertBBox(const float &bx,
                                                   const uint &netW,
                                                   const uint &netH)
 {
-    NvDsPostProcessParseObjectInfo b;
+    NvDsPostProcessParseObjectInfo b = {.classId = UINT32_MAX,
+                                        .left = 0.0,
+                                        .top = 0.0,
+                                        .width = 0.0,
+                                        .height = 0.0,
+                                        .detectionConfidence = 0.0};
     // Restore coordinates to network input resolution
     float xCenter = bx * stride;
     float yCenter = by * stride;

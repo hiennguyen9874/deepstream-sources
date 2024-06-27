@@ -1,24 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <cuda_runtime_api.h>
@@ -34,7 +23,6 @@
 #define PGIE_CONFIG_FILE "dstest2_pgie_config.txt"
 #define SGIE1_CONFIG_FILE "dstest2_sgie1_config.txt"
 #define SGIE2_CONFIG_FILE "dstest2_sgie2_config.txt"
-#define SGIE3_CONFIG_FILE "dstest2_sgie3_config.txt"
 #define MAX_DISPLAY_LEN 64
 
 #define TRACKER_CONFIG_FILE "dstest2_tracker_config.txt"
@@ -70,15 +58,12 @@
 
 gint frame_number = 0;
 /* These are the strings of the labels for the respective models */
-gchar sgie1_classes_str[12][32] = {"black",  "blue",   "brown", "gold",   "green", "grey",
-                                   "maroon", "orange", "red",   "silver", "white", "yellow"};
-
-gchar sgie2_classes_str[20][32] = {"Acura",    "Audi",   "BMW",    "Chevrolet", "Chrysler",
+gchar sgie1_classes_str[20][32] = {"Acura",    "Audi",   "BMW",    "Chevrolet", "Chrysler",
                                    "Dodge",    "Ford",   "GMC",    "Honda",     "Hyundai",
                                    "Infiniti", "Jeep",   "Kia",    "Lexus",     "Mazda",
                                    "Mercedes", "Nissan", "Subaru", "Toyota",    "Volkswagen"};
 
-gchar sgie3_classes_str[6][32] = {"coupe", "largevehicle", "sedan", "suv", "truck", "van"};
+gchar sgie2_classes_str[6][32] = {"coupe", "largevehicle", "sedan", "suv", "truck", "van"};
 
 gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "RoadSign"};
 
@@ -89,7 +74,6 @@ gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "RoadSign"};
 
 guint sgie1_unique_id = 2;
 guint sgie2_unique_id = 3;
-guint sgie3_unique_id = 4;
 
 /* This is the buffer probe function that we have registered on the sink pad
  * of the OSD element. All the infer elements in the pipeline shall attach
@@ -242,7 +226,12 @@ static gboolean set_tracker_properties(GstElement *nvtracker)
     GKeyFile *key_file = g_key_file_new();
 
     if (!g_key_file_load_from_file(key_file, TRACKER_CONFIG_FILE, G_KEY_FILE_NONE, &error)) {
-        g_printerr("Failed to load config file: %s\n", error->message);
+        if (error) {
+            g_printerr("Failed to load config file: %s\n", error->message);
+            g_error_free(error);
+        } else {
+            g_printerr("Failed to load config file.\n");
+        }
         return FALSE;
     }
 
@@ -303,14 +292,14 @@ int main(int argc, char *argv[])
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *source = NULL, *h264parser = NULL, *decoder = NULL,
                *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL, *nvosd = NULL,
-               *sgie1 = NULL, *sgie2 = NULL, *sgie3 = NULL, *nvtracker = NULL;
+               *sgie1 = NULL, *sgie2 = NULL, *nvtracker = NULL;
     g_print("With tracker\n");
     GstBus *bus = NULL;
     guint bus_watch_id = 0;
     GstPad *osd_sink_pad = NULL;
     gboolean yaml_config = FALSE;
     NvDsGieType pgie_type = NVDS_GIE_PLUGIN_INFER, sgie1_type = NVDS_GIE_PLUGIN_INFER;
-    NvDsGieType sgie2_type = NVDS_GIE_PLUGIN_INFER, sgie3_type = NVDS_GIE_PLUGIN_INFER;
+    NvDsGieType sgie2_type = NVDS_GIE_PLUGIN_INFER;
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -335,7 +324,6 @@ int main(int argc, char *argv[])
         RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&pgie_type, argv[1], "primary-gie"));
         RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&sgie1_type, argv[1], "secondary-gie1"));
         RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&sgie2_type, argv[1], "secondary-gie2"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie_type(&sgie3_type, argv[1], "secondary-gie3"));
     }
 
     /* Create gstreamer elements */
@@ -372,7 +360,6 @@ int main(int argc, char *argv[])
        nvinfer or nvinferserver */
     CREATE_GIE_INSTANCE(sgie1, sgie1_type, "secondary1-nvinference-engine");
     CREATE_GIE_INSTANCE(sgie2, sgie2_type, "secondary2-nvinference-engine");
-    CREATE_GIE_INSTANCE(sgie3, sgie3_type, "secondary3-nvinference-engine");
 
     /* Use convertor to convert from NV12 to RGBA as required by nvosd */
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
@@ -384,10 +371,14 @@ int main(int argc, char *argv[])
     if (prop.integrated) {
         sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
     } else {
+#ifdef __aarch64__
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
     }
 
-    if (!source || !h264parser || !decoder || !pgie || !nvtracker || !sgie1 || !sgie2 || !sgie3 ||
+    if (!source || !h264parser || !decoder || !pgie || !nvtracker || !sgie1 || !sgie2 ||
         !nvvidconv || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
@@ -407,7 +398,6 @@ int main(int argc, char *argv[])
         g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
         g_object_set(G_OBJECT(sgie1), "config-file-path", SGIE1_CONFIG_FILE, NULL);
         g_object_set(G_OBJECT(sgie2), "config-file-path", SGIE2_CONFIG_FILE, NULL);
-        g_object_set(G_OBJECT(sgie3), "config-file-path", SGIE3_CONFIG_FILE, NULL);
 
         /* Set necessary properties of the tracker element. */
         if (!set_tracker_properties(nvtracker)) {
@@ -423,7 +413,6 @@ int main(int argc, char *argv[])
         RETURN_ON_PARSER_ERROR(nvds_parse_gie(pgie, argv[1], "primary-gie"));
         RETURN_ON_PARSER_ERROR(nvds_parse_gie(sgie1, argv[1], "secondary-gie1"));
         RETURN_ON_PARSER_ERROR(nvds_parse_gie(sgie2, argv[1], "secondary-gie2"));
-        RETURN_ON_PARSER_ERROR(nvds_parse_gie(sgie3, argv[1], "secondary-gie3"));
 
         RETURN_ON_PARSER_ERROR(nvds_parse_tracker(nvtracker, argv[1], "tracker"));
     }
@@ -435,15 +424,15 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    /* decoder | pgie1 | nvtracker | sgie1 | sgie2 | sgie3 | etc.. */
+    /* decoder | pgie1 | nvtracker | sgie1 | sgie2 | etc.. */
     gst_bin_add_many(GST_BIN(pipeline), source, h264parser, decoder, streammux, pgie, nvtracker,
-                     sgie1, sgie2, sgie3, nvvidconv, nvosd, sink, NULL);
+                     sgie1, sgie2, nvvidconv, nvosd, sink, NULL);
 
     GstPad *sinkpad, *srcpad;
     gchar pad_name_sink[16] = "sink_0";
     gchar pad_name_src[16] = "src";
 
-    sinkpad = gst_element_get_request_pad(streammux, pad_name_sink);
+    sinkpad = gst_element_request_pad_simple(streammux, pad_name_sink);
     if (!sinkpad) {
         g_printerr("Streammux request sink pad failed. Exiting.\n");
         return -1;
@@ -469,8 +458,8 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (!gst_element_link_many(streammux, pgie, nvtracker, sgie1, sgie2, sgie3, nvvidconv, nvosd,
-                               sink, NULL)) {
+    if (!gst_element_link_many(streammux, pgie, nvtracker, sgie1, sgie2, nvvidconv, nvosd, sink,
+                               NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }

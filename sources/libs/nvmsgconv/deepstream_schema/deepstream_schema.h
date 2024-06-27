@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 /**
@@ -95,10 +96,20 @@ struct NvDsAnalyticsObject {
     string version;
 };
 
+struct NvDs3dDatamap {
+    string obj_key_2d;
+    string obj_key_3d;
+    string obj_key_fusion;
+    string lidar_data_key;
+    guint32 lidar_element_size = 4;
+    guint32 lidar_element_max_points = 10;
+};
+
 struct NvDsPayloadPriv {
     unordered_map<int, NvDsSensorObject> sensorObj;
     unordered_map<int, NvDsPlaceObject> placeObj;
     unordered_map<int, NvDsAnalyticsObject> analyticsObj;
+    NvDs3dDatamap datamapCfg;
 };
 
 gchar *generate_event_message(void *privData, NvDsEventMsgMeta *meta);
@@ -110,6 +121,10 @@ gchar *generate_event_message_protobuf(void *privData,
 gchar *generate_dsmeta_message(void *privData, void *frameMeta, void *objMeta);
 gchar *generate_dsmeta_message_minimal(void *privData, void *frameMeta);
 gchar *generate_dsmeta_message_protobuf(void *privData, void *frameMeta, size_t &message_len);
+gchar *generate_dsmeta_message_ds3d(void *privData,
+                                    void *ptrDataMap,
+                                    gboolean addLidarData,
+                                    size_t &message_len);
 void *create_deepstream_schema_ctx();
 void destroy_deepstream_schema_ctx(void *privData);
 bool nvds_msg2p_parse_key_value(void *privData, const gchar *file);

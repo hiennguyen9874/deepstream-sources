@@ -1,24 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #ifndef __GST_DS_NVMULTIURISRC_BIN_H__
@@ -36,6 +25,7 @@ enum {
     MULTIURIBIN_PROP_0,
     MULTIURIBIN_PROP_URI_LIST,
     MULTIURIBIN_PROP_SENSOR_ID_LIST,
+    MULTIURIBIN_PROP_SENSOR_NAME_LIST,
     MULTIURIBIN_PROP_MODE,
     MULTIURIBIN_PROP_HTTP_PORT,
     MULTIURIBIN_PROP_MAX_BATCH_SIZE,
@@ -58,11 +48,15 @@ enum {
     MULTIURIBIN_PROP_SMART_RECORD_DEFAULT_DURATION,
     MULTIURIBIN_PROP_SMART_RECORD_STATUS,
     MULTIURIBIN_PROP_RTSP_RECONNECT_INTERVAL,
+    MULTIURIBIN_PROP_RTSP_RECONNECT_ATTEMPTS,
     MULTIURIBIN_PROP_LATENCY,
     MULTIURIBIN_PROP_SOURCE_ID,
     MULTIURIBIN_PROP_UDP_BUFFER_SIZE,
     MULTIURIBIN_PROP_DISABLE_PASSTHROUGH,
-
+    MULTIURIBIN_PROP_DISABLE_AUDIO,
+    MULTIURIBIN_PROP_EXTRACT_SEI_TYPE5_DATA_DEC,
+    MULTIURIBIN_PROP_SEI_UUID,
+    MULTIURIBIN_PROP_LOW_LATENCY_MODE,
     // nvstreammux props:
 
     PROP_BATCH_SIZE,
@@ -85,6 +79,7 @@ enum {
     PROP_ASYNC_PROCESS,
     PROP_NO_PIPELINE_EOS,
     PROP_CONFIG_FILE_PATH,
+    PROP_EXTRACT_SEI_TYPE5_DATA_MUX,
     MULTIURIBIN_PROP_LAST
 };
 
@@ -101,6 +96,8 @@ typedef struct _GstDsNvMultiUriBin {
     gchar **uriListV;
     gchar *sensorIdList;
     gchar **sensorIdListV;
+    gchar *sensorNameList;
+    gchar **sensorNameListV;
     NvDsMultiUriMode mode;
     NvDst_Handle_NvMultiUriSrcCreator nvmultiurisrcbinCreator;
     guint sourceIdCounter;

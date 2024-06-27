@@ -36,8 +36,6 @@ name: streammux
 components:
   - name: tracker
     parameters:
-      enable-batch-process: true
-      enable-past-frame: false
       ll-lib-file: /opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so
       ll-config-file: /opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml
       tracker-height: 384

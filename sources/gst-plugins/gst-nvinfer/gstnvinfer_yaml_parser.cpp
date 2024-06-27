@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "gstnvinfer_yaml_parser.h"
@@ -88,8 +89,10 @@ static gboolean get_absolute_file_path(const gchar *cfg_file_path,
         /* Ignore error if file does not exist and use the unresolved path. */
         if (errno == ENOENT)
             g_strlcpy(abs_real_file_path, abs_file_path, _PATH_MAX);
-        else
+        else {
+            g_free(abs_file_path);
             return FALSE;
+        }
     }
 
     g_free(abs_file_path);
@@ -287,7 +290,7 @@ static gboolean gst_nvinfer_parse_other_attribute_yaml(GstNvInfer *nvinfer,
         nvinfer->classifier_async_mode = std::stoi(pair[1]);
     } else if (pair[0] == "classifier-type") {
         char *str2 = (char *)malloc(sizeof(char) * 64);
-        std::strncpy(str2, pair[1].c_str(), 64);
+        std::strncpy(str2, pair[1].c_str(), 63);
         nvinfer->classifier_type = str2;
     } else if (pair[0] == "interval") {
         if ((*nvinfer->is_prop_set)[PROP_INTERVAL])
@@ -523,6 +526,7 @@ static gboolean gst_nvinfer_parse_props_yaml(GstNvInfer *nvinfer,
             case NvDsInferNetworkMode_FP32:
             case NvDsInferNetworkMode_FP16:
             case NvDsInferNetworkMode_INT8:
+            case NvDsInferNetworkMode_BEST:
                 break;
             default:
                 g_printerr("Error. Invalid value for network-mode:'%d'\n", val);
@@ -558,13 +562,45 @@ static gboolean gst_nvinfer_parse_props_yaml(GstNvInfer *nvinfer,
             for (int i = 0; i < len; i++) {
                 int size = 64;
                 char *str2 = (char *)malloc(sizeof(char) * size);
-                std::strncpy(str2, vec[i].c_str(), size);
+                std::strncpy(str2, vec[i].c_str(), size - 1);
                 values[i] = str2;
             }
             values[len] = NULL;
 
             init_params->outputLayerNames = values;
             init_params->numOutputLayers = len;
+        } else if (paramKey == "dump-input-tensor") {
+            init_params->dumpIpTensor = itr->second.as<int>();
+        } else if (paramKey == "dump-output-tensor") {
+            init_params->dumpOpTensor = itr->second.as<int>();
+        } else if (paramKey == "overwrite-input-tensor") {
+            init_params->overwriteIpTensor = itr->second.as<int>();
+        } else if (paramKey == "overwrite-output-tensor") {
+            init_params->overwriteOpTensor = itr->second.as<int>();
+        } else if (paramKey == "ip-tensor-file") {
+            std::string temp = itr->second.as<std::string>();
+
+            if (!get_absolute_file_path(cfg_file_path, temp.c_str(),
+                                        init_params->ipTensorFilePath)) {
+                g_printerr("Error: Could not parse Input Tensor file path\n");
+                goto done;
+            }
+        } else if (paramKey == "op-tensor-files") {
+            std::string str = itr->second.as<std::string>();
+            std::vector<std::string> vec = split_string(str);
+            int length = (int)vec.size();
+            init_params->opTensorFilePath = (gchar **)malloc(sizeof(gchar *) * length);
+
+            for (int i = 0; i < length; i++) {
+                int size = 64;
+                char *str2 = (char *)malloc(sizeof(char) * size);
+                if (!get_absolute_file_path(cfg_file_path, vec[i].c_str(), str2)) {
+                    g_printerr("Error: Could not parse Output Tensor file path\n");
+                    g_free(str2);
+                    goto done;
+                }
+                init_params->opTensorFilePath[i] = str2;
+            }
         } else if (paramKey == "output-io-formats") {
             std::string str = itr->second.as<std::string>();
             std::vector<std::string> vec = split_string(str);
@@ -575,7 +611,7 @@ static gboolean gst_nvinfer_parse_props_yaml(GstNvInfer *nvinfer,
             for (int i = 0; i < len; i++) {
                 int size = 64;
                 char *str2 = (char *)malloc(sizeof(char) * size);
-                std::strncpy(str2, vec[i].c_str(), size);
+                std::strncpy(str2, vec[i].c_str(), size - 1);
                 values[i] = str2;
             }
             values[len] = NULL;
@@ -590,7 +626,7 @@ static gboolean gst_nvinfer_parse_props_yaml(GstNvInfer *nvinfer,
             values = g_new(gchar *, len + 1);
 
             for (int i = 0; i < len; i++) {
-                int size = 64;
+                int size = vec[i].size() + 1;
                 char *str2 = (char *)malloc(sizeof(char) * size);
                 std::strncpy(str2, vec[i].c_str(), size);
                 values[i] = str2;
@@ -827,6 +863,13 @@ static gboolean gst_nvinfer_parse_props_yaml(GstNvInfer *nvinfer,
             if (val) {
                 nvinfer->input_tensor_from_meta = TRUE;
                 init_params->inputFromPreprocessedTensor = TRUE;
+            }
+        } else if (paramKey == "disable-output-host-copy") {
+            init_params->disableOutputHostCopy = itr->second.as<unsigned int>();
+        } else if (paramKey == "raw-output-file-write") {
+            gboolean val = itr->second.as<gboolean>();
+            if (val) {
+                nvinfer->write_raw_buffers_to_file = TRUE;
             }
         } else if (nvinfer) {
             std::string paramVal = itr->second.as<std::string>();

@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2020 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "deepstream_audio.h"
@@ -107,7 +97,7 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer data)
         break;
     }
     case GST_MESSAGE_STATE_CHANGED: {
-        GstState oldstate, newstate;
+        GstState oldstate = GST_STATE_NULL, newstate = GST_STATE_NULL;
         gst_message_parse_state_changed(message, &oldstate, &newstate, NULL);
         if (GST_ELEMENT(GST_MESSAGE_SRC(message)) == appCtx->pipeline.pipeline) {
             switch (newstate) {
@@ -181,7 +171,7 @@ static void process_buffer(GstBuffer *buf, AppCtx *appCtx, guint index)
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
     if (!batch_meta) {
         // TODO add audio support in streammux to attach batch metadata
-        //     NVGSTDS_WARN_MSG_V ("Batch meta not found for buffer %p", buf);
+        //    NVGSTDS_WARN_MSG_V ("Batch meta not found for buffer %p", buf);
         return;
     }
     process_meta(appCtx, batch_meta);
@@ -514,8 +504,8 @@ void destroy_pipeline(AppCtx *appCtx)
 
 gboolean pause_pipeline(AppCtx *appCtx)
 {
-    GstState cur;
-    GstState pending;
+    GstState cur = GST_STATE_NULL;
+    GstState pending = GST_STATE_NULL;
     GstStateChangeReturn ret;
     GstClockTime timeout = 5 * GST_SECOND / 1000;
 
@@ -539,8 +529,8 @@ gboolean pause_pipeline(AppCtx *appCtx)
 
 gboolean resume_pipeline(AppCtx *appCtx)
 {
-    GstState cur;
-    GstState pending;
+    GstState cur = GST_STATE_NULL;
+    GstState pending = GST_STATE_NULL;
     GstStateChangeReturn ret;
     GstClockTime timeout = 5 * GST_SECOND / 1000;
 

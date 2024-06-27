@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "nvdspreprocess_impl.h"
@@ -39,7 +29,7 @@
 /** enable to debug transformation in/out files
  *  with DEBUG_TENSOR in plugin enabled
  */
-// #define DEBUG_LIB
+//#define DEBUG_LIB
 
 /** This file contains the preprocessing for network requirements.
  * It does mean subtraction and normalization of input pixels
@@ -249,12 +239,32 @@ NvDsPreProcessStatus NvDsPreProcessTensorImpl::syncStream()
     return NVDSPREPROCESS_SUCCESS;
 }
 
+static inline unsigned bytesPerElement(NvDsDataType data_type)
+{
+    switch (data_type) {
+    case NvDsDataType_FP32:
+    case NvDsDataType_UINT32:
+    case NvDsDataType_INT32:
+        return 4;
+    case NvDsDataType_UINT8:
+    case NvDsDataType_INT8:
+        return 1;
+    case NvDsDataType_FP16:
+        return 2;
+    default:
+        printf("Wrong tensor data type");
+        return 0;
+    }
+}
+
 NvDsPreProcessStatus NvDsPreProcessTensorImpl::prepare_tensor(NvDsPreProcessBatch *batch,
+                                                              CustomTensorParams &tensorParam,
                                                               void *&devBuf)
 {
     unsigned int batch_size = batch->units.size();
 
     NvDsPreProcessConvertFcn convertFcn = nullptr;
+    NvDsPreProcessConvertFcnHalf convertFcnHalf = nullptr;
 
     /* Find the required conversion function. */
     switch (m_NetworkInputFormat) {
@@ -287,7 +297,11 @@ NvDsPreProcessStatus NvDsPreProcessTensorImpl::prepare_tensor(NvDsPreProcessBatc
         case NvDsPreProcessFormat_RGBA:
             switch (m_InputOrder) {
             case NvDsPreProcessNetworkInputOrder_kNCHW:
-                convertFcn = NvDsPreProcessConvert_C4ToP3Float;
+                if (tensorParam.params.data_type == NvDsDataType_FP16) {
+                    convertFcnHalf = NvDsPreProcessConvert_C4ToP3Half;
+                } else {
+                    convertFcn = NvDsPreProcessConvert_C4ToP3Float;
+                }
                 break;
             case NvDsPreProcessNetworkInputOrder_kNHWC:
                 convertFcn = NvDsPreProcessConvert_C4ToL3Float;
@@ -342,7 +356,11 @@ NvDsPreProcessStatus NvDsPreProcessTensorImpl::prepare_tensor(NvDsPreProcessBatc
         case NvDsPreProcessFormat_RGBA:
             switch (m_InputOrder) {
             case NvDsPreProcessNetworkInputOrder_kNCHW:
-                convertFcn = NvDsPreProcessConvert_C4ToP3RFloat;
+                if (tensorParam.params.data_type == NvDsDataType_FP16) {
+                    convertFcnHalf = NvDsPreProcessConvert_C4ToP3RHalf;
+                } else {
+                    convertFcn = NvDsPreProcessConvert_C4ToP3RFloat;
+                }
                 break;
             case NvDsPreProcessNetworkInputOrder_kNHWC:
                 convertFcn = NvDsPreProcessConvert_C4ToL3RFloat;
@@ -383,8 +401,10 @@ NvDsPreProcessStatus NvDsPreProcessTensorImpl::prepare_tensor(NvDsPreProcessBatc
     /* For each frame in the input batch convert/copy to the input binding
      * buffer. */
     for (unsigned int i = 0; i < batch_size; i++) {
-        float *outPtr = (float *)devBuf +
-                        i * m_NetworkSize.channels * m_NetworkSize.width * m_NetworkSize.height;
+        void *outPtr =
+            (void *)((uint8_t *)devBuf + i * m_NetworkSize.channels * m_NetworkSize.width *
+                                             m_NetworkSize.height *
+                                             bytesPerElement(tensorParam.params.data_type));
 
 #if DEBUG_LIB
         static int batch_num1 = 0;
@@ -396,12 +416,19 @@ NvDsPreProcessStatus NvDsPreProcessTensorImpl::prepare_tensor(NvDsPreProcessBatc
         outfile1.close();
         batch_num1++;
 #endif
-        if (convertFcn) {
+        if (convertFcn || convertFcnHalf) {
             /* Input needs to be pre-processed. */
-            convertFcn(outPtr, (unsigned char *)batch->units[i].converted_frame_ptr,
-                       m_NetworkSize.width, m_NetworkSize.height, batch->pitch, m_Scale,
-                       m_MeanDataBuffer.get() ? m_MeanDataBuffer->ptr<float>() : nullptr,
-                       *m_PreProcessStream);
+            if (tensorParam.params.data_type == NvDsDataType_FP16) {
+                convertFcnHalf((half *)outPtr, (unsigned char *)batch->units[i].converted_frame_ptr,
+                               m_NetworkSize.width, m_NetworkSize.height, batch->pitch, m_Scale,
+                               m_MeanDataBuffer.get() ? m_MeanDataBuffer->ptr<float>() : nullptr,
+                               *m_PreProcessStream);
+            } else {
+                convertFcn((float *)outPtr, (unsigned char *)batch->units[i].converted_frame_ptr,
+                           m_NetworkSize.width, m_NetworkSize.height, batch->pitch, m_Scale,
+                           m_MeanDataBuffer.get() ? m_MeanDataBuffer->ptr<float>() : nullptr,
+                           *m_PreProcessStream);
+            }
         }
 
 #ifdef DEBUG_LIB

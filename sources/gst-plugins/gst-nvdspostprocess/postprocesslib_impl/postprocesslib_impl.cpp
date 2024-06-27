@@ -104,8 +104,10 @@ bool PostProcessAlgorithm::GetAbsFilePath(const gchar *cfg_file_path,
         /* Ignore error if file does not exist and use the unresolved path. */
         if (errno == ENOENT)
             g_strlcpy(abs_real_file_path, abs_file_path, _PATH_MAX);
-        else
+        else {
+            g_free(abs_file_path);
             return FALSE;
+        }
     }
 
     g_free(abs_file_path);
@@ -277,7 +279,7 @@ bool PostProcessAlgorithm::SetConfigFile(const gchar *cfg_file_path)
                 for (int i = 0; i < len; i++) {
                     int size = 64;
                     char *str2 = (char *)g_malloc0(sizeof(char) * size);
-                    std::strncpy(str2, m_outputBlobNames[i].c_str(), size);
+                    std::strncpy(str2, m_outputBlobNames[i].c_str(), size - 1);
                     values[i] = str2;
                 }
                 values[len] = NULL;

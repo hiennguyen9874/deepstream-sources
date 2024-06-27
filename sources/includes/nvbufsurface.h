@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA Corporation and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -274,6 +274,14 @@ typedef enum {
     NVBUF_COLOR_FORMAT_NV12_12LE_709,
     /** Specifies BT.709 colorspace - Y/CbCr ER 4:2:0 12-bit multi-planar. */
     NVBUF_COLOR_FORMAT_NV12_12LE_709_ER,
+    /** Specifies 8 bit GRAY scale ER - single plane */
+    NVBUF_COLOR_FORMAT_GRAY8_ER,
+    /** Specifies BT.709 colorspace - Y/CbCr 4:2:2 planar */
+    NVBUF_COLOR_FORMAT_UYVY_709,
+    /** Specifies BT.709 colorspace - Y/CbCr ER 4:2:2 planar */
+    NVBUF_COLOR_FORMAT_UYVY_709_ER,
+    /** Specifies BT.2020 colorspace - Y/CbCr 4:2:2 planar */
+    NVBUF_COLOR_FORMAT_UYVY_2020,
     NVBUF_COLOR_FORMAT_LAST
 } NvBufSurfaceColorFormat;
 
@@ -687,7 +695,7 @@ int NvBufSurfaceCopy(NvBufSurface *srcSurf, NvBufSurface *dstSurf);
  * This function can be used to copy plane memory content from source raw buffer pointer
  * to specific destination batch buffer of supported memory type.
  *
- * @param[in] surf pointer to NvBufSurface structure.
+ * @param[in] Surf pointer to NvBufSurface structure.
  * @param[in] index index of buffer in the batch.
  * @param[in] plane index of plane in buffer.
  * @param[in] out_width aligned width of the raw data plane.
@@ -699,8 +707,8 @@ int NvBufSurfaceCopy(NvBufSurface *srcSurf, NvBufSurface *dstSurf);
 int NvBufSurface2Raw(NvBufSurface *Surf,
                      unsigned int index,
                      unsigned int plane,
-                     unsigned int outwidth,
-                     unsigned int outheight,
+                     unsigned int out_width,
+                     unsigned int out_height,
                      unsigned char *ptr);
 
 /**
@@ -715,15 +723,15 @@ int NvBufSurface2Raw(NvBufSurface *Surf,
  * @param[in] plane index of plane in buffer.
  * @param[in] in_width aligned width of the raw data plane.
  * @param[in] in_height aligned height of the raw data plane.
- * @param[in] surf pointer to NvBufSurface structure.
+ * @param[in] Surf pointer to NvBufSurface structure.
  *
  * @return 0 for success, -1 for failure.
  */
 int Raw2NvBufSurface(unsigned char *ptr,
                      unsigned int index,
                      unsigned int plane,
-                     unsigned int inwidth,
-                     unsigned int inheight,
+                     unsigned int in_width,
+                     unsigned int in_height,
                      NvBufSurface *Surf);
 
 /**

@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2021 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #ifndef __GST_NVINFER_PROPERTY_PARSER_H__
@@ -46,6 +47,14 @@
 
 #define CONFIG_GROUP_INFER_ENABLE_DLA "enable-dla"
 #define CONFIG_GROUP_INFER_USE_DLA_CORE "use-dla-core"
+
+#define CONFIG_GROUP_INFER_DUMP_INPUT_TENSOR "dump-input-tensor"
+#define CONFIG_GROUP_INFER_DUMP_OUTPUT_TENSOR "dump-output-tensor"
+#define CONFIG_GROUP_INFER_OVERWRITE_INPUT_TENSOR "overwrite-input-tensor"
+#define CONFIG_GROUP_INFER_OVERWRITE_OUTPUT_TENSOR "overwrite-output-tensor"
+#define CONFIG_GROUP_INFER_INPUT_TENSOR_FILE "ip-tensor-file"
+#define CONFIG_GROUP_INFER_OUTPUT_TENSOR_FILES "op-tensor-files"
+#define CONFIG_GROUP_INFER_RAW_OUTPUT_FILE_WRITE "raw-output-file-write"
 
 /** Runtime engine parameters. */
 #define CONFIG_GROUP_INFER_BATCH_SIZE "batch-size"

@@ -1,24 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "gstnvstreammux.h"
@@ -51,10 +40,10 @@
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wpointer-arith"
-// #pragma GCC diagn nostic ignored "-Wunused-function"
+//#pragma GCC diagn nostic ignored "-Wunused-function"
 #pragma GCC diagnostic ignored "-Wuninitialized"
 
-#define MAX_NVBUFFERS (guint)(-1)
+#define MAX_NVBUFFERS 1024
 #define MAX_SURFACES 8
 #define DEFAULT_NUM_SURFACES 1
 #define DEFAULT_ATTACH_SYS_TIME_STAMP TRUE
@@ -157,6 +146,7 @@ static GstStaticPadTemplate nvstreammux_srcpad_template = GST_STATIC_PAD_TEMPLAT
 enum {
     PROP_0,
     PROP_BATCH_SIZE,
+    PROP_BATCHED_PUSH_TIMEOUT,
     PROP_CONFIG_FILE_PATH,
     PROP_NUM_SURFACES_PER_FRAME,
     PROP_ATTACH_SYS_TIME_STAMP,
@@ -175,7 +165,7 @@ static guint nvstreammux_signals[SIGNAL_LAST_SIGNAL] = {0};
 
 #define DEFAULT_BATCH_METHOD BATCH_METHOD_ROUND_ROBIN
 #define DEFAULT_BATCH_SIZE 0
-#define DEFAULT_BATCHED_PUSH_TIMEOUT -1
+#define DEFAULT_BATCHED_PUSH_TIMEOUT 33000
 #define DEFAULT_WIDTH 1280
 #define DEFAULT_HEIGHT 720
 #define DEFAULT_QUERY_RESOLUTION FALSE
@@ -188,8 +178,8 @@ static void gst_nvstreammux_src_push_loop(gpointer user_data);
 
 static gboolean gst_nvstreammux_query_latency_unlocked(GstNvStreamMux *self, GstQuery *query)
 {
-    gboolean query_ret, live;
-    GstClockTime our_latency, min, max;
+    gboolean query_ret = FALSE, live = FALSE;
+    GstClockTime our_latency = 0, min = 0, max = 0;
     query_ret = gst_pad_query_default(self->srcpad, GST_OBJECT(self), query);
     if (!query_ret) {
         GST_INFO_OBJECT(self, "Latency query failed");
@@ -269,7 +259,7 @@ static gboolean gst_nvstreammux_src_event(GstPad *pad, GstObject *parent, GstEve
     GstNvStreamMux *mux = GST_NVSTREAMMUX(parent);
     GstElement *element = GST_ELEMENT(parent);
     gboolean ret = TRUE;
-    GstClockTime latency;
+    GstClockTime latency = 0;
 
     if (GST_EVENT_TYPE(event) == GST_EVENT_LATENCY) {
         /** Notification of new latency adjustment.
@@ -764,9 +754,11 @@ static bool handle_caps(unsigned int pad_id, GstPad *pad, GstObject *parent, Gst
     GstElement *element = GST_ELEMENT(parent);
     GstCaps *caps = NULL;
     GstCaps *caps_copy = NULL;
-    GstQuery *caps_query;
+    GstEvent *event_caps;
+    GstEvent *new_event;
     GstStructure *caps_str;
     gboolean needs_conversion = FALSE;
+    gboolean event_ret = FALSE;
     gint width_val = 0, height_val = 0;
     guint n, i;
     GValue *wd, *ht;
@@ -850,21 +842,19 @@ static bool handle_caps(unsigned int pad_id, GstPad *pad, GstObject *parent, Gst
             }
         }
 
-        /** Send caps_query after the caps event is sent out of src pad
+        /** Send event_caps after the caps event is sent out of src pad
          * Note: This is required to properly order caps event and query
          * handling in nvstreamdemux
          */
-        GstStructure *str =
-            gst_structure_new("update-caps", "stream-id", G_TYPE_UINT, pad_id, "stream-id-str",
-                              G_TYPE_STRING, gst_pad_get_stream_id(pad), NULL);
-        if (gst_structure_has_field(caps_str, "framerate")) {
-            gst_structure_set_value(str, "frame-rate",
-                                    gst_structure_get_value(caps_str, "framerate"));
+        new_event =
+            gst_nvevent_new_update_caps(pad_id, 0, 0, caps_str, gst_pad_get_stream_id(pad), 1);
+        event_ret = gst_pad_push_event(mux->srcpad, new_event);
+        if (!event_ret) {
+            LOGD("failed to set updated caps [%s] on source pad\n", gst_caps_to_string(caps));
+            GST_ERROR_OBJECT(element, "failed to set caps [%s] on source pad\n",
+                             gst_caps_to_string(caps));
+            return FALSE;
         }
-        caps_query = gst_query_new_custom(GST_QUERY_CUSTOM, str);
-        LOGD("update-caps query audio\n");
-        gst_pad_peer_query(mux->srcpad, caps_query);
-        gst_query_unref(caps_query);
 
         g_mutex_unlock(&mux->ctx_lock);
         return TRUE;
@@ -926,8 +916,8 @@ static bool handle_caps(unsigned int pad_id, GstPad *pad, GstObject *parent, Gst
                 mux->out_videoinfo.fps_n = 30;
 
             // mux->frame_duration_nsec =
-            //    1000000000UL * mux->out_videoinfo.fps_d /
-            //   mux->out_videoinfo.fps_n;
+            //   1000000000UL * mux->out_videoinfo.fps_d /
+            //  mux->out_videoinfo.fps_n;
 
             mux->helper->set_frame_duration(1000000000UL * ((double)mux->out_videoinfo.fps_d /
                                                             (double)mux->out_videoinfo.fps_n));
@@ -956,9 +946,9 @@ static bool handle_caps(unsigned int pad_id, GstPad *pad, GstObject *parent, Gst
             if (mux->helper->get_config_batch_size() % mux->helper->get_num_surfaces_per_frame() !=
                 0) {
                 // GST_ELEMENT_ERROR (mux, LIBRARY, SETTINGS,
-                //    ("Muxer batch-size (%d) not a multiple of number of dewarped surfaces (%d)",
-                //   mux->helper->get_batch_size(), mux->helper->get_num_surfaces_per_frame()),
-                //   NULL);
+                //   ("Muxer batch-size (%d) not a multiple of number of dewarped surfaces (%d)",
+                //  mux->helper->get_batch_size(), mux->helper->get_num_surfaces_per_frame()),
+                //  NULL);
                 GST_ERROR_OBJECT(mux, "returning incorrect batch_size\n");
 
                 g_mutex_unlock(&mux->ctx_lock);
@@ -1017,16 +1007,15 @@ static bool handle_caps(unsigned int pad_id, GstPad *pad, GstObject *parent, Gst
         gst_caps_unref(new_caps);
     }
 
-    GstStructure *str =
-        gst_structure_new("update-caps", "stream-id", G_TYPE_UINT, pad_id, "width-val", G_TYPE_INT,
-                          width_val, "height-val", G_TYPE_INT, height_val, NULL);
-    if (gst_structure_has_field(caps_str, "framerate")) {
-        gst_structure_set_value(str, "frame-rate", gst_structure_get_value(caps_str, "framerate"));
+    new_event = gst_nvevent_new_update_caps(pad_id, width_val, height_val, caps_str,
+                                            gst_pad_get_stream_id(pad), 0);
+    event_ret = gst_pad_push_event(mux->srcpad, new_event);
+    if (!event_ret) {
+        LOGD("failed to set updated caps [%s] on source pad\n", gst_caps_to_string(caps));
+        GST_ERROR_OBJECT(element, "failed to set caps [%s] on source pad\n",
+                         gst_caps_to_string(caps));
+        return FALSE;
     }
-    caps_query = gst_query_new_custom(GST_QUERY_CUSTOM, str);
-    LOGD("update-caps query video\n");
-    gst_pad_peer_query(mux->srcpad, caps_query);
-    gst_query_unref(caps_query);
 
     g_mutex_unlock(&mux->ctx_lock);
     return TRUE;
@@ -1226,8 +1215,9 @@ static GstPad *gst_nvstreammux_request_new_pad(GstElement *element,
 
         gst_element_add_pad(element, sinkpad);
         mux->helper->add_pad(stream_index, new GstSinkPad(mux, stream_index, sinkpad));
+        g_free(wrapper_pad);
     }
-
+    wrapper_pad = NULL;
     mux->helper->notify_all();
     mux->helper->set_all_pads_eos(false);
 
@@ -1304,10 +1294,8 @@ static void gst_nvstreammux_src_push_loop(gpointer user_data)
              */
             mux->pushed_stream_start_once = false;
         }
-        GST_ELEMENT_WARNING(
-            mux, RESOURCE, NOT_FOUND,
-            ("No Sources found at the input of muxer [%s]", mux->isAudio ? "audiomux" : "videomux"),
-            (NULL));
+        GST_DEBUG_OBJECT(mux, "No Sources found at the input of muxer [%s:%d]",
+                         mux->isAudio ? "audiomux" : "videomux", __LINE__);
         /** to avoid tight loop in this thread, sleep */
         usleep(5 * 1000);
         return;
@@ -1442,10 +1430,14 @@ static GstStateChangeReturn gst_nvstreammux_change_state(GstElement *element,
     GstNvStreamMux *mux = GST_NVSTREAMMUX(element);
     GstStateChangeReturn ret;
     GList *iter = element->sinkpads;
-    guint i, n;
+    guint i = 0, n = 0;
 
     switch (transition) {
     case GST_STATE_CHANGE_NULL_TO_READY:
+        if (mux->batch_size <= 0) {
+            GST_ELEMENT_ERROR(mux, LIBRARY, SETTINGS, ("Batch size not set"), (nullptr));
+            return GST_STATE_CHANGE_FAILURE;
+        }
         break;
     case GST_STATE_CHANGE_READY_TO_NULL:
         break;
@@ -1462,7 +1454,7 @@ static GstStateChangeReturn gst_nvstreammux_change_state(GstElement *element,
     case GST_STATE_CHANGE_PAUSED_TO_READY: {
         GHashTableIter iter;
         gpointer value;
-        gint key;
+        gint key = 0;
         g_mutex_lock(&mux->ctx_lock);
         g_hash_table_iter_init(&iter, mux->sink_pad_caps);
         while (g_hash_table_iter_next(&iter, (gpointer *)&key, &value)) {
@@ -1502,6 +1494,11 @@ static void gst_nvstreammux_set_property(GObject *object,
     case PROP_BATCH_SIZE:
         mux->batch_size = g_value_get_uint(value);
         mux->helper->set_batch_size(mux->batch_size);
+        break;
+
+    case PROP_BATCHED_PUSH_TIMEOUT:
+        mux->timeout_usec = g_value_get_int(value);
+        mux->helper->set_batch_push_timeout(mux->timeout_usec);
         break;
 
     case PROP_CONFIG_FILE_PATH:
@@ -1572,6 +1569,9 @@ static void gst_nvstreammux_get_property(GObject *object,
     case PROP_BATCH_SIZE:
         g_value_set_uint(value, mux->helper->get_config_batch_size());
         break;
+    case PROP_BATCHED_PUSH_TIMEOUT:
+        g_value_set_int(value, mux->timeout_usec);
+        break;
     case PROP_CONFIG_FILE_PATH:
         g_value_set_string(value, mux->config_file_path);
         break;
@@ -1631,6 +1631,15 @@ static void gst_nvstreammux_2_class_init(GstNvStreamMuxClass *klass)
         g_param_spec_uint("batch-size", "Batch Size", "Maximum number of buffers in a batch", 0,
                           MAX_NVBUFFERS, DEFAULT_BATCH_SIZE,
                           (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_BATCHED_PUSH_TIMEOUT,
+        g_param_spec_int("batched-push-timeout", "Batched Push Timeout",
+                         "Timeout in microseconds to wait for batch formation i.e minimum FPS\n"
+                         "\t\t\tto push the batch even if the complete batch is not formed.\n"
+                         "\t\t\tSet to 33ms (33fps) by default",
+                         1, G_MAXINT, DEFAULT_BATCHED_PUSH_TIMEOUT,
+                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobject_class, PROP_NUM_SURFACES_PER_FRAME,
@@ -1762,4 +1771,5 @@ static void gst_nvstreammux_2_init(GstNvStreamMux *mux)
     mux->frame_duration = DEFAULT_FRAME_DURATION;
     mux->no_pipeline_eos = DEFAULT_NO_PIPELINE_EOS;
     mux->cur_frame_pts = 0;
+    mux->timeout_usec = DEFAULT_BATCHED_PUSH_TIMEOUT;
 }

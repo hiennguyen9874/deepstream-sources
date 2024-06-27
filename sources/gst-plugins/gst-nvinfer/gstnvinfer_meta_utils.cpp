@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "gstnvinfer_meta_utils.h"
@@ -50,6 +51,7 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
     frame_meta->bInferDone = TRUE;
     /* Iterate through the inference output for one frame and attach the detected
      * bnounding boxes. */
+    srand((unsigned int)0);
     for (guint i = 0; i < detection_output.numObjects; i++) {
         NvDsInferObject &obj = detection_output.objects[i];
         GstNvInferDetectionFilterParams &filter_params =
@@ -183,6 +185,8 @@ void attach_metadata_detector(GstNvInfer *nvinfer,
             obj_meta->mask_params.threshold = segmentationThreshold;
             obj_meta->mask_params.width = obj.mask_width;
             obj_meta->mask_params.height = obj.mask_height;
+            rect_params.border_color = (NvOSD_ColorParams){
+                (float)rand() / RAND_MAX, (float)rand() / RAND_MAX, (float)rand() / RAND_MAX, 1};
         }
 
         nvds_add_obj_meta_to_frame(frame_meta, obj_meta, parent_obj_meta);
@@ -203,6 +207,9 @@ void attach_metadata_classifier(GstNvInfer *nvinfer,
     NvDsBatchMeta *batch_meta = (nvinfer->process_full_frame)
                                     ? frame.frame_meta->base_meta.batch_meta
                                     : object_meta->base_meta.batch_meta;
+
+    if (frame.frame_meta)
+        frame.frame_meta->bInferDone = TRUE;
 
     if (object_info.attributes.size() == 0 || object_info.label.length() == 0)
         return;
@@ -362,10 +369,10 @@ static gpointer copy_segmentation_meta(gpointer data, gpointer user_data)
     meta->width = src_meta->width;
     meta->height = src_meta->height;
     meta->class_map =
-        (gint *)g_memdup(src_meta->class_map, meta->width * meta->height * sizeof(gint));
+        (gint *)g_memdup2(src_meta->class_map, meta->width * meta->height * sizeof(gint));
     meta->class_probabilities_map =
-        (gfloat *)g_memdup(src_meta->class_probabilities_map,
-                           meta->classes * meta->width * meta->height * sizeof(gfloat));
+        (gfloat *)g_memdup2(src_meta->class_probabilities_map,
+                            meta->classes * meta->width * meta->height * sizeof(gfloat));
     meta->priv_data = NULL;
 
     return meta;
@@ -379,6 +386,9 @@ void attach_metadata_segmentation(GstNvInfer *nvinfer,
     NvDsBatchMeta *batch_meta = (nvinfer->process_full_frame)
                                     ? frame.frame_meta->base_meta.batch_meta
                                     : frame.obj_meta->base_meta.batch_meta;
+
+    if (frame.frame_meta)
+        frame.frame_meta->bInferDone = TRUE;
 
     NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(batch_meta);
     NvDsInferSegmentationMeta *meta =
@@ -428,7 +438,7 @@ static gpointer copy_tensor_output_meta(gpointer data, gpointer user_data)
 
     tensor_output_meta->unique_id = src_meta->unique_id;
     tensor_output_meta->num_output_layers = src_meta->num_output_layers;
-    tensor_output_meta->output_layers_info = (NvDsInferLayerInfo *)g_memdup(
+    tensor_output_meta->output_layers_info = (NvDsInferLayerInfo *)g_memdup2(
         src_meta->output_layers_info, src_meta->num_output_layers * sizeof(NvDsInferLayerInfo));
     tensor_output_meta->out_buf_ptrs_host = new void *[src_meta->num_output_layers];
     tensor_output_meta->out_buf_ptrs_dev = new void *[src_meta->num_output_layers];
@@ -478,8 +488,8 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer,
         meta->unique_id = nvinfer->unique_id;
         meta->num_output_layers = nvinfer->output_layers_info->size();
         meta->output_layers_info =
-            (NvDsInferLayerInfo *)g_memdup(nvinfer->output_layers_info->data(),
-                                           meta->num_output_layers * sizeof(NvDsInferLayerInfo));
+            (NvDsInferLayerInfo *)g_memdup2(nvinfer->output_layers_info->data(),
+                                            meta->num_output_layers * sizeof(NvDsInferLayerInfo));
         meta->out_buf_ptrs_host = new void *[meta->num_output_layers];
         meta->out_buf_ptrs_dev = new void *[meta->num_output_layers];
         meta->gpu_id = nvinfer->gpu_id;
@@ -524,8 +534,8 @@ void attach_tensor_output_meta(GstNvInfer *nvinfer,
         meta->unique_id = nvinfer->unique_id;
         meta->num_output_layers = nvinfer->output_layers_info->size();
         meta->output_layers_info =
-            (NvDsInferLayerInfo *)g_memdup(nvinfer->output_layers_info->data(),
-                                           meta->num_output_layers * sizeof(NvDsInferLayerInfo));
+            (NvDsInferLayerInfo *)g_memdup2(nvinfer->output_layers_info->data(),
+                                            meta->num_output_layers * sizeof(NvDsInferLayerInfo));
         meta->out_buf_ptrs_host = new void *[meta->num_output_layers];
         meta->out_buf_ptrs_dev = new void *[meta->num_output_layers];
         meta->gpu_id = nvinfer->gpu_id;

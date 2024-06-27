@@ -68,8 +68,7 @@ It demonstrates, how to encode objects detected by nvinfer in jpeg format.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
+      For both Jetson & x86, CUDA_VER=12.2
   $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
@@ -98,6 +97,11 @@ user in the command.
 The user can set "save_img" and "save_user_meta" according to their
 requirements.
 For details check the public header file "nvds_obj_encode.h".
+
+The user can set the environment variable CALCULATE_ENCODE_TIME to yes if they
+want to print the encode time for all the jpeg_images. They can also choose to
+only enable it for particular encodes by setting the calcEncodeTime field of
+the encodes to TRUE.
 
 For reference, here are the config files used for this sample :
 1. The 4-class detector (referred to as pgie in this sample) uses

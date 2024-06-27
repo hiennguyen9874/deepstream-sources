@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "deepstream_schema.h"
@@ -360,6 +361,30 @@ static std::vector<std::string> split_string(std::string input)
     return ret;
 }
 
+static bool nvds_msg2p_parse_datamap_yaml(void *privData,
+                                          gchar *cfg_file_path,
+                                          std::string group_str)
+{
+    NvDsPayloadPriv *privObj = (NvDsPayloadPriv *)privData;
+    YAML::Node configyml = YAML::LoadFile(cfg_file_path);
+    if (configyml[group_str]["2d_objects_key"])
+        privObj->datamapCfg.obj_key_2d = configyml[group_str]["2d_objects_key"].as<string>();
+    if (configyml[group_str]["3d_objects_key"])
+        privObj->datamapCfg.obj_key_3d = configyml[group_str]["3d_objects_key"].as<string>();
+    if (configyml[group_str]["fused_detection_key"])
+        privObj->datamapCfg.obj_key_fusion =
+            configyml[group_str]["fused_detection_key"].as<string>();
+    if (configyml[group_str]["lidar_data_key"])
+        privObj->datamapCfg.lidar_data_key = configyml[group_str]["lidar_data_key"].as<string>();
+    if (configyml[group_str]["lidar_element_size"])
+        privObj->datamapCfg.lidar_element_size =
+            configyml[group_str]["lidar_element_size"].as<guint32>();
+    if (configyml[group_str]["lidar_element_max_points"])
+        privObj->datamapCfg.lidar_element_max_points =
+            configyml[group_str]["lidar_element_max_points"].as<guint32>();
+    return true;
+}
+
 static bool nvds_msg2p_parse_sensor_yaml(void *privData,
                                          gchar *cfg_file_path,
                                          std::string group_str)
@@ -670,6 +695,7 @@ bool nvds_msg2p_parse_yaml(void *privData, const gchar *file)
     std::string sensor_str = "sensor";
     std::string place_str = "place";
     std::string analytics_str = "analytics";
+    std::string datamap_str = "ds3d::datamap";
     gchar *cfg_file = (gchar *)file;
 
     for (YAML::const_iterator itr = configyml.begin(); itr != configyml.end(); ++itr) {
@@ -681,6 +707,8 @@ bool nvds_msg2p_parse_yaml(void *privData, const gchar *file)
             retVal = nvds_msg2p_parse_place_yaml(privData, cfg_file, paramKey);
         } else if (paramKey.compare(0, analytics_str.size(), analytics_str) == 0) {
             retVal = nvds_msg2p_parse_analytics_yaml(privData, cfg_file, paramKey);
+        } else if (paramKey.compare(0, datamap_str.size(), datamap_str) == 0) {
+            retVal = nvds_msg2p_parse_datamap_yaml(privData, cfg_file, paramKey);
         } else {
             cout << "Unknown group " << paramKey << endl;
         }

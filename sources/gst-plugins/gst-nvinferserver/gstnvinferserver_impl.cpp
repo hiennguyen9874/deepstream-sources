@@ -1173,6 +1173,7 @@ bool GstNvInferServerImpl::shouldInferObject(NvDsObjectMeta *objMeta,
                                              GstNvInferServerObjectHistory *history)
 {
     const ic::PluginControl::InputControl &inputConfig = config().input_control();
+    uint32_t secondary_reinfer_interval;
     if (inputConfig.operate_on_gie_id() > -1 &&
         objMeta->unique_component_id != inputConfig.operate_on_gie_id())
         return false;
@@ -1206,6 +1207,13 @@ bool GstNvInferServerImpl::shouldInferObject(NvDsObjectMeta *objMeta,
         return false;
     }
 
+    /* Assign the default value if the field is not set through config file*/
+    if (inputConfig.has_secondary_reinfer_interval()) {
+        secondary_reinfer_interval = inputConfig.secondary_reinfer_interval();
+    } else {
+        secondary_reinfer_interval = MAX_SECONDARY_REINFER_INTERVAL;
+    }
+
     /* History is irrelevant for detectors. */
     if (history && isClassify()) {
         /* Do not infer if the object is already being inferred on maybe from a
@@ -1222,8 +1230,17 @@ bool GstNvInferServerImpl::shouldInferObject(NvDsObjectMeta *objMeta,
             (objMeta->rect_params.width * objMeta->rect_params.height))
             shouldReinfer = true;
 
-        if (frameNum - history->last_inferred_frame_num > MAX_SECONDARY_REINFER_INTERVAL)
+        if (frameNum - history->last_inferred_frame_num > secondary_reinfer_interval)
             shouldReinfer = true;
+
+        return shouldReinfer;
+    }
+
+    if (history && isDetection()) {
+        gboolean shouldReinfer = FALSE;
+
+        if (frameNum - history->last_inferred_frame_num > secondary_reinfer_interval)
+            shouldReinfer = TRUE;
 
         return shouldReinfer;
     }

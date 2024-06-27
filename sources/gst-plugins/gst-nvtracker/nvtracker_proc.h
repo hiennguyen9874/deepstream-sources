@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #ifndef _NVTRACKERPROC_H
@@ -71,6 +72,10 @@ protected:
     typedef uint32_t StreamId;
     /** Surface type ID. */
     typedef uint32_t SurfaceId;
+    /** sub-batch ID. */
+    typedef uint32_t SubBatchId;
+    /** Sequence index in a sub-batch. i.e. "seq_index" in "NvMOTFrame" */
+    typedef uint32_t SeqIndex;
     /** Tracker processing config. */
     TrackerConfig m_Config;
     /** Tracker lib is running. */
@@ -100,13 +105,87 @@ protected:
     std::condition_variable m_BufQueueCond;
 
     /** Stores batches not finishing tracker proceeding. */
-    std::map<BatchId, std::vector<SurfaceStreamId>> m_PendingBatch;
+    std::map<BatchId, std::vector<SubBatchId>> m_PendingBatch;
     BatchId m_BatchId = 0;
     std::mutex m_PendingBatchLock;
+
+    /** Stores status of pending batches for buffer conversion. */
+    std::map<BatchId, bool> m_ConvBufComplete;
+    std::mutex m_ConvBufLock;
 
     /** Batch dispatch to low-level tracker lib */
     NvMOTContextHandle m_BatchContextHandle = nullptr;
     std::thread m_ProcessBatchThread;
+    /******************************************************************************************************
+     * NOTE : Data structures and variables declared below are used for sub-batch processing.
+     * To get more insights into sub-batches feature implementation, please refer to the
+     * detailed documentation and examples elaborated at the end of nvtracker_proc.cpp
+     * ******************************************************************************************************/
+
+    /** Per-sub-batch dispatch to low-level tracker lib */
+    struct DispatchReq {
+        BatchId batchId;
+        /** Map for frames present in a sub-batch */
+        std::map<SurfaceStreamId, NvDsFrameMeta *> subBatchFrameMap;
+        /* Tracker data for processing */
+        ProcParams procParams;
+        /** Information for stream removal */
+        /** Set below flag to true if the request is for stream removal */
+        bool removeSource;
+        /** Id of the stream to be removed */
+        SurfaceStreamId ssId;
+    };
+    /** Info corresponding to each sub-batch thread */
+    struct DispatchInfo {
+        SubBatchId sbId;
+        std::thread sbThread;
+        bool running;
+        std::queue<DispatchReq> reqQueue;
+        std::mutex reqQueueLock;
+        std::condition_variable reqQueueCond;
+        NvMOTContextHandle contextHandle;
+
+        // FIXME: operator= needed but not used in meaningful way
+        DispatchInfo &operator=(DispatchInfo const &rhs) { return *this; }
+    };
+    /** Mapping from sub-batch id to corresponding thread info */
+    std::map<SubBatchId, DispatchInfo> m_DispatchMap;
+    std::mutex m_DispatchMapLock;
+    /** Mapping for SurfaceStreamId => SubBatchId */
+    /** Usage : Everytime a new batch arrives, this mapping is used to find the SubBatchId */
+    /** that should be used to process each frame in the batch based on the SurfaceStreamId of the
+     * frame */
+    std::map<SurfaceStreamId, SubBatchId> m_SsidSubBatchMap;
+    /** Pad index(Source id) mapping: {Pad index(source id): sequence index in the sub-batch} */
+    /** Usage : This mapping is used for every input frame to fill "seq_index" value in "NvMOTFrame"
+     */
+    /** before being passed to the low level tracker for processing */
+    std::map<uint32_t, SeqIndex> m_PadIndexSeqIndexMap;
+    /** For dynamic/run-time mapping of source id(pad index) to sub-batches; maintain and update a
+     * map of allocations */
+    /** map <sub-batch id, map <seq index, pair <SurfaceStreamId, pad index > >> */
+    /** Usage : Keeps a track of used <SubBatchId, SeqIndex> slot */
+    /** Whenever a new source is added, it is assigned to a <SubBatchId, SeqIndex> pair */
+    /** and accordingly m_SubBatchAllocationMap is updated */
+    /** Similarly, when a source is removed, the corresponding entry is deleted from
+     * m_SubBatchAllocationMap */
+    std::map<SubBatchId, std::map<SeqIndex, std::pair<SurfaceStreamId, uint32_t>>>
+        m_SubBatchAllocationMap;
+    /** Max sub-batch size */
+    uint32_t m_MaxSubBatchSize = 0;
+    /** Function to pop sub-batch from queue, call low level lib to process
+     *  and update meta data with tracking results for the sub-batch
+     */
+    void processSubBatch(DispatchInfo *pDispatchInfo);
+    /** Function to create sub-batches from a batch and submit to
+     * corresponding sub-batch queues */
+    bool dispatchSubBatches(ProcParams procParams);
+    /** Fuction to map a stream with a specific (SurfaceStreamId, pad_index) to a sub-batch */
+    /** The mapping happens only the first time when a stream arrives and is stored in
+     * m_SsidSubBatchMap */
+    bool mapStreamToSubBatch(SurfaceStreamId ssId, uint32_t pad_index, bool dynamicSubBatching);
+
+    /******************************************************************************************************/
 
     /** Completions */
     std::queue<InputParams> m_CompletionQueue;
@@ -122,7 +201,7 @@ protected:
     /** Internal initializing and release function. */
 
     /** initialize the batch context with low-level tracker lib.*/
-    NvMOTContextHandle initTrackerContext();
+    NvMOTContextHandle initTrackerContext(uint32_t sbId = 0);
     /** Initialize surface transform buffer pool. */
     bool initConvBufPool();
     /** Deinitialize surface transform buffer pool. */
@@ -135,10 +214,24 @@ protected:
     bool initTrackerLib();
     /** Deinitialize low-level tracker lib. */
     void deInitTrackerLib();
+    /** Initialize parameter query from low-level tracker lib. */
+    bool initTrackerQuery(const std::vector<NvMOTContextHandle> &contextHandleList);
+    /** Initialize parameter query from low-level tracker lib for a single sub-batch */
+    /** Required when reinitializing a sub-batch */
+    bool initTrackerQuery(const NvMOTContextHandle &contextHandleList, uint32_t sbId);
     /** Allocate memory for low level library input*/
     void allocateProcessMemory(NvMOTProcessParams &procInput, NvMOTTrackedObjBatch &procResult);
+    void allocateProcessMemory(NvMOTProcessParams &procInput,
+                               NvMOTTrackedObjBatch &procResult,
+                               uint32_t batchSize);
     /** Release input memory */
     void releaseProcessMemory(NvMOTProcessParams &procInput, NvMOTTrackedObjBatch &procResult);
+    void releaseProcessMemory(NvMOTProcessParams &procInput,
+                              NvMOTTrackedObjBatch &procResult,
+                              uint32_t batchSize);
+
+    void allocateConvexHullMemory(NvMOTTrackedObj *list, const uint32_t numAllocated);
+    void releaseConvexHullMemory(NvMOTTrackedObj *list, const uint32_t numAllocated);
 
     /** Functions to process a batch. */
 
@@ -169,12 +262,26 @@ protected:
     void updateUserMeta(const std::vector<std::map<SurfaceStreamId, NvDsFrameMeta *>> &batchList,
                         ProcParams &procParams,
                         NvTrackerMiscDataBuffer *pMiscDataBuf);
+    void updateUserMeta(const std::vector<std::map<SurfaceStreamId, NvDsFrameMeta *>> &batchList,
+                        ProcParams &procParams,
+                        NvTrackerMiscDataBuffer *pMiscDataBuf,
+                        TrackerMiscDataManager &miscDataMgr);
     /** Update each object's reid meta. */
     void updateObjectReidMeta(NvDsObjectMeta *pObjectMeta,
                               NvMOTTrackedObj *pTrackedObj,
                               NvDsBatchMeta *pBatchMeta);
     /** Update batch reid meta. */
     void updateBatchReidMeta(GstNvTrackerMiscDataObject *pGstObj, ProcParams &procParams);
+    /** Update each object's model projection meta. */
+    void updateObjectProjectionMeta(NvDsObjectMeta *pObjectMeta,
+                                    NvMOTTrackedObj *pTrackedObj,
+                                    NvDsBatchMeta *pBatchMeta,
+                                    float scaleWidth,
+                                    float scaleHeight);
+
+    void updateTerminatedTrackMeta(GstNvTrackerMiscDataObject *pGstObj, ProcParams &procParams);
+
+    void updateShadowTrackMeta(GstNvTrackerMiscDataObject *pGstObj, ProcParams &procParams);
 
     /** Function to pop batch from input queue, call low level lib to process
      *  and update meta data with tracking results.
@@ -226,7 +333,7 @@ protected:
     /** Low level lib remove streams. */
     NvMOTStatus (*m_TrackerLibRemoveStreams)(NvMOTContextHandle contextHandle,
                                              NvMOTStreamId streamIdMask);
-    NvDsPastFrameObjBatch *allocatePastFrameMemory();
+    NvDsTargetMiscDataBatch *allocatePastFrameMemory();
 };
 
 #endif

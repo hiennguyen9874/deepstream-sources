@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
  * property and proprietary rights in and to this material, related
@@ -122,8 +122,9 @@ public:
         }
         _bus.reset();
         _pipeline.reset();
-        _elementList.clear();
         _mainLoop.reset();
+        std::for_each(_elementList.rbegin(), _elementList.rend(), [](auto &e) { e.reset(); });
+        _elementList.clear();
     }
 
     /* timeout: milliseconds, 0 means never timeout */
@@ -252,7 +253,9 @@ public:
         };
         g_idle_add(GSourceCb, &loopCheck);
 
-        if (!_StatusCond.wait_for(locker, std::chrono::milliseconds(2000),
+        // TODO, find better timeout
+        // set a larger timeout value since some model load taking long time
+        if (!_StatusCond.wait_for(locker, std::chrono::milliseconds(20000),
                                   [this, &loopStarted]() { return loopStarted || _mainStopped; })) {
             locker.unlock();
             LOG_WARNING("Starting main loop timed out");
@@ -275,7 +278,7 @@ public:
 
     ErrCode sendEOS()
     {
-        LOG_DEBUG("sending EOS");
+        LOG_INFO("pipeline sending EOS");
         GstIterator *itr = nullptr;
         GValue data = {
             0,
@@ -284,9 +287,14 @@ public:
              gst_iterator_next(itr, &data) == GST_ITERATOR_OK;) {
             GstElement *elem = GST_ELEMENT_CAST(g_value_get_object(&data));
             LOG_DEBUG("sending EOS downstream from src element %s\n", GST_ELEMENT_NAME(elem));
+            // operating pads directly might lose element's state lock, each element's function must
+            // be thread-safe
             gst_element_foreach_src_pad(elem, SendEosOnSrc, NULL);
             g_value_reset(&data);
         }
+        g_value_unset(&data);
+        gst_iterator_free(itr);
+
         return ErrCode::kGood;
     }
 

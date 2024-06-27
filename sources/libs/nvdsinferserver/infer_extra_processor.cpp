@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "infer_extra_processor.h"
@@ -78,7 +79,8 @@ NvDsInferStatus InferExtraProcessor::initCustomProcessor(SharedDllHandle dlHandl
     RETURN_IF_FAILED(dlHandle && dlHandle->isValid(), NVDSINFER_CUSTOM_LIB_FAILED,
                      "dlopen lib failed.");
     auto funcPtr = dlHandle->symbol<CreateCustomProcessorFunc>(funcName);
-    RETURN_IF_FAILED(funcPtr, NVDSINFER_CUSTOM_LIB_FAILED, "dlsym %s failed.", safeStr(funcName));
+    RETURN_IF_FAILED(funcPtr, NVDSINFER_CUSTOM_LIB_FAILED, "dlsym %s failed. dlerror: %s",
+                     safeStr(funcName), dlerror());
     m_CustomProcessor.reset(funcPtr(config.c_str(), (uint32_t)config.length()),
                             [dlHandle](IInferCustomProcessor *p) { delete p; });
     m_RequireInferLoop = m_CustomProcessor->requireInferLoop();

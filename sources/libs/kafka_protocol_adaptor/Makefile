@@ -1,12 +1,13 @@
 ################################################################################
-# Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
-#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 ################################################################################
 
 # this Makefile is to be used to build the kafka_proto protocol adaptor .so
@@ -31,10 +32,10 @@ LDFLAGS:= -shared
 DS_INC:= ../../includes
 RDKAFKA_INC:=/usr/local/include/librdkafka
 
-INC_PATHS:= -I $(DS_INC) -I $(RDKAFKA_INC)
+INC_PATHS:= -I $(DS_INC) -I $(RDKAFKA_INC) -I/opt/tritonclient/include
 CFLAGS+= $(INC_PATHS)
 
-LIBS+= -L/$(DS_LIB) -lrdkafka -ljansson -lnvds_logger -lpthread -lcrypto -lprotobuf
+LIBS+= -L/$(DS_LIB) -L/opt/tritonclient/lib -lrdkafka -ljansson -lnvds_logger -lpthread -lcrypto -lprotobuf
 LDFLAGS+= -Wl,-rpath=$(DS_LIB)
 
 all: $(TARGET_LIB)

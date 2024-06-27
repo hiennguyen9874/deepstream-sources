@@ -36,7 +36,7 @@ TRITON_REPO_DIR="triton_tao_model_repo"
 DOWNLOAD_DIR="/tmp/tao_models"
 
 if [[ $(uname -m) == "aarch64" ]]; then
-  TAO_CONVERTER_VERSION="v3.22.05_trt8.4_aarch64"
+  TAO_CONVERTER_VERSION="v5.1.0_jp6.0_aarch64"
   BATCH_SIZE=1
   OPT_PROFILE_PEOPLENET_TRANSFORMER="inputs,1x3x544x960,1x3x544x960,1x3x544x960"
   OPT_PROFILE_PEOPLESEMSEGNET="input_2:0,1x3x544x960,1x3x544x960,1x3x544x960"
@@ -44,7 +44,7 @@ if [[ $(uname -m) == "aarch64" ]]; then
   export TRT_LIB_PATH=/usr/lib/aarch64-linux-gnu
   export TRT_INC_PATH=/usr/include/aarch64-linux-gnu
 else
-  TAO_CONVERTER_VERSION="v4.0.0_trt8.5.1.7_x86"
+  TAO_CONVERTER_VERSION="v5.1.0_8.6.3.1_x86"
   BATCH_SIZE=16
   OPT_PROFILE_PEOPLENET_TRANSFORMER="inputs,1x3x544x960,4x3x544x960,16x3x544x960"
   OPT_PROFILE_PEOPLESEMSEGNET="input_2:0,1x3x544x960,4x3x544x960,16x3x544x960"

@@ -1,24 +1,13 @@
-/**
- * SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
- * SPDX-License-Identifier: MIT
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <gst/gst.h>
@@ -200,6 +189,7 @@ void deserialize_data(GstBuffer *buf)
     NvDsMetaList *l_user_meta = NULL;
     NvDsUserMetaList *bMetaList = nullptr;
     int frame_count = 0, i = 0, j = 0, object_count = 0, m = 0, display_count = 0;
+    size_t str_len = 0;
     // std::string str;
 
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
@@ -252,7 +242,10 @@ void deserialize_data(GstBuffer *buf)
             frame_meta->bInferDone = framemeta.binferdone();
             frame_meta->class_id = framemeta.class_id();
             frame_meta->confidence = framemeta.confidence();
-            strncpy(frame_meta->class_label, framemeta.class_label().c_str(), MAX_LABEL_SIZE);
+            str_len = std::min(strlen(framemeta.class_label().c_str()),
+                               static_cast<size_t>(MAX_LABEL_SIZE - 1));
+            strncpy(frame_meta->class_label, framemeta.class_label().c_str(), str_len);
+            frame_meta->class_label[str_len] = '\0';
             for (j = 0; j < MAX_USER_FIELDS; j++) {
                 frame_meta->misc_frame_info[j] = framemeta.misc_frame_info(j);
             }
@@ -285,8 +278,11 @@ void deserialize_data(GstBuffer *buf)
                     nvdslabelinfometa->result_prob = nvdsli.result_prob();
                     nvdslabelinfometa->result_class_id = nvdsli.result_class_id();
 
+                    str_len = std::min(strlen(nvdsli.result_label().c_str()),
+                                       static_cast<size_t>(MAX_LABEL_SIZE - 1));
                     strncpy(nvdslabelinfometa->result_label, nvdsli.result_label().c_str(),
-                            MAX_LABEL_SIZE);
+                            str_len);
+                    nvdslabelinfometa->result_label[str_len] = '\0';
 
                     l_labelinfometa = l_labelinfometa->next;
                 }

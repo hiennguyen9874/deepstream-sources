@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights
  * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
  * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -245,7 +245,6 @@ SharedGrpcRequest InferGrpcClient::createRequest(const std::string &model,
                                                  const std::vector<TritonClassParams> &classList)
 {
     tc::Error err;
-    tc::InferInput *inferInput;
     SharedGrpcRequest request;
 
     SharedBatchArray inputs = std::dynamic_pointer_cast<BaseBatchArray>(input);
@@ -261,6 +260,7 @@ SharedGrpcRequest InferGrpcClient::createRequest(const std::string &model,
     void *hostMem = NULL;
 
     for (auto &inbuf : inBufs) {
+        tc::InferInput *inferInput;
         const InferBufferDescription &inDesc = inbuf->getBufDesc();
 
         InferDims fullShape = fullDims(inbuf->getBatchSize(), inDesc.dims);

@@ -1,6 +1,6 @@
 ################################################################################
 
-# Copyright (c) 2020-2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
 
 #
 
@@ -70,7 +70,7 @@ After cloning, run the following commands:
 $ cd /opt/nvidia/deepstream/deepstream/
 $ sudo cp \
  sources/apps/sample_apps/deepstream_reference_apps/deepstream_app_tao_configs/\* \
- samples/configs/tao_pretrained_models/
+ samples/configs/tao_pretrained_models/ -r
 
           OR
 
@@ -79,7 +79,7 @@ $ cd /opt/nvidia/deepstream/deepstream/samples/configs/
 $ sudo apt-get install git-svn
 $ sudo git svn clone \
  https://github.com/NVIDIA-AI-IOT/deepstream_reference_apps/trunk/deepstream_app_tao_configs
-$ sudo cp deepstream_app_tao_configs/\* tao_pretrained_models/
+$ sudo cp deepstream_app_tao_configs/\* tao_pretrained_models/ -r
 $ sudo rm -rf deepstream_app_tao_configs/
 
 ---
@@ -95,8 +95,8 @@ $ sudo apt install zip
 $ cd /opt/nvidia/deepstream/deepstream/samples/configs/tao_pretrained_models/
 $ sudo ./download_models.sh
 
-For more information on TAO3.0 models,
-please refer https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps/tree/release/tao3.0#2-download-models.
+For more information on TAO5.0 models,
+please refer https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps/tree/release/tao5.0_ds6.4ga#2-download-models.
 
 ---
 
@@ -121,11 +121,8 @@ Running the models in DeepStream:
   model-engine-file paths are correct in config*infer*_ and deepstream*app*_
   configuration files.
 - For classifier model(multi-task), use deepstream_app_source1_classifier.txt
-- For instance segmentation models(MaskRCNN/peopelSegNet), use deepstream_app_source1_mrcnn.txt
-  It also requires TRT plugin using https://github.com/NVIDIA/TensorRT.
-  Follow
-  - https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps/tree/master/TRT-OSS/Jetson for Jetson
-  - https://github.com/NVIDIA-AI-IOT/deepstream_tao_apps/tree/master/TRT-OSS/x86 for x86
+- For segmentation models(peopleSemSegNet/unet/citySemSegFormer), use deepstream_app_source1_segmentation.txt
+- For instance segmentation models(peopleSegNet), use deepstream_app_source1_segmentation.txt
 - Run deepstream-app using one of the deepstream*app*\* configuration files.
   $ sudo deepstream-app -c <deepstream_app_config>
   e.g.

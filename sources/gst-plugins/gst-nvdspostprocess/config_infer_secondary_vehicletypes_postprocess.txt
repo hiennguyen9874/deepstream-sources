@@ -1,5 +1,5 @@
 ###############################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -61,11 +61,10 @@
 gpu-id=0
 net-scale-factor=1
 gie-unique-id=4
-model-file=/opt/nvidia/deepstream/deepstream/samples/models/Secondary_VehicleTypes/resnet18.caffemodel
-proto-file=/opt/nvidia/deepstream/deepstream/samples/models/Secondary_VehicleTypes/resnet18.prototxt
-model-engine-file=/opt/nvidia/deepstream/deepstream/samples/models/Secondary_VehicleTypes/resnet18.caffemodel_b16_gpu0_int8.engine
+tlt-model-key=tlt_encode
+tlt-encoded-model=/opt/nvidia/deepstream/deepstream/samples/models/Secondary_VehicleTypes/resnet18_vehicletypenet.etlt
+model-engine-file=/opt/nvidia/deepstream/deepstream/samples/models/Secondary_VehicleTypes/resnet18_vehicletypenet.etlt_b16_gpu0_int8.engine
 int8-calib-file=/opt/nvidia/deepstream/deepstream/samples/models/Secondary_VehicleTypes/cal_trt.bin
-mean-file=/opt/nvidia/deepstream/deepstream/samples/models/Secondary_VehicleTypes/mean.ppm
 labelfile-path=/opt/nvidia/deepstream/deepstream/samples/models/Secondary_VehicleTypes/labels.txt
 force-implicit-batch-dim=1
 batch-size=16
@@ -74,6 +73,7 @@ model-color-format=1
 network-mode=1
 network-type=100
 process-mode=2
+uff-input-blob-name=input_1
 output-blob-names=predictions/Softmax
 classifier-async-mode=0
 classifier-threshold=0.51
@@ -85,3 +85,4 @@ output-tensor-meta=1
 classifier-type=vehicletype
 #scaling-filter=0
 #scaling-compute-hw=0
+infer-dims=3;224;224

@@ -13,7 +13,7 @@ TRITON_GRPC_CLIENT ?= /opt/tritonclient
 PROTOBUF_BIN_DIR ?= /opt/proto/bin
 
 LIB := libnvdsgst_inferserver.so
-NVDS_VERSION := 6.3
+NVDS_VERSION := 7.0
 
 CUDA_VER ?=
 ifeq ($(CUDA_VER),)
@@ -44,7 +44,7 @@ CFLAGS+= \
     -DNDEBUG \
     -fPIC \
     -std=c++14 \
-    -DDS_VERSION=\"6.3.0\" \
+    -DDS_VERSION=\"7.0.0\" \
     -DFOR_PRIVATE \
     $(NULL)
 
@@ -99,7 +99,7 @@ CFLAGS += -DIS_TEGRA
 LIBS += -lcuda
 endif
 
-INFERSERVER_PROTOS:=$(wildcard *.proto)
+INFERSERVER_PROTOS := $(wildcard ../../includes/*.proto)
 
 ALL_PROTOS := $(INFERSERVER_PROTOS)
 ALL_PROTOS_PBCC := $(notdir $(ALL_PROTOS:.proto=.pb.cc))
@@ -134,6 +134,6 @@ clean:
 	rm -rf $(OBJS) $(LIB) $(ALL_PROTOS_PBH)  $(ALL_PROTOS_PBCC)
 
 
-%.pb.h %.pb.cc: %.proto $(INFERSERVER_PROTOS) Makefile
+%.pb.h %.pb.cc: ../../includes/%.proto $(INFERSERVER_PROTOS) Makefile
 	@mkdir -p $(dir $@)
-	$(PROTOBUF_BIN_DIR)/protoc --proto_path=. --cpp_out=. $<
+	$(PROTOBUF_BIN_DIR)/protoc --proto_path=../../includes --cpp_out=. $<

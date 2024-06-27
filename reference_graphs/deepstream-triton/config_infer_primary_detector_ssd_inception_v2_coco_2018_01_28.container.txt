@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021-2023 NVIDIA Corporation.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -60,7 +60,7 @@ infer_config {
   }
 
   custom_lib {
-    path: "/opt/nvidia/deepstream/deepstream-6.3/lib/libnvds_infercustomparser.so"
+    path: "/opt/nvidia/deepstream/deepstream-7.0/lib/libnvds_infercustomparser.so"
   }
 }
 input_control {

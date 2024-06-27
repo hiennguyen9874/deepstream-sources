@@ -1,23 +1,13 @@
-/**
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 /**
@@ -55,7 +45,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_dsexample_debug);
 
 #ifdef WITH_OPENCV
 // enable to write transformed cvmat to files
-// #define DSEXAMPLE_DEBUG
+//#define DSEXAMPLE_DEBUG
 #ifdef DSEXAMPLE_DEBUG
 #include "opencv2/imgcodecs.hpp"
 #endif
@@ -106,8 +96,8 @@ enum {
 #define Y_BYTES_PER_PIXEL 1
 #define UV_BYTES_PER_PIXEL 2
 
-#define MIN_INPUT_OBJECT_WIDTH 16
-#define MIN_INPUT_OBJECT_HEIGHT 16
+#define MIN_INPUT_OBJECT_WIDTH 1
+#define MIN_INPUT_OBJECT_HEIGHT 1
 
 #define CHECK_NPP_STATUS(npp_status, error_str)                                                  \
     do {                                                                                         \
@@ -655,7 +645,7 @@ static gboolean convert_batch_and_push_to_process_thread(GstDsExample *dsexample
 #endif
 
     // Configure transform session parameters for the transformation
-    transform_config_params.compute_mode = NvBufSurfTransformCompute_Default;
+    transform_config_params.compute_mode = dsexample->transform_config_params.compute_mode;
     transform_config_params.gpu_id = dsexample->gpu_id;
     transform_config_params.cuda_stream = dsexample->cuda_stream;
 
@@ -799,6 +789,9 @@ static GstFlowReturn gst_dsexample_submit_input_buffer(GstBaseTransform *btrans,
     gdouble scale_ratio = 1.0;
     guint num_filled = 0;
 
+    struct cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, dsexample->gpu_id);
+
     dsexample->current_batch_num++;
 
     nvtxEventAttributes_t eventAttrib = {0};
@@ -893,10 +886,22 @@ static GstFlowReturn gst_dsexample_submit_input_buffer(GstBaseTransform *btrans,
                 obj_meta = (NvDsObjectMeta *)(l_obj->data);
 
                 /* Should not process on objects smaller than MIN_INPUT_OBJECT_WIDTH x
-                 * MIN_INPUT_OBJECT_HEIGHT since it will cause hardware scaling issues. */
+                 * MIN_INPUT_OBJECT_HEIGHT */
                 if (obj_meta->rect_params.width < MIN_INPUT_OBJECT_WIDTH ||
                     obj_meta->rect_params.height < MIN_INPUT_OBJECT_HEIGHT)
                     continue;
+
+                /* Extra check for Jetson devices as default compute mode on Jetson is VIC which
+                 * supports min 16x16 */
+                if (prop.integrated) {
+                    if (dsexample->transform_config_params.compute_mode ==
+                            NvBufSurfTransformCompute_VIC ||
+                        dsexample->transform_config_params.compute_mode ==
+                            NvBufSurfTransformCompute_Default) {
+                        if (obj_meta->rect_params.width < 16 || obj_meta->rect_params.height < 16)
+                            continue;
+                    }
+                }
 
                 // Crop and scale the object maintainig aspect ratio
                 if (scale_and_fill_data(dsexample, in_surf->surfaceList + frame_meta->batch_id,
@@ -1125,6 +1130,9 @@ static gpointer gst_dsexample_output_loop(gpointer data)
     eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
     std::string nvtx_str;
 
+    struct cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, dsexample->gpu_id);
+
     nvtx_str = "gst-dsexample_output-loop_uid=" + std::to_string(dsexample->unique_id);
 
     g_mutex_lock(&dsexample->process_lock);
@@ -1204,12 +1212,24 @@ static gpointer gst_dsexample_output_loop(gpointer data)
                 obj_meta = frame.obj_meta;
 
                 /* Should not process on objects smaller than MIN_INPUT_OBJECT_WIDTH x
-                 * MIN_INPUT_OBJECT_HEIGHT since it will cause hardware scaling issues. */
+                 * MIN_INPUT_OBJECT_HEIGHT */
                 if (obj_meta->rect_params.width < MIN_INPUT_OBJECT_WIDTH ||
                     obj_meta->rect_params.height < MIN_INPUT_OBJECT_HEIGHT)
                     continue;
 
-                    // Process the object crop to obtain label
+                /* Extra check for Jetson devices as default compute mode on Jetson is VIC which
+                 * supports min 16x16 */
+                if (prop.integrated) {
+                    if (dsexample->transform_config_params.compute_mode ==
+                            NvBufSurfTransformCompute_VIC ||
+                        dsexample->transform_config_params.compute_mode ==
+                            NvBufSurfTransformCompute_Default) {
+                        if (obj_meta->rect_params.width < 16 || obj_meta->rect_params.height < 16)
+                            continue;
+                    }
+                }
+
+                // Process the object crop to obtain label
 #ifdef WITH_OPENCV
                 output = DsExampleProcess(dsexample->dsexamplelib_ctx, batch->cvmat[i].data);
 #else
@@ -1256,7 +1276,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dsexample,
                   DESCRIPTION,
                   dsexample_plugin_init,
-                  "6.3",
+                  "7.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

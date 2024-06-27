@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "deepstream_nmos_app.h"
@@ -290,7 +280,7 @@ static GstCaps *get_audio_caps_from_sdp_caps(GstCaps *srcCaps)
 {
     g_return_val_if_fail(srcCaps != NULL, NULL);
     GstCaps *caps = NULL;
-    gint channels, rate, tmp;
+    gint channels = 0, rate = 0, tmp = 0;
     const gchar *str;
     gchar *format;
 
@@ -948,7 +938,11 @@ static gpointer create_video_recv_send_pipeline(NvDsNmosAppCtx *appCtx,
     GstElement *pgie = NULL;
     GstElement *nvosd = NULL;
     if (appCtx->config.enablePgie) {
-        pgie = gst_element_factory_make("nvinfer", NULL);
+        if (appCtx->config.pluginType) {
+            pgie = gst_element_factory_make("nvinferserver", NULL);
+        } else {
+            pgie = gst_element_factory_make("nvinfer", NULL);
+        }
         nvosd = gst_element_factory_make("nvdsosd", NULL);
 
         if (!pgie || !nvosd) {
@@ -1143,7 +1137,7 @@ static gpointer create_video_recv_send_pipeline(NvDsNmosAppCtx *appCtx,
     }
 
     GstPad *sinkpad, *srcpad;
-    sinkpad = gst_element_get_request_pad(streammux, "sink_0");
+    sinkpad = gst_element_request_pad_simple(streammux, "sink_0");
     if (!sinkpad) {
         NVGSTDS_ERR_MSG_V("Streammux request sink pad failed");
         return NULL;
@@ -1518,7 +1512,11 @@ static gpointer create_video_pipeline(NvDsNmosAppCtx *appCtx,
     GstElement *pgie = NULL;
     GstElement *nvosd = NULL;
     if (appCtx->config.enablePgie) {
-        pgie = gst_element_factory_make("nvinfer", NULL);
+        if (appCtx->config.pluginType) {
+            pgie = gst_element_factory_make("nvinferserver", NULL);
+        } else {
+            pgie = gst_element_factory_make("nvinfer", NULL);
+        }
         nvosd = gst_element_factory_make("nvdsosd", NULL);
 
         if (!pgie || !nvosd) {
@@ -1538,8 +1536,8 @@ static gpointer create_video_pipeline(NvDsNmosAppCtx *appCtx,
     g_object_set(G_OBJECT(source), "address", connection->address, "port", media->port, NULL);
     gint pt = atoi(gst_sdp_media_get_format(media, 0));
     GstCaps *caps = gst_sdp_media_get_caps_from_media(media, pt);
-    gint width, height;
-    gint rate_n, rate_d;
+    gint width = 0, height = 0;
+    gint rate_n = 0, rate_d = 0;
     if (caps) {
         GstCaps *vcaps = get_video_caps_from_sdp_caps(caps);
         if (vcaps) {
@@ -1664,7 +1662,7 @@ static gpointer create_video_pipeline(NvDsNmosAppCtx *appCtx,
     }
 
     GstPad *sinkpad, *srcpad;
-    sinkpad = gst_element_get_request_pad(streammux, "sink_0");
+    sinkpad = gst_element_request_pad_simple(streammux, "sink_0");
     if (!sinkpad) {
         NVGSTDS_ERR_MSG_V("Streammux request sink pad failed");
         return NULL;

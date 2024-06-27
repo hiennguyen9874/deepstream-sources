@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -34,7 +34,7 @@ https://ngc.nvidia.com.
 
 1. Pull docker container
    $ docker pull nvcr.io/nvidia/deepstream:[version]-triton
-   [version] means deepstream version numbers e.g. 6.3
+   [version] means deepstream version numbers e.g. 7.0
 
 2. Allow external applications to connect to the host's X display:
    $ xhost +
@@ -60,9 +60,11 @@ Inference Server direclty on device, Triton Server setup will be required.
 1. Go to samples directory and run the following command to set up the Triton
    Server and backends.
    $ sudo ./triton_backend_setup.sh
+   $ export PATH="${PATH:+${PATH}:}/opt/tritonserver/bin"
+   $ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}/opt/tritonserver/lib"
 
 Notes:
-   By default script will download the Triton Server version 2.20.0. For setting
+   By default script will download the Triton Server version 2.43.0. For setting
    up any other version change the package path accordingly.
 
 --------------------------------------------------------------------------------
@@ -135,21 +137,23 @@ Running the Triton Inference Server samples
 4. Configuration files for "nvinferserver" element in `configs/deepstream-app-triton/`
    a. config_infer_plan_engine_preprocess.txt (Primary Preprocessor Object Detector)
    b. config_infer_plan_engine_primary.txt (Primary Object Detector)
-   c. config_infer_secondary_plan_engine_carcolor.txt (Secondary Car Color Classifier)
-   d. config_infer_secondary_plan_engine_carmake.txt (Secondary Car Make Classifier)
+   c. config_infer_secondary_plan_engine_vehiclemake.txt (Secondary Vehicle Make Classifier)
+   d. config_infer_secondary_plan_engine_vehiclemake_preprocess.txt (Secondary Preprocessor Vehicle Make Classifier)
    e. config_infer_secondary_plan_engine_vehicletypes.txt (Secondary Vehicle Type Classifier)
-   f. config_infer_primary_classifier_densenet_onnx.txt (DenseNet-121 v1.2 classifier)
-   g. config_infer_primary_classifier_inception_graphdef_postprocessInTriton.txt
+   f. config_infer_secondary_plan_engine_vehiclemake_preprocess.txt (Secondary Preprocessor Vehicle Make Classifier)
+   g. config_infer_secondary_plan_engine_vehicletypes_preprocess.txt (Secondary  Vehicle Type Classifier)
+   h. config_infer_primary_classifier_densenet_onnx.txt (DenseNet-121 v1.2 classifier)
+   i. config_infer_primary_classifier_inception_graphdef_postprocessInTriton.txt
       (Tensorflow Inception v3 classifier - Post processing in Triton)
-   h. config_infer_primary_classifier_inception_graphdef_postprocessInDS.txt
+   j. config_infer_primary_classifier_inception_graphdef_postprocessInDS.txt
       (Tensorflow Inception v3 classifier - Post processing in DeepStream)
-   i. config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.txt
+   k. config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.txt
       (TensorFlow SSD Inception V2 Object Detector)
-   j. config_infer_primary_classifier_mobilenet_v1_graphdef.txt
+   l. config_infer_primary_classifier_mobilenet_v1_graphdef.txt
       (Tensorflow Mobilenet v1 classifier for Nano - Post processing in Triton)
-   k. config_infer_primary_detector_ssd_mobilenet_v1_coco_2018_01_28.txt
+   m. config_infer_primary_detector_ssd_mobilenet_v1_coco_2018_01_28.txt
       (TensorFlow SSD Mobilenet V1 Object Detector for Nano)
-   l. config_infer_primary_detector_peoplenet_transformer_tao.txt
+   n. config_infer_primary_detector_peoplenet_transformer_tao.txt
       (TAO PeopleNet Transformer V1 Object Detection - Custom bounding box parsing)
 
 --------------------------------------------------------------------------------

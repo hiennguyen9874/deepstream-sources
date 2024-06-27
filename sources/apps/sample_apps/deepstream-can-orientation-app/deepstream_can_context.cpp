@@ -1,24 +1,13 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "deepstream_can_context.hpp"
@@ -479,11 +468,11 @@ gst::ElePtr CameraCanApp::createSink()
         conv.reset(gst_element_factory_make("nvvideoconvert", "conv_tiler"));
         osd.reset(gst_element_factory_make("nvdsosd", "nv_osd"));
         osdCapFilter.reset(gst_element_factory_make("capsfilter", "osdCaps"));
-        if (!_isdGPU) {
-            eglsink.reset(gst_element_factory_make("nv3dsink", "nv3d-sink"));
-        } else {
-            eglsink.reset(gst_element_factory_make("nveglglessink", "nvvideo-renderer"));
-        }
+#ifdef __aarch64__
+        eglsink.reset(gst_element_factory_make("nv3dsink", "nv3d-sink"));
+#else
+        eglsink.reset(gst_element_factory_make("nveglglessink", "nvvideo-renderer"));
+#endif
 
         DS_ASSERT(q0 && q1);
         DS_ASSERT(tiler);
@@ -596,7 +585,7 @@ ErrCode CameraCanApp::buildPipeline()
         this->add(src).add(vidconv0).add(conv0Filter).add(mx).add(q1).add(match).add(q2).add(sink);
         gst::PadPtr srcPad(gst_element_get_static_pad(conv0Filter, "src"));
         std::string padName("sink_0");
-        gst::PadPtr sinkPad(gst_element_get_request_pad(mx, padName.c_str()));
+        gst::PadPtr sinkPad(gst_element_request_pad_simple(mx, padName.c_str()));
         DS_ASSERT(srcPad && sinkPad);
         DS3D_THROW_ERROR(gst_pad_link(srcPad.get(), sinkPad.get()) == GST_PAD_LINK_OK,
                          ErrCode::kGst, "link sourc and mux failed.");

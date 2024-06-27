@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "nvdsinfer_model_builder.h"
@@ -318,6 +319,7 @@ bool BuildParams::sanityCheck() const
     case NvDsInferNetworkMode_FP32:
     case NvDsInferNetworkMode_FP16:
     case NvDsInferNetworkMode_INT8:
+    case NvDsInferNetworkMode_BEST:
         break;
     default:
         return false;
@@ -550,24 +552,27 @@ std::unique_ptr<TrtEngine> TrtModelBuilder::getCudaEngineFromCustomLib(
     NvDsInferNetworkMode &networkMode)
 {
     networkMode = initParams.networkMode;
-    nvinfer1::DataType modelDataType;
+    nvinfer1::DataType modelDataType = nvinfer1::DataType::kFLOAT;
 
     switch (initParams.networkMode) {
     case NvDsInferNetworkMode_FP32:
     case NvDsInferNetworkMode_FP16:
     case NvDsInferNetworkMode_INT8:
+    case NvDsInferNetworkMode_BEST:
         break;
     default:
         dsInferError("Unknown network mode %d", networkMode);
         return nullptr;
     }
 
-    if (networkMode == NvDsInferNetworkMode_INT8) {
+    if ((networkMode == NvDsInferNetworkMode_INT8) || (networkMode == NvDsInferNetworkMode_BEST)) {
         /* Check if platform supports INT8 else use FP16 */
         if (m_Builder->platformHasFastInt8()) {
             if (m_Int8Calibrator != nullptr) {
                 /* Set INT8 mode and set the INT8 Calibrator */
                 m_BuilderConfig->setFlag(nvinfer1::BuilderFlag::kINT8);
+                if (networkMode == NvDsInferNetworkMode_BEST)
+                    m_BuilderConfig->setFlag(nvinfer1::BuilderFlag::kFP16);
                 m_BuilderConfig->setInt8Calibrator(m_Int8Calibrator.get());
                 /* modelDataType should be FLOAT for INT8 */
                 modelDataType = nvinfer1::DataType::kFLOAT;
@@ -1026,12 +1031,15 @@ NvDsInferStatus TrtModelBuilder::configCommonOptions(BuildParams &params)
     builderConfig.setMaxWorkspaceSize(params.workspaceSize);
 
     /* Set the network data type */
-    if (params.networkMode == NvDsInferNetworkMode_INT8) {
+    if ((params.networkMode == NvDsInferNetworkMode_INT8) ||
+        (params.networkMode == NvDsInferNetworkMode_BEST)) {
         /* Check if platform supports INT8 else use FP16 */
         if (builder.platformHasFastInt8()) {
             if (m_Int8Calibrator != nullptr) {
                 /* Set INT8 mode and set the INT8 Calibrator */
                 builderConfig.setFlag(nvinfer1::BuilderFlag::kINT8);
+                if (params.networkMode == NvDsInferNetworkMode_BEST)
+                    builderConfig.setFlag(nvinfer1::BuilderFlag::kFP16);
                 if (!m_Int8Calibrator) {
                     dsInferError("INT8 calibrator not specified.");
                     return NVDSINFER_CONFIG_FAILED;
@@ -1066,7 +1074,8 @@ NvDsInferStatus TrtModelBuilder::configCommonOptions(BuildParams &params)
         builderConfig.setDefaultDeviceType(nvinfer1::DeviceType::kDLA);
         builderConfig.setDLACore(params.dlaCore);
         builderConfig.setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
-        if (params.networkMode != NvDsInferNetworkMode_INT8) {
+        if ((params.networkMode != NvDsInferNetworkMode_INT8) &&
+            (params.networkMode != NvDsInferNetworkMode_BEST)) {
             // DLA supports only INT8 or FP16
             dsInferWarning("DLA does not support FP32 precision type, using FP16 mode.");
             builderConfig.setFlag(nvinfer1::BuilderFlag::kFP16);

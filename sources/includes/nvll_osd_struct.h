@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 /**
@@ -232,9 +233,10 @@ typedef struct _NvOSD_CircleParams {
 
     NvOSD_ColorParams bg_color; /*< Holds the circle's background color. */
 
+    unsigned int circle_width; /**< Holds the circle's border width in pixels. */
+
     unsigned int reserved; /**< Reserved for future use; currently
                               for internal use only. */
-
 } NvOSD_CircleParams;
 
 #ifdef __cplusplus

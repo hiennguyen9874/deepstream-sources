@@ -31,8 +31,7 @@ How to test :
 Single Stream and Rendering
    $ cd gst-nvdsaudiotemplate
    $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
+      For both Jetson & x86, CUDA_VER=12.2
    $ sudo make && sudo make install
    $ cd customlib_impl
    $ sudo make

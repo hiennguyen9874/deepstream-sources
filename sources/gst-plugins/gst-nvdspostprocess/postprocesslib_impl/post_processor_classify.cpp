@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: MIT
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -181,6 +181,9 @@ void ClassifyModelPostProcessor::attachMetadata(NvBufSurface *surf,
     if (model_output.classificationOutput.numAttributes == 0 ||
         model_output.classificationOutput.label == NULL)
         return;
+
+    if (frame_meta)
+        frame_meta->bInferDone = TRUE;
 
     nvds_acquire_meta_lock(batch_meta);
     if (process_full_frame == PROCESS_MODEL_FULL_FRAME) {

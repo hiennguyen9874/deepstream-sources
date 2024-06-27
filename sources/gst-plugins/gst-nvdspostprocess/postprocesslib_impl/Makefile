@@ -36,9 +36,9 @@ SRCS:= postprocesslib_impl.cpp post_processor.cpp post_processor_detect.cpp \
 INCS:= $(wildcard *.h)
 LIB:=libpostprocess_impl.so
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=7.0
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"7.0.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../../includes -I../includes -I /opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/sources/includes -I./
 

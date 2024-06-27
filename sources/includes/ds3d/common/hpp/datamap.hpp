@@ -26,7 +26,7 @@ public:
     GuardDataMap() = default;
 
     template <typename... Args /*, _EnableIfConstructible<_Base, Args&&...> = true*/>
-    GuardDataMap(Args &&...args) : _Base(std::forward<Args>(args)...)
+    GuardDataMap(Args &&... args) : _Base(std::forward<Args>(args)...)
     {
     }
 
@@ -196,7 +196,7 @@ ErrCode GuardDataMap::getPtrData(const GuardDataMap::KeyName &name, ShrdPtr<T> &
         return code;
     }
     DS_ASSERT(ud && ud->data());
-    value = AbiRefToPtr(*ud);
+    value = AbiRefToPtr<void, T>(*ud);
     DS_ASSERT(value);
     return code;
 }

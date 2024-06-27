@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "gstnvinfer_impl.h"
@@ -253,7 +254,20 @@ bool DsNvInferImpl::initNewInferModelParams(NvDsInferContextInitParams &newParam
         g_strlcpy(newParams.labelsFilePath, oldParams.labelsFilePath,
                   sizeof(newParams.labelsFilePath));
     }
-    if (oldParams.numDetectedClasses) {
+
+    if (string_empty(newParams.customLibPath) && !string_empty(oldParams.customLibPath)) {
+        g_strlcpy(newParams.customLibPath, oldParams.customLibPath,
+                  sizeof(newParams.customLibPath));
+    }
+    if (string_empty(newParams.customBBoxParseFuncName) &&
+        !string_empty(oldParams.customBBoxParseFuncName)) {
+        g_strlcpy(newParams.customBBoxParseFuncName, oldParams.customBBoxParseFuncName,
+                  sizeof(newParams.customBBoxParseFuncName));
+    }
+
+    if ((oldParams.networkType == NvDsInferNetworkType_Detector ||
+         oldParams.networkType == NvDsInferNetworkType_InstanceSegmentation) &&
+        oldParams.numDetectedClasses) {
         newParams.numDetectedClasses = oldParams.numDetectedClasses;
         delete[] newParams.perClassDetectionParams;
         newParams.perClassDetectionParams =

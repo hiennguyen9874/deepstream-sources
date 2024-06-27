@@ -1,17 +1,19 @@
 /*
- * Copyright (c) 2018 NVIDIA Corporation.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 /*
  * librdkafka - Apache Kafka C library
  *
- * Copyright (c) 2017, Magnus Edenhill
+ * Copyright (c) 2012-2022, Magnus Edenhill
+ *               2023, Confluent Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +40,7 @@
 
 /**
  * kafka client based on Simple Apache Kafka producer from librdkafka
- * (https://github.com/edenhill/librdkafka)
+ * (https://github.com/confluentinc/librdkafka)
  */
 
 #include "kafka_client.h"
@@ -178,9 +180,9 @@ void *nvds_kafka_client_init(NvDsKafkaClientHandle *kh)
 
 // There could be several synchronous and asychronous send operations in flight.
 // Once a send operation callback is received the course of action  depends on if it's sync or async
-//  -- if it's sync then the associated completion flag should  be set
-//  -- if it's asynchronous then completion callback from the user should be called along with
-//  context
+// -- if it's sync then the associated completion flag should  be set
+// -- if it's asynchronous then completion callback from the user should be called along with
+// context
 NvDsMsgApiErrorType nvds_kafka_client_send(void *kv,
                                            const uint8_t *payload,
                                            int len,

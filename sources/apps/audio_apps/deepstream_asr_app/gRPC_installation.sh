@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -23,7 +23,7 @@
 ################################################################################
 
 # Script for gRPC C++ Installation
-# Installs gRPC C++ v1.38.0
+# Installs gRPC C++ v1.48.0
 # Based on steps provided at: https://grpc.io/docs/languages/cpp/quickstart/
 # Two changes with respect to steps in the above link:
 # 1. Add -DBUILD_SHARED_LIBS=ON to build shared libraries
@@ -64,7 +64,7 @@ fi
 sh cmake-linux.sh -- --skip-license --prefix=$MY_INSTALL_DIR
 rm cmake-linux.sh
 $CMD_PREFIX DEBIAN_FRONTEND=noninteractive apt install -y build-essential autoconf libtool pkg-config
-git clone --recurse-submodules -b v1.38.0 https://github.com/grpc/grpc
+git clone --recurse-submodules -b v1.48.0 https://github.com/grpc/grpc
 
 cd grpc
 mkdir -p cmake/build
@@ -80,20 +80,9 @@ make -j 4
 make install
 popd
 
-mkdir -p third_party/abseil-cpp/cmake/build
-pushd third_party/abseil-cpp/cmake/build
-
-cmake -DCMAKE_INSTALL_PREFIX=$MY_INSTALL_DIR \
-       -DBUILD_SHARED_LIBS=ON \
-      -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
-      ../..
-
-make -j 4
-make install
-popd
 popd
 rm -rf $DOWNLOAD_DIR/grpc
 
 echo "export PATH="$MY_INSTALL_DIR"/bin:\$PATH" >> $HOME/.profile
 echo "export LD_LIBRARY_PATH="$MY_INSTALL_DIR"/lib:\$LD_LIBRARY_PATH" >> $HOME/.profile
-
+echo "export PKG_CONFIG_PATH="$MY_INSTALL_DIR"/lib/pkgconfig:\$PKG_CONFIG_PATH" >> $HOME/.profile

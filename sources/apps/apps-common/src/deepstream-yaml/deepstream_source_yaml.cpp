@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <unistd.h>
@@ -72,15 +62,15 @@ gboolean parse_source_yaml(NvDsSourceConfig *config,
         } else if (paramKey == "alsa-device") {
             std::string temp = source_values[i];
             config->alsa_device = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->alsa_device, temp.c_str(), 1024);
+            std::strncpy(config->alsa_device, temp.c_str(), 1023);
         } else if (paramKey == "video-format") {
             std::string temp = source_values[i];
             config->video_format = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->video_format, temp.c_str(), 1024);
+            std::strncpy(config->video_format, temp.c_str(), 1023);
         } else if (paramKey == "uri") {
             std::string temp = source_values[i];
             char *uri = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(uri, temp.c_str(), 1024);
+            std::strncpy(uri, temp.c_str(), 1023);
             char *str;
             if (g_str_has_prefix(uri, "file://")) {
                 str = g_strdup(uri + 7);
@@ -128,7 +118,7 @@ gboolean parse_source_yaml(NvDsSourceConfig *config,
         } else if (paramKey == "smart-rec-dir-path") {
             std::string temp = source_values[i];
             config->dir_path = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->dir_path, temp.c_str(), 1024);
+            std::strncpy(config->dir_path, temp.c_str(), 1023);
 
             if (access(config->dir_path, 2)) {
                 if (errno == ENOENT || errno == ENOTDIR) {
@@ -141,7 +131,7 @@ gboolean parse_source_yaml(NvDsSourceConfig *config,
         } else if (paramKey == "smart-rec-file-prefix") {
             std::string temp = source_values[i];
             config->file_prefix = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->file_prefix, temp.c_str(), 1024);
+            std::strncpy(config->file_prefix, temp.c_str(), 1023);
         } else if (paramKey == "smart-rec-video-cache") {
             cout << "Deprecated config smart-rec-video-cache used in source. Use smart-rec-cache "
                     "instead"

@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2018-2021 NVIDIA Corporation.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2021 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include <glib.h>
@@ -65,7 +66,7 @@ int json_get_key_value(const char *msg, int msglen, const char *path, char *valu
 
         memcpy(subpath, remstr, subpath_len);
 
-        subpath[subpath_len] = '\0';
+        subpath[subpath_len - 1] = '\0';
 
         jvalue = json_object_get(subroot, subpath);
         remstr = dotptr + 1;

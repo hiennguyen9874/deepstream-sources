@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2022 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 /**
@@ -269,6 +270,31 @@ typedef struct NvDsProductObject {
 } NvDsProductObject;
 
 /**
+ * Holds 2D convex hull metadata.
+ */
+typedef struct NvDsConvexHull {
+    /** Holds a pointer a list of convex hull points. */
+    gint *points;
+    /** Holds the number of points in the convex hull. */
+    guint numFilled;
+} NvDsConvexHull;
+
+/**
+ * Holds Single View 3D Tracking metadata.
+ */
+typedef struct NvDs3DTracking {
+    /** Holds the object's estimated foot location in 2D coordinates on the estimated world ground.
+     */
+    gfloat ptWorldFeet[2];
+    /** Holds the object's estimated foot location in frame coordinates. */
+    gfloat ptImgFeet[2];
+    /** Holds the object's visibility. */
+    gfloat visibility;
+    /** Holds the object's convex hull information */
+    NvDsConvexHull convexHull;
+} NvDs3DTracking;
+
+/**
  * Holds event message meta data.
  *
  * You can attach various types of objects (vehicle, person, face, etc.)
@@ -327,6 +353,10 @@ typedef struct NvDsEventMsgMeta {
     NvDsJoints pose;
     /** Holds the object's embedding information */
     NvDsEmbedding embedding;
+    /** Holds the flag for whether single view 3D tracking metadata is available. */
+    bool has3DTracking;
+    /** Holds the single view 3D tracking metadata if available. */
+    NvDs3DTracking singleView3DTracking;
 } NvDsEventMsgMeta;
 
 /**

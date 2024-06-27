@@ -1,23 +1,13 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "deepstream_nmos_config_parser.h"
@@ -84,6 +74,13 @@ gboolean parse_gie(NvDsNmosAppConfig *appConfig,
         if (!g_strcmp0(*key, CONFIG_GROUP_ENABLE)) {
             appConfig->enablePgie =
                 g_key_file_get_boolean(keyFile, group, CONFIG_GROUP_ENABLE, &error);
+            if (error) {
+                NVGSTDS_ERR_MSG_V("%s", error->message);
+                goto done;
+            }
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_PLUGIN_TYPE)) {
+            appConfig->pluginType =
+                g_key_file_get_boolean(keyFile, group, CONFIG_GROUP_PLUGIN_TYPE, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
                 goto done;
@@ -190,6 +187,9 @@ gboolean parse_sender(NvDsNmosSinkConfig *sinkConfig,
     }
 
     if (!g_key_file_get_integer(keyFile, group, CONFIG_GROUP_ENABLE, &error)) {
+        if (keys) {
+            g_strfreev(keys);
+        }
         // group is not enabled, no need to parse further.
         return TRUE;
     }
@@ -200,7 +200,7 @@ gboolean parse_sender(NvDsNmosSinkConfig *sinkConfig,
 
     if (idStartPtr == idEndPtr || *idEndPtr != '\0') {
         NVGSTDS_ERR_MSG_V("Sink group \"[%s]\" is not in the form \"[sink<%%d>]\"", group);
-        return FALSE;
+        goto done;
     }
 
     // Check if a sender with same id has already been parsed.
@@ -209,7 +209,7 @@ gboolean parse_sender(NvDsNmosSinkConfig *sinkConfig,
             "Did not parse sender group \"[%s]\". Another sender group"
             " with id %d already exists",
             group, sinkIndex);
-        return FALSE;
+        goto done;
     }
 
     for (key = keys; *key; key++) {
@@ -224,6 +224,7 @@ gboolean parse_sender(NvDsNmosSinkConfig *sinkConfig,
             gchar *sdpFile = g_key_file_get_string(keyFile, group, CONFIG_GROUP_SDPFILE, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
+                g_free(sdpFile);
                 goto done;
             }
             gchar *absPath = get_absolute_path(sdpFile, cfgFilePath);
@@ -292,7 +293,8 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
 
     if (!g_key_file_get_integer(keyFile, group, CONFIG_GROUP_ENABLE, &error)) {
         // group is not enabled, no need to parse further.
-        return TRUE;
+        ret = TRUE;
+        goto done;
     }
 
     gchar *idStartPtr = group + strlen(CONFIG_GROUP_RECEIVER);
@@ -301,7 +303,7 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
 
     if (idStartPtr == idEndPtr || *idEndPtr != '\0') {
         NVGSTDS_ERR_MSG_V("Source group \"[%s]\" is not in the form \"[source<%%d>]\"", group);
-        return FALSE;
+        goto done;
     }
 
     // Check if a receiver with same id has already been parsed.
@@ -310,7 +312,7 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
             "Did not parse receiver group \"[%s]\". Another receiver group"
             " with id %d already exists",
             group, srcIndex);
-        return FALSE;
+        goto done;
     }
 
     for (key = keys; *key; key++) {
@@ -324,6 +326,7 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
             gchar *sdpFile = g_key_file_get_string(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
+                g_free(sdpFile);
                 goto done;
             }
             gchar *absPath = get_absolute_path(sdpFile, cfgFilePath);
@@ -344,6 +347,7 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
             gchar *sdpFile = g_key_file_get_string(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
+                g_free(sdpFile);
                 goto done;
             }
             gchar *absPath = get_absolute_path(sdpFile, cfgFilePath);

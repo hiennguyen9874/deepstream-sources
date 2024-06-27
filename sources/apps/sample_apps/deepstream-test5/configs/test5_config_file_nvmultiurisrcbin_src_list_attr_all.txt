@@ -1,23 +1,13 @@
 ################################################################################
-# Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 ################################################################################
 
 [application]
@@ -33,6 +23,8 @@ width=1280
 height=720
 gpu-id=0
 nvbuf-memory-type=0
+#Set to 1 to automatically tile in Square Grid
+square-seq-grid=0
 
 #Note: [source-list] now support REST Server with use-nvmultiurisrcbin=1
 
@@ -40,12 +32,18 @@ nvbuf-memory-type=0
 num-source-bins=2
 list=file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
 use-nvmultiurisrcbin=1
+#To display stream name in FPS log, set stream-name-display=1
+stream-name-display=0
 #sensor-id-list vector is one to one mapped with the uri-list
 #identifies each sensor by a unique ID
 sensor-id-list=UniqueSensorId1;UniqueSensorId2
+#Optional sensor-name-list vector is one to one mapped with the uri-list
+sensor-name-list=UniqueSensorName1;UniqueSensorName2
 max-batch-size=10
 http-ip=localhost
 http-port=9000
+#Set low latency mode for bitstreams having I and IPPP frames on decoder
+#low-latency-mode=0
 #sgie batch size is number of sources * fair fraction of number of objects detected per frame per source
 #the fair fraction of number of object detected is assumed to be 4
 sgie-batch-size=40
@@ -58,7 +56,9 @@ num-sources=1
 gpu-id=0
 cudadec-memtype=0
 latency=100
-rtsp-reconnect-interval-sec=0
+rtsp-reconnect-interval-sec=10
+#Limit the rtsp reconnection attempts
+rtsp-reconnect-attempts=4
 
 [streammux]
 gpu-id=0
@@ -67,7 +67,7 @@ gpu-id=0
 batch-size=2
 ##time out in usec, to wait after the first buffer is available
 ##to push the batch even if the complete batch is not formed
-batched-push-timeout=40000
+batched-push-timeout=33333
 ## Set muxer output width and height
 width=1920
 height=1080
@@ -191,7 +191,7 @@ interval=0
 #Required by the app for SGIE, when used along with config-file property
 gie-unique-id=1
 nvbuf-memory-type=0
-model-engine-file=../../../../../samples/models/Primary_Detector/resnet10.caffemodel_b10_gpu0_int8.engine
+model-engine-file=../../../../../samples/models/Primary_Detector/resnet18_trafficcamnet.etlt_b10_gpu0_int8.engine
 labelfile-path=../../../../../samples/models/Primary_Detector/labels.txt
 config-file=../../../../../samples/configs/deepstream-app/config_infer_primary.txt
 #infer-raw-output-dir=../../../../../samples/primary_detector_raw_output/
@@ -224,7 +224,7 @@ operate-on-class-ids=0;
 batch-size=16
 config-file=../../../../../samples/configs/deepstream-app/config_infer_secondary_vehicletypes.txt
 labelfile-path=../../../../../samples/models/Secondary_VehicleTypes/labels.txt
-model-engine-file=../../../../../samples/models/Secondary_VehicleTypes/resnet18.caffemodel_b40_gpu0_int8.engine
+model-engine-file=../../../../../samples/models/Secondary_VehicleTypes/resnet18_vehicletypenet.etlt_b40_gpu0_int8.engine
 
 [secondary-gie1]
 enable=1
@@ -236,23 +236,9 @@ operate-on-class-ids=0;
 #instead, [source-list]/sgie-batch-size config is used
 #Note 2: Be sure to rename model-engine-file to reflect new batch-size
 batch-size=16
-config-file=../../../../../samples/configs/deepstream-app/config_infer_secondary_carcolor.txt
-labelfile-path=../../../../../samples/models/Secondary_CarColor/labels.txt
-model-engine-file=../../../../../samples/models/Secondary_CarColor/resnet18.caffemodel_b40_gpu0_int8.engine
-
-[secondary-gie2]
-enable=1
-gpu-id=0
-gie-unique-id=6
-operate-on-gie-id=1
-operate-on-class-ids=0;
-#Note 1: when used with [source-list], batch-size is ignored
-#instead, [source-list]/sgie-batch-size config is used
-#Note 2: Be sure to rename model-engine-file to reflect new batch-size
-batch-size=16
-config-file=../../../../../samples/configs/deepstream-app/config_infer_secondary_carmake.txt
-labelfile-path=../../../../../samples/models/Secondary_CarMake/labels.txt
-model-engine-file=../../../../../samples/models/Secondary_CarMake/resnet18.caffemodel_b40_gpu0_int8.engine
+config-file=../../../../../samples/configs/deepstream-app/config_infer_secondary_vehiclemake.txt
+labelfile-path=../../../../../samples/models/Secondary_VehicleMake/labels.txt
+model-engine-file=../../../../../samples/models/Secondary_VehicleMake/resnet18_vehiclemakenet.etlt_b40_gpu0_int8.engine
 
 [tests]
 file-loop=1

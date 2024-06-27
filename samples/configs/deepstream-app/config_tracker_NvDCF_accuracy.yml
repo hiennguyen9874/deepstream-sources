@@ -1,25 +1,15 @@
 %YAML:1.0
-################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+####################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-################################################################################
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+####################################################################################################
 
 BaseConfig:
   minDetectorConfidence: 0.1894    # If the confidence of a detector bbox is lower than this, then it won't be considered for tracking
@@ -89,9 +79,9 @@ StateEstimator:
 
   # [Dynamics Modeling]
   processNoiseVar4Loc: 6810.8668    # Process noise variance for bbox center
-  processNoiseVar4Size: 1541.8647    # Process noise variance for bbox size
+  processNoiseVar4Size: 1541.8647   # Process noise variance for bbox size
   processNoiseVar4Vel: 1348.4874    # Process noise variance for velocity
-  measurementNoiseVar4Detector: 100.0000    # Measurement noise variance for detector's detection
+  measurementNoiseVar4Detector: 100.0000   # Measurement noise variance for detector's detection
   measurementNoiseVar4Tracker: 293.3238    # Measurement noise variance for tracker's localization
 
 VisualTracker:
@@ -106,7 +96,7 @@ VisualTracker:
   # [NvDCF: Correlation Filter]
   filterLr: 0.0767    # learning rate for DCF filter in exponential moving average. Valid Range: [0.0, 1.0]
   filterChannelWeightsLr: 0.0339    # learning rate for the channel weights among feature channels. Valid Range: [0.0, 1.0]
-  gaussianSigma: 0.5687    # Standard deviation for Gaussian for desired response when creating DCF filter [pixels]
+  gaussianSigma: 0.5687    # Standard deviation for Gaussian for desired response when creating DCF filter [pixels]   
 
 ReID:
   reidType: 2    # The type of reid among { DUMMY=0, NvDEEPSORT=1, Reid based reassoc=2, both NvDEEPSORT and reid based reassoc=3}
@@ -127,7 +117,8 @@ ReID:
   keepAspc: 1    # Whether to keep aspc ratio when resizing input objects for reid
 
   # [Output Postprocessing]
-  addFeatureNormalization: 1 # If reid feature is not normalized in network, adding normalization on output so each reid feature has l2 norm equal to 1
+  addFeatureNormalization: 1       # If reid feature is not normalized in network, adding normalization on output so each reid feature has l2 norm equal to 1
+  minVisibility4GalleryUpdate: 0.6 # Add ReID embedding to the gallery only if the visibility is not lower than this
 
   # [Paths and Names]
   tltEncodedModel: "/opt/nvidia/deepstream/deepstream/samples/models/Tracker/resnet50_market1501.etlt" # NVIDIA TAO model path

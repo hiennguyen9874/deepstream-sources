@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.  All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 /**
@@ -29,8 +31,8 @@
 #ifndef _NVDS_VERSION_H_
 #define _NVDS_VERSION_H_
 
-#define NVDS_VERSION_MAJOR 6
-#define NVDS_VERSION_MINOR 3
+#define NVDS_VERSION_MAJOR 7
+#define NVDS_VERSION_MINOR 0
 #define NVDS_VERSION_MICRO 0
 
 #ifdef __cplusplus

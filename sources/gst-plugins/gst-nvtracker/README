@@ -25,4 +25,6 @@ Compiling and installing the plugin:
 Export or set in Makefile the appropriate CUDA_VER
 Run make and sudo make install
 
-NOTE: To compile the sources, run make with "sudo" or root permission.
+NOTE:
+1. To compile the sources, run make with "sudo" or root permission.
+2. When tracker is used with input-tensor-meta=1 then we have to make sure that the tracker heght width should match with the preprocess height width, and coresponding network shape is updated accordingly in both preprocess and infer.

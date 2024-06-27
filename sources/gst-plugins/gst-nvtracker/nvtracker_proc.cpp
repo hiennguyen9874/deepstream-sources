@@ -1,12 +1,13 @@
-/**
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights
+ * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
  *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
  */
 
 #include "nvtracker_proc.h"
@@ -15,6 +16,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -44,8 +46,8 @@ static gpointer copy_nvtracker2_past_frame_meta(gpointer data, gpointer user_dat
 {
     NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
     if (user_meta && user_meta->user_meta_data) {
-        NvDsPastFrameObjBatch *pPastFrameObjBatch =
-            (NvDsPastFrameObjBatch *)user_meta->user_meta_data;
+        NvDsTargetMiscDataBatch *pPastFrameObjBatch =
+            (NvDsTargetMiscDataBatch *)user_meta->user_meta_data;
         gst_mini_object_ref((GstMiniObject *)pPastFrameObjBatch->priv_data);
         return (gpointer)user_meta->user_meta_data;
     }
@@ -56,8 +58,8 @@ static void free_nvtracker2_past_frame_meta(gpointer meta_data, gpointer user_da
 {
     NvDsUserMeta *user_meta = (NvDsUserMeta *)meta_data;
     if (user_meta && user_meta->user_meta_data) {
-        NvDsPastFrameObjBatch *pPastFrameObjBatch =
-            (NvDsPastFrameObjBatch *)user_meta->user_meta_data;
+        NvDsTargetMiscDataBatch *pPastFrameObjBatch =
+            (NvDsTargetMiscDataBatch *)user_meta->user_meta_data;
         gst_mini_object_unref(GST_MINI_OBJECT(pPastFrameObjBatch->priv_data));
     }
 }
@@ -86,9 +88,16 @@ static gpointer copy_nvtracker2_obj_reid_meta(gpointer data, gpointer user_data)
 {
     NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
     if (user_meta && user_meta->user_meta_data) {
-        int32_t *pNewReidInd = new int32_t;
-        *pNewReidInd = *((int32_t *)user_meta->user_meta_data);
-        return (gpointer)pNewReidInd; // user_meta->user_meta_data;
+        NvDsObjReid *pReidObj = (NvDsObjReid *)user_meta->user_meta_data;
+        if ((pReidObj == NULL) || (pReidObj->featureSize == 0) || (pReidObj->ptr_dev == NULL) ||
+            (pReidObj->ptr_host == NULL)) {
+            return NULL;
+        }
+        NvDsObjReid *pReidObjNew = new NvDsObjReid;
+        pReidObjNew->featureSize = pReidObj->featureSize;
+        pReidObjNew->ptr_dev = pReidObj->ptr_dev;
+        pReidObjNew->ptr_host = pReidObj->ptr_host;
+        return (gpointer)pReidObjNew;
     }
     return NULL;
 }
@@ -97,8 +106,124 @@ static void free_nvtracker2_obj_reid_meta(gpointer meta_data, gpointer user_data
 {
     NvDsUserMeta *user_meta = (NvDsUserMeta *)meta_data;
     if (user_meta && user_meta->user_meta_data) {
-        int32_t *pReidInd = (int32_t *)user_meta->user_meta_data;
-        delete pReidInd;
+        NvDsObjReid *pReidObj = (NvDsObjReid *)user_meta->user_meta_data;
+        delete pReidObj;
+    }
+}
+
+static gpointer copy_nvtracker2_terminated_meta(gpointer data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
+    if (user_meta && user_meta->user_meta_data) {
+        NvDsTargetMiscDataBatch *pTerminatedObjBatch =
+            (NvDsTargetMiscDataBatch *)user_meta->user_meta_data;
+        gst_mini_object_ref((GstMiniObject *)pTerminatedObjBatch->priv_data);
+        return (gpointer)user_meta->user_meta_data;
+    }
+    return NULL;
+}
+
+static void free_nvtracker2_terminated_meta(gpointer meta_data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)meta_data;
+    if (user_meta && user_meta->user_meta_data) {
+        NvDsTargetMiscDataBatch *pTerminatdObjBatch =
+            (NvDsTargetMiscDataBatch *)user_meta->user_meta_data;
+        gst_mini_object_unref(GST_MINI_OBJECT(pTerminatdObjBatch->priv_data));
+    }
+}
+
+static gpointer copy_nvtracker2_shadowTracks_meta(gpointer data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
+    if (user_meta && user_meta->user_meta_data) {
+        NvDsTargetMiscDataBatch *pShadowTracks =
+            (NvDsTargetMiscDataBatch *)user_meta->user_meta_data;
+        gst_mini_object_ref((GstMiniObject *)pShadowTracks->priv_data);
+        return (gpointer)user_meta->user_meta_data;
+    }
+    return NULL;
+}
+
+static void free_nvtracker2_shadowTracks_meta(gpointer meta_data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)meta_data;
+    if (user_meta && user_meta->user_meta_data) {
+        NvDsTargetMiscDataBatch *pShadowTracks =
+            (NvDsTargetMiscDataBatch *)user_meta->user_meta_data;
+        gst_mini_object_unref(GST_MINI_OBJECT(pShadowTracks->priv_data));
+    }
+}
+
+static gpointer copy_nvtracker2_obj_visibility_meta(gpointer data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
+    if (user_meta && user_meta->user_meta_data) {
+        float *pNewVis = new float;
+        *pNewVis = *((float *)user_meta->user_meta_data);
+        return (gpointer)pNewVis; // user_meta->user_meta_data;
+    }
+    return NULL;
+}
+
+static void free_nvtracker2_obj_visibility_meta(gpointer meta_data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)meta_data;
+    if (user_meta && user_meta->user_meta_data) {
+        float *pVis = (float *)user_meta->user_meta_data;
+        delete pVis;
+    }
+}
+
+static gpointer copy_nvtracker2_obj_foot_loc_meta(gpointer data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
+    if (user_meta && user_meta->user_meta_data) {
+        float *pPtFeet = new float[2];
+        pPtFeet[0] = ((float *)user_meta->user_meta_data)[0];
+        pPtFeet[1] = ((float *)user_meta->user_meta_data)[1];
+        return (gpointer)pPtFeet; // user_meta->user_meta_data;
+    }
+    return NULL;
+}
+
+static void free_nvtracker2_obj_foot_loc_meta(gpointer meta_data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)meta_data;
+    if (user_meta && user_meta->user_meta_data) {
+        float *pPtFeet = (float *)user_meta->user_meta_data;
+        delete[] pPtFeet;
+    }
+}
+
+static gpointer copy_nvtracker2_obj_convex_hull_meta(gpointer data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
+    if (user_meta && user_meta->user_meta_data) {
+        NvDsObjConvexHull *pConvexHull = (NvDsObjConvexHull *)user_meta->user_meta_data;
+        if (pConvexHull->numPointsAllocated == 0) {
+            return NULL;
+        }
+
+        NvDsObjConvexHull *pNewConvexHull = new NvDsObjConvexHull;
+        pNewConvexHull->list = new int[pConvexHull->numPointsAllocated * 2];
+        memcpy(pNewConvexHull->list, pConvexHull->list, pConvexHull->numPoints * 2 * sizeof(int));
+        pNewConvexHull->numPoints = pConvexHull->numPoints;
+        pNewConvexHull->numPointsAllocated = pConvexHull->numPointsAllocated;
+        return (gpointer)pNewConvexHull; // user_meta->user_meta_data;
+    }
+    return NULL;
+}
+
+static void free_nvtracker2_obj_convex_hull_meta(gpointer meta_data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)meta_data;
+    if (user_meta && user_meta->user_meta_data) {
+        NvDsObjConvexHull *pConvexHull = (NvDsObjConvexHull *)user_meta->user_meta_data;
+        if (pConvexHull->list) {
+            delete[] pConvexHull->list;
+        }
+        delete pConvexHull;
     }
 }
 
@@ -121,7 +246,6 @@ NvTrackerProc::~NvTrackerProc()
 bool NvTrackerProc::init(const TrackerConfig &config)
 {
     bool ret;
-
     m_Config = config;
 
     /** Load the low-level tracker lib */
@@ -131,33 +255,118 @@ bool NvTrackerProc::init(const TrackerConfig &config)
         return false;
     }
 
-    /** Initialize the buffer pool based on config */
-    if (m_Config.inputTensorMeta == false) {
-        ret = initConvBufPool();
-        if (!ret) {
-            LOG_ERROR("gstnvtracker: Failed to initilaize surface transform buffer pool.\n");
-            deInit();
-            return false;
-        }
-    }
-
-    ret = initMiscDataPool();
-    if (!ret) {
-        LOG_ERROR("gstnvtracker: Failed to initilaize user meta buffer pool.\n");
-        deInit();
-        return false;
-    }
-
     m_Running = true;
     m_TrackerLibError = false;
 
-    m_BatchContextHandle = initTrackerContext();
-    if (nullptr == m_BatchContextHandle) {
-        LOG_ERROR("gstnvtracker:: Failed to create batch context. Shutting down processing.\n");
-        deInit();
-        return false;
+    if (m_Config.subBatchSizes.size() == 0) {
+        m_BatchContextHandle = initTrackerContext();
+        if (nullptr == m_BatchContextHandle) {
+            LOG_ERROR("gstnvtracker:: Failed to create batch context. Shutting down processing.\n");
+            deInit();
+            return false;
+        }
+
+        ret = initTrackerQuery({m_BatchContextHandle});
+        if (!ret) {
+            LOG_ERROR("gstnvtracker: Failed to initilaize MOT query.\n");
+            deInit();
+            return false;
+        }
+
+        /** Initialize the buffer pool based on config */
+        if (m_Config.inputTensorMeta == false) {
+            ret = initConvBufPool();
+            if (!ret) {
+                LOG_ERROR("gstnvtracker: Failed to initilaize surface transform buffer pool.\n");
+                deInit();
+                return false;
+            }
+        }
+
+        ret = initMiscDataPool();
+        if (!ret) {
+            LOG_ERROR("gstnvtracker: Failed to initilaize user meta buffer pool.\n");
+            deInit();
+            return false;
+        }
+
+        m_ProcessBatchThread = thread(&NvTrackerProc::processBatch, this);
+        // A single batch, hence pad_index and seq_index will have a 1:1 correspondence
+        for (uint32_t i = 0; i < m_Config.batchSize; i++) {
+            m_PadIndexSeqIndexMap[i] = i;
+        }
+    } else {
+        std::vector<NvMOTContextHandle> contextHandleList;
+        for (uint32_t i = 0; i < m_Config.subBatchSizes.size(); i++) {
+            /** This is a new sub-batch, create its thread and record dispatch info. */
+            m_DispatchMap[i] = DispatchInfo();
+            DispatchInfo *pDispatchInfo = &m_DispatchMap[i];
+            pDispatchInfo->sbId = i;
+            pDispatchInfo->running = true;
+            pDispatchInfo->contextHandle = initTrackerContext(pDispatchInfo->sbId);
+            if (NULL == pDispatchInfo->contextHandle) {
+                LOG_ERROR("gstnvtracker: Failed to init context for sub-batch %x\n", i);
+                deInit();
+                return false;
+            };
+            contextHandleList.push_back(pDispatchInfo->contextHandle);
+        }
+
+        ret = initTrackerQuery(contextHandleList);
+        if (!ret) {
+            LOG_ERROR("gstnvtracker: Failed to initilaize MOT query.\n");
+            deInit();
+            return false;
+        }
+
+        /** Initialize the buffer pool based on config */
+        if (m_Config.inputTensorMeta == false) {
+            ret = initConvBufPool();
+            if (!ret) {
+                LOG_ERROR("gstnvtracker: Failed to initilaize surface transform buffer pool.\n");
+                deInit();
+                return false;
+            }
+        }
+
+        m_PadIndexSeqIndexMap.clear();
+        if (!m_Config.dynamicSubBatching) {
+            // Static mapping of pad index (source id) to sub-batch
+            for (uint32_t i = 0; i < m_Config.subBatchesConfig.size(); i++) {
+                /** This looks circular since thread is part of the info, but the thread
+                 * processing does not use this part so it's ok. */
+                m_DispatchMap[i].sbThread =
+                    thread(&NvTrackerProc::processSubBatch, this, &m_DispatchMap.at(i));
+
+                // Create a mapping from pad index (source id) to seq_index for each sub-batch
+                // This is required since seq_index needs to range from 0 to (max batch size -1 )
+                // where as, pad index of a stream in a sub-batch may not satisfy this requirement
+                std::vector<int> &subBatch = m_Config.subBatchesConfig[i];
+                for (uint32_t j = 0; j < subBatch.size(); j++) {
+                    int padIndex = subBatch[j];
+                    if (m_PadIndexSeqIndexMap.find(padIndex) != m_PadIndexSeqIndexMap.end()) {
+                        LOG_ERROR(
+                            "gstnvtracker:: Check the config \"sub-batches\"!!  Source id %d has "
+                            "re-occured!!",
+                            padIndex);
+                        deInit();
+                        return false;
+                    }
+                    m_PadIndexSeqIndexMap[padIndex] = j;
+                }
+                m_MaxSubBatchSize = max(m_MaxSubBatchSize, (uint32_t)subBatch.size());
+            }
+        } else {
+            // Dynamic mapping of pad index (source id) to sub-batch
+            for (uint32_t i = 0; i < m_Config.subBatchSizes.size(); i++) {
+                /** This looks circular since thread is part of the info, but the thread
+                 * processing does not use this part so it's ok. */
+                m_DispatchMap[i].sbThread =
+                    thread(&NvTrackerProc::processSubBatch, this, &m_DispatchMap.at(i));
+                m_MaxSubBatchSize = max(m_MaxSubBatchSize, (uint32_t)m_Config.subBatchSizes[i]);
+            }
+        }
     }
-    m_ProcessBatchThread = thread(&NvTrackerProc::processBatch, this);
 
     return true;
 }
@@ -188,12 +397,33 @@ void NvTrackerProc::deInit()
         m_ProcessBatchThread.join();
     }
 
-    if (m_BatchContextHandle != nullptr) {
-        m_TrackerLibDeInit(m_BatchContextHandle);
-        m_BatchContextHandle = nullptr;
+    {
+        /** Shut down all sub-batch threads */
+        unique_lock<mutex> lkDispatch(m_DispatchMapLock);
+        std::map<SubBatchId, DispatchInfo>::iterator it;
+        for (it = m_DispatchMap.begin(); it != m_DispatchMap.end();) {
+            // SubBatchId sbId = it->first;
+            DispatchInfo &dispatchInfo = it->second;
+            dispatchInfo.running = false;
+            dispatchInfo.reqQueueCond.notify_one();
+            if (dispatchInfo.sbThread.joinable()) {
+                dispatchInfo.sbThread.join();
+            }
+            /** Remove this entry from the map */
+            it = m_DispatchMap.erase(it);
+        }
+        m_DispatchMap.clear();
     }
+    m_SsidSubBatchMap.clear();
 
-    deInitMiscDataPool();
+    if (m_Config.subBatchSizes.size() == 0) {
+        if (m_BatchContextHandle != nullptr) {
+            m_TrackerLibDeInit(m_BatchContextHandle);
+            m_BatchContextHandle = nullptr;
+        }
+
+        deInitMiscDataPool();
+    }
 
     /** Clear out all pending completions
      * and notify all threads waiting for completions */
@@ -205,6 +435,7 @@ void NvTrackerProc::deInit()
     /** Clear out pending batch info */
     unique_lock<mutex> pendingBatchLock(m_PendingBatchLock);
     m_PendingBatch.clear();
+    m_ConvBufComplete.clear();
     pendingBatchLock.unlock();
 
     /** Clean up resources */
@@ -212,6 +443,13 @@ void NvTrackerProc::deInit()
 
     /** Clean up the class info map */
     m_ClassInfoMap.clear();
+    /** Clean up the map from pad index to sub-batch sequence index */
+    m_PadIndexSeqIndexMap.clear();
+    /** Clean up m_SubBatchAllocationMap */
+    for (auto it = m_SubBatchAllocationMap.begin(); it != m_SubBatchAllocationMap.end(); it++) {
+        it->second.clear();
+    }
+    m_SubBatchAllocationMap.clear();
 }
 
 bool NvTrackerProc::addSource(uint32_t sourceId)
@@ -224,18 +462,99 @@ bool NvTrackerProc::addSource(uint32_t sourceId)
 
 bool NvTrackerProc::removeSource(uint32_t sourceId, bool removeObjectIdMapping)
 {
-    /** Clean up resources for this source. */
-    if (m_TrackerLibRemoveStreams) {
-        /** Given streamId, need to find all its SurfaceStreamIds */
+    if (m_Config.subBatchSizes.size() == 0) {
+        /** Clean up resources for this source. */
+        if (m_TrackerLibRemoveStreams) {
+            /** Given streamId, need to find all its SurfaceStreamIds */
+            for (auto it = m_ObjectIdOffsetMap.begin(); it != m_ObjectIdOffsetMap.end(); it++) {
+                SurfaceStreamId ssId = it->first;
+                if (getStreamId(ssId) == sourceId) {
+                    NvMOTStatus status = m_TrackerLibRemoveStreams(m_BatchContextHandle, ssId);
+                    if (status != NvMOTStatus_OK) {
+                        LOG_ERROR("gstnvtracker: Fail to remove stream %d.\n", sourceId);
+                        m_TrackerLibError = true;
+                        return false;
+                    }
+                }
+            }
+        }
+    } else {
+        SurfaceStreamId ssId;
+        /** Given streamId, first find the sub-batch containing the stream
+         * and then instruct the sub-batch thread to remove the source */
         for (auto it = m_ObjectIdOffsetMap.begin(); it != m_ObjectIdOffsetMap.end(); it++) {
-            SurfaceStreamId ssId = it->first;
+            ssId = it->first;
             if (getStreamId(ssId) == sourceId) {
-                NvMOTStatus status = m_TrackerLibRemoveStreams(m_BatchContextHandle, ssId);
-                if (status != NvMOTStatus_OK) {
-                    LOG_ERROR("gstnvtracker: Fail to remove stream %d.\n", sourceId);
-                    m_TrackerLibError = true;
+                SubBatchId sbId;
+                if (m_SsidSubBatchMap.find(ssId) == m_SsidSubBatchMap.end()) {
+                    LOG_ERROR(
+                        "removeSource : Could not find a sub-batch contaning the Ssid = %lx\n",
+                        ssId);
+                    return false;
+                } else {
+                    sbId = m_SsidSubBatchMap[ssId];
+                    /** Since the source is going to be removed, erase the entry from mapping too */
+                    auto it = m_SsidSubBatchMap.find(ssId);
+                    m_SsidSubBatchMap.erase(it);
+                    // If dynamic sub-batch allocation is enabled, remove the entry from allocation
+                    // map as well
+                    if (m_SubBatchAllocationMap.size() > 0 &&
+                        (m_SubBatchAllocationMap.find(sbId) != m_SubBatchAllocationMap.end())) {
+                        std::map<SeqIndex, std::pair<SurfaceStreamId, uint32_t>> &singleSubBatch =
+                            m_SubBatchAllocationMap.find(sbId)->second;
+                        SeqIndex seqIdxEntry = 0;
+                        for (auto jt = singleSubBatch.begin(); jt != singleSubBatch.end(); jt++) {
+                            seqIdxEntry = jt->first;
+                            SurfaceStreamId ssIdEntry = jt->second.first;
+                            uint32_t padIndexEntry = jt->second.second;
+                            if (ssId == ssIdEntry) {
+                                // Found the entry that needs to be erased from
+                                // m_SubBatchAllocationMap
+                                singleSubBatch.erase(jt);
+                                if (singleSubBatch.size() == 0) {
+                                    m_SubBatchAllocationMap.erase(sbId);
+                                }
+                                // Also erase the entry from m_PadIndexSeqIndexMap
+                                if (seqIdxEntry != m_PadIndexSeqIndexMap[padIndexEntry]) {
+                                    LOG_ERROR(
+                                        "removeSource : Sequence index in m_SubBatchAllocationMap "
+                                        "and m_PadIndexSeqIndexMap do not match !!\n");
+                                    return false;
+                                }
+                                m_PadIndexSeqIndexMap.erase(padIndexEntry);
+                                LOG_INFO(
+                                    "Removed stream : sub-batch = %d \t seq index = %d \t pad "
+                                    "index = %d\n",
+                                    sbId, seqIdxEntry, padIndexEntry);
+                                break;
+                            }
+                        }
+                    }
+                }
+                DispatchReq req = {};
+                req.removeSource = true;
+                req.ssId = ssId;
+                unique_lock<mutex> lk(m_DispatchMapLock);
+                map<SubBatchId, DispatchInfo>::iterator it = m_DispatchMap.find(sbId);
+                DispatchInfo *pDispatchInfo = NULL;
+                if (it != m_DispatchMap.end()) {
+                    pDispatchInfo = &it->second;
+                } else {
+                    LOG_ERROR(
+                        "gstnvtracker: Running thread not found corresponfing to sub-batch %d\n",
+                        sbId);
+                    lk.unlock();
                     return false;
                 }
+                /** We can release the dispatch map lock now because a dispatch info is kept valid
+                 * until its thread joins. */
+                lk.unlock();
+
+                /** Queue up the req for stream removal */
+                unique_lock<mutex> lkReq(pDispatchInfo->reqQueueLock);
+                pDispatchInfo->reqQueue.push(req);
+                lkReq.unlock();
+                pDispatchInfo->reqQueueCond.notify_one();
             }
         }
     }
@@ -268,7 +587,7 @@ bool NvTrackerProc::submitInput(const InputParams &inputParams)
         return false;
     }
 
-    ProcParams procParams;
+    ProcParams procParams = {};
 
     char contextName[100];
     snprintf(contextName, sizeof(contextName), "%s_nvtracker_convert_buffer(Frame=%u)",
@@ -305,6 +624,17 @@ bool NvTrackerProc::submitInput(const InputParams &inputParams)
                     LOG_ERROR("gstnvtracker: Batch meta is nullptr.\n");
                     return false;
                 }
+
+                /** Storing all the preprocess batch info in single NvBufSurface*/
+                NvBufSurface *preprocSurface = new NvBufSurface;
+                memset(preprocSurface, 0, sizeof(NvBufSurface));
+                preprocSurface->batchSize = inputParams.pSurfaceBatch->batchSize;
+                preprocSurface->numFilled = 0;
+                preprocSurface->isContiguous = false;
+                preprocSurface->surfaceList = new NvBufSurfaceParams[preprocSurface->batchSize];
+                memset(preprocSurface->surfaceList, 0,
+                       preprocSurface->batchSize * sizeof(NvBufSurfaceParams));
+
                 for (NvDsMetaList *l_user = batch_meta->batch_user_meta_list; l_user != NULL;
                      l_user = l_user->next) {
                     NvDsUserMeta *user_meta = (NvDsUserMeta *)(l_user->data);
@@ -323,18 +653,37 @@ bool NvTrackerProc::submitInput(const InputParams &inputParams)
 
                     if (preproc_meta->tensor_meta->gpu_id != (guint)m_Config.gpuId) {
                         LOG_ERROR("gstnvtracker: GPU ID mismatch of tensor meta and tracker.\n");
+                        delete[] preprocSurface->surfaceList;
+                        delete preprocSurface;
                         return false;
                     }
                     conv_gst_buf = static_cast<GstBuffer *>(preproc_meta->private_data);
                     mem = gst_buffer_peek_memory(conv_gst_buf, 0);
                     if (!mem || !gst_memory_is_type(mem, GST_NVDSPREPROCESS_MEMORY_TYPE)) {
                         LOG_ERROR("gstnvtracker: preprocess memory is null.\n");
+                        delete[] preprocSurface->surfaceList;
+                        delete preprocSurface;
                         return false;
                     }
                     preproc_buf = &(((GstNvDsPreProcessMem *)mem)->mem_preprocess);
-                    if (procParams.pConvBuf == nullptr)
-                        procParams.pConvBuf = preproc_buf->surf;
+                    if (procParams.pConvBuf == nullptr) {
+                        preprocSurface->gpuId = preproc_buf->surf->gpuId;
+                        preprocSurface->memType = preproc_buf->surf->memType;
+                        /* Adding all the surfaces of the preprocess batch to surfaceList */
+                        for (uint32_t i = 0;
+                             (i < preproc_buf->surf->batchSize) &&
+                             (preprocSurface->numFilled < inputParams.pSurfaceBatch->batchSize);
+                             i++) {
+                            preprocSurface->surfaceList[preprocSurface->numFilled] =
+                                preproc_buf->surf->surfaceList[i];
+                            preprocSurface->numFilled += 1;
+                        }
+                    }
                 }
+
+                /* Copy the combined NvBufSurface info to pConvBuf */
+                procParams.pConvBuf = preprocSurface;
+
                 if (procParams.pConvBuf == nullptr) {
                     LOG_ERROR(
                         "gstnvtracker: no tensor meta found with buffer please"
@@ -356,26 +705,31 @@ bool NvTrackerProc::submitInput(const InputParams &inputParams)
     procParams.useConvBuf = true;
     procParams.input = inputParams;
 
-    /** Track this batch as pending processing for event synchronization.
-     * There is no need to record the streams here so the ssId vector is unused. */
-    std::vector<SurfaceStreamId> nextBatch;
-    unique_lock<mutex> pendingBatchLock(m_PendingBatchLock);
-    if (m_PendingBatch.find(m_BatchId) != m_PendingBatch.end()) {
-        LOG_ERROR("gstnvtracker: Batch %d already active!\n", m_BatchId);
+    if (m_Config.subBatchSizes.size() == 0) {
+        /** Track this batch as pending processing for event synchronization.
+         * There is no need to record the streams here so the ssId vector is unused. */
+        std::vector<SubBatchId> nextBatch;
+        unique_lock<mutex> pendingBatchLock(m_PendingBatchLock);
+        if (m_PendingBatch.find(m_BatchId) != m_PendingBatch.end()) {
+            LOG_ERROR("gstnvtracker: Batch %d already active!\n", m_BatchId);
+            pendingBatchLock.unlock();
+            return false;
+        }
+        m_PendingBatch[m_BatchId] = nextBatch;
+        procParams.batchId = m_BatchId;
+        m_BatchId++;
         pendingBatchLock.unlock();
-        return false;
-    }
-    m_PendingBatch[m_BatchId] = nextBatch;
-    procParams.batchId = m_BatchId;
-    m_BatchId++;
-    pendingBatchLock.unlock();
 
-    /** Queue up and signal the processing thread */
-    unique_lock<mutex> lk(m_ProcQueueLock);
-    m_ProcQueue.push(procParams);
-    lk.unlock();
-    m_ProcQueueCond.notify_one();
-    return true;
+        /** Queue up and signal the processing thread */
+        unique_lock<mutex> lk(m_ProcQueueLock);
+        m_ProcQueue.push(procParams);
+        lk.unlock();
+        m_ProcQueueCond.notify_one();
+        return true;
+    } else {
+        /** The sub-batch dispatch function will also track this pending batch. */
+        return dispatchSubBatches(procParams);
+    }
 }
 
 CompletionStatus NvTrackerProc::waitForCompletion(InputParams &inputParams)
@@ -478,26 +832,110 @@ bool NvTrackerProc::initTrackerLib()
     if ((error = dlerror()) != NULL) {
         LOG_WARNING(
             "gstnvtracker: Failed to load NvMOT_Query. Using default parameters for now.\n");
-    } else {
-        NvMOTQuery query;
-        /** Initialize NvMOTQuery with default values. */
-        memset(&query, 0, sizeof(query));
-        query.maxTargetsPerStream = 150;
+    }
 
-        uint16_t configFilePathSize = 0;
-        if (m_Config.trackerConfigFile != nullptr) {
-            configFilePathSize = strlen(m_Config.trackerConfigFile);
-        }
-        NvMOTStatus status =
-            m_TrackerLibQuery(configFilePathSize, m_Config.trackerConfigFile, &query);
-        if (status != NvMOTStatus_OK) {
-            LOG_ERROR("gstnvtracker: Got error querying low-level tracker for caps.\n");
-            if (status == NvMOTStatus_Invalid_Path) {
-                LOG_ERROR("  Config file path is invalid: %s\n",
-                          (m_Config.trackerConfigFile == nullptr) ? "nullptr"
-                                                                  : m_Config.trackerConfigFile);
+    return true;
+}
+
+bool NvTrackerProc::initTrackerQuery(const std::vector<NvMOTContextHandle> &contextHandleList)
+{
+    if (m_TrackerLibQuery) {
+        NvMOTQuery query;
+        memset(&query, 0, sizeof(query));
+
+        // for(auto it=m_Config.trackerConfigFilePerSubBatch.begin();
+        // it!=m_Config.trackerConfigFilePerSubBatch.end(); it++)
+        for (uint i = 0; i < contextHandleList.size(); i++) {
+            NvMOTQuery query_sub_batch;
+            memset(&query_sub_batch, 0, sizeof(query_sub_batch));
+            query_sub_batch.contextHandle = contextHandleList.at(i);
+
+            if (m_Config.inputTensorMeta) {
+                query_sub_batch.colorFormats[0] = NVBUF_COLOR_FORMAT_RGBA;
+                LOG_INFO("gstnvtracker: Forcing format RGBA for tracker \n");
             }
-            return false;
+
+            char *trackerConfigFile = NULL;
+            if (m_Config.trackerConfigFilePerSubBatch.size() > i) {
+                trackerConfigFile = (char *)m_Config.trackerConfigFilePerSubBatch.at(i).c_str();
+            } else if (m_Config.trackerConfigFilePerSubBatch.size()) {
+                /** If config file is not specified for this sub-batch, use the last config file in
+                 * the list */
+                trackerConfigFile = (char *)m_Config.trackerConfigFilePerSubBatch.back().c_str();
+            }
+
+            uint16_t configFilePathSize = 0;
+            if (trackerConfigFile != nullptr) {
+                configFilePathSize = strlen(trackerConfigFile);
+            }
+
+            NvMOTStatus status =
+                m_TrackerLibQuery(configFilePathSize, trackerConfigFile, &query_sub_batch);
+            if (status != NvMOTStatus_OK) {
+                LOG_ERROR("gstnvtracker: Got error querying low-level tracker for caps.\n");
+                if (status == NvMOTStatus_Invalid_Path) {
+                    LOG_ERROR("  Config file path is invalid: %s\n",
+                              (trackerConfigFile == nullptr) ? "nullptr" : trackerConfigFile);
+                }
+                return false;
+            }
+
+            if (i == 0) {
+                // First iteration, copy all the values from sub-batch
+                query = query_sub_batch;
+            } else {
+                // For the query variables that can be different across sub-batches : Take the max
+                // value For the query variables that need to match across sub-batches : verify that
+                // they have the same values
+                if (query.computeConfig != query_sub_batch.computeConfig) {
+                    LOG_ERROR(
+                        "gstnvtracker: All sub-batches should have the same computeConfig "
+                        "setting.\n");
+                    return false;
+                }
+                query.numTransforms = max(query.numTransforms, query_sub_batch.numTransforms);
+                if (query.colorFormats[0] != query_sub_batch.colorFormats[0]) {
+                    LOG_ERROR(
+                        "gstnvtracker: All sub-batches should have the same colorFormats "
+                        "setting.\n");
+                    return false;
+                }
+                if (query.memType != query_sub_batch.memType) {
+                    LOG_ERROR(
+                        "gstnvtracker: All sub-batches should have the same memType setting.\n");
+                    return false;
+                }
+                query.maxTargetsPerStream =
+                    max(query.maxTargetsPerStream, query_sub_batch.maxTargetsPerStream);
+                query.maxShadowTrackingAge =
+                    max(query.maxShadowTrackingAge, query_sub_batch.maxShadowTrackingAge);
+                query.outputReidTensor =
+                    max(query.outputReidTensor, query_sub_batch.outputReidTensor);
+                query.reidFeatureSize = max(query.reidFeatureSize, query_sub_batch.reidFeatureSize);
+                query.outputTrajectory =
+                    max(query.outputTrajectory, query_sub_batch.outputTrajectory);
+                query.outputVisibility =
+                    max(query.outputVisibility, query_sub_batch.outputVisibility);
+                query.outputFootLocation =
+                    max(query.outputFootLocation, query_sub_batch.outputFootLocation);
+                query.outputConvexHull =
+                    max(query.outputConvexHull, query_sub_batch.outputConvexHull);
+                query.maxConvexHullSize =
+                    max(query.maxConvexHullSize, query_sub_batch.maxConvexHullSize);
+                query.supportPastFrame =
+                    max(query.supportPastFrame, query_sub_batch.supportPastFrame);
+                if (query.batchMode != query_sub_batch.batchMode) {
+                    LOG_ERROR(
+                        "gstnvtracker: All sub-batches should have the same batchMode setting.\n");
+                    return false;
+                }
+                query.outputTerminatedTracks =
+                    max(query.outputTerminatedTracks, query_sub_batch.outputTerminatedTracks);
+                query.maxTrajectoryBufferLength =
+                    max(query.maxTrajectoryBufferLength, query_sub_batch.maxTrajectoryBufferLength);
+                query.outputShadowTracks =
+                    max(query.outputShadowTracks, query_sub_batch.outputShadowTracks);
+            }
         }
 
         if (query.numTransforms > 1) {
@@ -512,11 +950,6 @@ bool NvTrackerProc::initTrackerLib()
             return false;
         }
 
-        if (m_Config.inputTensorMeta == true) {
-            query.colorFormats[0] = NVBUF_COLOR_FORMAT_RGBA;
-            LOG_INFO("gstnvtracker: Forcing format RGBA for tracker \n");
-        }
-
         m_Config.numTransforms = query.numTransforms;
         m_Config.computeTarget = query.computeConfig;
         m_Config.colorFormat = query.colorFormats[0];
@@ -526,8 +959,55 @@ bool NvTrackerProc::initTrackerLib()
         m_Config.reidFeatureSize = query.reidFeatureSize;
         m_Config.outputReidTensor = query.outputReidTensor;
         m_Config.pastFrame = query.supportPastFrame;
+        m_Config.outputTerminatedTracks = query.outputTerminatedTracks;
+        m_Config.maxTrajectoryBufferLength = query.maxTrajectoryBufferLength;
+        m_Config.outputShadowTracks = query.outputShadowTracks;
+        m_Config.maxConvexHullSize = query.maxConvexHullSize;
+        m_Config.outputVisibility = query.outputVisibility;
+        m_Config.outputFootLocation = query.outputFootLocation;
+        m_Config.outputConvexHull = query.outputConvexHull;
     }
 
+    return true;
+}
+
+bool NvTrackerProc::initTrackerQuery(const NvMOTContextHandle &contextHandle, uint32_t sbId)
+{
+    if (m_TrackerLibQuery) {
+        NvMOTQuery query_sub_batch;
+        memset(&query_sub_batch, 0, sizeof(query_sub_batch));
+        query_sub_batch.contextHandle = contextHandle;
+
+        if (m_Config.inputTensorMeta) {
+            query_sub_batch.colorFormats[0] = NVBUF_COLOR_FORMAT_RGBA;
+            LOG_INFO("gstnvtracker: Forcing format RGBA for tracker \n");
+        }
+
+        char *trackerConfigFile = NULL;
+        if (m_Config.trackerConfigFilePerSubBatch.size() > sbId) {
+            trackerConfigFile = (char *)m_Config.trackerConfigFilePerSubBatch.at(sbId).c_str();
+        } else if (m_Config.trackerConfigFilePerSubBatch.size()) {
+            /** If config file is not specified for this sub-batch, use the last config file in the
+             * list */
+            trackerConfigFile = (char *)m_Config.trackerConfigFilePerSubBatch.back().c_str();
+        }
+
+        uint16_t configFilePathSize = 0;
+        if (trackerConfigFile != nullptr) {
+            configFilePathSize = strlen(trackerConfigFile);
+        }
+
+        NvMOTStatus status =
+            m_TrackerLibQuery(configFilePathSize, trackerConfigFile, &query_sub_batch);
+        if (status != NvMOTStatus_OK) {
+            LOG_ERROR("gstnvtracker: Got error querying low-level tracker for caps.\n");
+            if (status == NvMOTStatus_Invalid_Path) {
+                LOG_ERROR("  Config file path is invalid: %s\n",
+                          (trackerConfigFile == nullptr) ? "nullptr" : trackerConfigFile);
+            }
+            return false;
+        }
+    }
     return true;
 }
 
@@ -540,7 +1020,7 @@ void NvTrackerProc::deInitTrackerLib()
 
 bool NvTrackerProc::initConvBufPool()
 {
-    NvBufSurfaceCreateParams createParams;
+    NvBufSurfaceCreateParams createParams = {};
     if (m_Config.numTransforms > 0) {
         createParams.gpuId = m_Config.gpuId;
         createParams.width = m_Config.trackerWidth;
@@ -574,7 +1054,8 @@ bool NvTrackerProc::initMiscDataPool()
     bool ret = m_MiscDataMgr.init(m_Config.batchSize, m_Config.gpuId, m_Config.maxTargetsPerStream,
                                   m_Config.maxShadowTrackingAge, m_Config.reidFeatureSize,
                                   m_Config.maxMiscDataPoolSize, m_Config.pastFrame,
-                                  m_Config.outputReidTensor);
+                                  m_Config.outputReidTensor, m_Config.outputTerminatedTracks,
+                                  m_Config.outputShadowTracks, m_Config.maxTrajectoryBufferLength);
 
     if (!ret) {
         LOG_ERROR("gstnvtracker: Failed to initialize MiscDataManager\n");
@@ -589,38 +1070,49 @@ void NvTrackerProc::deInitMiscDataPool()
     m_MiscDataMgr.deInit();
 }
 
-NvMOTContextHandle NvTrackerProc::initTrackerContext()
+NvMOTContextHandle NvTrackerProc::initTrackerContext(uint32_t sbId)
 {
     NvMOTConfig config;
     NvMOTConfigResponse configResp;
 
-    config.computeConfig = m_Config.computeTarget;
+    // config.computeConfig = m_Config.computeTarget;
 
-    config.maxStreams = m_Config.batchSize;
+    config.maxStreams =
+        (m_Config.subBatchSizes.size() == 0) ? m_Config.batchSize : m_Config.subBatchSizes[sbId];
     config.maxBufSurfAddrSize =
         m_Config.maxConvBufPoolSize * m_Config.batchSize; /** max num of addresses in buffer pool */
-    config.numTransforms = m_Config.numTransforms;
 
     NvMOTPerTransformBatchConfig batchConfig;
     memset(&batchConfig, 0, sizeof(batchConfig));
     config.perTransformBatchConfig = &batchConfig;
 
-    if (config.numTransforms > 0) {
-        batchConfig.bufferType = m_Config.memType;
-        batchConfig.maxWidth = m_Config.trackerWidth;
-        batchConfig.maxHeight = m_Config.trackerHeight;
-        batchConfig.maxPitch = m_Config.trackerWidth * 2 * 4;
-        batchConfig.maxSize = batchConfig.maxPitch * m_Config.trackerHeight;
-        batchConfig.colorFormat = m_Config.colorFormat;
-    }
+    batchConfig.maxWidth = m_Config.trackerWidth;
+    batchConfig.maxHeight = m_Config.trackerHeight;
+    batchConfig.maxPitch = m_Config.trackerWidth * 2 * 4;
+    batchConfig.maxSize = batchConfig.maxPitch * m_Config.trackerHeight;
 
     config.miscConfig.gpuId = m_Config.gpuId;
-    config.miscConfig.maxObjPerStream = 0;
-    config.miscConfig.maxObjPerBatch = 0;
 
-    config.customConfigFilePath = m_Config.trackerConfigFile;
+    std::string customConfigFilePath = {};
+    if (m_Config.trackerConfigFilePerSubBatch.size() > sbId) {
+        customConfigFilePath = m_Config.trackerConfigFilePerSubBatch[sbId];
+    } else {
+        if (m_Config.trackerConfigFilePerSubBatch.size()) {
+            /** If config file is not specified for this sub-batch, use the last config file in the
+             * list */
+            customConfigFilePath = m_Config.trackerConfigFilePerSubBatch.back();
+        } else {
+            /** If no config file is specified, set the path as an empty string */
+            customConfigFilePath = {};
+        }
+    }
+
+    if (customConfigFilePath.empty()) {
+        LOG_WARNING("gstnvtracker: ll-config-file not specified for sub-batch : %d\n", sbId);
+    }
+    config.customConfigFilePath = (char *)customConfigFilePath.c_str();
     if (config.customConfigFilePath != nullptr) {
-        config.customConfigFilePathSize = strlen(m_Config.trackerConfigFile);
+        config.customConfigFilePathSize = strlen(customConfigFilePath.c_str());
     } else {
         config.customConfigFilePathSize = 0;
     }
@@ -643,9 +1135,9 @@ void NvTrackerProc::queueFrames(const NvDsBatchMeta &batchMeta,
         NvDsFrameMeta *pFrameMeta = (NvDsFrameMeta *)(l->data);
 
         /** Skip surface types not selected for tracking */
-        if (pFrameMeta == nullptr && pFrameMeta->surface_type != NVDS_META_SURFACE_NONE &&
-            (m_Config.trackingSurfTypeFromConfig &&
-             pFrameMeta->surface_type != m_Config.trackingSurfType)) {
+        if ((pFrameMeta == nullptr) || (pFrameMeta->surface_type != NVDS_META_SURFACE_NONE &&
+                                        m_Config.trackingSurfTypeFromConfig &&
+                                        pFrameMeta->surface_type != m_Config.trackingSurfType)) {
             continue;
         }
 
@@ -699,10 +1191,7 @@ void NvTrackerProc::fillMOTFrame(SurfaceStreamId ssId,
         /** Store info for this class if previously unseen. */
         auto it = m_ClassInfoMap.find(objectMeta->class_id);
         if (it == m_ClassInfoMap.end()) {
-            ClassInfo newClassInfo;
-            m_ClassInfoMap[objectMeta->class_id] = newClassInfo;
-
-            ClassInfo &classInfo = m_ClassInfoMap[objectMeta->class_id];
+            ClassInfo classInfo;
             classInfo.rectParams = *rectParams;
             classInfo.textParams = objectMeta->text_params;
             classInfo.uniqueComponentId = objectMeta->unique_component_id;
@@ -712,11 +1201,13 @@ void NvTrackerProc::fillMOTFrame(SurfaceStreamId ssId,
             if (objectMeta->obj_label[0] != '\0') {
                 classInfo.objLabel = objectMeta->obj_label;
             }
+            m_ClassInfoMap[objectMeta->class_id] = std::move(classInfo);
         }
     }
     pObjList->detectionDone = frameMeta.bInferDone ? true : false;
 
     motFrame.streamID = ssId;
+    motFrame.seq_index = m_PadIndexSeqIndexMap[frameMeta.pad_index];
     motFrame.frameNum = frameMeta.frame_num;
     motFrame.srcFrameWidth = pInputBuf->width;
     motFrame.srcFrameHeight = pInputBuf->height;
@@ -778,13 +1269,13 @@ void NvTrackerProc::updatePastFrameMeta(
         return;
     }
 
-    NvDsPastFrameObjBatch *pPastFrameObjBatch = &pGstObj->misc_data_buffer->pastFrameObjBatch;
+    NvDsTargetMiscDataBatch *pPastFrameObjBatch = &pGstObj->misc_data_buffer->pastFrameObjBatch;
     if (!batchList.empty()) {
         const std::map<SurfaceStreamId, NvDsFrameMeta *> &frameMap = batchList.front();
         for (uint32_t si = 0; si < pPastFrameObjBatch->numFilled; si++) {
             /** Iterate to assign plugin-level info to past frame data, inclusing
              * stream ID, class names and box rescale */
-            NvDsPastFrameObjStream *pPastFrameObjStream = pPastFrameObjBatch->list + si;
+            NvDsTargetMiscDataStream *pPastFrameObjStream = pPastFrameObjBatch->list + si;
             SurfaceStreamId ssId = pPastFrameObjStream->surfaceStreamID;
             pPastFrameObjStream->streamID = getStreamId(ssId);
             if (frameMap.find(ssId) == frameMap.end()) {
@@ -797,13 +1288,13 @@ void NvTrackerProc::updatePastFrameMeta(
             float scaleHeight = (float)pInputBuf->height / m_Config.trackerHeight;
 
             for (uint32_t li = 0; li < pPastFrameObjStream->numFilled; li++) {
-                NvDsPastFrameObjList *pPastFrameObjList = pPastFrameObjStream->list + li;
+                NvDsTargetMiscDataObject *pPastFrameObjList = pPastFrameObjStream->list + li;
                 g_strlcpy(pPastFrameObjList->objLabel,
                           m_ClassInfoMap[pPastFrameObjList->classId].objLabel.c_str(),
                           MAX_LABEL_SIZE);
                 for (uint32_t oi = 0; oi < pPastFrameObjList->numObj; oi++) {
                     /** Reshape bounding boxes from tracker scale to buffer scale */
-                    NvDsPastFrameObj *pPastFrameObj = pPastFrameObjList->list + oi;
+                    NvDsTargetMiscDataFrame *pPastFrameObj = pPastFrameObjList->list + oi;
                     pPastFrameObj->tBbox.left *= scaleWidth;
                     pPastFrameObj->tBbox.width *= scaleWidth;
                     pPastFrameObj->tBbox.top *= scaleHeight;
@@ -845,6 +1336,63 @@ void NvTrackerProc::updateBatchReidMeta(GstNvTrackerMiscDataObject *pGstObj, Pro
     nvds_add_user_meta_to_batch(pBatchMeta, user_meta);
 }
 
+void NvTrackerProc::updateTerminatedTrackMeta(GstNvTrackerMiscDataObject *pGstObj,
+                                              ProcParams &procParams)
+{
+    if (!m_Config.outputTerminatedTracks) {
+        return;
+    }
+
+    NvDsTargetMiscDataBatch *pTerminatedListBatch =
+        &pGstObj->misc_data_buffer->terminatedTrackBatch;
+    if (pTerminatedListBatch && pTerminatedListBatch->list) {
+        for (uint32_t si = 0; si < pTerminatedListBatch->numFilled; si++) {
+            NvDsTargetMiscDataStream *pTerminatedListStream = pTerminatedListBatch->list + si;
+            SurfaceStreamId ssId = pTerminatedListStream->surfaceStreamID;
+            pTerminatedListStream->streamID = getStreamId(ssId);
+        }
+    }
+
+    pTerminatedListBatch->priv_data = (void *)gst_mini_object_ref((GstMiniObject *)pGstObj);
+
+    NvDsBatchMeta *pBatchMeta = procParams.input.pBatchMeta;
+    NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(pBatchMeta);
+    user_meta->user_meta_data = (void *)pTerminatedListBatch;
+    user_meta->base_meta.meta_type = (NvDsMetaType)NVDS_TRACKER_TERMINATED_LIST_META;
+    user_meta->base_meta.copy_func = (NvDsMetaCopyFunc)copy_nvtracker2_terminated_meta;
+    user_meta->base_meta.release_func = (NvDsMetaReleaseFunc)free_nvtracker2_terminated_meta;
+    user_meta->base_meta.batch_meta = pBatchMeta;
+    nvds_add_user_meta_to_batch(pBatchMeta, user_meta);
+}
+
+void NvTrackerProc::updateShadowTrackMeta(GstNvTrackerMiscDataObject *pGstObj,
+                                          ProcParams &procParams)
+{
+    if (!m_Config.outputShadowTracks) {
+        return;
+    }
+
+    NvDsTargetMiscDataBatch *pShadowTrackBatch = &pGstObj->misc_data_buffer->shadowTracksBatch;
+    if (pShadowTrackBatch && pShadowTrackBatch->list) {
+        for (uint32_t si = 0; si < pShadowTrackBatch->numFilled; si++) {
+            NvDsTargetMiscDataStream *pShadowTrackStream = pShadowTrackBatch->list + si;
+            SurfaceStreamId ssId = pShadowTrackStream->surfaceStreamID;
+            pShadowTrackStream->streamID = getStreamId(ssId);
+        }
+    }
+
+    pShadowTrackBatch->priv_data = (void *)gst_mini_object_ref((GstMiniObject *)pGstObj);
+
+    NvDsBatchMeta *pBatchMeta = procParams.input.pBatchMeta;
+    NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(pBatchMeta);
+    user_meta->user_meta_data = (void *)pShadowTrackBatch;
+    user_meta->base_meta.meta_type = (NvDsMetaType)NVDS_TRACKER_SHADOW_LIST_META;
+    user_meta->base_meta.copy_func = (NvDsMetaCopyFunc)copy_nvtracker2_shadowTracks_meta;
+    user_meta->base_meta.release_func = (NvDsMetaReleaseFunc)free_nvtracker2_shadowTracks_meta;
+    user_meta->base_meta.batch_meta = pBatchMeta;
+    nvds_add_user_meta_to_batch(pBatchMeta, user_meta);
+}
+
 void NvTrackerProc::updateUserMeta(
     const std::vector<std::map<SurfaceStreamId, NvDsFrameMeta *>> &batchList,
     ProcParams &procParams,
@@ -867,6 +1415,38 @@ void NvTrackerProc::updateUserMeta(
                          return_nvtracker_buffer_meta);
     updatePastFrameMeta(batchList, pGstObj, procParams);
     updateBatchReidMeta(pGstObj, procParams);
+    updateTerminatedTrackMeta(pGstObj, procParams);
+    updateShadowTrackMeta(pGstObj, procParams);
+
+    /** mini_obj_ref number is alreadt 1 after initialization, so descrease by 1 here. */
+    gst_mini_object_unref(GST_MINI_OBJECT(pGstObj));
+}
+
+void NvTrackerProc::updateUserMeta(
+    const std::vector<std::map<SurfaceStreamId, NvDsFrameMeta *>> &batchList,
+    ProcParams &procParams,
+    NvTrackerMiscDataBuffer *pMiscDataBuf,
+    TrackerMiscDataManager &miscDataMgr)
+{
+    if (pMiscDataBuf == nullptr) {
+        return;
+    }
+
+    if (m_TrackerLibError.load()) {
+        miscDataMgr.returnBuffer(pMiscDataBuf);
+        return;
+    }
+
+    GstNvTrackerMiscDataObject *pGstObj = new GstNvTrackerMiscDataObject;
+    pGstObj->misc_data_buffer = pMiscDataBuf;
+    pGstObj->misc_data_manager = &miscDataMgr;
+
+    gst_mini_object_init(GST_MINI_OBJECT(pGstObj), 0, G_TYPE_POINTER, NULL, NULL,
+                         return_nvtracker_buffer_meta);
+    updatePastFrameMeta(batchList, pGstObj, procParams);
+    updateBatchReidMeta(pGstObj, procParams);
+    updateTerminatedTrackMeta(pGstObj, procParams);
+    updateShadowTrackMeta(pGstObj, procParams);
 
     /** mini_obj_ref number is alreadt 1 after initialization, so descrease by 1 here. */
     gst_mini_object_unref(GST_MINI_OBJECT(pGstObj));
@@ -952,6 +1532,8 @@ void NvTrackerProc::updateFrameMeta(NvDsFrameMeta *pFrameMeta,
                 pObjectMeta->tracker_confidence = pTrackedObj->confidence;
                 /** Fill tracker reid meta. */
                 updateObjectReidMeta(pObjectMeta, pTrackedObj, pBatchMeta);
+                updateObjectProjectionMeta(pObjectMeta, pTrackedObj, pBatchMeta, scaleWidth,
+                                           scaleHeight);
             }
         } else if (clipRet) {
             /** Need to add this object to metadata */
@@ -996,6 +1578,8 @@ void NvTrackerProc::updateFrameMeta(NvDsFrameMeta *pFrameMeta,
             pObjectMeta->tracker_confidence = pTrackedObj->confidence;
             /** Fill tracker reid meta. */
             updateObjectReidMeta(pObjectMeta, pTrackedObj, pBatchMeta);
+            updateObjectProjectionMeta(pObjectMeta, pTrackedObj, pBatchMeta, scaleWidth,
+                                       scaleHeight);
             nvds_add_obj_meta_to_frame(pFrameMeta, pObjectMeta, NULL);
         }
 
@@ -1021,8 +1605,8 @@ void NvTrackerProc::updateFrameMeta(NvDsFrameMeta *pFrameMeta,
                                   (char *)pTextParams->display_text);
                 free(pTextParams->display_text);
 
-                offset =
-                    snprintf(displayText + offset, MAX_GST_STR_LEN, "%lu", pObjectMeta->object_id);
+                offset = snprintf(displayText + offset, MAX_GST_STR_LEN - offset, "%lu",
+                                  pObjectMeta->object_id);
                 pTextParams->display_text = g_strdup(displayText);
             }
             pTextParams->x_offset = pRectParams->left;
@@ -1035,14 +1619,83 @@ void NvTrackerProc::updateObjectReidMeta(NvDsObjectMeta *pObjectMeta,
                                          NvMOTTrackedObj *pTrackedObj,
                                          NvDsBatchMeta *pBatchMeta)
 {
-    if (m_Config.outputReidTensor && pTrackedObj->reidInd >= 0) {
+    if (m_Config.outputReidTensor && pTrackedObj->reid.featureSize > 0 &&
+        pTrackedObj->reid.ptr_dev != NULL && pTrackedObj->reid.ptr_host != NULL) {
         NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(pBatchMeta);
-        int32_t *pReidInd = new int32_t;
-        *pReidInd = pTrackedObj->reidInd;
-        user_meta->user_meta_data = (void *)pReidInd;
+        NvDsObjReid *pReidObj = new NvDsObjReid;
+        pReidObj->featureSize = pTrackedObj->reid.featureSize;
+        pReidObj->ptr_dev = pTrackedObj->reid.ptr_dev;
+        pReidObj->ptr_host = pTrackedObj->reid.ptr_host;
+        user_meta->user_meta_data = (void *)pReidObj;
         user_meta->base_meta.meta_type = (NvDsMetaType)NVDS_TRACKER_OBJ_REID_META;
         user_meta->base_meta.copy_func = (NvDsMetaCopyFunc)copy_nvtracker2_obj_reid_meta;
         user_meta->base_meta.release_func = (NvDsMetaReleaseFunc)free_nvtracker2_obj_reid_meta;
+        nvds_add_user_meta_to_obj(pObjectMeta, user_meta);
+    }
+}
+
+void NvTrackerProc::updateObjectProjectionMeta(NvDsObjectMeta *pObjectMeta,
+                                               NvMOTTrackedObj *pTrackedObj,
+                                               NvDsBatchMeta *pBatchMeta,
+                                               float scaleWidth,
+                                               float scaleHeight)
+{
+    if (m_Config.outputVisibility) {
+        NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(pBatchMeta);
+        float *pVis = new float;
+        *pVis = pTrackedObj->visibility;
+        user_meta->user_meta_data = (void *)pVis;
+        user_meta->base_meta.meta_type = (NvDsMetaType)NVDS_OBJ_VISIBILITY;
+        user_meta->base_meta.copy_func = (NvDsMetaCopyFunc)copy_nvtracker2_obj_visibility_meta;
+        user_meta->base_meta.release_func =
+            (NvDsMetaReleaseFunc)free_nvtracker2_obj_visibility_meta;
+        nvds_add_user_meta_to_obj(pObjectMeta, user_meta);
+    }
+    if (m_Config.outputFootLocation) {
+        {
+            /** Output estimated foot location in frame coordinates. */
+            NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(pBatchMeta);
+            float *pPtImgFeet = new float[2];
+            pPtImgFeet[0] = pTrackedObj->ptImgFeet[0] * scaleWidth;
+            pPtImgFeet[1] = pTrackedObj->ptImgFeet[1] * scaleHeight;
+            user_meta->user_meta_data = (void *)pPtImgFeet;
+            user_meta->base_meta.meta_type = (NvDsMetaType)NVDS_OBJ_IMAGE_FOOT_LOCATION;
+            user_meta->base_meta.copy_func = (NvDsMetaCopyFunc)copy_nvtracker2_obj_foot_loc_meta;
+            user_meta->base_meta.release_func =
+                (NvDsMetaReleaseFunc)free_nvtracker2_obj_foot_loc_meta;
+            nvds_add_user_meta_to_obj(pObjectMeta, user_meta);
+        }
+
+        {
+            /** Output estimated foot location in 2D coordinates on the estimated world ground. */
+            NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(pBatchMeta);
+            float *pPtWorldFeet = new float[2];
+            pPtWorldFeet[0] = pTrackedObj->ptWorldFeet[0];
+            pPtWorldFeet[1] = pTrackedObj->ptWorldFeet[1];
+            user_meta->user_meta_data = (void *)pPtWorldFeet;
+            user_meta->base_meta.meta_type = (NvDsMetaType)NVDS_OBJ_WORLD_FOOT_LOCATION;
+            user_meta->base_meta.copy_func = (NvDsMetaCopyFunc)copy_nvtracker2_obj_foot_loc_meta;
+            user_meta->base_meta.release_func =
+                (NvDsMetaReleaseFunc)free_nvtracker2_obj_foot_loc_meta;
+            nvds_add_user_meta_to_obj(pObjectMeta, user_meta);
+        }
+    }
+    if (m_Config.outputConvexHull && pTrackedObj->convexHull.numPointsAllocated != 0) {
+        NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(pBatchMeta);
+        NvDsObjConvexHull *pConvexHull = new NvDsObjConvexHull;
+        pConvexHull->list = new int[pTrackedObj->convexHull.numPointsAllocated * 2];
+        for (uint32_t i = 0; i < pTrackedObj->convexHull.numPoints; i++) {
+            pConvexHull->list[2 * i] = (int)(pTrackedObj->convexHull.list[2 * i] * scaleWidth);
+            pConvexHull->list[2 * i + 1] =
+                (int)(pTrackedObj->convexHull.list[2 * i + 1] * scaleHeight);
+        }
+        pConvexHull->numPoints = pTrackedObj->convexHull.numPoints;
+        pConvexHull->numPointsAllocated = pTrackedObj->convexHull.numPointsAllocated;
+        user_meta->user_meta_data = (void *)pConvexHull;
+        user_meta->base_meta.meta_type = (NvDsMetaType)NVDS_OBJ_IMAGE_CONVEX_HULL;
+        user_meta->base_meta.copy_func = (NvDsMetaCopyFunc)copy_nvtracker2_obj_convex_hull_meta;
+        user_meta->base_meta.release_func =
+            (NvDsMetaReleaseFunc)free_nvtracker2_obj_convex_hull_meta;
         nvds_add_user_meta_to_obj(pObjectMeta, user_meta);
     }
 }
@@ -1086,6 +1739,31 @@ guint64 NvTrackerProc::objectIdMapping(const guint64 &objectId, const SurfaceStr
     }
 }
 
+void NvTrackerProc::allocateConvexHullMemory(NvMOTTrackedObj *list, const uint32_t numAllocated)
+{
+    if ((!m_Config.outputConvexHull) || m_Config.maxConvexHullSize == 0 || list == nullptr) {
+        return;
+    }
+
+    for (uint32_t i = 0; i < numAllocated; i++) {
+        list[i].convexHull.list = new int[2 * m_Config.maxConvexHullSize];
+        list[i].convexHull.numPointsAllocated = m_Config.maxConvexHullSize;
+        list[i].convexHull.numPoints = 0;
+    }
+}
+
+void NvTrackerProc::releaseConvexHullMemory(NvMOTTrackedObj *list, const uint32_t numAllocated)
+{
+    if ((!m_Config.outputConvexHull) || m_Config.maxConvexHullSize == 0 || list == nullptr) {
+        return;
+    }
+
+    for (uint32_t i = 0; i < numAllocated; i++) {
+        delete[](list[i].convexHull.list);
+        list[i].convexHull.numPoints = 0;
+    }
+}
+
 void NvTrackerProc::allocateProcessMemory(NvMOTProcessParams &procInput,
                                           NvMOTTrackedObjBatch &procResult)
 {
@@ -1125,6 +1803,7 @@ void NvTrackerProc::allocateProcessMemory(NvMOTProcessParams &procInput,
                 m_TrackerLibError = true;
             }
             procResult.list[i].numAllocated = m_Config.maxTargetsPerStream;
+            allocateConvexHullMemory(procResult.list[i].list, procResult.list[i].numAllocated);
         }
     }
 
@@ -1149,6 +1828,82 @@ void NvTrackerProc::releaseProcessMemory(NvMOTProcessParams &procInput,
     /** Release output memory */
     if (procResult.list != nullptr) {
         for (uint32_t i = 0; i < m_Config.batchSize; i++) {
+            releaseConvexHullMemory(procResult.list[i].list, procResult.list[i].numAllocated);
+            if (procResult.list[i].list != nullptr) {
+                delete[](procResult.list[i].list);
+            }
+        }
+        delete[](procResult.list);
+    }
+}
+
+void NvTrackerProc::allocateProcessMemory(NvMOTProcessParams &procInput,
+                                          NvMOTTrackedObjBatch &procResult,
+                                          uint32_t batchSize)
+{
+    procInput.frameList = new NvMOTFrame[batchSize];
+    if (procInput.frameList == nullptr) {
+        LOG_ERROR("gstnvtracker: Failed to allocate resources (frame) for batch processing.\n");
+        m_TrackerLibError = true;
+    } else {
+        for (uint32_t i = 0; i < batchSize; i++) {
+            procInput.frameList[i].objectsIn.list =
+                new NvMOTObjToTrack[m_Config.maxTargetsPerStream];
+            procInput.frameList[i].bufferList = new (NvBufSurfaceParams *);
+            if (procInput.frameList[i].objectsIn.list == nullptr ||
+                procInput.frameList[i].bufferList == nullptr) {
+                LOG_ERROR(
+                    "gstnvtracker: Failed to allocate resources (objToTrack) for batch "
+                    "processing.\n");
+                m_TrackerLibError = true;
+            }
+            procInput.frameList[i].objectsIn.numAllocated = m_Config.maxTargetsPerStream;
+        }
+    }
+
+    /** Allocate memory for low level library output*/
+    procResult.list = new NvMOTTrackedObjList[batchSize];
+    if (procResult.list == nullptr) {
+        LOG_ERROR(
+            "gstnvtracker: Failed to allocate resources (trackedObjList) for batch processing.\n");
+        m_TrackerLibError = true;
+    } else {
+        for (uint32_t i = 0; i < batchSize; i++) {
+            procResult.list[i].list = new NvMOTTrackedObj[m_Config.maxTargetsPerStream];
+            if (procResult.list[i].list == nullptr) {
+                LOG_ERROR(
+                    "gstnvtracker: Failed to allocate resources (trackedObj) for batch "
+                    "processing.\n");
+                m_TrackerLibError = true;
+            }
+            procResult.list[i].numAllocated = m_Config.maxTargetsPerStream;
+            allocateConvexHullMemory(procResult.list[i].list, procResult.list[i].numAllocated);
+        }
+    }
+
+    procResult.pReidTensorBatch = nullptr;
+}
+
+void NvTrackerProc::releaseProcessMemory(NvMOTProcessParams &procInput,
+                                         NvMOTTrackedObjBatch &procResult,
+                                         uint32_t batchSize)
+{
+    if (procInput.frameList != nullptr) {
+        for (uint32_t i = 0; i < batchSize; i++) {
+            if (procInput.frameList[i].objectsIn.list != nullptr) {
+                delete[](procInput.frameList[i].objectsIn.list);
+            }
+            if (procInput.frameList[i].bufferList != nullptr) {
+                delete procInput.frameList[i].bufferList;
+            }
+        }
+        delete[](procInput.frameList);
+    }
+
+    /** Release output memory */
+    if (procResult.list != nullptr) {
+        for (uint32_t i = 0; i < batchSize; i++) {
+            releaseConvexHullMemory(procResult.list[i].list, procResult.list[i].numAllocated);
             if (procResult.list[i].list != nullptr) {
                 delete[](procResult.list[i].list);
             }
@@ -1197,12 +1952,20 @@ void NvTrackerProc::processBatch()
             NvMOTTrackerMiscData miscDataResult;
             if (pMiscDataBuf) {
                 miscDataResult.pPastFrameObjBatch = &pMiscDataBuf->pastFrameObjBatch;
+
+                miscDataResult.pTerminatedTrackBatch =
+                    m_Config.outputTerminatedTracks ? &pMiscDataBuf->terminatedTrackBatch : nullptr;
+
+                miscDataResult.pShadowTrackBatch =
+                    m_Config.outputShadowTracks ? &pMiscDataBuf->shadowTracksBatch : nullptr;
+
                 procResult.pReidTensorBatch =
                     m_Config.outputReidTensor ? (&pMiscDataBuf->reidTensorBatch) : nullptr;
 
             } else {
                 miscDataResult.pPastFrameObjBatch = nullptr;
                 procResult.pReidTensorBatch = nullptr;
+                miscDataResult.pTerminatedTrackBatch = nullptr;
 
                 /** Print warning if user meta is required but unavailable. */
                 if (m_Config.pastFrame || m_Config.outputReidTensor) {
@@ -1227,8 +1990,6 @@ void NvTrackerProc::processBatch()
                 /* Wait for buffer surface transform to finish. */
                 if (m_Config.inputTensorMeta == false) {
                     m_ConvBufMgr.syncBuffer(procParams.pConvBuf, &procParams.bufSetSyncObjs);
-                } else {
-                    procParams.pConvBuf = nullptr;
                 }
 
                 char contextName[100];
@@ -1281,6 +2042,10 @@ void NvTrackerProc::processBatch()
         lkProc.lock();
         if (m_Config.inputTensorMeta == false) {
             m_ConvBufMgr.returnBuffer(procParams.pConvBuf);
+        } else {
+            delete[] procParams.pConvBuf->surfaceList;
+            delete procParams.pConvBuf;
+            procParams.pConvBuf = nullptr;
         }
         m_BufQueueCond.notify_one();
 
@@ -1293,3 +2058,518 @@ void NvTrackerProc::processBatch()
     m_CompletionQueueCond.notify_all();
     lk.unlock();
 }
+
+bool NvTrackerProc::mapStreamToSubBatch(SurfaceStreamId ssId,
+                                        uint32_t pad_index,
+                                        bool dynamicSubBatching)
+{
+    SubBatchId sbId = 0;
+    if (dynamicSubBatching) {
+        // Dynamic mapping based on slot availability and load balancing
+        // Find the sub-batch id to which this source should be mapped to
+        // For that, check the current allocations in m_SubBatchAllocationMap
+        // Following logic tries to do load balancing between sub-batches so that
+        // all sub-batches are equally loaded
+        // Hence, find the least loaded sub-batch which can be used
+        uint32_t sbSizeCnt = 0;
+        for (sbSizeCnt = 1; sbSizeCnt <= m_MaxSubBatchSize; sbSizeCnt++) {
+            for (sbId = 0; sbId < m_Config.subBatchSizes.size(); sbId++) {
+                if (m_SubBatchAllocationMap.find(sbId) == m_SubBatchAllocationMap.end()) {
+                    // Create am empty entry for a sub-batch when it doesn't exist
+                    m_SubBatchAllocationMap[sbId];
+                }
+                uint32_t curSize = (m_SubBatchAllocationMap[sbId]).size();
+                if ((curSize < sbSizeCnt) && (curSize < m_Config.subBatchSizes[sbId])) {
+                    // Found the sub-batch that is least loaded
+                    // Now find the free seq index
+                    std::map<SeqIndex, std::pair<SurfaceStreamId, uint32_t>> &singleSubBatch =
+                        m_SubBatchAllocationMap[sbId];
+                    SeqIndex seqIdx = 0;
+                    for (seqIdx = 0; seqIdx < m_Config.subBatchSizes[sbId]; seqIdx++) {
+                        if (singleSubBatch.find(seqIdx) == singleSubBatch.end()) {
+                            // Found the unused sequence index
+                            m_SubBatchAllocationMap[sbId][seqIdx] = std::make_pair(ssId, pad_index);
+                            m_SsidSubBatchMap[ssId] = sbId;
+                            m_PadIndexSeqIndexMap[pad_index] = seqIdx;
+                            LOG_INFO(
+                                "Added stream : sub-batch = %d \t seq index = %d \t pad index = "
+                                "%d\n",
+                                sbId, seqIdx, pad_index);
+                            return true;
+                        }
+                    }
+                    if (seqIdx >= m_Config.subBatchSizes[sbId]) {
+                        LOG_ERROR(
+                            "gstnvtracker: Sequence Index %d is out of range for sub-batch id %d "
+                            "which has a size of %d \n",
+                            seqIdx, sbId, m_Config.subBatchSizes[sbId]);
+                        return false;
+                    }
+                }
+            }
+        }
+        if (sbSizeCnt > m_MaxSubBatchSize) {
+            LOG_ERROR(
+                "gstnvtracker: All sub-batches are fully allocated. Modify \"sub-batches\" "
+                "configuraion to accommodate more number of streams \n");
+            return false;
+        }
+    } else {
+        // Static mapping based on pad index
+        // Find the sub-batch id to which this source id (pad index) is mapped
+        for (sbId = 0; sbId < m_Config.subBatchesConfig.size(); sbId++) {
+            std::vector<int> &subBatch = m_Config.subBatchesConfig.at(sbId);
+            auto jt = find(subBatch.begin(), subBatch.end(), pad_index);
+            if (jt != subBatch.end()) {
+                break;
+            }
+        }
+        if (sbId >= m_Config.subBatchesConfig.size()) {
+            LOG_ERROR(
+                "gstnvtracker: Source id %d is not mapped to any sub-batch !! Check "
+                "\"sub-batches\" configuraion. \n",
+                pad_index);
+            return false;
+        }
+        m_SsidSubBatchMap[ssId] = sbId;
+    }
+    return true;
+}
+
+bool NvTrackerProc::dispatchSubBatches(ProcParams procParams)
+{
+    NvDsBatchMeta *pBatchMeta = procParams.input.pBatchMeta;
+    std::vector<std::map<SurfaceStreamId, NvDsFrameMeta *>> batchList;
+    queueFrames(*pBatchMeta, batchList);
+    map<SurfaceStreamId, NvDsFrameMeta *>::iterator it;
+
+    std::vector<SubBatchId> nextBatch;
+
+    unique_lock<mutex> pendingBatchLock(m_PendingBatchLock);
+    if (m_PendingBatch.find(m_BatchId) != m_PendingBatch.end()) {
+        LOG_ERROR("gstnvtracker: Batch %d already active!\n", m_BatchId);
+        pendingBatchLock.unlock();
+        return false;
+    }
+    m_PendingBatch[m_BatchId] = nextBatch;
+    m_ConvBufComplete[m_BatchId] = false;
+    std::vector<SubBatchId> &nextBatchRef = m_PendingBatch[m_BatchId];
+    procParams.batchId = m_BatchId;
+    // Should not be unlocked here since "nextBatchRef" will be used to add the "SubBatchId" values
+    // pendingBatchLock.unlock();
+
+    for (uint listInd = 0; listInd < batchList.size(); listInd++) {
+        /** For each entry in batchList create a subbBatchList
+         * and pass it to the corresponding sub-batch thread for processing */
+        std::map<SurfaceStreamId, NvDsFrameMeta *> &frameMap = batchList.at(listInd);
+        std::vector<std::map<SurfaceStreamId, NvDsFrameMeta *>> subbBatchList(
+            m_Config.subBatchSizes.size());
+
+        for (it = frameMap.begin(); it != frameMap.end(); ++it) {
+            SurfaceStreamId ssId = it->first;
+            NvDsFrameMeta *pFrameMeta = it->second;
+            SubBatchId sbId = 0;
+            if (m_SsidSubBatchMap.find(ssId) == m_SsidSubBatchMap.end()) {
+                // Find the sub-batch id to which this source id is mapped
+                if (!mapStreamToSubBatch(ssId, pFrameMeta->pad_index,
+                                         m_Config.dynamicSubBatching)) {
+                    pendingBatchLock.unlock();
+                    return false;
+                }
+            }
+            sbId = m_SsidSubBatchMap[ssId];
+            subbBatchList[sbId][ssId] = pFrameMeta;
+        }
+
+        /** Now that subbBatchList is created, create a DispatchReq for each entry
+         * and push it in the thread queue */
+        for (uint sbInd = 0; sbInd < subbBatchList.size(); sbInd++) {
+            std::map<SurfaceStreamId, NvDsFrameMeta *> &subBatch = subbBatchList.at(sbInd);
+            if (subBatch.size() == 0)
+                continue;
+            DispatchReq req = {};
+            /** Perform a deep copy of the "subBatch" i.e. deep copy implementation of
+             * req.subBatchFrameMap = subBatch */
+            for (const auto &entry : subBatch) {
+                req.subBatchFrameMap[entry.first] = entry.second;
+            }
+            req.procParams = procParams;
+            req.batchId = m_BatchId;
+            req.removeSource = false;
+
+            unique_lock<mutex> lk(m_DispatchMapLock);
+            map<SubBatchId, DispatchInfo>::iterator it = m_DispatchMap.find(sbInd);
+            DispatchInfo *pDispatchInfo = NULL;
+            if (it != m_DispatchMap.end()) {
+                pDispatchInfo = &it->second;
+            } else {
+                LOG_ERROR("gstnvtracker: No thread corresponding to sub-batch %d\n", sbInd);
+                lk.unlock();
+                pendingBatchLock.unlock();
+                return false;
+            }
+
+            /** We can release the dispatch map lock now because a dispatch info is kept valid
+             * until its thread joins. */
+            lk.unlock();
+
+            /** record the subbatch as pending in the next batch. */
+            nextBatchRef.push_back(sbInd);
+
+            /** Queue up the req. */
+            unique_lock<mutex> lkReq(pDispatchInfo->reqQueueLock);
+            pDispatchInfo->reqQueue.push(req);
+            lkReq.unlock();
+            pDispatchInfo->reqQueueCond.notify_one();
+        }
+    }
+
+    m_BatchId++;
+
+    return true;
+}
+
+void NvTrackerProc::processSubBatch(DispatchInfo *pDispatchInfo)
+{
+    SubBatchId sbId = pDispatchInfo->sbId;
+    queue<DispatchReq> &reqQueue = pDispatchInfo->reqQueue;
+    NvMOTContextHandle contextHandle = pDispatchInfo->contextHandle;
+    uint32_t subBatchSize = m_Config.subBatchSizes[sbId];
+    int errRecoveryTrials = 0;
+
+    NvMOTProcessParams procInput;
+    NvMOTTrackedObjBatch procResult;
+    allocateProcessMemory(procInput, procResult, subBatchSize);
+
+    TrackerMiscDataManager miscDataMgr;
+    if (!miscDataMgr.init(subBatchSize, m_Config.gpuId, m_Config.maxTargetsPerStream,
+                          m_Config.maxShadowTrackingAge, m_Config.reidFeatureSize,
+                          m_Config.maxMiscDataPoolSize, m_Config.pastFrame,
+                          m_Config.outputReidTensor, m_Config.outputTerminatedTracks,
+                          m_Config.outputShadowTracks, m_Config.maxTrajectoryBufferLength)) {
+        LOG_ERROR("gstnvtracker: Failed to init TrackerMiscDataManager context for sub-batch %x\n",
+                  sbId);
+        m_TrackerLibError = true;
+    }
+
+    cudaError_t cudaReturn = cudaSetDevice(m_Config.gpuId);
+    if (cudaReturn != cudaSuccess) {
+        LOG_ERROR("gstnvtracker: Failed to set gpu-id with error: %s\n",
+                  cudaGetErrorName(cudaReturn));
+        m_TrackerLibError = true;
+    }
+
+    while (pDispatchInfo->running) {
+        bool trackerLibProcessError = false;
+        unique_lock<mutex> lk(pDispatchInfo->reqQueueLock);
+        if (reqQueue.empty()) {
+            pDispatchInfo->reqQueueCond.wait(lk);
+        }
+
+        /** Check for shutdown signal or spurious wakeup */
+        if (!pDispatchInfo->running) {
+            break;
+        } else if (reqQueue.empty()) {
+            continue;
+        }
+
+        DispatchReq req = reqQueue.front();
+        reqQueue.pop();
+        lk.unlock();
+
+        /** Check if the req is for stream removal */
+        if (req.removeSource == true) {
+            if (m_TrackerLibRemoveStreams) {
+                SurfaceStreamId ssId = req.ssId;
+                NvMOTStatus status = m_TrackerLibRemoveStreams(contextHandle, ssId);
+                if (status != NvMOTStatus_OK) {
+                    LOG_ERROR("gstnvtracker: Fail to remove stream with Id %lx.\n", ssId);
+                    m_TrackerLibError = true;
+                }
+            }
+            continue;
+        }
+
+        ProcParams procParams = req.procParams;
+        /* Only process when low level tracker works fine; otherwise send unprocessed as output.
+         * The gst pipeline will send quit signal and call tracker plugin stop function
+         * to terminate all other threads. */
+        if (!m_TrackerLibError.load()) {
+            NvTrackerMiscDataBuffer *pMiscDataBuf = miscDataMgr.pop();
+            NvMOTTrackerMiscData miscDataResult;
+            if (pMiscDataBuf) {
+                miscDataResult.pPastFrameObjBatch = &pMiscDataBuf->pastFrameObjBatch;
+                miscDataResult.pTerminatedTrackBatch =
+                    m_Config.outputTerminatedTracks ? &pMiscDataBuf->terminatedTrackBatch : nullptr;
+                miscDataResult.pShadowTrackBatch =
+                    m_Config.outputShadowTracks ? &pMiscDataBuf->shadowTracksBatch : nullptr;
+                procResult.pReidTensorBatch =
+                    m_Config.outputReidTensor ? (&pMiscDataBuf->reidTensorBatch) : nullptr;
+            } else {
+                miscDataResult.pPastFrameObjBatch = nullptr;
+                procResult.pReidTensorBatch = nullptr;
+                miscDataResult.pTerminatedTrackBatch = nullptr;
+
+                /** Print warning if user meta is required but unavailable. */
+                if (m_Config.pastFrame || m_Config.outputReidTensor) {
+                    LOG_WARNING(
+                        "gstnvtracker: Unable to acquire a user meta buffer. Try increasing "
+                        "user-meta-pool-size\n");
+                }
+            }
+            std::map<SurfaceStreamId, NvDsFrameMeta *> &frameMap = req.subBatchFrameMap;
+            int frameInd = 0;
+            for (auto it = frameMap.begin(); it != frameMap.end(); it++, frameInd++) {
+                fillMOTFrame(it->first, procParams, *it->second, procInput.frameList[frameInd],
+                             procResult.list[frameInd]);
+            }
+
+            procInput.numFrames = frameMap.size();
+            procResult.numFilled = frameMap.size();
+            procResult.numAllocated = frameMap.size();
+            // printf("Batch num : %d, sub-batch number : %d, sub-batch size = %ld\n",
+            // req.batchId, sbId, frameMap.size());
+
+            /** Wait for buffer surface transform to finish */
+            if (m_Config.inputTensorMeta == false) {
+                unique_lock<mutex> lkBatch(m_ConvBufLock);
+                auto it = m_ConvBufComplete.find(req.batchId);
+                if (it != m_ConvBufComplete.end()) {
+                    if (m_ConvBufComplete[req.batchId] == false) {
+                        // LOG_DEBUG("gstnvtracker: Syncing for ConvBuf completion for batch
+                        // %d.!\n", req.batchId);
+                        m_ConvBufMgr.syncBuffer(procParams.pConvBuf, &procParams.bufSetSyncObjs);
+                        m_ConvBufComplete[req.batchId] = true;
+                    } else {
+                        // LOG_DEBUG("gstnvtracker: ConvBuf transformation is already complete for
+                        // batch %d.!\n", req.batchId);
+                    }
+                    lkBatch.unlock();
+                } else {
+                    lkBatch.unlock();
+                    LOG_ERROR("gstnvtracker: ConvBuf status is not available for active batch!\n");
+                    m_TrackerLibError = true;
+                }
+            }
+            char contextName[100];
+            snprintf(contextName, sizeof(contextName),
+                     "%s_nvtracker_process(SubBatchId=%u Frame=%u)", m_Config.gstName, sbId,
+                     procParams.batchId);
+            nvtx_helper_push_pop(contextName);
+            // Send request to low-level lib
+            NvMOTStatus status = m_TrackerLibProcess(contextHandle, &procInput, &procResult);
+            nvtx_helper_push_pop(NULL);
+            if (NvMOTStatus_OK != status) {
+                LOG_ERROR(
+                    "gstnvtracker: Low-level tracker lib returned error %d for sub-batch %x\n",
+                    status, sbId);
+                trackerLibProcessError = true;
+                miscDataMgr.returnBuffer(pMiscDataBuf);
+                goto req_complete;
+            } else {
+                errRecoveryTrials = 0;
+            }
+            if (m_TrackerLibRetrieveMiscData) {
+                status = m_TrackerLibRetrieveMiscData(contextHandle, &procInput, &miscDataResult);
+                if (NvMOTStatus_OK != status) {
+                    LOG_ERROR(
+                        "gstnvtracker: When flushing previous frames, low-level tracker lib "
+                        "returned error %d\n",
+                        status);
+                    m_TrackerLibError = true;
+                }
+            }
+
+            updateBatchMeta(procResult, procParams, frameMap);
+            {
+                std::vector<std::map<SurfaceStreamId, NvDsFrameMeta *>> batchList;
+                batchList.push_back({});
+                batchList[0] = frameMap;
+                updateUserMeta(batchList, procParams, pMiscDataBuf, miscDataMgr);
+            }
+        }
+    req_complete:
+        /** Mark this request complete. */
+        /** If the whole batch is done, signal completion. */
+        unique_lock<mutex> lkBatch(m_PendingBatchLock);
+        auto it = m_PendingBatch.find(req.batchId);
+        if (it != m_PendingBatch.end()) {
+            auto itSB = find(it->second.begin(), it->second.end(), sbId);
+            if (itSB != it->second.end()) {
+                it->second.erase(itSB);
+                if (it->second.empty()) {
+                    /** Return the convert buffer set. OK if it's null. */
+                    unique_lock<mutex> lkProc(m_ProcQueueLock);
+
+                    if (m_Config.inputTensorMeta == false) {
+                        m_ConvBufMgr.returnBuffer(procParams.pConvBuf);
+                    } else {
+                        delete[] procParams.pConvBuf->surfaceList;
+                        delete procParams.pConvBuf;
+                        procParams.pConvBuf = nullptr;
+                    }
+                    lkProc.unlock();
+                    m_BufQueueCond.notify_one();
+
+                    m_PendingBatch.erase(it);
+                    m_ConvBufComplete.erase(req.batchId);
+                    unique_lock<mutex> lkComp(m_CompletionQueueLock);
+                    m_CompletionQueue.push(procParams.input);
+                    lkComp.unlock();
+                    m_CompletionQueueCond.notify_one();
+                }
+            } else {
+                LOG_ERROR("gstnvtracker: completed sub-batch req is not in a pending batch!\n");
+                m_TrackerLibError = true;
+            }
+            lkBatch.unlock();
+        } else {
+            lkBatch.unlock();
+            LOG_ERROR("gstnvtracker: completed req is not in active batch!\n");
+            m_TrackerLibError = true;
+        }
+        if (trackerLibProcessError) {
+            if ((m_Config.subBatchErrRecoveryTrialCnt == -1) ||
+                (errRecoveryTrials < m_Config.subBatchErrRecoveryTrialCnt)) {
+                // The low level lib returned an error while processing the current sub-batch
+                // Deinit and Init the lowlevel lib to recover from the error
+                m_TrackerLibDeInit(contextHandle);
+                contextHandle = nullptr;
+                // Allow the system to recover
+                sleep(1);
+                // Reinitialize the sub-batch
+                contextHandle = initTrackerContext(sbId);
+                if (contextHandle == NULL) {
+                    LOG_ERROR("gstnvtracker: Failed to init context for sub-batch %d\n", sbId);
+                    m_TrackerLibError = true;
+                }
+                if (!initTrackerQuery(contextHandle, sbId)) {
+                    LOG_ERROR("gstnvtracker: Failed to initilaize MOT query for sub-batch %d\n",
+                              sbId);
+                    m_TrackerLibError = true;
+                }
+                errRecoveryTrials++;
+            } else {
+                // Max allowed trials to recover from sub-batch  processing error were unsuccessful
+                // Signal error
+                m_TrackerLibError = true;
+            }
+        }
+    } /** while (pDispatchInfo->running) */
+
+    /** Cleanup for both normal exit and exception exit */
+    if (contextHandle != nullptr) {
+        m_TrackerLibDeInit(contextHandle);
+        contextHandle = nullptr;
+    }
+
+    releaseProcessMemory(procInput, procResult, subBatchSize);
+    miscDataMgr.deInit();
+}
+
+/****************sub-batching examples*********************
+ * Terminologies :
+ * Pad index : pad index is a value that's included in "NvDsFrameMeta" by nvstreammux
+ *      This corresponds to the index of the sink pad to which the source is connected.
+ *      This term is used interchangeably with source id / stream id.
+ * SurfaceStreamId : Composition of unique ID for each surface from each source.
+ *      Created using the function getSurfaceStreamId() which takes pad index and surface id as
+ * input. sub-batch id : Id of a sub-batch. Sub-batch id ranges from 0 to (no of sub-batches - 1)
+ * sub-batch size : Number of streams in a sub-batch as derived from the "sub-batches" configuration
+ * seq index  : Position of a stream inside a sub-batch.
+ *      For each sub-batch, seq index ranges from 0 to (sub-batch size -1).
+ *      Seq index is used to fill the value "seq_index" in "NvMOTFrame"
+ * **************************************************************************
+ *  Example 1 : static sub-batches configuration
+ *    i.e. pad index (a.k.a. source id/stream id) is statically mapped to a
+ *    specific position in a sub-batch e.g.
+ *
+ * sub-batches = 0,1,2;3,4
+ *
+ * In this example, various values will be as follows
+ * no. of stream mux sink pads = 5
+ * pad index values = 0 to 4
+ * no. of sub-batches = 2
+ * sub-batch ids = 0 and 1
+ * sub-batch sizes
+ *      sub-batch id 0 = 3
+ *      sub-batch id 1 = 2
+ * For sub-batch id 0
+ *      seq index values = 0,1 and 2
+ *      m_PadIndexSeqIndexMap = (0->0);(1->1);(2->2)
+ * For sub-batch id 1
+ *      seq index values = 0 and 1
+ *      m_PadIndexSeqIndexMap = (3->0);(4->1)
+ * ***************************************************************************
+ * Example 2 : Dynamic sub-batches configuration
+ *      i.e. size of each sub-batch is specified and
+ *      the mapping from pad index to sub-batch can be done runtime e.g.
+ *
+ * sub-batches = 3:2
+ *
+ * In this example, various values will be as follows
+ * no. of stream mux sink pads = 5
+ * pad index values = any value (max pads active at a time should be 5)
+ * no. of sub-batches = 2
+ * sub-batch ids = 0 and 1
+ * sub-batch sizes
+ *      sub-batch id 0 = 3
+ *      sub-batch id 1 = 2
+ * For sub-batch id 0
+ *      seq index values = 0, 1 and 2
+ * For sub-batch id 1
+ *      seq index values = 0 and 1
+ *
+ * Whenever a new stream is added, "m_SubBatchAllocationMap" is updated to link
+ * <sub-batch id, seq index> to a <SurfaceStreamId , pad index> pair as shown in examples below.
+ * Load balancing logic makes sure that all the sub-batches are loaded equally
+ *
+ * Event : add stream with pad index = n1
+ * m_SubBatchAllocationMap = (0,(0, <ssid1,n1>))
+ * m_PadIndexSeqIndexMap = (n1->0)
+ *
+ * Event : add stream with pad index = n2
+ * m_SubBatchAllocationMap =  (0,(0, <ssid1,n1>));(1,(0,<ssid2,n2>))
+ * m_PadIndexSeqIndexMap = (n1->0);(n2->0)
+ *
+ * Event : add stream with pad index = n3
+ * m_SubBatchAllocationMap =  (0,(0, <ssid1,n1>));(0,(1, <ssid3,n3>));(1,(0,<ssid2,n2>))
+ * m_PadIndexSeqIndexMap = (n1->0);(n2->0);(n3->1)
+ *
+ * Event : add stream with pad index = n4
+ * m_SubBatchAllocationMap =  (0,(0, <ssid1,n1>));(0,(1,
+ * <ssid3,n3>));(1,(0,<ssid2,n2>));(1,(1,<ssid4,n4>)) m_PadIndexSeqIndexMap =
+ * (n1->0);(n2->0);(n3->1);(n4->1)
+ *
+ * Event : add stream with pad index = n5
+ * m_SubBatchAllocationMap =  (0,(0, <ssid1,n1>));(0,(1, <ssid3,n3>));(0,(2,
+ * <ssid5,n5>));(1,(0,<ssid2,n2>));(1,(1,<ssid4,n4>)) m_PadIndexSeqIndexMap =
+ * (n1->0);(n2->0);(n3->1);(n4->1);(n5->2)
+ *
+ * Event : Remove stream with pad index = n2
+ * m_SubBatchAllocationMap =  (0,(0, <ssid1,n1>));(0,(1, <ssid3,n3>));(0,(2,
+ * <ssid5,n5>));(1,(1,<ssid4,n4>)) m_PadIndexSeqIndexMap = (n1->0);(n3->1);(n4->1);(n5->2)
+ *
+ * Event : Remove stream with pad index = n4
+ * m_SubBatchAllocationMap =   (0,(0, <ssid1,n1>));(0,(1, <ssid3,n3>));(0,(2, <ssid5,n5>))
+ * m_PadIndexSeqIndexMap = (n1->0);(n3->1);(n5->2)
+ *
+ * Event : Remove stream with pad index = n1
+ * m_SubBatchAllocationMap =  (0,(1, <ssid3,n3>));(0,(2, <ssid5,n5>))
+ * m_PadIndexSeqIndexMap = (n3->1);(n5->2)
+ *
+ * Event : add stream with pad index = n6
+ * m_SubBatchAllocationMap =  (0,(1, <ssid3,n3>));(0,(2, <ssid5,n5>));(1,(0,<ssid6,n6>));
+ * m_PadIndexSeqIndexMap = (n3->1);(n5->2);(n6->0)
+ *
+ * Event : add stream with pad index = n7
+ * m_SubBatchAllocationMap =  (0,(1, <ssid3,n3>));(0,(2,
+ * <ssid5,n5>));(1,(0,<ssid6,n6>));(1,(1,<ssid7,n7>)) m_PadIndexSeqIndexMap =
+ * (n3->1);(n5->2);(n6->0);(n7->1)
+ *
+ * Event : add stream with pad index = n8
+ * m_SubBatchAllocationMap =  (0,(0, <ssid8,n8>));(0,(1, <ssid3,n3>));(0,(2,
+ * <ssid5,n5>));(1,(0,<ssid6,n6>));(1,(1,<ssid7,n7>)) m_PadIndexSeqIndexMap =
+ * (n3->1);(n5->2);(n6->0);(n7->1);(n8->0)
+ *
+ * ***************************************************************************/

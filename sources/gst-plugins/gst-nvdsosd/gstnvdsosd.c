@@ -8,8 +8,6 @@
  * disclosure or distribution of this material and related documentation
  * without an express license agreement from NVIDIA CORPORATION or
  * its affiliates is strictly prohibited.
- *
- * version: 0.1
  */
 
 #include "gstnvdsosd.h"
@@ -149,6 +147,7 @@ static GstCaps *gst_nvds_osd_transform_caps(GstBaseTransform *trans,
 {
     GstNvDsOsd *nvdsosd = GST_NVDSOSD(trans);
     GstCaps *ret;
+    GstCaps *new_caps;
     GstCaps *caps_rgba = gst_caps_from_string("video/x-raw(memory:NVMM), format=(string)RGBA");
 
     GST_DEBUG_OBJECT(trans, "identity from: %" GST_PTR_FORMAT, caps);
@@ -160,8 +159,11 @@ static GstCaps *gst_nvds_osd_transform_caps(GstBaseTransform *trans,
 
     /* Force to RGBA format for CPU mode. */
     if (nvdsosd->nvdsosd_mode == MODE_CPU) {
-        ret = gst_caps_intersect_full(ret, caps_rgba, GST_CAPS_INTERSECT_FIRST);
+        new_caps = gst_caps_intersect_full(ret, caps_rgba, GST_CAPS_INTERSECT_FIRST);
+        gst_caps_unref(ret);
+        ret = new_caps;
     }
+    gst_caps_unref(caps_rgba);
 
     return ret;
 }
@@ -911,7 +913,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_osd,
                   PACKAGE_DESCRIPTION,
                   nvdsosd_init,
-                  "6.3",
+                  "7.0",
                   PACKAGE_LICENSE,
                   PACKAGE_NAME,
                   PACKAGE_URL)

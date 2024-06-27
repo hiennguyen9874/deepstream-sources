@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -53,7 +53,7 @@ to setup DeepStream Triton server container. Run the container with cmdline:
 
   $ docker run --gpus '"'device=0'"' -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix \
     -e DISPLAY=$DISPLAY --net=host nvcr.io/nvidia/deepstream:[version]-triton
-  [version] means deepstream version numbers. e.g. 6.3
+  [version] means deepstream version numbers. e.g. 7.0
 
 Inside the container, easiest way to set up the model repository with DS provided
 models is to run prepare_ds_triton_model_repo.sh script.
@@ -109,17 +109,19 @@ Inference Server direclty on device, Triton Server setup will be required.
 1. Go to samples directory and run the following command to set up the Triton
    Server and backends.
    $ sudo ./triton_backend_setup.sh
+   $ export PATH="${PATH:+${PATH}:}/opt/tritonserver/bin"
+   $ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}/opt/tritonserver/lib"
 
-Note:
-1. By default script will download the Triton Server version 2.30.0. For setting
+Notes:
+1. By default script will download the Triton Server version 2.43.0. For setting
    up any other version change the package path accordingly.
 2. The script extracts the Triton server executable to "/opt/tritonserver/bin"
    folder. To run both the Triton server and DeepStream applications on the
    same Jetson device use the following steps to start the Triton server.
    $ cd /opt/tritonserver/bin
-   $ ./tritonserver --model-repository=/opt/nvidia/deepstream/deepstream/samples/triton_model_repo/ --backend-directory=/opt/nvidia/deepstream/deepstream/lib/triton_backends/
+   $ ./tritonserver --model-repository=/opt/nvidia/deepstream/deepstream/samples/triton_model_repo
    Or for TAO Toolkit models:
-   $ ./tritonserver --model-repository=/opt/nvidia/deepstream/deepstream/samples/triton_tao_model_repo/ --backend-directory=/opt/nvidia/deepstream/deepstream/lib/triton_backends/
+   $ ./tritonserver --model-repository=/opt/nvidia/deepstream/deepstream/samples/triton_tao_model_repo
 
 --------------------------------------------------------------------------------
 Running the Triton Inference Server gRPC Client samples
@@ -129,7 +131,7 @@ Start another container:
 
 $ docker run --gpus '"'device=0'"' -it --rm -v /tmp/.X11-unix:/tmp/.X11-unix \
     -e DISPLAY=$DISPLAY --net=host nvcr.io/nvidia/deepstream:[version]-triton
-  [version] means deepstream version numbers. e.g. 6.3
+  [version] means deepstream version numbers. e.g. 7.0
 
 For Jetson, the gRPC samples could run on L4T host directly.
 
@@ -156,10 +158,12 @@ Once the DeepStream Triton environment is ready, run the following commands:
 4. Configuration files for "nvinferserver" element in `configs/deepstream-app-triton/`
    a. config_infer_plan_engine_preprocess.txt (Primary Preprocessor Object Detector)
    b. config_infer_plan_engine_primary.txt (Primary Object Detector)
-   c. config_infer_secondary_plan_engine_carcolor.txt (Secondary Car Color Classifier)
-   d. config_infer_secondary_plan_engine_carmake.txt (Secondary Car Make Classifier)
+   c. config_infer_secondary_plan_engine_vehiclemake.txt (Secondary Vehicle Make Classifier)
+   d. config_infer_secondary_plan_engine_vehiclemake_preprocess.txt (Secondary Preprocessor Vehicle Make Classifier)
    e. config_infer_secondary_plan_engine_vehicletypes.txt (Secondary Vehicle Type Classifier)
-   f. config_infer_primary_detector_peoplenet_transformer_tao.txt
+   f. config_infer_secondary_plan_engine_vehiclemake_preprocess.txt (Secondary Preprocessor Vehicle Make Classifier)
+   g. config_infer_secondary_plan_engine_vehicletypes_preprocess.txt (Secondary  Vehicle Type Classifier)
+   h. config_infer_primary_detector_peoplenet_transformer_tao.txt
       (TAO PeopleNet Transformer V1 Object Detection - Custom bounding box parsing)
 
 --------------------------------------------------------------------------------
