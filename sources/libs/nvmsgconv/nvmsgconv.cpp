@@ -1,14 +1,3 @@
-/*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.  All rights reserved.
- *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
- */
-
 #include "nvmsgconv.h"
 
 #include <json-glib/json-glib.h>
@@ -829,8 +818,8 @@ static gchar *generate_deepstream_message_minimal(NvDsMsg2pCtx *ctx, NvDsEvent *
                     ss << "|#|" << to_str(dsObj->gender) << "|" << dsObj->age << "|"
                        << to_str(dsObj->hair) << "|" << to_str(dsObj->cap) << "|"
                        << to_str(dsObj->glasses) << "|" << to_str(dsObj->facialhair) << "|"
-                       << to_str(dsObj->name) << "|"
-                       << "|" << to_str(dsObj->eyecolor) << "|" << meta->confidence;
+                       << to_str(dsObj->name) << "|" << "|" << to_str(dsObj->eyecolor) << "|"
+                       << meta->confidence;
                 }
             } break;
             case NVDS_OBJECT_TYPE_VEHICLE_EXT: {
@@ -862,8 +851,8 @@ static gchar *generate_deepstream_message_minimal(NvDsMsg2pCtx *ctx, NvDsEvent *
                     ss << "|#|" << to_str(dsObj->gender) << "|" << dsObj->age << "|"
                        << to_str(dsObj->hair) << "|" << to_str(dsObj->cap) << "|"
                        << to_str(dsObj->glasses) << "|" << to_str(dsObj->facialhair) << "|"
-                       << to_str(dsObj->name) << "|"
-                       << "|" << to_str(dsObj->eyecolor) << "|" << meta->confidence;
+                       << to_str(dsObj->name) << "|" << "|" << to_str(dsObj->eyecolor) << "|"
+                       << meta->confidence;
 
                     if (dsObj->mask)
                         objectMask = dsObj->mask;
