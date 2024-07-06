@@ -1,26 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
-
 #include "post_processor_custom_impl.h"
 
 #include <limits.h>
@@ -50,7 +27,7 @@ const int nmsMaxOut = 300;
 #define MAX1(a, b) ((a) > (b) ? (a) : (b))
 #define CLIP1(a, min, max) (MAX1(MIN1(a, max), min))
 #define DIVIDE_AND_ROUND_UP1(a, b) ((a + b - 1) / b)
-#define DIVUP(n, d) ((n) + (d)-1) / (d)
+#define DIVUP(n, d) ((n) + (d) - 1) / (d)
 
 static float clamp(const float val, const float minVal, const float maxVal);
 static float clamp(const float val, const float minVal, const float maxVal)
@@ -246,8 +223,8 @@ extern "C" bool NvDsPostProcessParseCustomTfSSD(
     const NvDsInferLayerInfo *classLayer = layerFinder("detection_classes");
     const NvDsInferLayerInfo *boxLayer = layerFinder("detection_boxes");
     if (!scoreLayer || !classLayer || !boxLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types "
-                  << "in output tensors" << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
+                  << std::endl;
         return false;
     }
 
@@ -312,8 +289,8 @@ extern "C" bool NvDsPostProcessParseCustomMrcnnTLT(
     const NvDsInferLayerInfo *maskLayer = layerFinder("mask_head/mask_fcn_logits/BiasAdd");
 
     if (!detectionLayer || !maskLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types "
-                  << "in output tensors" << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
+                  << std::endl;
         return false;
     }
 
@@ -503,8 +480,8 @@ extern "C" bool NvDsPostProcessParseCustomMrcnnTLTV2(
     const NvDsInferLayerInfo *maskLayer = layerFinder("mask_fcn_logits/BiasAdd");
 
     if (!detectionLayer || !maskLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types "
-                  << "in output tensors" << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
+                  << std::endl;
         return false;
     }
 

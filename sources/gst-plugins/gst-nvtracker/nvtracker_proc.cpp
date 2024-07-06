@@ -1,14 +1,3 @@
-/**
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.  All rights reserved.
- *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
- */
-
 #include "nvtracker_proc.h"
 
 #include <dlfcn.h>
@@ -1137,23 +1126,23 @@ void NvTrackerProc::releaseProcessMemory(NvMOTProcessParams &procInput,
     if (procInput.frameList != nullptr) {
         for (uint32_t i = 0; i < m_Config.batchSize; i++) {
             if (procInput.frameList[i].objectsIn.list != nullptr) {
-                delete[](procInput.frameList[i].objectsIn.list);
+                delete[] (procInput.frameList[i].objectsIn.list);
             }
             if (procInput.frameList[i].bufferList != nullptr) {
                 delete procInput.frameList[i].bufferList;
             }
         }
-        delete[](procInput.frameList);
+        delete[] (procInput.frameList);
     }
 
     /** Release output memory */
     if (procResult.list != nullptr) {
         for (uint32_t i = 0; i < m_Config.batchSize; i++) {
             if (procResult.list[i].list != nullptr) {
-                delete[](procResult.list[i].list);
+                delete[] (procResult.list[i].list);
             }
         }
-        delete[](procResult.list);
+        delete[] (procResult.list);
     }
 }
 
