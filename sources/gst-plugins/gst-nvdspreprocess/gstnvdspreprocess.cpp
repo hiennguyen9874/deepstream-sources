@@ -1,25 +1,3 @@
-/**
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
-
 #include "gstnvdspreprocess.h"
 
 #include <string.h>
@@ -45,7 +23,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvdspreprocess_debug);
 /** compile makefile WITH_OPENCV:=1
  * and enable this to write transformed ROIs to files
  */
-//#define DUMP_ROIS
+// #define DUMP_ROIS
 
 #ifdef DUMP_ROIS
 #include "opencv2/imgcodecs.hpp"
@@ -56,7 +34,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvdspreprocess_debug);
  * enable to debug tensor prepared by this plugin
  * and dump it in .bin files
  */
-//#define DEBUG_TENSOR
+// #define DEBUG_TENSOR
 /**
  * enable to draw ROIs on display
  */
@@ -767,7 +745,7 @@ static gboolean gst_nvdspreprocess_stop(GstBaseTransform *btrans)
     GST_DEBUG_OBJECT(nvdspreprocess, "Successfully Closed Custom Library\n");
 
     if (nvdspreprocess->custom_lib_path) {
-        delete[](nvdspreprocess->custom_lib_path);
+        delete[] (nvdspreprocess->custom_lib_path);
         nvdspreprocess->custom_lib_path = NULL;
     }
 
