@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include "nvtracker_proc.h"
 
 #include <dlfcn.h>
@@ -1759,7 +1747,7 @@ void NvTrackerProc::releaseConvexHullMemory(NvMOTTrackedObj *list, const uint32_
     }
 
     for (uint32_t i = 0; i < numAllocated; i++) {
-        delete[](list[i].convexHull.list);
+        delete[] (list[i].convexHull.list);
         list[i].convexHull.numPoints = 0;
     }
 }
@@ -1816,13 +1804,13 @@ void NvTrackerProc::releaseProcessMemory(NvMOTProcessParams &procInput,
     if (procInput.frameList != nullptr) {
         for (uint32_t i = 0; i < m_Config.batchSize; i++) {
             if (procInput.frameList[i].objectsIn.list != nullptr) {
-                delete[](procInput.frameList[i].objectsIn.list);
+                delete[] (procInput.frameList[i].objectsIn.list);
             }
             if (procInput.frameList[i].bufferList != nullptr) {
                 delete procInput.frameList[i].bufferList;
             }
         }
-        delete[](procInput.frameList);
+        delete[] (procInput.frameList);
     }
 
     /** Release output memory */
@@ -1830,10 +1818,10 @@ void NvTrackerProc::releaseProcessMemory(NvMOTProcessParams &procInput,
         for (uint32_t i = 0; i < m_Config.batchSize; i++) {
             releaseConvexHullMemory(procResult.list[i].list, procResult.list[i].numAllocated);
             if (procResult.list[i].list != nullptr) {
-                delete[](procResult.list[i].list);
+                delete[] (procResult.list[i].list);
             }
         }
-        delete[](procResult.list);
+        delete[] (procResult.list);
     }
 }
 
@@ -1891,13 +1879,13 @@ void NvTrackerProc::releaseProcessMemory(NvMOTProcessParams &procInput,
     if (procInput.frameList != nullptr) {
         for (uint32_t i = 0; i < batchSize; i++) {
             if (procInput.frameList[i].objectsIn.list != nullptr) {
-                delete[](procInput.frameList[i].objectsIn.list);
+                delete[] (procInput.frameList[i].objectsIn.list);
             }
             if (procInput.frameList[i].bufferList != nullptr) {
                 delete procInput.frameList[i].bufferList;
             }
         }
-        delete[](procInput.frameList);
+        delete[] (procInput.frameList);
     }
 
     /** Release output memory */
@@ -1905,10 +1893,10 @@ void NvTrackerProc::releaseProcessMemory(NvMOTProcessParams &procInput,
         for (uint32_t i = 0; i < batchSize; i++) {
             releaseConvexHullMemory(procResult.list[i].list, procResult.list[i].numAllocated);
             if (procResult.list[i].list != nullptr) {
-                delete[](procResult.list[i].list);
+                delete[] (procResult.list[i].list);
             }
         }
-        delete[](procResult.list);
+        delete[] (procResult.list);
     }
 }
 

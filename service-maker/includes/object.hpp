@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 /**
  * @file
  * <b>Service maker object base class </b>
@@ -142,7 +130,7 @@ public:
 
     /** @brief Template for setting multiple properties */
     template <typename T, typename... Args>
-    Object &set(const std::string &name, const T &value, const Args &... args)
+    Object &set(const std::string &name, const T &value, const Args &...args)
     {
         set_(name, Value(value));
         if constexpr (sizeof...(args) > 0) {
@@ -153,7 +141,7 @@ public:
 
     /** @brief Template for getting multiple properties */
     template <typename T, typename... Args>
-    Object &getProperty(const std::string &name, T &value, Args &... args)
+    Object &getProperty(const std::string &name, T &value, Args &...args)
     {
         value = (T)get_(name);
         if constexpr (sizeof...(args) > 0) {

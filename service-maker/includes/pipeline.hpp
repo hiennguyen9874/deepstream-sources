@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 /**
  * @file
  * <b>Pipeline definition </b>
@@ -115,7 +103,7 @@ public:
     template <typename... Args>
     Pipeline &add(const std::string &element_type,
                   const std::string &element_name,
-                  const Args &... args)
+                  const Args &...args)
     {
         Element element = Element(element_type, element_name);
         if constexpr (sizeof...(args) > 0) {
@@ -151,7 +139,7 @@ public:
 
     /** @brief Template function for linking elements in the simplest way */
     template <typename... Args>
-    Pipeline &link(const std::string &arg1, const std::string arg2, const Args &... args)
+    Pipeline &link(const std::string &arg1, const std::string arg2, const Args &...args)
     {
         (*this)[arg1].link((*this)[arg2]);
         if constexpr (sizeof...(args) > 0) {
@@ -199,7 +187,7 @@ public:
                      const std::string &plugin_name,
                      const std::string &object_name,
                      const std::string tip,
-                     const Args &... args)
+                     const Args &...args)
     {
         attach(element_name, plugin_name, object_name, tip);
         if (sizeof...(args) > 0) {

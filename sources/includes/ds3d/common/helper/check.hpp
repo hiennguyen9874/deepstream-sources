@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #ifndef DS3D_COMMON_HELPER_CHECK_HPP
 #define DS3D_COMMON_HELPER_CHECK_HPP
 
@@ -61,30 +49,30 @@ namespace ds3d {
         }                                                                                          \
     }
 
-#define Assertf(cond, fmt, ...)                                                             \
-    do {                                                                                    \
-        if (!(cond)) {                                                                      \
+#define Assertf(cond, fmt, ...)                                                              \
+    do {                                                                                     \
+        if (!(cond)) {                                                                       \
             fprintf(stderr, "Assert failed 💀. %s in file %s:%d, message: " fmt "\n", #cond, \
-                    __FILE__, __LINE__, __VA_ARGS__);                                       \
-            abort();                                                                        \
-        }                                                                                   \
+                    __FILE__, __LINE__, __VA_ARGS__);                                        \
+            abort();                                                                         \
+        }                                                                                    \
     } while (false)
 
-#define Asserts(cond, s)                                                                  \
-    do {                                                                                  \
-        if (!(cond)) {                                                                    \
+#define Asserts(cond, s)                                                                   \
+    do {                                                                                   \
+        if (!(cond)) {                                                                     \
             fprintf(stderr, "Assert failed 💀. %s in file %s:%d, message: " s "\n", #cond, \
-                    __FILE__, __LINE__);                                                  \
-            abort();                                                                      \
-        }                                                                                 \
+                    __FILE__, __LINE__);                                                   \
+            abort();                                                                       \
+        }                                                                                  \
     } while (false)
 
-#define Assert(cond)                                                                           \
-    do {                                                                                       \
-        if (!(cond)) {                                                                         \
+#define Assert(cond)                                                                            \
+    do {                                                                                        \
+        if (!(cond)) {                                                                          \
             fprintf(stderr, "Assert failed 💀. %s in file %s:%d\n", #cond, __FILE__, __LINE__); \
-            abort();                                                                           \
-        }                                                                                      \
+            abort();                                                                            \
+        }                                                                                       \
     } while (false)
 
 static inline bool check_runtime(cudaError_t e, const char *call, int line, const char *file)

@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -219,8 +207,8 @@ extern "C" bool NvDsInferParseCustomTfSSD(std::vector<NvDsInferLayerInfo> const 
     const NvDsInferLayerInfo *classLayer = layerFinder("detection_classes");
     const NvDsInferLayerInfo *boxLayer = layerFinder("detection_boxes");
     if (!scoreLayer || !classLayer || !boxLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types "
-                  << "in output tensors" << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
+                  << std::endl;
         return false;
     }
 
@@ -285,8 +273,8 @@ extern "C" bool NvDsInferParseCustomMrcnnTLT(
     const NvDsInferLayerInfo *maskLayer = layerFinder("mask_head/mask_fcn_logits/BiasAdd");
 
     if (!detectionLayer || !maskLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types "
-                  << "in output tensors" << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
+                  << std::endl;
         return false;
     }
 
@@ -537,8 +525,8 @@ extern "C" bool NvDsInferParseCustomMrcnnTLTV2(
     const NvDsInferLayerInfo *maskLayer = layerFinder("mask_fcn_logits/BiasAdd");
 
     if (!detectionLayer || !maskLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types "
-                  << "in output tensors" << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
+                  << std::endl;
         return false;
     }
 
@@ -680,8 +668,8 @@ extern "C" bool NvDsInferParseCustomDDETRTAO(
         layerFinder("pred_logits"); // 1 x num_queries x num_classes
 
     if (!boxLayer || !classLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types "
-                  << "in output tensors" << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
+                  << std::endl;
         return false;
     }
 

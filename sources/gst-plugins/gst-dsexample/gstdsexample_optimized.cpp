@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 /**
  * There are two threads in the optimized code. input thread and Processing thread.
  * The pre-procesing as required by the algorithm like scaling and color
@@ -45,7 +33,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_dsexample_debug);
 
 #ifdef WITH_OPENCV
 // enable to write transformed cvmat to files
-//#define DSEXAMPLE_DEBUG
+// #define DSEXAMPLE_DEBUG
 #ifdef DSEXAMPLE_DEBUG
 #include "opencv2/imgcodecs.hpp"
 #endif

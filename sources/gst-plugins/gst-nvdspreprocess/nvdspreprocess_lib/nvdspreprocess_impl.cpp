@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include "nvdspreprocess_impl.h"
 
 #include <cuda.h>
@@ -29,7 +17,7 @@
 /** enable to debug transformation in/out files
  *  with DEBUG_TENSOR in plugin enabled
  */
-//#define DEBUG_LIB
+// #define DEBUG_LIB
 
 /** This file contains the preprocessing for network requirements.
  * It does mean subtraction and normalization of input pixels

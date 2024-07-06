@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include <atomic>
 #include <chrono>
 #include <future>
@@ -59,7 +47,7 @@ static void _intr_setup(void)
 #define RETURN_ERROR(statement, fmt, ...) DS3D_ERROR_RETURN(statement, fmt, ##__VA_ARGS__)
 
 #undef PITCH_ALIGNED
-#define PITCH_ALIGNED(v, align) (((v) + (align)-1) & (~((align)-1)))
+#define PITCH_ALIGNED(v, align) (((v) + (align) - 1) & (~((align) - 1)))
 
 static profiling::Timing gTiming;
 static uint32_t gFrameNum = 0;

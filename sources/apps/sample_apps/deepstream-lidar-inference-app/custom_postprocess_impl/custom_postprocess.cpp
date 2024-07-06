@@ -1,20 +1,8 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include <map>
 
 #include "infer_custom_process.h"
 #include "nvdsinfer.h"
-//#include "infer_options.h"
+// #include "infer_options.h"
 #include <cuda_runtime_api.h>
 #include <ds3d/common/common.h>
 #include <ds3d/common/impl/impl_frames.h>

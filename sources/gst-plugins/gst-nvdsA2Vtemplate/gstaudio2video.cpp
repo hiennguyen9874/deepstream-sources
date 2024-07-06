@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include "gstaudio2video.h"
 
 #include <gst/pbutils/pbutils-enumtypes.h>
@@ -226,11 +214,11 @@ static gboolean gst_audio2video_sink_setcaps(GstAudio2Video *scope, GstCaps *cap
     return TRUE;
 
     /* Errors */
-wrong_caps : {
+wrong_caps: {
     GST_WARNING_OBJECT(scope, "could not parse caps");
     return FALSE;
 }
-not_negotiated : {
+not_negotiated: {
     GST_WARNING_OBJECT(scope, "failed to negotiate");
     return FALSE;
 }
@@ -278,13 +266,13 @@ static gboolean gst_audio2video_src_setcaps(GstAudio2Video *scope, GstCaps *caps
     return res;
 
     /* ERRORS */
-wrong_caps : {
+wrong_caps: {
     gst_caps_unref(caps);
     GST_DEBUG_OBJECT(scope, "error parsing caps");
     return FALSE;
 }
 
-setup_failed : {
+setup_failed: {
     GST_WARNING_OBJECT(scope, "failed to set up");
     return FALSE;
 }
@@ -332,7 +320,7 @@ static gboolean gst_audio2video_src_negotiate(GstAudio2Video *scope)
 
     return ret;
 
-no_format : {
+no_format: {
     gst_caps_unref(target);
     return FALSE;
 }
@@ -429,7 +417,7 @@ static gboolean gst_audio2video_do_bufferpool(GstAudio2Video *scope, GstCaps *ou
     return result;
 
     /* Errors */
-no_decide_allocation : {
+no_decide_allocation: {
     GST_WARNING_OBJECT(scope, "Subclass failed to decide allocation");
     gst_query_unref(query);
 
@@ -522,7 +510,7 @@ static GstFlowReturn default_prepare_output_buffer(GstAudio2Video *scope, GstBuf
     return gst_buffer_pool_acquire_buffer(priv->pool, outbuf, NULL);
 
     /* ERRORS */
-activate_failed : {
+activate_failed: {
     GST_ELEMENT_ERROR(scope, RESOURCE, SETTINGS, ("failed to activate bufferpool"),
                       ("failed to activate bufferpool"));
     return GST_FLOW_ERROR;
@@ -691,7 +679,7 @@ beach:
     return ret;
 
     /* ERRORS */
-not_negotiated : {
+not_negotiated: {
     GST_DEBUG_OBJECT(scope, "Failed to renegotiate");
     return GST_FLOW_NOT_NEGOTIATED;
 }

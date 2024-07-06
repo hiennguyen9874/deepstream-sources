@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 /**
  * @file
  * <b>Element class </b>
@@ -102,7 +90,7 @@ public:
     Element &addProbe(const std::string &plugin_name,
                       const std::string &probe_name,
                       const std::string probe_tip = "",
-                      const Args &... args)
+                      const Args &...args)
     {
         addProbe(plugin_name, probe_name, probe_tip);
         auto probe = getProbe(probe_name);
@@ -162,7 +150,7 @@ public:
     Element &connectSignal(const std::string &plugin_name,
                            const std::string &handler_name,
                            const std::string &signal_names,
-                           const Args &... args)
+                           const Args &...args)
     {
         connectSignal(plugin_name, handler_name, signal_names);
         auto handler = getSignalHandler(handler_name);

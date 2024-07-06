@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include "gstnvstreammux.h"
 
 #include <npp.h>
@@ -40,7 +28,7 @@
 
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wpointer-arith"
-//#pragma GCC diagn nostic ignored "-Wunused-function"
+// #pragma GCC diagn nostic ignored "-Wunused-function"
 #pragma GCC diagnostic ignored "-Wuninitialized"
 
 #define MAX_NVBUFFERS 1024
@@ -61,7 +49,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvstreammux_debug);
 #define DEFAULT_NO_PIPELINE_EOS FALSE
 #define DEFAULT_FRAME_DURATION GST_CLOCK_TIME_NONE
 
-#define CEIL(a, b) (((a) + (b)-1) / (b))
+#define CEIL(a, b) (((a) + (b) - 1) / (b))
 
 #define _do_init \
     GST_DEBUG_CATEGORY_INIT(gst_nvstreammux_debug, "nvstreammux", 0, "nvstreammux element");

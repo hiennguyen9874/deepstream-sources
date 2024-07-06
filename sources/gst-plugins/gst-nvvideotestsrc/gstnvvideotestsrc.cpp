@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -580,15 +568,15 @@ static gboolean gst_nv_video_file_src_start(GstNvVideoTestSrc *src)
     return TRUE;
 
     /* ERROR */
-no_filename : {
+no_filename: {
     GST_ERROR_OBJECT(src, "No file name specified for reading.");
     goto error_exit;
 }
-open_failed : {
+open_failed: {
     GST_ERROR_OBJECT(src, "Could not open file %s for reading.", src->filename);
     goto error_exit;
 }
-not_regular : {
+not_regular: {
     GST_ERROR_OBJECT(src, "%s is not a regular file.", src->filename);
     goto error_exit;
 }
@@ -807,12 +795,12 @@ static GstFlowReturn gst_nv_video_test_src_fill(GstPushSrc *psrc, GstBuffer *buf
 
     return GST_FLOW_OK;
 
-error : {
+error: {
     gst_buffer_unmap(buffer, &map);
     gst_buffer_resize(buffer, 0, 0);
     return GST_FLOW_ERROR;
 }
-eos : {
+eos: {
     gst_buffer_unmap(buffer, &map);
     gst_buffer_resize(buffer, 0, 0);
     return GST_FLOW_EOS;

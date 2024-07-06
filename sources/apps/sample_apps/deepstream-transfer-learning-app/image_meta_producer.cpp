@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2020 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include "image_meta_producer.h"
 
 typedef std::pair<std::string, std::string> string_pair;
@@ -157,23 +145,17 @@ std::string ImageMetaProducer::make_kitti_data(const IPData &data)
     // Please refer to :
     // https://docs.nvidia.com/tao/tao-toolkit/text/data_annotation_format.html#object-detection-kitti-format
     ss << data.class_name << " "; // Class names
-    ss << "0.0"
-       << " "; // Truncation (No data default value)
-    ss << "3"
-       << " "; // Occlusion [ 0 = fully visible, 1 = partly visible, 2 = largely occluded, 3 =
-               // unknown].
-    ss << "0.0"
-       << " "; // Alpha (No data default value)
+    ss << "0.0" << " ";           // Truncation (No data default value)
+    ss << "3" << " "; // Occlusion [ 0 = fully visible, 1 = partly visible, 2 = largely occluded, 3
+                      // = unknown].
+    ss << "0.0" << " "; // Alpha (No data default value)
     // Bounding box coordinates:
     ss << data.img_left << " ";                    // ymin
     ss << data.img_top << " ";                     // xmin
     ss << (data.img_left + data.img_width) << " "; // ymax
     ss << (data.img_top + data.img_height) << " "; // xmax
-    ss << "0.0 0.0 0.0"
-       << " "; // 3-D dimension (No data default value)
-    ss << "0.0 0.0 0.0"
-       << " "; // Location (No data default value)
-    ss << "0.0"
-       << " "; // Rotation_y (No data default value)
+    ss << "0.0 0.0 0.0" << " ";                    // 3-D dimension (No data default value)
+    ss << "0.0 0.0 0.0" << " ";                    // Location (No data default value)
+    ss << "0.0" << " ";                            // Rotation_y (No data default value)
     return ss.str();
 }

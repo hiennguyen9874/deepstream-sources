@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #include "gstnvdspreprocess.h"
 
 #include <stdint.h>
@@ -39,7 +27,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvdspreprocess_debug);
 /** compile makefile WITH_OPENCV:=1
  * and enable this to write transformed ROIs to files
  */
-//#define DUMP_ROIS
+// #define DUMP_ROIS
 
 #ifdef DUMP_ROIS
 #include "opencv2/imgcodecs.hpp"
@@ -50,7 +38,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvdspreprocess_debug);
  * enable to debug tensor prepared by this plugin
  * and dump it in .bin files
  */
-//#define DEBUG_TENSOR
+// #define DEBUG_TENSOR
 
 /* Enum to identify properties */
 enum {
@@ -328,7 +316,7 @@ static void gst_nvdspreprocess_finalize(GObject *object)
             nvdspreprocess->custom_lib_handle = NULL;
         }
 
-        delete[](nvdspreprocess->custom_lib_path);
+        delete[] (nvdspreprocess->custom_lib_path);
         nvdspreprocess->custom_lib_path = NULL;
     }
     nvdspreprocess->acquire_impl.reset();

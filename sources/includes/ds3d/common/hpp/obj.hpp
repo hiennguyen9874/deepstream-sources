@@ -1,15 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: LicenseRef-NvidiaProprietary
- *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
- */
-
 #ifndef _DS3D_COMMON_HPP_OBJ_HPP
 #define _DS3D_COMMON_HPP_OBJ_HPP
 
@@ -17,10 +5,16 @@
 #include <ds3d/common/common.h>
 #include <ds3d/common/func_utils.h>
 
-#define DS3D_REF_COPY_DESTROY_IMPL(clss)  \
-    void destroy() final { delete this; } \
-    ~clss() override = default;           \
-    abiRefObj *refCopy_i() const final { return new clss(*this); }
+#define DS3D_REF_COPY_DESTROY_IMPL(clss) \
+    void destroy() final                 \
+    {                                    \
+        delete this;                     \
+    }                                    \
+    ~clss() override = default;          \
+    abiRefObj *refCopy_i() const final   \
+    {                                    \
+        return new clss(*this);          \
+    }
 
 namespace ds3d {
 
@@ -302,7 +296,7 @@ public:
     operator bool() { return this->abiRef(); }
 
     template <typename... Args>
-    void operator()(Args &&... args) const
+    void operator()(Args &&...args) const
     {
         DS_ASSERT(this->abiRef());
         this->abiRef()->notify(std::forward<Args>(args)...);
