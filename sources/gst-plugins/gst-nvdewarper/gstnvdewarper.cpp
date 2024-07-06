@@ -1,26 +1,3 @@
-/**
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022 NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: MIT
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
-
 #include "gstnvdewarper.h"
 
 #include <gst/gst.h>
@@ -72,7 +49,7 @@ GST_DEBUG_CATEGORY_STATIC(gst_nvdewarper_debug);
 #define PACKAGE_NAME "GStreamer nVidia Dewarper Plugin"
 #define PACKAGE_URL "http://nvidia.com/"
 
-//#define MEASURE_TIME
+// #define MEASURE_TIME
 #ifdef MEASURE_TIME
 #include <stdio.h>
 #include <sys/time.h>
@@ -276,7 +253,7 @@ done:
     return ret;
 
 /* ERRORS */
-no_transform_possible : {
+no_transform_possible: {
     GST_DEBUG_OBJECT(nvdewarper, "could not transform %" GST_PTR_FORMAT " in anything we support",
                      caps);
     ret = FALSE;
@@ -951,12 +928,12 @@ static GstFlowReturn gst_nvdewarper_transform(GstBaseTransform *btrans,
     }
     return GST_FLOW_OK;
 
-invalid_inbuf : {
+invalid_inbuf: {
     GST_ERROR("input buffer mapinfo failed");
     return GST_FLOW_ERROR;
 }
 
-invalid_outbuf : {
+invalid_outbuf: {
     GST_ERROR_OBJECT(nvdewarper, "output buffer mapinfo failed");
     gst_buffer_unmap(inbuf, &inmap);
     return GST_FLOW_ERROR;

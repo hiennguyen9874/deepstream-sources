@@ -1,14 +1,3 @@
-/**
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
- *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
- */
-
 #include "infer_utils.h"
 
 #include <limits.h>
@@ -401,7 +390,10 @@ bool isCpuMem(InferMemType type)
 std::string memType2Str(InferMemType type)
 {
     const static std::unordered_map<InferMemType, std::string> typeStrs{
-#define MEMTYPE_2_STR(type) {InferMemType::type, #type}
+#define MEMTYPE_2_STR(type)       \
+    {                             \
+        InferMemType::type, #type \
+    }
         MEMTYPE_2_STR(kNone),    MEMTYPE_2_STR(kGpuCuda),   MEMTYPE_2_STR(kCpu),
         MEMTYPE_2_STR(kCpuCuda), MEMTYPE_2_STR(kNvSurface), MEMTYPE_2_STR(kNvSurfaceArray),
 #undef MEMTYPE_2_STR
