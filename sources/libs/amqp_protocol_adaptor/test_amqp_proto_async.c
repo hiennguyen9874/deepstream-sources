@@ -1,16 +1,3 @@
-/*
-################################################################################
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.  All rights reserved.
-#
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
-#
-################################################################################
-*/
-
 // This is a test program to perform connect, disconnect , send messages to amqp broker
 // Use a single thread to connect and perform asynchronous send
 
