@@ -85,7 +85,7 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer data)
         break;
     }
     case GST_MESSAGE_STATE_CHANGED: {
-        GstState oldstate, newstate;
+        GstState oldstate = GST_STATE_NULL, newstate = GST_STATE_NULL;
         gst_message_parse_state_changed(message, &oldstate, &newstate, NULL);
         if (GST_ELEMENT(GST_MESSAGE_SRC(message)) == appCtx->pipeline.pipeline) {
             switch (newstate) {
@@ -159,7 +159,7 @@ static void process_buffer(GstBuffer *buf, AppCtx *appCtx, guint index)
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
     if (!batch_meta) {
         // TODO add audio support in streammux to attach batch metadata
-        //     NVGSTDS_WARN_MSG_V ("Batch meta not found for buffer %p", buf);
+        //    NVGSTDS_WARN_MSG_V ("Batch meta not found for buffer %p", buf);
         return;
     }
     process_meta(appCtx, batch_meta);
@@ -492,8 +492,8 @@ void destroy_pipeline(AppCtx *appCtx)
 
 gboolean pause_pipeline(AppCtx *appCtx)
 {
-    GstState cur;
-    GstState pending;
+    GstState cur = GST_STATE_NULL;
+    GstState pending = GST_STATE_NULL;
     GstStateChangeReturn ret;
     GstClockTime timeout = 5 * GST_SECOND / 1000;
 
@@ -517,8 +517,8 @@ gboolean pause_pipeline(AppCtx *appCtx)
 
 gboolean resume_pipeline(AppCtx *appCtx)
 {
-    GstState cur;
-    GstState pending;
+    GstState cur = GST_STATE_NULL;
+    GstState pending = GST_STATE_NULL;
     GstStateChangeReturn ret;
     GstClockTime timeout = 5 * GST_SECOND / 1000;
 

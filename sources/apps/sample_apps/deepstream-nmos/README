@@ -1,11 +1,13 @@
 *****************************************************************************
-* Copyright (c) 2022-2023 NVIDIA Corporation.  All rights reserved.
-*
-* NVIDIA Corporation and its licensors retain all intellectual property
-* and proprietary rights in and to this software, related documentation
-* and any modifications thereto.  Any use, reproduction, disclosure or
-* distribution of this software and related documentation without an express
-* license agreement from NVIDIA Corporation is strictly prohibited.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
 *****************************************************************************
 
 *****************************************************************************
@@ -64,8 +66,8 @@ This application has three modes of operations -
 ===============================================================================
 
 $ Set CUDA_VER in the MakeFile as per platform.
-    For Jetson, CUDA_VER=11.4
-    For x86, CUDA_VER=12.1
+     For x86, CUDA_VER=12.8
+     For jetson, CUDA_VER=13.0
 $ sudo make (sudo not required in case of docker containers)
 
 ===============================================================================
@@ -80,6 +82,14 @@ e.g.
 ./deepstream-nmos-app -c configs/recv_config.txt
 ./deepstream-nmos-app -c configs/sender_config.txt -m 1
 ./deepstream-nmos-app -c configs/recv_send_config.txt -m 2
+
+When performing the inference with nvinferserver, comment the plugin type & infer config path
+& uncomment the nvinferserver plugin type & config path in recv_config.txt/recv_send_config.txt
+plugin-type=0
+config-file=config_infer_primary.txt
+
+#plugin-type=1
+#config-file=config_inferserver_primary.txt
 
 NOTE:
 1) At the start application will search for NMOS registry and try to register

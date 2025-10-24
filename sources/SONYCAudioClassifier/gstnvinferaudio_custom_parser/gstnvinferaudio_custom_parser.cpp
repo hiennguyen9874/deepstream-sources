@@ -59,7 +59,7 @@ bool NvDsInferParseCustomAudio(std::vector<NvDsInferLayerInfo> const &outputLaye
         if (enable_coarse_label_saving)
             attrList.push_back(coarse_attr);
         const auto vect = index_giver_subcategory(coarse_attr.attributeLabel);
-        NvDsInferAttribute fine_attr;
+        NvDsInferAttribute fine_attr = {0};
         float max_probability_fine = 0.0;
         for (const auto &index : vect) {
             float probability = outputCoverageBuffer[index];

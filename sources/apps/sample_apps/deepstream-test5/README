@@ -1,5 +1,5 @@
 *****************************************************************************
-* Copyright (c) 2018-2023 NVIDIA Corporation.  All rights reserved.
+* Copyright (c) 2018-2025 NVIDIA Corporation.  All rights reserved.
 *
 * NVIDIA Corporation and its licensors retain all intellectual property
 * and proprietary rights in and to this software, related documentation
@@ -77,8 +77,8 @@ object to buffer as metadata.
 
 Json & Protobuf payload formats are supported.
 Choose config options as below, refer to config files here:
-  configs/test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt
-  configs/test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.yml
+  configs/test5_dec_infer-resnet_tracker_sgie_tiled_display.txt
+  configs/test5_dec_infer-resnet_tracker_sgie_tiled_display.yml
 
 PAYLOAD_DEEPSTREAM - Full message schema with separate payload per object (Default)
 PAYLOAD_DEEPSTREAM_MINIMAL - Minimal message with multiple objects in single payload.
@@ -89,8 +89,8 @@ PAYLOAD_DEEPSTREAM_PROTOBUF - Protobuf encoded message with multiple objects in 
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
+     For x86, CUDA_VER=12.8
+     For jetson, CUDA_VER=13.0
   $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
@@ -101,17 +101,17 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
 The application supports txt/yml config files -
 
 $ ./deepstream-test5-app -c configs/test5_config_file_src_infer.txt -p 1
-$ ./deepstream-test5-app -c configs/test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt -p 0
+$ ./deepstream-test5-app -c configs/test5_dec_infer-resnet_tracker_sgie_tiled_display.txt -p 0
 
 $ ./deepstream-test5-app -c configs/test5_config_file_src_infer.yml -p 1
-$ ./deepstream-test5-app -c configs/test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.yml -p 0
+$ ./deepstream-test5-app -c configs/test5_dec_infer-resnet_tracker_sgie_tiled_display.yml -p 0
 
 ===============================================================================
 5. Config files provides with this package
 ===============================================================================
 1) test5_config_file_src_infer.txt(.yml) -
 A 4 X File(mp4) stream analytics pipeline config
-2) test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt(.yml) -
+2) test5_dec_infer-resnet_tracker_sgie_tiled_display.txt(.yml) -
 A 2 X RTSP Camera analytics pipeline config
 3) test5_config_file_src_infer_tracker_sgie.txt(.yml) -
 A 4 X File(mp4) stream analytics pipeline config with SGIE usage
@@ -138,7 +138,7 @@ Reference Application Configuration -> Configuration Groups.
   6.1 -p 0 (PLAYBACK=0)
   (Base UTC timestamp for meta-data from RTCP SR for RTSP Sources
               only; any sources other than type=4 will default to PLAYBACK=1)
-  $ ./deepstream-test5-app -c test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt -p 0
+  $ ./deepstream-test5-app -c test5_dec_infer-resnet_tracker_sgie_tiled_display.txt -p 0
   ==============================================================================
   NOTE 1: For RTSP Streams, Config file shall use 'type=4'(NV_DS_SOURCE_RTSP)
   in [source] groups
@@ -152,7 +152,7 @@ Reference Application Configuration -> Configuration Groups.
   (Base UTC timestamp from filename of format - *__M_DD_YYYY_H_MIN_SEC_MSEC_AM/PM_UTC<Offset>.mp4)
   Means - the first video frame timestamp is embedded in the URI.
   Example: VideoFileSavedFromCamera__4_11_2018_4_59_59_433_AM_UTC-07_00.mp4
-  $ ./deepstream-test5-app -c test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt -p 1
+  $ ./deepstream-test5-app -c test5_dec_infer-resnet_tracker_sgie_tiled_display.txt -p 1
   =============================================================================
   NOTE: If URI does not have original timestamp embedded, a WARNING will be
   thrown to user and current system time will be used as base time for all metadata
@@ -175,13 +175,13 @@ Reference Application Configuration -> Configuration Groups.
   in deepstream_test5_app_main.c for changes in code required
   to relay SGIE Classifier-Metadata to nvmsgconv
 
-  7.1 -m 0 (Model(s) used are unknown)
-  $ ./deepstream-test5-app -c test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt -m 0
+  8.0 -m 0 (Model(s) used are unknown)
+  $ ./deepstream-test5-app -c test5_dec_infer-resnet_tracker_sgie_tiled_display.txt -m 0
 
   7.2 -m 1 (Analytics Model(s) used are:
             resnet(4-class model) -> Tracker (Optional) -> SGIE0 (Vehicle-type)
             -> SGIE1 (Vehicle-Color) -> SGIE2 (Vehicle-Make))
-  $ ./deepstream-test5-app -c test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt -m 1
+  $ ./deepstream-test5-app -c test5_dec_infer-resnet_tracker_sgie_tiled_display.txt -m 1
 
 ===============================================================================
 8. Option -o
@@ -429,7 +429,7 @@ In function - create_msg_conv_broker_bin() -
 g_object_set(G_OBJECT(bin->queue), "max-size-buffers", 20, NULL);
 
 3) What do I need to change in the test5_config_file_src_infer.txt or
-test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt config?
+test5_dec_infer-resnet_tracker_sgie_tiled_display.txt config?
 ===============================================================================
 
 Answer:
@@ -496,7 +496,7 @@ Additional info: `$gst-inspect-1.0 rtspsrc`
 6) How does the data in nvmsgconv config file (say - dstest5_msgconv_sample_config.txt)
 specified in [sink1] msg-conv-config key
 map with the streams specified in DeepStream config file (say -
-test5_dec_infer-resnet_tracker_sgie_tiled_display_int8.txt) ?
+test5_dec_infer-resnet_tracker_sgie_tiled_display.txt) ?
 ===============================================================================
 
 Answer:

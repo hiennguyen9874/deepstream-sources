@@ -10,6 +10,7 @@
 #include <iostream>
 #include <string>
 
+#include "cuda_runtime_api.h"
 #include "gstnvdsinfer.h"
 #include "gstnvdsmeta.h"
 #include "nvds_yml_parser.h"
@@ -83,9 +84,17 @@ typedef struct {
     guint network_type;
     guint num_detected_classes;
     std::string config_path;
-    guint model_width;
-    guint model_height;
+    guint seg_gpu_id;
+    guint seg_width;
+    guint seg_height;
+    gboolean seg_background;
+    float seg_alpha;
 } YamlParasStruct;
+
+static const char *dgpus_unsupport_hw_enc[] = {
+    "NVIDIA A100", "NVIDIA A30",
+    "NVIDIA H100", // NVIDIA H100 SXM, NVIDIA H100 PCIe, NVIDIA H100 NVL
+    "NVIDIA T500", "GeForce MX570 A", "DGX A100"};
 
 /* Separate a config file entry with delimiters
  * into strings. */
@@ -138,13 +147,54 @@ static void parse_tests_yaml(YamlParasStruct *yaml_paras, const gchar *cfg_file_
         if (paramKey == "num-detected-classes") {
             yaml_paras->num_detected_classes = itr->second.as<guint>();
         }
-        if (paramKey == "infer-dims") {
-            std::string values = itr->second.as<std::string>();
-            std::vector<std::string> vec = split_string(values);
-            if (vec.size() == 3) {
-                yaml_paras->model_height = std::stoul(vec[1]);
-                yaml_paras->model_width = std::stoul(vec[2]);
+    }
+}
+
+static void parse_filesink_yaml(gint *enc_type, gchar *cfg_file_path)
+{
+    YAML::Node configyml = YAML::LoadFile(cfg_file_path);
+
+    for (YAML::const_iterator itr = configyml["filesink"].begin();
+         itr != configyml["filesink"].end(); ++itr) {
+        std::string paramKey = itr->first.as<std::string>();
+        if (paramKey == "enc-type") {
+            int value = itr->second.as<gint>();
+            if (value == 0 || value == 1) {
+                *enc_type = value;
             }
+        } else {
+            *enc_type = 0;
+        }
+    }
+    g_print("enc_type:%d\n", *enc_type);
+}
+
+static void parse_segvisual_yaml(YamlParasStruct *yaml_paras, const gchar *cfg_file_path)
+{
+    YAML::Node configyml = YAML::LoadFile(cfg_file_path);
+
+    std::string paramKey = "";
+
+    for (YAML::const_iterator itr = configyml["segvisual"].begin();
+         itr != configyml["segvisual"].end(); ++itr) {
+        paramKey = itr->first.as<std::string>();
+        if (paramKey == "gpu-id") {
+            yaml_paras->seg_gpu_id = itr->second.as<guint>();
+        }
+
+        if (paramKey == "width") {
+            yaml_paras->seg_width = itr->second.as<guint>();
+        }
+
+        if (paramKey == "height") {
+            yaml_paras->seg_height = itr->second.as<guint>();
+        }
+
+        if (paramKey == "orig_background") {
+            yaml_paras->seg_background = itr->second.as<gboolean>();
+        }
+        if (paramKey == "alpha") {
+            yaml_paras->seg_alpha = itr->second.as<float>();
         }
     }
 }
@@ -214,111 +264,6 @@ static GstPadProbeReturn restart_stream_buf_prob(GstPad *pad,
             break;
         }
     }
-    return GST_PAD_PROBE_OK;
-}
-
-static void release_segmentation_meta(gpointer data, gpointer user_data)
-{
-    NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
-    NvDsInferSegmentationMeta *meta = (NvDsInferSegmentationMeta *)user_meta->user_meta_data;
-    if (meta->priv_data) {
-        gst_mini_object_unref(GST_MINI_OBJECT(meta->priv_data));
-    } else {
-        g_free(meta->class_map);
-        g_free(meta->class_probabilities_map);
-    }
-    delete meta;
-}
-
-static gpointer copy_segmentation_meta(gpointer data, gpointer user_data)
-{
-    NvDsUserMeta *src_user_meta = (NvDsUserMeta *)data;
-    NvDsInferSegmentationMeta *src_meta =
-        (NvDsInferSegmentationMeta *)src_user_meta->user_meta_data;
-    NvDsInferSegmentationMeta *meta =
-        (NvDsInferSegmentationMeta *)g_malloc(sizeof(NvDsInferSegmentationMeta));
-
-    meta->classes = src_meta->classes;
-    meta->width = src_meta->width;
-    meta->height = src_meta->height;
-    meta->class_map =
-        (gint *)g_memdup(src_meta->class_map, meta->width * meta->height * sizeof(gint));
-    // meta->class_probabilities_map = (gfloat *) g_memdup(src_meta->class_probabilities_map,
-    // meta->classes * meta->width * meta->height * sizeof (gfloat));
-    meta->class_probabilities_map = NULL;
-    meta->priv_data = NULL;
-
-    return meta;
-}
-
-static GstPadProbeReturn pgie_pad_buffer_probe_network_type100(GstPad *pad,
-                                                               GstPadProbeInfo *info,
-                                                               gpointer u_data)
-{
-    NvDsMetaList *l_frame = NULL;
-    NvDsMetaList *l_obj = NULL;
-    NvDsMetaList *l_user = NULL;
-
-    GstBuffer *buf = (GstBuffer *)(info->data);
-    NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
-
-    /* Iterate each frame metadata in batch */
-    for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
-         l_frame = l_frame->next) {
-        NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
-
-        if (frame_meta && frame_meta->frame_user_meta_list) {
-            NvDsFrameMetaList *fmeta_list = NULL;
-            NvDsUserMeta *of_user_meta = NULL;
-
-            for (fmeta_list = frame_meta->frame_user_meta_list; fmeta_list != NULL;
-                 fmeta_list = fmeta_list->next) {
-                of_user_meta = (NvDsUserMeta *)fmeta_list->data;
-                if (of_user_meta &&
-                    of_user_meta->base_meta.meta_type == NVDSINFER_TENSOR_OUTPUT_META) {
-                    NvDsInferTensorMeta *meta =
-                        (NvDsInferTensorMeta *)(of_user_meta->user_meta_data);
-                    if (!meta || (meta->num_output_layers != 1) ||
-                        (meta->output_layers_info[0].dataType != 3)) // ||// INT32
-                        continue;
-
-                    NvDsInferLayerInfo *info = &meta->output_layers_info[0];
-                    info->buffer =
-                        meta->out_buf_ptrs_host[0]; // cudaMemcpyDeviceToHost is already performed.
-
-                    //---Fill NvDsInferSegmentationMeta structure---
-                    // Acquire a new NvDsUserMeta object from frame_meta.
-                    NvDsUserMeta *user_meta =
-                        nvds_acquire_user_meta_from_pool(frame_meta->base_meta.batch_meta);
-                    NvDsInferSegmentationMeta *segmeta =
-                        (NvDsInferSegmentationMeta *)g_malloc(sizeof(NvDsInferSegmentationMeta));
-
-                    segmeta->classes = numDetectedClasses;
-                    // Segmentation model ALWAYS has the same W/H as the input tensor.
-                    segmeta->height = meta->network_info.height;
-                    segmeta->width = meta->network_info.width;
-
-                    // Output tensor is the class map already. There is nothing else to parse.
-                    // Referencing instead of copying info->buffer causes SegV crash.
-                    segmeta->class_map = (gint *)g_memdup(
-                        info->buffer, segmeta->width * segmeta->height * sizeof(gint));
-                    segmeta->class_probabilities_map = NULL;
-                    segmeta->priv_data = NULL;
-
-                    // Assign NvDsInferSegmentationMeta to the fields of NvDsUserMeta
-                    user_meta->user_meta_data = segmeta;
-                    user_meta->base_meta.meta_type = (NvDsMetaType)NVDSINFER_SEGMENTATION_META;
-                    user_meta->base_meta.release_func = release_segmentation_meta;
-                    user_meta->base_meta.copy_func = copy_segmentation_meta;
-
-                    nvds_add_user_meta_to_frame(frame_meta, user_meta);
-                    //---Fill NvDsInferSegmentationMeta structure---
-                }
-            }
-        }
-    }
-
-    // use_device_mem = 1 - use_device_mem;
     return GST_PAD_PROBE_OK;
 }
 
@@ -579,6 +524,37 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
     return TRUE;
 }
 
+static bool is_enc_hw_support()
+{
+    int current_device = -1;
+    cudaGetDevice(&current_device);
+    struct cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, current_device);
+    bool enc_hw_support = TRUE;
+    if (prop.integrated) {
+        char device_name[50];
+        FILE *ptr = fopen("/proc/device-tree/model", "r");
+
+        if (ptr) {
+            while (fgets(device_name, 50, ptr) != NULL) {
+                if (strstr(device_name, "Orin") && (strstr(device_name, "Nano")))
+                    enc_hw_support = FALSE;
+            }
+        }
+        fclose(ptr);
+    } else {
+        for (int i = 0; i < sizeof(dgpus_unsupport_hw_enc) / sizeof(dgpus_unsupport_hw_enc[0]);
+             i++) {
+            if (!strncasecmp(prop.name, dgpus_unsupport_hw_enc[i],
+                             strlen(dgpus_unsupport_hw_enc[i]))) {
+                enc_hw_support = FALSE;
+                break;
+            }
+        }
+    }
+    return enc_hw_support;
+}
+
 /* Check for parsing error. */
 #define RETURN_ON_PARSER_ERROR(parse_expr)                    \
     if (NVDS_YAML_PARSER_SUCCESS != parse_expr) {             \
@@ -600,7 +576,11 @@ static void printUsage(const char *cmd)
         "\n");
     g_printerr("-d: \n\tenable display, otherwise dump to output H264 or JPEG file  \n");
     g_printerr("-f: \n\tuse fake_sink to test the performace\n");
-    g_printerr("-l: \n\tloop mode for the pipeline");
+    g_printerr("-l: \n\tloop mode for the pipeline\n");
+    g_printerr("-o: \n\tOriginal background On\n");
+    g_printerr("-a: \n\tAlpha value with original background setting\n");
+    g_printerr("-w: \n\tThe model output width\n");
+    g_printerr("-e: \n\tThe model output height\n");
     g_printerr("yml_config_file: \n\tYAML config file, e.g. seg_app_unet.yml \n");
 }
 int main(int argc, char *argv[])
@@ -616,20 +596,19 @@ int main(int argc, char *argv[])
     gchar pad_name_sink[16] = "sink_0";
     gchar pad_name_src[16] = "src";
 
-#ifdef PLATFORM_TEGRA
-    GstElement *transform = NULL;
-#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
 
     gboolean isImage = FALSE;
     gboolean useDisplay = FALSE;
     gboolean useFakeSink = FALSE;
+    gboolean original_background = FALSE;
+    float alpha = 1.0f;
     guint tiler_rows, tiler_cols;
     guint batchSize = 0;
     guint pgie_batch_size;
     guint c;
-    const char *optStr = "b:c:dhfli:";
+    const char *optStr = "a:b:c:w:e:dohfli:";
     std::string pgie_config;
     gboolean isYAML = FALSE;
     GList *g_list = NULL;
@@ -638,11 +617,16 @@ int main(int argc, char *argv[])
     PerfStructInt str;
     YamlParasStruct yaml_paras;
     fileLoop = 0;
+    int enc_type = 0;
     networkType = 2;
     numDetectedClasses = 1;
     guint model_width = 0;
     guint model_height = 0;
     NvDsGieType pgie_type = NVDS_GIE_PLUGIN_INFER;
+    int current_device = -1;
+    cudaGetDevice(&current_device);
+    struct cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, current_device);
 
     if (argc == 2 && (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml"))) {
         isYAML = TRUE;
@@ -660,23 +644,20 @@ int main(int argc, char *argv[])
             parse_tests_yaml(&yaml_paras, yaml_paras.config_path.c_str());
             networkType = yaml_paras.network_type;
             numDetectedClasses = yaml_paras.num_detected_classes;
-            model_width = yaml_paras.model_width;
-            model_height = yaml_paras.model_height;
-        } else {
-            model_width = 1920;
-            model_height = 1080;
         }
         parse_tests_yaml(&yaml_paras, argv[1]);
+
         fileLoop = yaml_paras.file_loop;
         yaml_paras.config_path.erase(0, 2);
         yaml_paras.config_path = "configs" + yaml_paras.config_path;
         networkType = yaml_paras.network_type;
         numDetectedClasses = yaml_paras.num_detected_classes;
-        model_width = yaml_paras.model_width;
-        model_height = yaml_paras.model_height;
     } else {
         while ((c = getopt(argc, argv, optStr)) != -1) {
             switch (c) {
+            case 'a':
+                alpha = std::atof(optarg);
+                break;
             case 'b':
                 batchSize = std::atoi(optarg);
                 batchSize = batchSize == 0 ? 1 : batchSize;
@@ -697,16 +678,6 @@ int main(int argc, char *argv[])
                     numDetectedClasses = g_key_file_get_integer(key_file, "property",
                                                                 "num-detected-classes", &error);
                 }
-                has_key = g_key_file_has_key(key_file, "property", "infer-dims", &error);
-                if (has_key) {
-                    gsize length;
-                    gint *int_list = g_key_file_get_integer_list(key_file, "property", "infer-dims",
-                                                                 &length, &error);
-                    if (length == 3) {
-                        model_height = int_list[1];
-                        model_width = int_list[2];
-                    }
-                }
                 g_key_file_free(key_file);
             } break;
             case 'd':
@@ -720,6 +691,15 @@ int main(int argc, char *argv[])
                 break;
             case 'l':
                 fileLoop = 1;
+                break;
+            case 'o':
+                original_background = TRUE;
+                break;
+            case 'w':
+                model_width = std::atoi(optarg);
+                break;
+            case 'e':
+                model_height = std::atoi(optarg);
                 break;
             case 'h':
             default:
@@ -824,7 +804,24 @@ int main(int argc, char *argv[])
     // nvvidconv = gst_element_factory_make ("nvvideoconvert", "nvvideo-converter");
 
     /* Create OSD to draw on the converted RGBA buffer */
+    if (!model_width)
+        model_width = SEG_OUTPUT_WIDTH;
+    if (!model_height)
+        model_height = SEG_OUTPUT_HEIGHT;
+    if (isYAML) {
+        parse_segvisual_yaml(&yaml_paras, argv[1]);
+        if (!yaml_paras.seg_width || !yaml_paras.seg_height) {
+            g_printerr("segvisual resolution should not be zero. Exiting.\n");
+            return -1;
+        }
+        model_height = yaml_paras.seg_height;
+        model_width = yaml_paras.seg_width;
+        original_background = yaml_paras.seg_background;
+        alpha = yaml_paras.seg_alpha;
+    }
     segvisual = gst_element_factory_make("nvsegvisual", "nv-segvisual");
+    g_object_set(G_OBJECT(segvisual), "original-background", original_background, NULL);
+    g_object_set(G_OBJECT(segvisual), "alpha", alpha, NULL);
 
     tiler = gst_element_factory_make("nvmultistreamtiler", "nvtiler");
 
@@ -861,7 +858,17 @@ int main(int argc, char *argv[])
     if (useDisplay == FALSE) {
         if (isImage == FALSE) {
             parser1 = gst_element_factory_make("h264parse", "h264-parser1");
-            enc = gst_element_factory_make("nvv4l2h264enc", "h264-enc");
+            if (isYAML) {
+                parse_filesink_yaml(&enc_type, argv[1]);
+            } else {
+                // 0: HW 1: SW
+                enc_type = is_enc_hw_support() ? 0 : 1;
+            }
+            if (enc_type == 0) {
+                enc = gst_element_factory_make("nvv4l2h264enc", "h264-enc");
+            } else {
+                enc = gst_element_factory_make("x264enc", "h264-enc");
+            }
             if (!useFakeSink) {
                 mux = gst_element_factory_make("qtmux", "mp4-mux");
                 if (!mux) {
@@ -891,19 +898,19 @@ int main(int argc, char *argv[])
         else
             g_object_set(G_OBJECT(sink), "location", "./out.jpg", NULL);
     } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+        if (prop.integrated)
+            sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
+        else
+#ifdef __aarch64__
+            sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
+#else
+            sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
         if (!pgie || !tiler || !segvisual || !sink) {
             g_printerr("One element could not be created. Exiting.\n");
             return -1;
         }
     }
-
-#ifdef PLATFORM_TEGRA
-    if (!transform) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
-        return -1;
-    }
-#endif
 
     if (isYAML) {
         nvds_parse_streammux(streammux, argv[1], "streammux");
@@ -924,13 +931,7 @@ int main(int argc, char *argv[])
     g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
                  "batch-size", batchSize, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
 
-    if (model_width != 0 && model_height != 0) {
-        printf("model_width:%d, model_height:%d\n", model_width, model_height);
-        g_object_set(G_OBJECT(segvisual), "width", model_width, "height", model_height, NULL);
-    } else {
-        g_object_set(G_OBJECT(segvisual), "width", SEG_OUTPUT_WIDTH, "height", SEG_OUTPUT_HEIGHT,
-                     NULL);
-    }
+    g_object_set(G_OBJECT(segvisual), "width", model_width, "height", model_height, NULL);
 
     /* Set all the necessary properties of the nvinfer element,
      * the necessary ones are : */
@@ -966,11 +967,7 @@ int main(int argc, char *argv[])
         gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, segvisual, nvvidconv1, enc, parser1, sink,
                          NULL);
     } else {
-#ifdef PLATFORM_TEGRA
-        gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, segvisual, transform, sink, NULL);
-#else
         gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, segvisual, sink, NULL);
-#endif
     }
 
     /* We link the elements together */
@@ -991,17 +988,10 @@ int main(int argc, char *argv[])
             }
         }
     } else {
-#ifdef PLATFORM_TEGRA
-        if (!gst_element_link_many(streammux, pgie, segvisual, tiler, transform, sink, NULL)) {
-            g_printerr("Elements could not be linked: 2. Exiting.\n");
-            return -1;
-        }
-#else
         if (!gst_element_link_many(streammux, pgie, tiler, segvisual, sink, NULL)) {
             g_printerr("Elements could not be linked: 2. Exiting.\n");
             return -1;
         }
-#endif
     }
 
     /*Performance measurement video fps*/
@@ -1011,18 +1001,6 @@ int main(int argc, char *argv[])
     else
         gst_pad_add_probe(streammux_src_pad, GST_PAD_PROBE_TYPE_BUFFER, buf_probe, &str, NULL);
     gst_object_unref(streammux_src_pad);
-
-    /*post-process for network-type = 100,
-     *nvinferser native postprocess can't process int output datatype.*/
-    if (networkType == 100 || pgie_type == NVDS_GIE_PLUGIN_INFER_SERVER) {
-        GstPad *pgie_src_pad = gst_element_get_static_pad(pgie, "src");
-        if (!pgie_src_pad)
-            g_print("Unable to get streammux src pad\n");
-        else
-            gst_pad_add_probe(pgie_src_pad, GST_PAD_PROBE_TYPE_BUFFER,
-                              pgie_pad_buffer_probe_network_type100, NULL, NULL);
-        gst_object_unref(pgie_src_pad);
-    }
 
     /* Set the pipeline to "playing" state */
     g_print("Now playing: %s\n", pgie_config.c_str());

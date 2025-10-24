@@ -10,30 +10,30 @@
 ################################################################################
 
 components:
-  - name: multiple_source_input
-    parameters:
-      uri-list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
+- name: multiple_source_input
+  parameters:
+    uri-list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
 name: multiple_source_input
 ---
 components:
-  - name: streammux
-    parameters:
-      batch-size: 1
-      batched-push-timeout: 40000
-      height: 720
-      width: 1280
+- name: streammux
+  parameters:
+    batch-size: 1
+    batched-push-timeout: 40000
+    height: 720
+    width: 1280
 name: streammux
 ---
 components:
-  - name: triton
-    parameters:
-      batch-size: 1
-      config-file-path: config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.container.txt
+- name: triton
+  parameters:
+    batch-size: 1
+    config-file-path: config_infer_primary_detector_ssd_inception_v2_coco_2018_01_28.container.txt
 name: triton
 ---
 components:
-  - name: tiler
-    parameters:
-      height: 720
-      width: 1280
+- name: tiler
+  parameters:
+    height: 720
+    width: 1280
 name: tiler

@@ -56,7 +56,6 @@ gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "RoadSign"};
 #define FPS_PRINT_INTERVAL 300
 
 static guint cintr = FALSE;
-static guint grpc_enable = 1;
 
 /* Flag which is transmitted alongwith the signal "stream-toggle-on"
  * which is meant to be processed by asr plugin.
@@ -574,8 +573,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_WARNING: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_warning(msg, &error, &debug);
         g_printerr("WARNING from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         g_free(debug);
@@ -584,8 +583,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         break;
     }
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -608,24 +607,16 @@ static void cb_newpad(GstElement *decodebin, GstPad *decoder_src_pad, gpointer d
     const GstStructure *str = gst_caps_get_structure(caps, 0);
     const gchar *name = gst_structure_get_name(str);
     GstElement *source_bin = (GstElement *)data;
-    GstCapsFeatures *features = gst_caps_get_features(caps, 0);
 
     /* Need to check if the pad created by the decodebin is for video and not
      * audio. */
     if (!strncmp(name, "video", 5)) {
-        /* Link the decodebin pad only if decodebin has picked nvidia
-         * decoder plugin nvdec_*. We do this by checking if the pad caps contain
-         * NVMM memory features. */
-        if (gst_caps_features_contains(features, GST_CAPS_FEATURES_NVMM)) {
-            /* Get the source bin ghost pad */
-            GstPad *bin_ghost_pad = gst_element_get_static_pad(source_bin, "vsrc");
-            if (!gst_ghost_pad_set_target(GST_GHOST_PAD(bin_ghost_pad), decoder_src_pad)) {
-                g_printerr("Failed to link decoder src pad to source bin ghost pad\n");
-            }
-            gst_object_unref(bin_ghost_pad);
-        } else {
-            g_printerr("Error: Decodebin did not pick nvidia decoder plugin.\n");
+        /* Get the source bin ghost pad */
+        GstPad *bin_ghost_pad = gst_element_get_static_pad(source_bin, "vsrc");
+        if (!gst_ghost_pad_set_target(GST_GHOST_PAD(bin_ghost_pad), decoder_src_pad)) {
+            g_printerr("Failed to link decoder src pad to source bin ghost pad\n");
         }
+        gst_object_unref(bin_ghost_pad);
     }
 
 #ifdef SUPPORT_AUDIO
@@ -947,7 +938,7 @@ int main(int argc, char *argv[])
         gst_bin_add(GST_BIN(pipeline), source_bin);
 
         g_snprintf(pad_name, 15, "sink_%u", i);
-        sinkpad = gst_element_get_request_pad(streammux, pad_name);
+        sinkpad = gst_element_request_pad_simple(streammux, pad_name);
         if (!sinkpad) {
             g_printerr("Streammux request sink pad failed. Exiting.\n");
             return -1;
@@ -1033,12 +1024,9 @@ int main(int argc, char *argv[])
 
         nvasr = gst_element_factory_make("nvdsasr", asr_name);
 
-        if (grpc_enable) {
-            g_object_set(G_OBJECT(nvasr), "config-file", "riva_asr_grpc_jasper_conf.yml", NULL);
-            g_object_set(G_OBJECT(nvasr), "customlib-name", "libnvds_riva_asr_grpc.so", NULL);
-            g_object_set(G_OBJECT(nvasr), "create-speech-ctx-func", "create_riva_asr_grpc_ctx",
-                         NULL);
-        }
+        g_object_set(G_OBJECT(nvasr), "config-file", "riva_asr_grpc_jasper_conf.yml", NULL);
+        g_object_set(G_OBJECT(nvasr), "customlib-name", "libnvds_riva_asr_grpc.so", NULL);
+        g_object_set(G_OBJECT(nvasr), "create-speech-ctx-func", "create_riva_asr_grpc_ctx", NULL);
 
         nvasr_instances[i] = nvasr;
 
@@ -1046,9 +1034,6 @@ int main(int argc, char *argv[])
             g_printerr("nvanr could not be created. Exiting.\n");
             return -1;
         }
-
-        if (!grpc_enable)
-            g_object_set(G_OBJECT(nvasr), "config-file", "riva_asr_conf.yml", NULL);
 
         sink_asr_pipeline = gst_element_factory_make("fakesink", NULL);
 
@@ -1087,15 +1072,15 @@ int main(int argc, char *argv[])
         gst_object_unref(nvanr_sinkpad);
         gst_object_unref(audio_srcpad);
 
-        tee_asr_srcpad = gst_element_get_request_pad(tee, "src_%u");
-        tee_amixer_srcpad = gst_element_get_request_pad(tee, "src_%u");
+        tee_asr_srcpad = gst_element_request_pad_simple(tee, "src_%u");
+        tee_amixer_srcpad = gst_element_request_pad_simple(tee, "src_%u");
 
         if (!tee_asr_srcpad || !tee_amixer_srcpad) {
             g_printerr("tee element's src pad request failed. Exiting.\n");
             return -1;
         }
 
-        amixer_sinkpad = gst_element_get_request_pad(audiomixer, pad_name);
+        amixer_sinkpad = gst_element_request_pad_simple(audiomixer, pad_name);
         if (!amixer_sinkpad) {
             g_printerr("audio-mixer request sink pad failed. Exiting.\n");
             return -1;
@@ -1167,7 +1152,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    amixer_sinkpad = gst_element_get_request_pad(audiomixer, pad_name);
+    amixer_sinkpad = gst_element_request_pad_simple(audiomixer, pad_name);
     if (!amixer_sinkpad) {
         g_printerr("audio-mixer request sink pad failed. Exiting.\n");
         return -1;
@@ -1226,7 +1211,7 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        flvmux_audiopad = gst_element_get_request_pad(flvmux, "audio");
+        flvmux_audiopad = gst_element_request_pad_simple(flvmux, "audio");
         if (!flvmux_audiopad) {
             g_printerr("sink pad of flv muxer failed. \n");
             return -1;
@@ -1355,7 +1340,7 @@ int main(int argc, char *argv[])
     /* we link the elements together
      * nvstreammux -> nvinfer -> nvtiler -> nvvidconv -> nvosd -> video-renderer */
     // if (!gst_element_link_many (streammux, queue1, pgie, queue2, tiler, queue3,
-    //     nvvidconv, queue4, nvosd, queue5, sink, NULL)) {
+    //    nvvidconv, queue4, nvosd, queue5, sink, NULL)) {
     if (!gst_element_link_many(streammux, queue1, pgie, queue2, tiler, queue3, nvvidconv, queue4,
                                nvosd, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
@@ -1426,7 +1411,7 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        flvmux_videopad = gst_element_get_request_pad(flvmux, "video");
+        flvmux_videopad = gst_element_request_pad_simple(flvmux, "video");
         if (!flvmux_videopad) {
             g_printerr("video sink pad of flv muxer failed. \n");
             return -1;

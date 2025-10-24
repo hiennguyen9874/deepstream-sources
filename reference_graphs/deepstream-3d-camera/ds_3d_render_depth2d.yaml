@@ -42,3 +42,4 @@ config_body:
   min_depth_color: [255, 128, 0] # RGB color value for mininum depth
   max_depth_color: [0, 128, 255] # RGB color value for maximum depth
   title: ds3d-camera-app
+

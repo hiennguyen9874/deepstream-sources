@@ -16,6 +16,7 @@ extern "C" {
 #define CONFIG_GROUP_PGIE "primary-gie"
 #define CONFIG_GROUP_PGIE_CONFIG_FILE "config-file"
 #define CONFIG_GROUP_ENABLE "enable"
+#define CONFIG_GROUP_PLUGIN_TYPE "plugin-type"
 #define CONFIG_GROUP_TYPE "type"
 #define CONFIG_GROUP_SDPFILE "sdp-file"
 #define CONFIG_GROUP_SINK_SDPFILE "sink-sdp-file"

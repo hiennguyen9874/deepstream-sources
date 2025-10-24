@@ -49,3 +49,4 @@ config_body:
   fov: 40.0 # FOV of perspective
   coord_y_opposite: False #UV(xy) coordination position of texture, realsense use same uv as gl texture
   positive_z_only: False
+

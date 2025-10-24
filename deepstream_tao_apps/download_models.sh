@@ -1,6 +1,6 @@
 #!/bin/sh
 ################################################################################
-# Copyright (c) 2021-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -21,113 +21,17 @@
 # DEALINGS IN THE SOFTWARE.
 ################################################################################
 
-# Check following part for how to download the TLT 3.0 models:
+# Check following part for how to download the TAO models:
 
-# For Faster-RCNN / YoloV3 / YoloV4 /SSD / DSSD / RetinaNet/ EfficientDet0/ UNET/:
-# wget https://nvidia.box.com/shared/static/taqr2y52go17x1ymaekmg6dh8z6d43wr -O models.zip
-
-# For peopleSemSegNet:
-# wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplesemsegnet/versions/deployable_v1.0/zip \
-# -O peoplesemsegnet_deployable_v1.0.zip
-
-# For peopleSegNet V2:
-# wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplesegnet/versions/deployable_v2.0/zip \
-# -O peoplesegnet_deployable_v2.0.zip
-
-# For old peopleSegNet:
-# wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplesegnet/versions/deployable_v1.0/zip \
-# -O peoplesegnet_deployable_v1.0.zip
+set -e
 
 echo "==================================================================="
-echo "begin download models for Faster-RCNN / YoloV3 / YoloV4 /SSD / DSSD / RetinaNet/ UNET/"
+echo "begin download models for Mask2Former "
 echo "==================================================================="
-wget https://nvidia.box.com/shared/static/taqr2y52go17x1ymaekmg6dh8z6d43wr -O models.zip
-unzip -o models.zip
-rm models.zip
-
-echo "==================================================================="
-echo "begin download models for peopleSegNet "
-echo "==================================================================="
-mkdir -p models/peopleSegNet
-wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplesegnet/versions/deployable_v2.0.2/zip \
--O peoplesegnet_deployable_v2.0.2.zip
-unzip peoplesegnet_deployable_v2.0.2.zip -d models/peopleSegNet
-rm peoplesegnet_deployable_v2.0.2.zip
-
-echo "==================================================================="
-echo "begin download models for peopleSemSegNet "
-echo "==================================================================="
-mkdir -p models/peopleSemSegNet_vanilla
-wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplesemsegnet/versions/deployable_quantized_vanilla_unet_v2.0/zip \
--O peoplesemsegnet_deployable_quantized_vanilla_unet_v2.0.zip
-unzip peoplesemsegnet_deployable_quantized_vanilla_unet_v2.0.zip -d models/peopleSemSegNet_vanilla
-rm peoplesemsegnet_deployable_quantized_vanilla_unet_v2.0.zip
-
-mkdir -p models/peopleSemSegNet_shuffle
-wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplesemsegnet/versions/deployable_shuffleseg_unet_v1.0/zip \
--O deployable_shuffleseg_unet_v1.0.zip
-unzip deployable_shuffleseg_unet_v1.0.zip -d models/peopleSemSegNet_shuffle
-rm deployable_shuffleseg_unet_v1.0.zip
-
-echo "==================================================================="
-echo "begin downloading facial landmarks model "
-echo "==================================================================="
-mkdir -p ./models/faciallandmark
-cd ./models/faciallandmark
-wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/fpenet/versions/deployable_v3.0/files/model.etlt -O faciallandmark.etlt
-wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/fpenet/versions/deployable_v3.0/files/int8_calibration.txt -O fpenet_cal.txt
-
-echo "==================================================================="
-echo "begin downloading facenet model "
-echo "==================================================================="
-cd -
-mkdir -p ./models/facenet
-cd ./models/facenet
-wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/facenet/versions/pruned_quantized_v2.0.1/files/model.etlt -O facenet.etlt
-wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/facenet/versions/pruned_quantized_v2.0.1/files/int8_calibration.txt -O facenet_cal.txt
-
-echo "==================================================================="
-echo "begin downloading emotionNet model "
-echo "==================================================================="
-cd -
-mkdir -p ./models/emotion
-cd ./models/emotion
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/emotionnet/versions/deployable_v1.0/files/model.etlt -O emotion.etlt
-
-echo "==================================================================="
-echo "begin downloading GazeNet model "
-echo "==================================================================="
-cd -
-mkdir -p ./models/gazenet
-cd ./models/gazenet
-wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/gazenet/versions/deployable_v1.0/files/model.etlt -O gazenet_facegrid.etlt
-
-echo "==================================================================="
-echo "begin downloading HeartRateNet model "
-echo "==================================================================="
-cd -
-mkdir -p ./models/heartrate
-cd ./models/heartrate
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/heartratenet/versions/deployable_v2.0/files/model.etlt -O heartrate.etlt
-
-echo "==================================================================="
-echo "begin downloading GestureNet model "
-echo "==================================================================="
-cd -
-mkdir -p ./models/gesture
-cd ./models/gesture
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/gesturenet/versions/deployable_v2.0.2/files/model.etlt -O gesture.etlt
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/gesturenet/versions/deployable_v2.0.2/files/int8_calibration.txt -O int8_calibration.txt
-
-echo "==================================================================="
-echo "begin downloading BodyPose2d model "
-echo "==================================================================="
-cd -
-mkdir -p ./models/bodypose2d
-cd ./models/bodypose2d
-wget --content-disposition https://api.ngc.nvidia.com/v2/models/nvidia/tao/bodyposenet/versions/deployable_v1.0.1/zip -O bodyposenet_deployable_v1.0.1.zip
-unzip bodyposenet_deployable_v1.0.1.zip
-rm bodyposenet_deployable_v1.0.1.zip
+mkdir -p models/mask2former
+cd ./models/mask2former
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/mask2former/mask2former_swint_deployable_v1.0/files?redirect=true&path=mask2former_swint.onnx' \
+-O mask2former.onnx
 
 echo "==================================================================="
 echo "begin downloading CitySemSegFormer model "
@@ -135,9 +39,8 @@ echo "==================================================================="
 cd -
 mkdir -p ./models/citysemsegformer
 cd ./models/citysemsegformer
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/citysemsegformer/versions/deployable_v1.0/files/citysemsegformer.etlt -O citysemsegformer.etlt
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/citysemsegformer/versions/deployable_v1.0/files/labels.txt -O labels.txt
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/citysemsegformer/versions/deployable_v1.0/files/nvinfer_config.txt -O nvinfer_config.txt
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/citysemsegformer/deployable_onnx_v1.0/files?redirect=true&path=citysemsegformer.onnx' -O citysemsegformer.onnx && \
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/citysemsegformer/deployable_onnx_v1.0/files?redirect=true&path=labels.txt' -O labels.txt
 
 echo "==================================================================="
 echo "begin downloading PeopleNet Transformer model "
@@ -145,7 +48,8 @@ echo "==================================================================="
 cd -
 mkdir -p ./models/peoplenet_transformer
 cd ./models/peoplenet_transformer
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet_transformer/versions/deployable_v1.0/files/resnet50_peoplenet_transformer.etlt -O resnet50_peoplenet_transformer.etlt
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/peoplenet_transformer/deployable_v1.1/files?redirect=true&path=resnet50_peoplenet_transformer_op17.onnx' \
+ -O resnet50_peoplenet_transformer_op17.onnx
 wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet_transformer/versions/deployable_v1.0/files/labels.txt -O labels.txt
 
 echo "==================================================================="
@@ -154,25 +58,16 @@ echo "==================================================================="
 cd -
 mkdir -p ./models/reidentificationnet
 cd ./models/reidentificationnet
-wget 'https://api.ngc.nvidia.com/v2/models/nvidia/tao/reidentificationnet/versions/deployable_v1.1/files/resnet50_market1501_aicity156.onnx' -O resnet50_market1501_aicity156.etlt
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/reidentificationnet/deployable_v1.2/files?redirect=true&path=resnet50_market1501_aicity156.onnx' -O resnet50_market1501_aicity156.onnx
 
-echo "==================================================================="
-echo "begin downloading Retail Object Detection vdeployable_100 model "
-echo "==================================================================="
+echo "========================================================================"
+echo "begin downloading Retail Object Detection DINO vdeployable_binary model "
+echo "========================================================================"
 cd -
-mkdir -p ./models/retail_object_detection_100
-cd ./models/retail_object_detection_100
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/retail_object_detection/versions/deployable_100_v1.0/files/retail_detector_100.etlt  -O retail_detector_100.etlt
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/retail_object_detection/versions/deployable_100_v1.0/files/class_map.txt -O class_map.txt
-
-echo "==================================================================="
-echo "begin downloading Retail Object Detection vdeployable_binary model "
-echo "==================================================================="
-cd -
-mkdir -p ./models/retail_object_detection_binary
-cd ./models/retail_object_detection_binary
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/retail_object_detection/versions/deployable_binary_v1.0/files/retail_detector_binary.etlt -O retail_detector_binary.etlt
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/retail_object_detection/versions/deployable_binary_v1.0/files/class_map.txt -O class_map.txt
+mkdir -p ./models/retail_object_detection_binary_dino
+cd ./models/retail_object_detection_binary_dino
+wget 'https://api.ngc.nvidia.com/v2/models/nvidia/tao/retail_object_detection/versions/deployable_binary_v2.0/files/class_map.txt' -O class_map.txt
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/retail_object_detection/deployable_retail_object_detection_binary_v2.2.2.3/files?redirect=true&path=retail_object_detection_binary_v2.2.2.3.onnx'  -O retail_object_detection_dino_binary.onnx
 
 echo "==================================================================="
 echo "begin downloading Retail Object Recognition model "
@@ -180,7 +75,8 @@ echo "==================================================================="
 cd -
 mkdir -p ./models/retail_object_recognition
 cd ./models/retail_object_recognition
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/retail_object_recognition/versions/deployable_v1.0/files/retail_object_recognition.etlt -O retail_object_recognition.etlt
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/retail_object_recognition/deployable_v2.0/files?redirect=true&path=FANDualHead_Base_NVIN_op16.onnx' -O retail_object_recognition.onnx
+wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/retail_object_recognition/versions/deployable_v2.0/files/recognitionv2_name_list.txt -O retail_object_recognition_labels.txt
 
 echo "==================================================================="
 echo "begin downloading PeopleNet model "
@@ -188,9 +84,9 @@ echo "==================================================================="
 cd -
 mkdir -p ./models/peoplenet
 cd ./models/peoplenet
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/deployable_quantized_v2.6.1/files/resnet34_peoplenet_int8.etlt
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/deployable_quantized_v2.6.1/files/resnet34_peoplenet_int8.txt
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/deployable_quantized_v2.6.1/files/labels.txt
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/peoplenet/pruned_quantized_decrypted_v2.3.4/files?redirect=true&path=resnet34_peoplenet_int8.onnx' -O resnet34_peoplenet_int8.onnx
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/peoplenet/pruned_quantized_decrypted_v2.3.4/files?redirect=true&path=resnet34_peoplenet_int8.txt' -O resnet34_peoplenet_int8.txt
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/peoplenet/pruned_quantized_decrypted_v2.3.4/files?redirect=true&path=labels.txt' -O labels.txt
 
 echo "==================================================================="
 echo "begin downloading BodyPose3DNet model "
@@ -198,7 +94,7 @@ echo "==================================================================="
 cd -
 mkdir -p ./models/bodypose3dnet
 cd ./models/bodypose3dnet
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/bodypose3dnet/versions/deployable_accuracy_v1.0/files/bodypose3dnet_accuracy.etlt
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/bodypose3dnet/deployable_accuracy_onnx_1.0/files?redirect=true&path=bodypose3dnet_accuracy.onnx' -O bodypose3dnet_accuracy.onnx
 
 echo "==================================================================="
 echo "begin downloading poseclassificationnet model "
@@ -206,15 +102,59 @@ echo "==================================================================="
 cd -
 mkdir -p ./models/poseclassificationnet
 cd ./models/poseclassificationnet
-wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/poseclassificationnet/versions/deployable_v1.0/files/st-gcn_3dbp_nvidia.etlt
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/poseclassificationnet/deployable_onnx_v1.0/files?redirect=true&path=st-gcn_3dbp_nvidia.onnx' -O st-gcn_3dbp_nvidia.onnx
+
+echo "==================================================================="
+echo "begin downloading nvocdr model "
+echo "==================================================================="
+cd -
+mkdir -p ./models/nvocdr
+cd ./models/nvocdr
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/ocdnet/deployable_onnx_v2.4/files?redirect=true&path=ocdnet_fan_tiny_2x_icdar_pruned.onnx' -O ocdnet.onnx
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/ocdnet/deployable_onnx_v2.4/files?redirect=true&path=ocdnet_fan_tiny_2x_icdar_pruned.cal' -O ocdnet.cal
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/ocrnet/deployable_v2.1.1/files?redirect=true&path=ocrnet-vit-pcb.onnx' -O ocrnet.onnx
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/ocrnet/deployable_v2.0/files?redirect=true&path=character_list' -O character_list
+
+echo "==================================================================="
+echo "begin downloading CAR Plate models "
+echo "==================================================================="
+cd -
+mkdir -p ./models/trafficcamnet
+cd ./models/trafficcamnet
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/trafficcamnet/pruned_onnx_v1.0.4/files?redirect=true&path=resnet18_trafficcamnet_pruned.onnx' -O resnet18_trafficcamnet_pruned.onnx
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/trafficcamnet/pruned_onnx_v1.0.4/files?redirect=true&path=resnet18_trafficcamnet_pruned_int8.txt' -O resnet18_trafficcamnet_pruned_int8.txt
+
+cd -
+mkdir -p ./models/LPD_us
+cd ./models/LPD_us
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lpdnet/pruned_v2.3.1/files?redirect=true&path=LPDNet_usa_pruned_tao5.onnx' -O LPDNet_usa_pruned_tao5.onnx
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lpdnet/pruned_v2.3.1/files?redirect=true&path=usa_cal_10.1.0.bin' -O usa_cal_10.1.0.bin
+wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/lpdnet/versions/pruned_v1.0/files/usa_lpd_label.txt
+cd -
+mkdir -p ./models/LPD_ch
+cd ./models/LPD_ch
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lpdnet/pruned_v2.3.1/files?redirect=true&path=LPDNet_CCPD_pruned_tao5.onnx' -O LPDNet_CCPD_pruned_tao5.onnx
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lpdnet/pruned_v2.3.1/files?redirect=true&path=ccpd_cal_10.1.0.bin' -O ccpd_cal_10.1.0.bin
+wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/lpdnet/versions/pruned_v1.0/files/ccpd_label.txt
+cd -
+
+mkdir -p ./models/LPR_us
+cd ./models/LPR_us
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lprnet/deployable_onnx_v1.1/files?redirect=true&path=us_lprnet_baseline18_deployable.onnx' -O us_lprnet_baseline18_deployable.onnx
+touch labels_us.txt
+cd -
+mkdir -p ./models/LPR_ch
+cd ./models/LPR_ch
+wget --content-disposition 'https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/lprnet/deployable_onnx_v1.1/files?redirect=true&path=ch_lprnet_baseline18_deployable.onnx' -O ch_lprnet_baseline18_deployable.onnx
+touch labels_ch.txt
 
 echo "==================================================================="
 echo "begin downloading tracker model "
 echo "==================================================================="
-cd -
 mkdir -p /opt/nvidia/deepstream/deepstream/samples/models/Tracker
 cd /opt/nvidia/deepstream/deepstream/samples/models/Tracker
 wget https://api.ngc.nvidia.com/v2/models/nvidia/tao/reidentificationnet/versions/deployable_v1.0/files/resnet50_market1501.etlt
+# cp ./models/reidentificationnet/resnet50_market1501_aicity156.onnx /opt/nvidia/deepstream/deepstream/samples/models/Tracker
 
 echo "==================================================================="
 echo "Download models successfully "

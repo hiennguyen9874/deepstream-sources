@@ -1856,11 +1856,11 @@ are published to the message broker.",
             // g_object_set(G_OBJECT(filesink), "control-rate", 0, NULL);//hevc
         }
     } else {
-        if (prop.integrated) {
-            filesink = gst_element_factory_make("nv3dsink", "nv-sink");
-        } else {
-            filesink = gst_element_factory_make("nveglglessink", "nv-sink");
-        }
+#ifdef __aarch64__
+        filesink = gst_element_factory_make("nv3dsink", "nv3d-sink");
+#else
+        filesink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
     }
 
     /* Add all elements to the pipeline */

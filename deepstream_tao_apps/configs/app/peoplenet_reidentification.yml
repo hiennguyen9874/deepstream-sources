@@ -39,7 +39,7 @@ tiled-display:
   nvbuf-memory-type: 0
 
 source:
-  csv-file-path: sources.csv
+ csv-file-path: sources.csv
 
 sink0:
   enable: 0

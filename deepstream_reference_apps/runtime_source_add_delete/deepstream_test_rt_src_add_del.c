@@ -35,7 +35,6 @@ GMainLoop *loop = NULL;
 #define TRACKER_CONFIG_FILE "dstest_tracker_config.txt"
 #define SGIE1_CONFIG_FILE "dstest_sgie1_config.txt"
 #define SGIE2_CONFIG_FILE "dstest_sgie2_config.txt"
-#define SGIE3_CONFIG_FILE "dstest_sgie3_config.txt"
 
 #define CONFIG_GPU_ID "gpu-id"
 #define CONFIG_GROUP_TRACKER "tracker"
@@ -57,8 +56,8 @@ gboolean g_run_forever = FALSE;
 gchar pgie_classes_str[4][32] = {"Vehicle", "TwoWheeler", "Person", "Roadsign"};
 
 GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *sgie1 = NULL,
-           *sgie2 = NULL, *sgie3 = NULL, *nvvideoconvert = NULL, *nvosd = NULL, *tiler = NULL,
-           *tracker = NULL, *queue = NULL;
+           *sgie2 = NULL, *nvvideoconvert = NULL, *nvosd = NULL, *tiler = NULL, *tracker = NULL,
+           *queue = NULL;
 
 gchar *uri = NULL;
 
@@ -133,7 +132,7 @@ static void cb_newpad(GstElement *decodebin, GstPad *pad, gpointer data)
         gchar pad_name[16] = {0};
         GstPad *sinkpad = NULL;
         g_snprintf(pad_name, 15, "sink_%u", source_id);
-        sinkpad = gst_element_get_request_pad(streammux, pad_name);
+        sinkpad = gst_element_request_pad_simple(streammux, pad_name);
         if (gst_pad_link(pad, sinkpad) != GST_PAD_LINK_OK) {
             g_print("Failed to link decodebin to pipeline\n");
         } else {
@@ -370,7 +369,12 @@ static gboolean set_tracker_properties(GstElement *nvtracker)
     GKeyFile *key_file = g_key_file_new();
 
     if (!g_key_file_load_from_file(key_file, TRACKER_CONFIG_FILE, G_KEY_FILE_NONE, &error)) {
-        g_printerr("Failed to load config file: %s\n", error->message);
+        if (error) {
+            g_printerr("Failed to load config file: %s\n", error->message);
+            g_error_free(error);
+        } else {
+            g_printerr("Failed to load config file.\n");
+        }
         return FALSE;
     }
 
@@ -400,6 +404,7 @@ static gboolean set_tracker_properties(GstElement *nvtracker)
                                       CONFIG_GROUP_TRACKER_LL_CONFIG_FILE, &error));
             CHECK_ERROR(error);
             g_object_set(G_OBJECT(nvtracker), "ll-config-file", ll_config_file, NULL);
+            g_free(ll_config_file);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_TRACKER_LL_LIB_FILE)) {
             char *ll_lib_file = get_absolute_file_path(
                 TRACKER_CONFIG_FILE,
@@ -407,6 +412,7 @@ static gboolean set_tracker_properties(GstElement *nvtracker)
                                       CONFIG_GROUP_TRACKER_LL_LIB_FILE, &error));
             CHECK_ERROR(error);
             g_object_set(G_OBJECT(nvtracker), "ll-lib-file", ll_lib_file, NULL);
+            g_free(ll_lib_file);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS)) {
             gboolean enable_batch_process = g_key_file_get_integer(
                 key_file, CONFIG_GROUP_TRACKER, CONFIG_GROUP_TRACKER_ENABLE_BATCH_PROCESS, &error);
@@ -424,6 +430,9 @@ done:
     }
     if (keys) {
         g_strfreev(keys);
+    }
+    if (key_file) {
+        g_key_file_free(key_file);
     }
     if (!ret) {
         g_printerr("%s failed", __func__);
@@ -458,8 +467,8 @@ int main(int argc, char *argv[])
                 if (strstr(device_name, "Orin") && (strstr(device_name, "Nano")))
                     enc_hw_support = FALSE;
             }
+            fclose(ptr);
         }
-        fclose(ptr);
     }
 
     /* Check input arguments */
@@ -546,7 +555,6 @@ int main(int argc, char *argv[])
 
     sgie1 = gst_element_factory_make("nvinfer", "secondary-nvinference-engine1");
     sgie2 = gst_element_factory_make("nvinfer", "secondary-nvinference-engine2");
-    sgie3 = gst_element_factory_make("nvinfer", "secondary-nvinference-engine3");
     queue = gst_element_factory_make("queue", "queue");
 
     if (display) {
@@ -554,7 +562,11 @@ int main(int argc, char *argv[])
         if (prop.integrated) {
             sink = gst_element_factory_make("nv3dsink", "nv3dsink");
         } else {
+#ifdef __aarch64__
+            sink = gst_element_factory_make("nv3dsink", "nv3dsink");
+#else
             sink = gst_element_factory_make("nveglglessink", "nveglglessink");
+#endif
         }
     } else {
         sink = gst_element_factory_make("nvvideoencfilesinkbin", "sink");
@@ -564,8 +576,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (!pgie || !sgie1 || !sgie2 || !sgie3 || !tiler || !nvvideoconvert || !nvosd || !sink ||
-        !tracker) {
+    if (!pgie || !sgie1 || !sgie2 || !tiler || !nvvideoconvert || !nvosd || !sink || !tracker) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
@@ -578,7 +589,6 @@ int main(int argc, char *argv[])
     g_object_set(G_OBJECT(pgie), "config-file-path", PGIE_CONFIG_FILE, NULL);
     g_object_set(G_OBJECT(sgie1), "config-file-path", SGIE1_CONFIG_FILE, NULL);
     g_object_set(G_OBJECT(sgie2), "config-file-path", SGIE2_CONFIG_FILE, NULL);
-    g_object_set(G_OBJECT(sgie3), "config-file-path", SGIE3_CONFIG_FILE, NULL);
 
     /* Set necessary properties of the tracker element. */
     if (!set_tracker_properties(tracker)) {
@@ -599,7 +609,6 @@ int main(int argc, char *argv[])
     SET_GPU_ID(pgie, GPU_ID);
     SET_GPU_ID(sgie1, GPU_ID);
     SET_GPU_ID(sgie2, GPU_ID);
-    SET_GPU_ID(sgie3, GPU_ID);
 
     tiler_rows = (guint)sqrt(num_sources);
     tiler_columns = (guint)ceil(1.0 * num_sources / tiler_rows);
@@ -610,7 +619,9 @@ int main(int argc, char *argv[])
     SET_GPU_ID(nvvideoconvert, GPU_ID);
     SET_GPU_ID(nvosd, GPU_ID);
     if (!prop.integrated) {
+#ifndef __aarch64__
         SET_GPU_ID(sink, GPU_ID);
+#endif
     }
 
     /* we add a message handler */
@@ -620,14 +631,14 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    gst_bin_add_many(GST_BIN(pipeline), pgie, tracker, sgie1, sgie2, sgie3, tiler, nvvideoconvert,
-                     nvosd, queue, sink, NULL);
+    gst_bin_add_many(GST_BIN(pipeline), pgie, tracker, sgie1, sgie2, tiler, nvvideoconvert, nvosd,
+                     queue, sink, NULL);
 
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder ->
      * nvinfer -> nvvideoconvert -> nvosd -> video-renderer */
-    if (!gst_element_link_many(streammux, pgie, tracker, sgie1, sgie2, sgie3, queue, tiler,
-                               nvvideoconvert, nvosd, sink, NULL)) {
+    if (!gst_element_link_many(streammux, pgie, tracker, sgie1, sgie2, queue, tiler, nvvideoconvert,
+                               nvosd, sink, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }

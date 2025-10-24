@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -35,7 +35,7 @@ input [
 output [
   {
     name: "argmax_1"
-    data_type: TYPE_INT32
+    data_type: TYPE_INT64
     dims: [ 544, 960 , 1 ]
   }
 ]

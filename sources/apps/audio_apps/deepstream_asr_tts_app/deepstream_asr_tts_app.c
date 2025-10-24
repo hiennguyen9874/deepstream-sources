@@ -34,7 +34,7 @@ static gboolean print_position_func(gpointer arg)
 {
     AppCtx *appctx = (AppCtx *)arg;
     StreamCtx *sctx = NULL;
-    gint64 pos, len;
+    gint64 pos = 0, len = 0;
 
     guint i;
     gboolean ret = TRUE;

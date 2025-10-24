@@ -1,5 +1,5 @@
 #############################################################################
-# Copyright (c) 2021-2022 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021-2025 NVIDIA Corporation.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -29,8 +29,8 @@ https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_gst-nvmsg
 ================================================================================
 Pre-requisites
 ================================================================================
-- DeepStreamSDK 6.3
-- Graph-Composer 3.0.0
+- DeepStreamSDK 8.0
+- Graph-Composer 5.1.0
 
 ================================================================================
 Running the graph
@@ -62,7 +62,7 @@ provided for this sample.
 
 * Building a DGPU container and running on the same host
   $ container_builder build -c ds_test4_container_builder_dgpu.yaml \
-        -d ../common/target_x86_64.yaml -wd $(pwd)
+        -d x86 -wd $(pwd)
   $ xhost +
   $ docker run -it --rm --gpus all -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
         -e DISPLAY=:0 --net=host deepstream_test4_dgpu
@@ -72,7 +72,7 @@ provided for this sample.
 - In ds_test4_container_builder_jetson.yaml, change <docker-container-registry>
   to a valid docker registry where containers can be pushed, and then build:
   $ container_builder build -c ds_test4_container_builder_jetson.yaml \
-        -d ../common/target_aarch64.yaml -wd $(pwd)
+        -d aarch64 -wd $(pwd)
 
 - Push the built image to the docker registry:
   $ docker push <docker-container-registry>:deepstream-test4-jetson

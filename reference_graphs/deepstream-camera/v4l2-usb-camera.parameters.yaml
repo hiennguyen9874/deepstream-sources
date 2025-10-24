@@ -10,11 +10,11 @@
 ################################################################################
 ---
 components:
-  - name: camera_source_input
-    parameters:
-      type: 0
-      width: 640
-      height: 480
-      v4l2-device: /dev/video0
-      framerate: 30
+- name: camera_source_input
+  parameters:
+    type: 0
+    width: 640
+    height: 480
+    v4l2-device: /dev/video0
+    framerate: 30
 name: camera_source_input

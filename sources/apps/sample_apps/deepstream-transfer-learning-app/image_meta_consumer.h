@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <fstream>
@@ -215,4 +216,5 @@ private:
     CaptureTimeRules ctr_;
     NvDsObjEncCtxHandle obj_ctx_handle_;
     bool image_saving_library_is_init_;
+    std::mutex mutex_image_save_init_;
 };

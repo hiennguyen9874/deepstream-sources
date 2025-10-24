@@ -9,7 +9,7 @@
 #
 ################################################################################
 files:
-  - src: config_video_template_can_match.yaml
-    target: config_video_template_can_match.yaml
-  - src: camera.pfs
-    target: camera.pfs
+- src: config_video_template_can_match.yaml
+  target: config_video_template_can_match.yaml
+- src: camera.pfs
+  target: camera.pfs

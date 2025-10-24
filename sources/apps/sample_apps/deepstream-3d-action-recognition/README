@@ -1,11 +1,13 @@
 *****************************************************************************
-* Copyright (c) 2021-2023 NVIDIA Corporation.  All rights reserved.
-*
-* NVIDIA Corporation and its licensors retain all intellectual property
-* and proprietary rights in and to this software, related documentation
-* and any modifications thereto.  Any use, reproduction, disclosure or
-* distribution of this software and related documentation without an express
-* license agreement from NVIDIA Corporation is strictly prohibited.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ *
+ * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+ * property and proprietary rights in and to this material, related
+ * documentation and any modifications thereto. Any use, reproduction,
+ * disclosure or distribution of this material and related documentation
+ * without an express license agreement from NVIDIA CORPORATION or
+ * its affiliates is strictly prohibited.
 *****************************************************************************
 
 *****************************************************************************
@@ -30,7 +32,6 @@ You must have the following development packages installed
 To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
    libgstrtspserver-1.0-dev libx11-dev
-On x86 : sudo apt-get install -y cuda-compat-12-1
 
 To prepare Triton inference environment, Please follow instructions in
 `samples/configs/deepstream-app-triton/README`.
@@ -76,9 +77,8 @@ To compile application deepstream-3d-action-recognition and custom lib
 custom_sequence_preprocess/libnvds_custom_sequence_preprocess.so:
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
-               export LD_LIBRARY_PATH=/usr/local/cuda/compat:$LD_LIBRARY_PATH (Required for data center GPUs only)
+     For x86, CUDA_VER=12.8
+     For jetson, CUDA_VER=13.0
 
   $ cd custom_sequence_preprocess
   $ sudo make install (sudo not required in case of docker containers)
@@ -97,9 +97,10 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
 Search and Download 3D and 2D RGB based tao_iva_action_recognition_pretrained
 models from NGC https://ngc.nvidia.com/catalog/models/nvidia:tao:actionrecognitionnet
 into this folder. The 2 TAO models are
-  resnet18_3d_rgb_hmdb5_32.etlt
-  resnet18_2d_rgb_hmdb5_32.etlt
+  resnet18_3d_rgb_hmdb5_32.onnx
+  resnet18_2d_rgb_hmdb5_32.onnx
 
+Make sure the model names are exactly same as the ones mentioned above while downloading.
 These Models support following classes :
   push;fall_floor;walk;run;ride_bike
 
@@ -189,10 +190,10 @@ Assume following examples are using incoming frame nums: 1,3,4,5,6,7,8,9,10...
     When `stride=1, subsample=0`, the 2 consecutive sliding sequences are:
       Batch A: [1,2,3,4,5]
       Batch B: [2,3,4,5,6]
-    When `subsample=2, subsample=0`, the 2 consecutive sliding sequences are:
+    When `stride=2, subsample=0`, the 2 consecutive sliding sequences are:
       Batch A: [1,2,3,4,5]
       Batch B: [3,4,5,6,7]
-    When `subsample=2, subsample=1`, it would do subsample firstly, sliding
+    When `stride=2, subsample=1`, it would do subsample firstly, sliding
     sequences are on top of subsample results.
     The processing frame nums after subsample are: 1,3,5,7,9,11,13,15,17,19
     the consecutive sliding sequences on top of them are:

@@ -1,14 +1,46 @@
 #include <cuda_runtime_api.h>
 #include <glib.h>
 #include <gst/gst.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/timeb.h>
 #include <time.h>
 
+#include "deepstream_test4_yml_parse.h"
 #include "gstnvdsmeta.h"
+#include "nvbufsurface.h"
+#include "nvds_obj_encode.h"
 #include "nvds_yml_parser.h"
 #include "nvdsmeta_schema.h"
+
+// #define ENABLE_DUMP_FILE
+#ifdef ENABLE_DUMP_FILE
+FILE *fp;
+char fileObjNameString[1024];
+#endif
+
+// #define MEASURE_ENCODE_TIME
+#ifdef MEASURE_ENCODE_TIME
+#include <sys/time.h>
+#define START_PROFILE           \
+    {                           \
+        struct timeval t1, t2;  \
+        double elapsedTime = 0; \
+        gettimeofday(&t1, NULL);
+
+#define STOP_PROFILE(X)                                \
+    gettimeofday(&t2, NULL);                           \
+    elapsedTime = (t2.tv_sec - t1.tv_sec) * 1000.0;    \
+    elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0; \
+    printf("%s ElaspedTime=%f ms\n", X, elapsedTime);  \
+    }
+
+#else
+#define START_PROFILE
+#define STOP_PROFILE(X)
+#endif
 
 #define MAX_DISPLAY_LEN 64
 #define MAX_TIME_STAMP_LEN 32
@@ -91,7 +123,7 @@ static gpointer meta_copy_func(gpointer data, gpointer user_data)
     NvDsEventMsgMeta *srcMeta = (NvDsEventMsgMeta *)user_meta->user_meta_data;
     NvDsEventMsgMeta *dstMeta = NULL;
 
-    dstMeta = g_memdup(srcMeta, sizeof(NvDsEventMsgMeta));
+    dstMeta = (NvDsEventMsgMeta *)g_memdup2(srcMeta, sizeof(NvDsEventMsgMeta));
 
     if (srcMeta->ts)
         dstMeta->ts = g_strdup(srcMeta->ts);
@@ -101,7 +133,7 @@ static gpointer meta_copy_func(gpointer data, gpointer user_data)
 
     if (srcMeta->objSignature.size > 0) {
         dstMeta->objSignature.signature =
-            g_memdup(srcMeta->objSignature.signature, srcMeta->objSignature.size);
+            (gdouble *)g_memdup2(srcMeta->objSignature.signature, srcMeta->objSignature.size);
         dstMeta->objSignature.size = srcMeta->objSignature.size;
     }
 
@@ -213,6 +245,33 @@ static void generate_vehicle_meta(gpointer data)
     obj->region = g_strdup("CA");
 }
 
+static gpointer meta_copy_func_custom(gpointer data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
+    NvDsCustomMsgInfo *srcMeta = (NvDsCustomMsgInfo *)user_meta->user_meta_data;
+    NvDsCustomMsgInfo *dstMeta = NULL;
+
+    dstMeta = (NvDsCustomMsgInfo *)g_memdup2(srcMeta, sizeof(NvDsCustomMsgInfo));
+
+    if (srcMeta->message)
+        dstMeta->message = (gpointer)g_strdup((const char *)srcMeta->message);
+    dstMeta->size = srcMeta->size;
+
+    return dstMeta;
+}
+
+static void meta_free_func_custom(gpointer data, gpointer user_data)
+{
+    NvDsUserMeta *user_meta = (NvDsUserMeta *)data;
+    NvDsCustomMsgInfo *srcMeta = (NvDsCustomMsgInfo *)user_meta->user_meta_data;
+
+    if (srcMeta->message)
+        g_free(srcMeta->message);
+    srcMeta->size = 0;
+
+    g_free(user_meta->user_meta_data);
+}
+
 static void generate_person_meta(gpointer data)
 {
     NvDsPersonObject *obj = (NvDsPersonObject *)data;
@@ -269,10 +328,9 @@ static void generate_event_msg_meta(gpointer data, gint class_id, NvDsObjectMeta
 
 /* osd_sink_pad_buffer_probe  will extract metadata received on OSD sink pad
  * and update params for drawing rectangle, object information etc. */
-
-static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad,
-                                                   GstPadProbeInfo *info,
-                                                   gpointer u_data)
+static GstPadProbeReturn osd_sink_pad_buffer_metadata_probe(GstPad *pad,
+                                                            GstPadProbeInfo *info,
+                                                            gpointer u_data)
 {
     GstBuffer *buf = (GstBuffer *)info->data;
     NvDsFrameMeta *frame_meta = NULL;
@@ -310,7 +368,7 @@ static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad,
             if (txt_params->display_text)
                 g_free(txt_params->display_text);
 
-            txt_params->display_text = g_malloc0(MAX_DISPLAY_LEN);
+            txt_params->display_text = (char *)g_malloc0(MAX_DISPLAY_LEN);
 
             g_snprintf(txt_params->display_text, MAX_DISPLAY_LEN, "%s ",
                        pgie_classes_str[obj_meta->class_id]);
@@ -325,7 +383,7 @@ static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad,
             txt_params->y_offset = obj_meta->rect_params.top - 25;
 
             /* Font , font-color and font-size */
-            txt_params->font_params.font_name = "Serif";
+            txt_params->font_params.font_name = (char *)"Serif";
             txt_params->font_params.font_size = 10;
             txt_params->font_params.font_color.red = 1.0;
             txt_params->font_params.font_color.green = 1.0;
@@ -383,6 +441,178 @@ static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad,
     return GST_PAD_PROBE_OK;
 }
 
+static GstPadProbeReturn osd_sink_pad_buffer_image_probe(GstPad *pad,
+                                                         GstPadProbeInfo *info,
+                                                         gpointer u_data)
+{
+    GstBuffer *buf = (GstBuffer *)info->data;
+    NvDsFrameMeta *frame_meta = NULL;
+    gboolean is_first_object = TRUE;
+    NvDsMetaList *l_frame, *l_obj;
+    gchar *encoded_data;
+    gchar *message_data;
+    gchar *width, *height;
+    gchar *ts = (gchar *)g_malloc0(MAX_TIME_STAMP_LEN + 1);
+
+    NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
+    if (!batch_meta) {
+        // No batch meta attached.
+        g_free(ts);
+        return GST_PAD_PROBE_OK;
+    }
+
+    for (l_frame = batch_meta->frame_meta_list; l_frame; l_frame = l_frame->next) {
+        frame_meta = (NvDsFrameMeta *)l_frame->data;
+
+        if (frame_meta == NULL) {
+            // Ignore Null frame meta.
+            continue;
+        }
+
+        is_first_object = TRUE;
+
+        for (l_obj = frame_meta->obj_meta_list; l_obj; l_obj = l_obj->next) {
+            NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)l_obj->data;
+
+            if (obj_meta == NULL) {
+                // Ignore Null object.
+                continue;
+            }
+
+            if (is_first_object && !(frame_number % frame_interval)) {
+                /* Frequency of images to be send will be based on use case.
+                 * Here images is being sent for first object every frame_interval(default=30).
+                 */
+                NvDsUserMetaList *usrMetaList = obj_meta->obj_user_meta_list;
+                while (usrMetaList != NULL) {
+                    NvDsUserMeta *user_event_meta_custom =
+                        nvds_acquire_user_meta_from_pool(batch_meta);
+                    NvDsCustomMsgInfo *msg_custom_meta =
+                        (NvDsCustomMsgInfo *)g_malloc0(sizeof(NvDsCustomMsgInfo));
+
+                    NvDsUserMeta *usrMetaData = (NvDsUserMeta *)usrMetaList->data;
+                    if (usrMetaData->base_meta.meta_type == NVDS_CROP_IMAGE_META) {
+                        NvDsObjEncOutParams *enc_jpeg_image =
+                            (NvDsObjEncOutParams *)usrMetaData->user_meta_data;
+                        START_PROFILE;
+                        encoded_data =
+                            g_base64_encode(enc_jpeg_image->outBuffer, enc_jpeg_image->outLen);
+                        generate_ts_rfc3339(ts, MAX_TIME_STAMP_LEN);
+                        width = g_strdup_printf("%f",
+                                                obj_meta->detector_bbox_info.org_bbox_coords.width);
+                        height = g_strdup_printf(
+                            "%f", obj_meta->detector_bbox_info.org_bbox_coords.height);
+                        /* Image message fields are separated by ";".
+                         * Specific Format:
+                         * "image;image_format;image_widthximage_height;time;encoded data;" For
+                         * Example: "image;jpg;640x480;2023-07-31T10:20:13;xxxxxxxxxxx"
+                         */
+                        message_data = g_strconcat("image;jpg;", width, "x", height, ";", ts, ";",
+                                                   encoded_data, ";", NULL);
+                        STOP_PROFILE("Base64 Encode Time ");
+                        msg_custom_meta->size = strlen(message_data);
+                        msg_custom_meta->message = g_strdup(message_data);
+                        if (user_event_meta_custom) {
+                            user_event_meta_custom->user_meta_data = (void *)msg_custom_meta;
+                            user_event_meta_custom->base_meta.meta_type = NVDS_CUSTOM_MSG_BLOB;
+                            user_event_meta_custom->base_meta.copy_func =
+                                (NvDsMetaCopyFunc)meta_copy_func_custom;
+                            user_event_meta_custom->base_meta.release_func =
+                                (NvDsMetaReleaseFunc)meta_free_func_custom;
+                            nvds_add_user_meta_to_frame(frame_meta, user_event_meta_custom);
+                        } else {
+                            g_print("Error in attaching event meta custom to buffer\n");
+                        }
+
+#ifdef ENABLE_DUMP_FILE
+                        gsize size = 0;
+                        snprintf(fileObjNameString, 1024, "%s_%d_%d_%s.jpg", ts, frame_number,
+                                 frame_meta->batch_id, obj_meta->obj_label);
+                        guchar *decoded_data = g_base64_decode(encoded_data, &size);
+                        fp = fopen(fileObjNameString, "wb");
+                        if (fp) {
+                            fwrite(decoded_data, size, 1, fp);
+                            fclose(fp);
+                        } else {
+                            g_printerr("Could not open file!\n");
+                        }
+                        g_free(decoded_data);
+#endif
+                        g_free(encoded_data);
+                        g_free(message_data);
+                        g_free(width);
+                        g_free(height);
+                        usrMetaList = NULL;
+                    } else {
+                        usrMetaList = usrMetaList->next;
+                    }
+                }
+                is_first_object = FALSE;
+            }
+        }
+    }
+
+    g_free(ts);
+    frame_number++;
+
+    return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info, gpointer ctx)
+{
+    GstBuffer *buf = (GstBuffer *)info->data;
+    GstMapInfo inmap = GST_MAP_INFO_INIT;
+    if (!gst_buffer_map(buf, &inmap, GST_MAP_READ)) {
+        GST_ERROR("input buffer mapinfo failed");
+        return GST_PAD_PROBE_DROP;
+    }
+    NvBufSurface *ip_surf = (NvBufSurface *)inmap.data;
+    gst_buffer_unmap(buf, &inmap);
+    NvDsObjectMeta *obj_meta = NULL;
+    NvDsMetaList *l_frame = NULL;
+    NvDsMetaList *l_obj = NULL;
+    NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
+
+    for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
+        guint num_rects = 0;
+        NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)(l_frame->data);
+        for (l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next) {
+            obj_meta = (NvDsObjectMeta *)(l_obj->data);
+            if (obj_meta->class_id == PGIE_CLASS_ID_VEHICLE) {
+                num_rects++;
+            }
+            if (obj_meta->class_id == PGIE_CLASS_ID_PERSON) {
+                num_rects++;
+            }
+            /* Conditions that user needs to set to encode the detected objects of
+             * interest. Here, by default all the detected objects are encoded.
+             * For demonstration, we will encode the first object in the frame. */
+            if ((obj_meta->class_id == PGIE_CLASS_ID_PERSON ||
+                 obj_meta->class_id == PGIE_CLASS_ID_VEHICLE) &&
+                num_rects == 1) {
+                NvDsObjEncUsrArgs objData = {0};
+                /* To be set by user */
+                objData.saveImg = FALSE;
+                objData.attachUsrMeta = TRUE;
+                /* Set if Image scaling Required */
+                objData.scaleImg = FALSE;
+                objData.scaledWidth = 0;
+                objData.scaledHeight = 0;
+                /* Preset */
+                objData.objNum = num_rects;
+                /* Quality */
+                objData.quality = 80;
+                /*Main Function Call */
+                nvds_obj_enc_process((NvDsObjEncCtxHandle)ctx, &objData, ip_surf, obj_meta,
+                                     frame_meta);
+            }
+        }
+    }
+
+    nvds_obj_enc_finish((NvDsObjEncCtxHandle)ctx);
+    return GST_PAD_PROBE_OK;
+}
+
 static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 {
     GMainLoop *loop = (GMainLoop *)data;
@@ -392,8 +622,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -423,6 +653,7 @@ int main(int argc, char *argv[])
     GstPad *tee_msg_pad = NULL;
     GstPad *sink_pad = NULL;
     GstPad *src_pad = NULL;
+    GstPad *pgie_src_pad = NULL;
     GOptionContext *ctx = NULL;
     GOptionGroup *group = NULL;
     GError *error = NULL;
@@ -523,7 +754,11 @@ int main(int argc, char *argv[])
     } else if (prop.integrated) {
         sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
     } else {
+#ifdef __aarch64__
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
     }
 
     if (!pipeline || !source || !h264parser || !decoder || !nvstreammux || !pgie || !nvvidconv ||
@@ -548,9 +783,15 @@ int main(int argc, char *argv[])
         } else if (prop.integrated) {
             RETURN_ON_PARSER_ERROR(nvds_parse_3d_sink(sink, argv[1], "sink"));
         } else {
+#ifdef __aarch64__
+            RETURN_ON_PARSER_ERROR(nvds_parse_3d_sink(sink, argv[1], "sink"));
+#else
             RETURN_ON_PARSER_ERROR(nvds_parse_egl_sink(sink, argv[1], "sink"));
+#endif
         }
 
+        msg2p_meta = ds_test4_parse_meta_type(argv[1], "msgconv");
+        g_print("msg2p_meta = %d\n", msg2p_meta);
     } else {
         /* we set the input filename to the source element */
         g_object_set(G_OBJECT(source), "location", input_file, NULL);
@@ -598,7 +839,7 @@ int main(int argc, char *argv[])
      *                                      |
      *                                      |-> msgconv -> msgbroker  */
 
-    sink_pad = gst_element_get_request_pad(nvstreammux, "sink_0");
+    sink_pad = gst_element_request_pad_simple(nvstreammux, "sink_0");
     if (!sink_pad) {
         g_printerr("Streammux request sink pad failed. Exiting.\n");
         return -1;
@@ -639,8 +880,8 @@ int main(int argc, char *argv[])
     }
 
     sink_pad = gst_element_get_static_pad(queue1, "sink");
-    tee_msg_pad = gst_element_get_request_pad(tee, "src_%u");
-    tee_render_pad = gst_element_get_request_pad(tee, "src_%u");
+    tee_msg_pad = gst_element_request_pad_simple(tee, "src_%u");
+    tee_render_pad = gst_element_request_pad_simple(tee, "src_%u");
     if (!tee_msg_pad || !tee_render_pad) {
         g_printerr("Unable to get request pads\n");
         return -1;
@@ -663,6 +904,22 @@ int main(int argc, char *argv[])
 
     gst_object_unref(sink_pad);
 
+    pgie_src_pad = gst_element_get_static_pad(pgie, "src");
+    /* Create Context for Object Encoding.
+     * Takes GPU ID as a parameter. Passed by user through commandline.
+     * Initialized as 0. */
+    NvDsObjEncCtxHandle obj_ctx_handle = nvds_obj_enc_create_context(0);
+    if (!obj_ctx_handle) {
+        g_print("Unable to create context\n");
+        return -1;
+    }
+    if (!pgie_src_pad)
+        g_print("Unable to get src pad\n");
+    else
+        gst_pad_add_probe(pgie_src_pad, GST_PAD_PROBE_TYPE_BUFFER, pgie_src_pad_buffer_probe,
+                          (gpointer)obj_ctx_handle, NULL);
+    gst_object_unref(pgie_src_pad);
+
     /* Lets add probe to get informed of the meta data generated, we add probe to
      * the sink pad of the osd element, since by that time, the buffer would have
      * had got all the metadata. */
@@ -670,9 +927,13 @@ int main(int argc, char *argv[])
     if (!osd_sink_pad)
         g_print("Unable to get sink pad\n");
     else {
-        if (msg2p_meta == 0) // generate payload using eventMsgMeta
-            gst_pad_add_probe(osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER, osd_sink_pad_buffer_probe,
-                              NULL, NULL);
+        if (msg2p_meta == 0) { // generate payload using eventMsgMeta
+            gst_pad_add_probe(osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
+                              osd_sink_pad_buffer_metadata_probe, NULL, NULL);
+        } else { // generate payload using NVDS_CUSTOM_MSG_BLOB
+            gst_pad_add_probe(osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
+                              osd_sink_pad_buffer_image_probe, (gpointer)obj_ctx_handle, NULL);
+        }
     }
     gst_object_unref(osd_sink_pad);
 
@@ -691,6 +952,7 @@ int main(int argc, char *argv[])
     /* Out of the main loop, clean up nicely */
     g_print("Returned, stopping playback\n");
 
+    nvds_obj_enc_destroy_context(obj_ctx_handle);
     g_free(cfg_file);
     g_free(input_file);
     g_free(topic);

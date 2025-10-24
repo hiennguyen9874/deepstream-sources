@@ -12,7 +12,7 @@
 #define CHECK_PARSE_ERROR(error)          \
     if (error) {                          \
         g_printerr("%s", error->message); \
-        return FALSE;                     \
+        goto done;                        \
     }
 
 static guint get_num_sources_cfg(gchar *config_file)
@@ -25,7 +25,12 @@ static guint get_num_sources_cfg(gchar *config_file)
     GKeyFile *cf = g_key_file_new();
 
     if (!g_key_file_load_from_file(cf, config_file, G_KEY_FILE_NONE, &error)) {
-        g_printerr("Failed to load config file: %s, %s", config_file, error->message);
+        if (error) {
+            g_printerr("Failed to load config file: %s, %s", config_file, error->message);
+            g_error_free(error);
+        } else {
+            g_printerr("Failed to load config file: %s", config_file);
+        }
         return 0;
     }
 
@@ -71,6 +76,7 @@ static gboolean parse_src_config(StreamCtx *sctx,
                                  gchar *config_file,
                                  gchar *group)
 {
+    gboolean ret = FALSE;
     gchar **keys = NULL;
     gchar **key = NULL;
     GError *error = NULL;
@@ -87,7 +93,10 @@ static gboolean parse_src_config(StreamCtx *sctx,
 
                 if (path == NULL) {
                     printf("cannot find file with name[%s]\n", filename);
-                    return FALSE;
+                    if (filename) {
+                        g_free(filename);
+                    }
+                    goto done;
                 } else {
                     printf("Input file [%s]\n", path);
                     sctx->uri = g_strdup_printf("file://%s", path);
@@ -95,9 +104,23 @@ static gboolean parse_src_config(StreamCtx *sctx,
                 }
             }
             CHECK_PARSE_ERROR(error);
+            if (filename) {
+                g_free(filename);
+            }
         }
     }
-    return TRUE;
+    ret = TRUE;
+done:
+    if (error) {
+        g_error_free(error);
+    }
+    if (keys) {
+        g_strfreev(keys);
+    }
+    if (!ret) {
+        g_printerr("%s failed", __func__);
+    }
+    return ret;
 }
 
 static gboolean parse_asr_config(StreamCtx *sctx,
@@ -105,6 +128,7 @@ static gboolean parse_asr_config(StreamCtx *sctx,
                                  gchar *config_file,
                                  gchar *group)
 {
+    gboolean ret = FALSE;
     gchar **keys = NULL;
     gchar **key = NULL;
     GError *error = NULL;
@@ -118,7 +142,27 @@ static gboolean parse_asr_config(StreamCtx *sctx,
             CHECK_PARSE_ERROR(error);
         }
     }
-    return TRUE;
+
+    if (error) {
+        g_error_free(error);
+    }
+
+    if (keys) {
+        g_strfreev(keys);
+    }
+
+    ret = TRUE;
+done:
+    if (error) {
+        g_error_free(error);
+    }
+    if (keys) {
+        g_strfreev(keys);
+    }
+    if (!ret) {
+        g_printerr("%s failed", __func__);
+    }
+    return ret;
 }
 
 static gboolean parse_sink_config(AppCtx *apptx,
@@ -126,6 +170,7 @@ static gboolean parse_sink_config(AppCtx *apptx,
                                   gchar *config_file,
                                   gchar *group)
 {
+    gboolean ret = FALSE;
     gchar **keys = NULL;
     gchar **key = NULL;
     GError *error = NULL;
@@ -150,7 +195,18 @@ static gboolean parse_sink_config(AppCtx *apptx,
             CHECK_PARSE_ERROR(error);
         }
     }
-    return TRUE;
+    ret = TRUE;
+done:
+    if (error) {
+        g_error_free(error);
+    }
+    if (keys) {
+        g_strfreev(keys);
+    }
+    if (!ret) {
+        g_printerr("%s failed", __func__);
+    }
+    return ret;
 }
 
 static gboolean parse_config_file_cfg(AppCtx *appctx, gchar *config_file)
@@ -166,7 +222,7 @@ static gboolean parse_config_file_cfg(AppCtx *appctx, gchar *config_file)
 
     if (!g_key_file_load_from_file(cf, config_file, G_KEY_FILE_NONE, &error)) {
         g_printerr("Failed to load config file: %s, %s", config_file, error->message);
-        return FALSE;
+        goto done;
     }
 
     groups = g_key_file_get_groups(cf, NULL);

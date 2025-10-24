@@ -1,0 +1,50 @@
+%YAML 1.2
+################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+################################################################################
+# alignment (lidar->image)
+---
+name: lidar_alignment_filter
+type: ds3d::datafilter
+in_caps: ds3d/datamap
+out_caps: ds3d/datamap
+custom_lib_path: libnvds_3d_alignment_datafilter.so
+custom_create_function: createLidarAlignmentFilter
+config_body:
+  cam_width: 1242
+  cam_height: 375
+  cam_intrinsic: [7.215377000000e+02, 0.000000000000e+00, 0.000000000000e+00, 0.000000000000e+00, 7.215377000000e+02, 0.000000000000e+00, 6.095593000000e+02, 1.728540000000e+02, 1.000000000000e+00, 4.485728000000e+01, 2.163791000000e-01, 2.745884000000e-03]
+  #lidar_to_cam_extrisic is a 3X4 matrix = matrix_multiply(R0_rect, Tr_velo_to_cam);
+  #lidar_to_cam_extrisic is in column major order
+  #For more details on R0_rect and Tr_velo_to_cam, please check: https://github.com/lkk688/3DDepth/blob/main/README.md
+  lidar_to_cam_extrisic: [2.34773698e-04, 1.04494074e-02, 9.99945389e-01, -9.99944155e-01, 1.05653536e-02, 1.24365378e-04, -1.05634778e-02, -9.99889574e-01, 1.04513030e-02, -2.79681694e-03, -7.51087914e-02, -2.72132796e-01]
+  #cam input keys to ratain in the output datamap
+  cam_input_keys: [DS3D::ColorFrame+1]
+  #lidar input and output/aligned keys to retain in the output datamap
+  #note: lidar_input_keys and lidar_aligned_keys map the same sensor data
+  lidar_input_keys: [DS3D::LidarXYZI+0]
+  lidar_aligned_keys: [DS3D::LidarAlignedXYZIKey]
+  max_points: 2073600
+  mem_pool_size: 32
+  align_to_intrinsic: false
+  lidar_element_size: 4
+

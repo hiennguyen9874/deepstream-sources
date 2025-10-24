@@ -2,8 +2,6 @@
 
 #include "deepstream_asr_app.h"
 
-static guint grpc_enable = 1;
-
 static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer data)
 {
     StreamCtx *sctx = (StreamCtx *)data;
@@ -213,11 +211,9 @@ static int create_asr_pipeline(AppCtx *appctx,
     /* Create ASR element */
     asr = gst_element_factory_make("nvdsasr", "nvasr");
 
-    if (grpc_enable) {
-        g_object_set(G_OBJECT(asr), "config-file", "riva_asr_grpc_jasper_conf.yml", NULL);
-        g_object_set(G_OBJECT(asr), "customlib-name", "libnvds_riva_asr_grpc.so", NULL);
-        g_object_set(G_OBJECT(asr), "create-speech-ctx-func", "create_riva_asr_grpc_ctx", NULL);
-    }
+    g_object_set(G_OBJECT(asr), "config-file", "riva_asr_grpc_jasper_conf.yml", NULL);
+    g_object_set(G_OBJECT(asr), "customlib-name", "libnvds_riva_asr_grpc.so", NULL);
+    g_object_set(G_OBJECT(asr), "create-speech-ctx-func", "create_riva_asr_grpc_ctx", NULL);
 
     /* create audio renderer component to play input audio */
     if (sctx->audio_config.enable_playback) {
@@ -234,10 +230,6 @@ static int create_asr_pipeline(AppCtx *appctx,
     }
 
     gst_bin_add_many(GST_BIN(pipeline), tee, audio_resampler, asr, displaysink, audio_sink, NULL);
-
-    /* set properties on elements */
-    if (!grpc_enable)
-        g_object_set(G_OBJECT(asr), "config-file", "riva_asr_conf.yml", NULL);
 
     if (sctx->audio_config.enable_playback) {
         g_object_set(G_OBJECT(audio_sink), "async-handling", TRUE, NULL);
@@ -273,12 +265,12 @@ static int create_asr_pipeline(AppCtx *appctx,
     gst_object_unref(link_sinkpad);
 
     /* P1: decoder -> tee -> audio renderer */
-    tee_renderer_srcpad = gst_element_get_request_pad(tee, "src_%u");
+    tee_renderer_srcpad = gst_element_request_pad_simple(tee, "src_%u");
     GstPad *renderer_pad = gst_element_get_static_pad(audio_sink, "sink");
     gst_pad_link(tee_renderer_srcpad, renderer_pad);
 
     /* P2: decoder -> tee -> resampler -> asr -> fakesink */
-    tee_resampler_srcpad = gst_element_get_request_pad(tee, "src_%u");
+    tee_resampler_srcpad = gst_element_request_pad_simple(tee, "src_%u");
     resampler_sinkpad = gst_element_get_static_pad(audio_resampler, "sink");
     if (!resampler_sinkpad) {
         g_printerr("audio_resampler sink pad failed. \n");

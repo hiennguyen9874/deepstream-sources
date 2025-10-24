@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
 # NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -54,24 +54,23 @@
 [property]
 gpu-id=0
 net-scale-factor=0.0039215697906911373
-model-engine-file=../../../models/poseclassificationnet/st-gcn_3dbp_nvidia.etlt_b1_gpu0_fp32.engine
-tlt-encoded-model=../../../models/poseclassificationnet/st-gcn_3dbp_nvidia.etlt
-tlt-model-key=nvidia_tao
-batch-size=1
+model-engine-file=../../../models/poseclassificationnet/st-gcn_3dbp_nvidia.onnx_b2_gpu0_fp16.engine
+onnx-file=../../../models/poseclassificationnet/st-gcn_3dbp_nvidia.onnx
+batch-size=2
 #infer-dims=3;224;224
-network-mode=0
+network-mode=2
 process-mode=2
 gie-unique-id=4
 operate-on-gie-id=1
 operate-on-class-ids=0
 input-tensor-from-meta=1
-is-classifier=1
 #output-blob-names=fc_pred
 #0=Detection 1=Classifier 2=Segmentation
 network-type=1
 parse-classifier-func-name=NvDsParseCustomPoseClassification
 custom-lib-path=../../../apps/tao_others/deepstream-pose-classification/infer_pose_classification_parser/libnvdsinfer_pose_classfication_parser.so
 classifier-threshold=0.51
+scaling-compute-hw=1
 
 [class-attrs-all]
 pre-cluster-threshold=0.2

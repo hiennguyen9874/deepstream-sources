@@ -10,11 +10,11 @@
 ################################################################################
 
 files:
-  - src: ds_3d_loader_realsense.yaml
-    target: ds_3d_loader_realsense.yaml
-  - src: ds_3d_render_pointcloud3d.yaml
-    target: ds_3d_render_pointcloud3d.yaml
-  - src: ds_3d_filter_depth2cloud.yaml
-    target: ds_3d_filter_depth2cloud.yaml
-  - src: ds_3d_render_depth2d.yaml
-    target: ds_3d_render_depth2d.yaml
+- src: ds_3d_loader_realsense.yaml
+  target: ds_3d_loader_realsense.yaml
+- src: ds_3d_render_pointcloud3d.yaml
+  target: ds_3d_render_pointcloud3d.yaml
+- src: ds_3d_filter_depth2cloud.yaml
+  target: ds_3d_filter_depth2cloud.yaml
+- src: ds_3d_render_depth2d.yaml
+  target: ds_3d_render_depth2d.yaml

@@ -1,11 +1,13 @@
 *****************************************************************************
-* Copyright (c) 2019-2023 NVIDIA Corporation.  All rights reserved.
+* SPDX-FileCopyrightText: Copyright (c) 2019-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+* SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 *
-* NVIDIA Corporation and its licensors retain all intellectual property
-* and proprietary rights in and to this software, related documentation
-* and any modifications thereto.  Any use, reproduction, disclosure or
-* distribution of this software and related documentation without an express
-* license agreement from NVIDIA Corporation is strictly prohibited.
+* NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+* property and proprietary rights in and to this material, related
+* documentation and any modifications thereto. Any use, reproduction,
+* disclosure or distribution of this material and related documentation
+* without an express license agreement from NVIDIA CORPORATION or
+* its affiliates is strictly prohibited.
 *****************************************************************************
 
 *****************************************************************************
@@ -25,12 +27,18 @@ You must have the following development packages installed
    GStreamer-1.0
    GStreamer-1.0 Base Plugins
    GStreamer-1.0 gstrtspserver
-   OpenCV
    X11 client-side library
 
 To install these packages, execute the following command:
    sudo apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
-   libgstrtspserver-1.0-dev libopencv-dev libx11-dev
+   libgstrtspserver-1.0-dev libx11-dev
+
+For x86 Docker, use below command:
+   - apt-get update
+   - apt-get install libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev \
+      libgstrtspserver-1.0-dev libx11-dev libucx0 libopencv-dev
+
+   Note: Add 'libucx0' and 'libopencv-dev' only if you enable OpenCV support (WITH_OPENCV:=1).
 
 This example can be configured to use either the nvinfer or the nvinferserver
 element for inference.
@@ -56,13 +64,11 @@ data for DeepStream SDK elements in the pipeline.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
+     For x86, CUDA_VER=12.8
+     For jetson, CUDA_VER=13.0
   $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
-Due to deprecation of OpenCV, the binary of this app is not packaged,
-to use this application, follow the compilation steps mentioned above.
 
 ===============================================================================
 4. Usage:
@@ -84,21 +90,18 @@ can read or parse the tensor data by probe the buffer and look though metadata.
 For reference, here are the config files used for this sample :
 1. The inference for 4-class detector (referred to as pgie in this sample) uses
     dstensor_pgie_config.txt or inferserver/dstensor_pgie_config.txt
-2. The inference for vehicle color classifier (referred to as sgie1 in this
+2. The inference for vehicle make classifier (referred to as sgie1 in this
    sample) uses
     dstensor_sgie1_config.txt or inferserver/dstensor_sgie1_config.txt
-3. The inference for vehicle make classifier (referred to as sgie2 in this
+3. The inference for vehicle type classifier (referred to as sgie2 in this
    sample) uses
-    dstensor_sgie2_config.txt or inferserver/dstensor_sgie2_config.txt
-4. The inference for vehicle type classifier (referred to as sgie3 in this
-   sample) uses
-    dstensor_sgie3_config.txt or  inferserver/dstensor_sgie3_config.txt
+    dstensor_sgie2_config.txt or  inferserver/dstensor_sgie2_config.txt
 
 In this sample, one infer-plugin instance, referred as the pgie.
 This is the first inference and "pgie_pad_buffer_probe" function parse the
 tensor output data and get detection objects as "Vehicle , RoadSign, TwoWheeler,
-Person". After this, 3 more instances of infer-plugin referred to as
-sgie1, sgie2, sgie3 respectively are created. The 3 instances would crop pgie's detected
+Person". After this, 2 more instances of infer-plugin referred to as
+sgie1, sgie2 respectively are created. The 2 instances would crop pgie's detected
 objects and do secondary inference. "sgie_pad_buffer_probe" function parse all
 sgies inference tensor data and classify them for OSD to drawing box and text.
 
@@ -107,10 +110,7 @@ a. for nvinfer plugin, we need set property or attribute
     "output-tensor-meta=true".
    In the sample code, We also set attribute "network-type=100" in config file but
    this is not mandatory.
-b. OpenCV has been deprecated by default, so GroupRectangles will not work.
-   for nvinfer plugin, to see the grouping, enable `WITH_OPENCV:=1` in the Makefile
-   (/opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-infer-tensor-meta-test/Makefile)
-c. for nvinferserver plugin, we set field
+b. for nvinferserver plugin, we set field
     " output_control { output_tensor_meta: true } "
     In the sample code, We also set field
     " postprocess { other {} } " and

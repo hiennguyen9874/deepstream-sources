@@ -3,6 +3,11 @@
 /** Defines the maximum size of a string. */
 #define MAX_STR_LEN 2048
 
+// Add compile-time check for MAX_STR_LEN
+#if MAX_STR_LEN <= 0
+#error "MAX_STR_LEN must be positive"
+#endif
+
 /** Defines the maximum size of an array for storing a text result. */
 #define MAX_LABEL_SIZE 128
 
@@ -56,7 +61,12 @@ static void add_fps_display_meta(NvDsFrameMeta *frame, NvDsBatchMeta *batch_meta
     NvOSD_TextParams *txt_params = &display_meta->text_params[0];
     txt_params->display_text = (char *)g_malloc0(MAX_STR_LEN);
 
-    snprintf(txt_params->display_text, MAX_STR_LEN - 1, "FPS: %.2f", fps);
+    // Add defensive check for FPS display
+    int result = snprintf(txt_params->display_text, MAX_STR_LEN - 1, "FPS: %.2f", fps);
+    if (result < 0 || result >= MAX_STR_LEN) {
+        g_printerr("ERROR: FPS snprintf failed or truncated, result=%d\n", result);
+        snprintf(txt_params->display_text, MAX_STR_LEN - 1, "FPS: ERROR");
+    }
     /* Now set the offsets where the string should appear */
     txt_params->x_offset = 0;
     txt_params->y_offset = 40;
@@ -113,7 +123,7 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad,
                         NvDsInferTensorMeta *tensor_meta =
                             (NvDsInferTensorMeta *)(user_meta->user_meta_data);
                         gfloat max_prob = 0;
-                        gint class_id = -1;
+                        gint class_id = 0;
                         gfloat *buffer = (gfloat *)tensor_meta->out_buf_ptrs_host[0];
                         for (size_t i = 0; i < tensor_meta->output_layers_info[0].inferDims.d[0];
                              i++) {
@@ -147,10 +157,21 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad,
                         NvOSD_TextParams *txt_params = &display_meta->text_params[0];
                         txt_params->display_text = (char *)g_malloc0(MAX_STR_LEN);
 
-                        snprintf(txt_params->display_text, MAX_STR_LEN - 1, "%s: %s",
-                                 model_dims.c_str(), label_info->result_label);
+                        // Essential check for classification display (no debug prints)
+                        const char *model_dims_str = model_dims.c_str();
+                        const char *result_label = label_info->result_label;
+                        size_t total_len = strlen(model_dims_str) + strlen(result_label) +
+                                           3; // +3 for ": " and null terminator
+                        if (total_len > MAX_STR_LEN) {
+                            exit(1);
+                        }
+                        int result = snprintf(txt_params->display_text, MAX_STR_LEN - 1, "%s: %s",
+                                              model_dims_str, result_label);
+                        if (result < 0 || result >= (int)(MAX_STR_LEN - 1)) {
+                            exit(1);
+                        }
                         LOG_DEBUG("classification result: cls_id: %d, label: %s",
-                                  label_info->result_class_id, label_info->result_label);
+                                  label_info->result_class_id, result_label);
                         /* Now set the offsets where the string should appear */
                         txt_params->x_offset = roi_meta.roi.left;
                         txt_params->y_offset =
@@ -196,8 +217,20 @@ static GstPadProbeReturn pgie_src_pad_buffer_probe(GstPad *pad,
         gFpsCal.getAllFps(fps);
         char fpsText[MAX_STR_LEN] = {'\0'};
         for (auto &p : fps) {
-            snprintf(fpsText + strlen(fpsText), MAX_STR_LEN - 1, "%.2f (%.2f) \t", p.first,
-                     p.second);
+            // Add defensive check for FPS text accumulation
+            size_t current_len = strlen(fpsText);
+            if (current_len >= MAX_STR_LEN - 20) { // Leave some buffer for the format string
+                g_print("ERROR: FPS text buffer nearly full (%zu >= %d), stopping\n", current_len,
+                        MAX_STR_LEN - 20);
+                break;
+            }
+            int result = snprintf(fpsText + current_len, MAX_STR_LEN - current_len - 1,
+                                  "%.2f (%.2f) \t", p.first, p.second);
+            if (result < 0 || (size_t)result >= MAX_STR_LEN - current_len) {
+                g_print("ERROR: FPS accumulation snprintf failed or truncated, result=%d\n",
+                        result);
+                break;
+            }
         }
         if (!fps.empty()) {
             g_print("FPS(cur/avg): %s\n", fpsText);
@@ -216,8 +249,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_WARNING: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_warning(msg, &error, &debug);
         g_printerr("WARNING from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         g_free(debug);
@@ -226,8 +259,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         break;
     }
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -240,7 +273,7 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 #ifndef PLATFORM_TEGRA
     case GST_MESSAGE_ELEMENT: {
         if (gst_nvmessage_is_stream_eos(msg)) {
-            guint stream_id;
+            guint stream_id = 0;
             if (gst_nvmessage_parse_stream_eos(msg, &stream_id)) {
                 g_print("Got EOS from stream %d\n", stream_id);
             }
@@ -384,7 +417,6 @@ int main(int argc, char *argv[])
     cudaGetDevice(&current_device);
     struct cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, current_device);
-
     /* Standard GStreamer initialization */
     gst_init(&argc, &argv);
 
@@ -438,7 +470,7 @@ int main(int argc, char *argv[])
         gst_bin_add(GST_BIN(pipeline), source_bin);
 
         g_snprintf(pad_name, 15, "sink_%u", i);
-        sinkpad = gst_element_get_request_pad(streammux, pad_name);
+        sinkpad = gst_element_request_pad_simple(streammux, pad_name);
         if (!sinkpad) {
             g_printerr("Streammux request sink pad failed. Exiting.\n");
             return -1;
@@ -504,7 +536,11 @@ int main(int argc, char *argv[])
         if (prop.integrated) {
             sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
         } else {
+#ifdef __aarch64__
+            sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
             sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
         }
 
         if (!tiler || !nvvidconv || !nvosd || !sink) {

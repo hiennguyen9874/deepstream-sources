@@ -483,10 +483,11 @@ NvDsPreProcessStatus SequenceImagePreprocess::parseUserConfig()
             auto scales = parseNumList(iScales->second);
             if (scales.size()) {
                 uint32_t c = 0;
+                auto size_of_scales_arr = (sizeof(_scales.d)) / (sizeof(_scales.d[0]));
                 for (; c < _C && c < scales.size(); ++c) {
                     _scales.d[c] = scales[c];
                 }
-                for (; c < _C; ++c) {
+                for (; c > 0 && c < _C && c < size_of_scales_arr; ++c) {
                     _scales.d[c] = _scales.d[c - 1];
                 }
             }
@@ -496,10 +497,11 @@ NvDsPreProcessStatus SequenceImagePreprocess::parseUserConfig()
             auto means = parseNumList(iMeans->second);
             if (means.size()) {
                 uint32_t c = 0;
+                auto size_of_means_arr = (sizeof(_means.d)) / (sizeof(_means.d[0]));
                 for (; c < _C && c < means.size(); ++c) {
                     _means.d[c] = means[c];
                 }
-                for (; c < _C; ++c) {
+                for (; c > 0 && c < _C && c < size_of_means_arr; ++c) {
                     _means.d[c] = _means.d[c - 1];
                 }
             }

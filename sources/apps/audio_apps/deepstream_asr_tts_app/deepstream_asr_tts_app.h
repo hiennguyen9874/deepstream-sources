@@ -20,7 +20,7 @@
 /* Macro for linking Gstreamer elements with source request pad and static sink pad */
 #define LINK_REQUEST_PAD_STATIC_PAD(src, srcpadname, sink, sinkpadname)          \
     {                                                                            \
-        GstPad *srcpad = gst_element_get_request_pad(src, srcpadname);           \
+        GstPad *srcpad = gst_element_request_pad_simple(src, srcpadname);        \
         if (!srcpad) {                                                           \
             g_printerr("%s source pad %s request failed.\n", #src, #srcpadname); \
             return -1;                                                           \
@@ -47,7 +47,7 @@
             g_printerr("%s source pad %s request failed.\n", #src, #srcpadname); \
             return -1;                                                           \
         }                                                                        \
-        GstPad *sinkpad = gst_element_get_request_pad(sink, sinkpadname);        \
+        GstPad *sinkpad = gst_element_request_pad_simple(sink, sinkpadname);     \
         if (!sinkpad) {                                                          \
             g_printerr("%s sink pad %s request failed.\n", #sink, #sinkpadname); \
             return -1;                                                           \

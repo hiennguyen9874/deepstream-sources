@@ -1,5 +1,5 @@
 *****************************************************************************
-* SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+* SPDX-FileCopyrightText: Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 *
 * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -99,8 +99,8 @@ To compile application deepstream-3d-action-recognition and custom lib
 custom_sequence_preprocess/libnvds_custom_sequence_preprocess.so:
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
+     For x86, CUDA_VER=12.8
+     For jetson, CUDA_VER=13.0
 
   $ make
   $ sudo make install (sudo not required in case of docker containers)

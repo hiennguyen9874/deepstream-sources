@@ -11,8 +11,8 @@
 
 ---
 components:
-  - name: Pylon Camera Input0
-    parameters:
-      device-serial-number: 0000-0000
-      pfs-location: camera.pfs
+- name: Pylon Camera Input0
+  parameters:
+    device-serial-number: 0000-0000
+    pfs-location: camera.pfs
 name: Pylon Camera Input

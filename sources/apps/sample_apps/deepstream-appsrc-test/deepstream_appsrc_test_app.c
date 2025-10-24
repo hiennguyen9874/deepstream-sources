@@ -98,8 +98,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -127,7 +127,7 @@ static gboolean read_data(AppSrcData *data)
     GstFlowReturn gstret;
 
     size_t ret = 0;
-    GstMapInfo map;
+    GstMapInfo map = GST_MAP_INFO_INIT;
     buffer = gst_buffer_new_allocate(NULL, data->frame_size, NULL);
 
     gst_buffer_map(buffer, &map, GST_MAP_WRITE);
@@ -205,6 +205,8 @@ int main(int argc, char *argv[])
     GstPad *tee_source_pad1, *tee_source_pad2;
     GstPad *osd_sink_pad, *appsink_sink_pad;
     gboolean is_nvinfer_server = FALSE;
+    const gchar *new_mux_str = g_getenv("USE_NEW_NVSTREAMMUX");
+    gboolean use_new_mux = !g_strcmp0(new_mux_str, "yes");
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -353,7 +355,11 @@ int main(int argc, char *argv[])
     if (prop.integrated) {
         sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
     } else {
+#ifdef __aarch64__
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
     }
     if (!sink) {
         g_printerr("Display sink could not be created. Exiting.\n");
@@ -384,9 +390,13 @@ int main(int argc, char *argv[])
     g_object_set(G_OBJECT(caps_filter), "caps", caps, NULL);
 
     /* Set streammux properties */
-    g_object_set(G_OBJECT(streammux), "width", width, "height", height, "batch-size", 1,
-                 "live-source", TRUE, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
-
+    if (!use_new_mux) {
+        g_object_set(G_OBJECT(streammux), "width", width, "height", height, "batch-size", 1,
+                     "live-source", TRUE, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
+    } else {
+        g_object_set(G_OBJECT(streammux), "batch-size", 1, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, NULL);
+    }
     /* Set all the necessary properties of the nvinfer element,
      * the necessary ones are : */
     if (is_nvinfer_server) {
@@ -409,7 +419,7 @@ int main(int argc, char *argv[])
     gchar pad_name_sink[16] = "sink_0";
     gchar pad_name_src[16] = "src";
 
-    sinkpad = gst_element_get_request_pad(streammux, pad_name_sink);
+    sinkpad = gst_element_request_pad_simple(streammux, pad_name_sink);
     if (!sinkpad) {
         g_printerr("Streammux request sink pad failed. Exiting.\n");
         return -1;
@@ -442,9 +452,9 @@ int main(int argc, char *argv[])
 
     /* Manually link the Tee, which has "Request" pads.
      * This tee, in case of multistream usecase, will come before tiler element. */
-    tee_source_pad1 = gst_element_get_request_pad(tee, "src_0");
+    tee_source_pad1 = gst_element_request_pad_simple(tee, "src_0");
     osd_sink_pad = gst_element_get_static_pad(nvosd, "sink");
-    tee_source_pad2 = gst_element_get_request_pad(tee, "src_1");
+    tee_source_pad2 = gst_element_request_pad_simple(tee, "src_1");
     appsink_sink_pad = gst_element_get_static_pad(appsink, "sink");
     if (gst_pad_link(tee_source_pad1, osd_sink_pad) != GST_PAD_LINK_OK) {
         g_printerr("Tee could not be linked to display sink.\n");

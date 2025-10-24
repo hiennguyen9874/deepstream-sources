@@ -266,8 +266,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -301,6 +301,8 @@ int main(int argc, char *argv[])
     GstPad *h264parse_src_pad = NULL;
     gboolean is_nvinfer_server = FALSE;
     gchar *input_stream = NULL;
+    const gchar *new_mux_str = g_getenv("USE_NEW_NVSTREAMMUX");
+    gboolean use_new_mux = !g_strcmp0(new_mux_str, "yes");
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -364,7 +366,11 @@ int main(int argc, char *argv[])
     if (prop.integrated) {
         sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
     } else {
+#ifdef __aarch64__
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
     }
 
     if (!source || !h264parser || !decoder || !pgie || !nvvidconv || !nvosd || !sink) {
@@ -381,8 +387,14 @@ int main(int argc, char *argv[])
         g_object_set(G_OBJECT(source), "location", argv[1], NULL);
     }
 
-    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
-                 "batch-size", 1, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
+    if (!use_new_mux) {
+        g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
+                     MUXER_OUTPUT_HEIGHT, "batch-size", 1, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, NULL);
+    } else {
+        g_object_set(G_OBJECT(streammux), "batch-size", 1, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, NULL);
+    }
 
     /* Set all the necessary properties of the nvinfer element,
      * the necessary ones are : */
@@ -406,7 +418,7 @@ int main(int argc, char *argv[])
     gchar pad_name_sink[16] = "sink_0";
     gchar pad_name_src[16] = "src";
 
-    sinkpad = gst_element_get_request_pad(streammux, pad_name_sink);
+    sinkpad = gst_element_request_pad_simple(streammux, pad_name_sink);
     if (!sinkpad) {
         g_printerr("Streammux request sink pad failed. Exiting.\n");
         return -1;

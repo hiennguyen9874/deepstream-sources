@@ -4,7 +4,7 @@ Below are the steps to build [TensorRT OSS](https://github.com/NVIDIA/TensorRT) 
 
 ## libnvinfer_plugin.so.7.1.3 Provided Here
 
-**libnvinfer_plugin.so.7.1.3** provided in this folder was built with:
+ **libnvinfer_plugin.so.7.1.3** provided in this folder was built with:
 
 > Jetson NX  
 > Jetpack4.4GA (CUDA-10.2, cuDNN v8.0, TensorRT 7.1.3)
@@ -43,9 +43,9 @@ mkdir -p build && cd build
 make nvinfer_plugin -j$(nproc)
 ```
 
-After building ends successfully, libnvinfer_plugin.so\* will be generated under `pwd`/out/.
+After building ends successfully, libnvinfer_plugin.so* will be generated under `pwd`/out/.
 
-### 3. Replace "libnvinfer_plugin.so\*"
+### 3. Replace "libnvinfer_plugin.so*"
 
 ```
 sudo mv /usr/lib/aarch64-linux-gnu/libnvinfer_plugin.so.7.x.y ${HOME}/libnvinfer_plugin.so.7.x.y.bak   // backup original libnvinfer_plugin.so.x.y

@@ -113,8 +113,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -352,9 +352,13 @@ int main(int argc, char *argv[])
         if (prop.integrated) {
             sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
         } else {
+#ifdef __aarch64__
+            sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
             sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
-            g_object_set(G_OBJECT(sink), "async", FALSE, NULL);
+#endif
         }
+        g_object_set(G_OBJECT(sink), "async", FALSE, NULL);
     } else if (sink_type == 3) {
         sink = gst_element_factory_make("nvrtspoutsinkbin", "nvvideo-renderer");
         g_object_set(G_OBJECT(sink), "sync", TRUE, NULL);
@@ -365,7 +369,8 @@ int main(int argc, char *argv[])
     g_object_set(G_OBJECT(streammux), "live-source", 1, NULL);
     g_object_set(G_OBJECT(streammux), "buffer-pool-size", 5, NULL);
 
-    caps = gst_caps_from_string("video/x-raw(memory:NVMM), format=(string)I420");
+    /* Observed hang issue with I420 on jetson platform with nv3dsink. Use NV12 */
+    caps = gst_caps_from_string("video/x-raw(memory:NVMM), format=(string)NV12");
     cap_filter = gst_element_factory_make("capsfilter", "src_cap_filter_nvvidconv");
     g_object_set(G_OBJECT(cap_filter), "caps", caps, NULL);
     gst_caps_unref(caps);
@@ -428,7 +433,7 @@ int main(int argc, char *argv[])
     gchar pad_name_sink[16] = "sink_0";
     gchar pad_name_src[16] = "src";
 
-    sinkpad = gst_element_get_request_pad(streammux, pad_name_sink);
+    sinkpad = gst_element_request_pad_simple(streammux, pad_name_sink);
     if (!sinkpad) {
         g_printerr("Streammux request sink pad failed. Exiting.\n");
         return -1;

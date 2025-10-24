@@ -10,5 +10,5 @@
 ################################################################################
 
 files:
-  - src: dstest5_msgconv_sample_config.txt
-    target: dstest5_msgconv_sample_config.txt
+- src: dstest5_msgconv_sample_config.txt
+  target: dstest5_msgconv_sample_config.txt

@@ -1,0 +1,91 @@
+%YAML 1.2
+################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: MIT
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+################################################################################
+#lidar data rendering
+---
+name: ds3d_aligned_render
+type: ds3d::datarender
+in_caps: ds3d/datamap
+custom_lib_path: libnvds_3d_gles_ensemble_render.so
+custom_create_function: NvDs3D_CreateGlesEnsembleRender
+gst_properties:
+  sync: True
+  async: True
+  drop: False
+config_body:
+  # window size
+  window_width: 1920
+  window_height: 400
+  color_clear: true
+  window_title: ds3d-lidar-sensor-alignment
+  render_graph:
+    - texture3d_render:
+        layout: [0, 0, 1242, 400]
+        max_vertex_num: 6
+        color_clear: false
+        texture_frame_key: DS3D::ColorFrame+1
+        texture_vetex_key: DS3D::TextureVertexKey
+        texture_coord_key: DS3D::TextureCoordKey
+    #lidar top view
+    - lidar3d_render:
+        # layout [x0, y0, x1, y1]
+        layout: [1242, 0, 1920, 400]
+        view_position: [10, 0, 30]
+        view_target: [10, 0, 0]
+        view_up: [1, 0, 0]
+        perspective_near: 0.1
+        perspective_far: 100
+        # angle degree
+        perspective_fov: 80
+        # 0 stands for (layout.x1 - layout.x0) / (layout.y1 - layout.y0))
+        perspective_ratio: 0.0
+        lidar_color: [0, 255, 0]
+        # lidar transformed to camera coordinates data key
+        #lidar_data_key: DS3D::LidarAlignedXYZIKey
+        # original lidar data key
+        lidar_data_key: DS3D::LidarXYZI+0
+        element_size: 4
+        color_clear: false
+    # lidar aligned view
+    - lidar3d_render:
+        # layout [x0, y0, x1, y1]
+        layout: [0, 0, 1242, 400]
+        #layout: [0, 0, 960, 720]
+        color_clear: false
+        lidar_color: [0, 255, 0]
+        # lidar transformed to camera coordinates data key
+        #lidar_data_key: DS3D::LidarAlignedXYZIKey
+        # original lidar data key
+        lidar_data_key: DS3D::LidarXYZI+0
+        element_size: 4
+        # project lidar data into image require image size settings
+        project_lidar_to_image: true
+        image_width: 1242
+        image_height: 375
+        intrinsics_mat_key: DS3D::CameraIntrinsicMatrix
+        extrinsics_mat_key: DS3D::LidarToCameraExtrinsicMatrix
+        #z_range: [0, 10000]
+        # depth data range in lidar coordinates
+        x_range: [0, 100]
+        #y_range: [0, 10000]
+

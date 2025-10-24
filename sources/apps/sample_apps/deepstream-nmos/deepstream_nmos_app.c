@@ -131,8 +131,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -268,7 +268,7 @@ static GstCaps *get_audio_caps_from_sdp_caps(GstCaps *srcCaps)
 {
     g_return_val_if_fail(srcCaps != NULL, NULL);
     GstCaps *caps = NULL;
-    gint channels, rate, tmp;
+    gint channels = 0, rate = 0, tmp = 0;
     const gchar *str;
     gchar *format;
 
@@ -403,14 +403,17 @@ static gboolean update_active_component(GstElement *elemToUpdate,
                                         gboolean isSink,
                                         void *uData)
 {
-    g_return_val_if_fail(sdpTxt, FALSE);
-    g_return_val_if_fail(elemToUpdate, FALSE);
-
     GstSDPResult result;
     GstSDPMessage *sdpMsg;
+
+    if (!sdpTxt || !elemToUpdate) {
+        g_free(uData);
+        return FALSE;
+    }
     result = gst_sdp_message_new_from_text(sdpTxt, &sdpMsg);
     if (result != GST_SDP_OK) {
         NVGSTDS_ERR_MSG_V("Error (%d) in creating sdp message", result);
+        g_free(uData);
         return FALSE;
     }
 
@@ -418,6 +421,7 @@ static gboolean update_active_component(GstElement *elemToUpdate,
     if (!media) {
         NVGSTDS_ERR_MSG_V("No media in sdp message");
         gst_sdp_message_free(sdpMsg);
+        g_free(uData);
         return FALSE;
     }
 
@@ -425,6 +429,7 @@ static gboolean update_active_component(GstElement *elemToUpdate,
     if (!connection) {
         NVGSTDS_ERR_MSG_V("No connection info in sdp message");
         gst_sdp_message_free(sdpMsg);
+        g_free(uData);
         return FALSE;
     }
 
@@ -445,6 +450,7 @@ static gboolean update_active_component(GstElement *elemToUpdate,
         gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_BLOCK_DOWNSTREAM, pad_probe_cb, uData, NULL);
 
         gst_object_unref(srcpad);
+        gst_sdp_message_free(sdpMsg);
         return TRUE;
     }
 
@@ -454,6 +460,8 @@ static gboolean update_active_component(GstElement *elemToUpdate,
     }
 
     g_object_set(G_OBJECT(elemToUpdate), "address", connection->address, "port", media->port, NULL);
+
+    gst_sdp_message_free(sdpMsg);
 
     if (!gst_element_sync_state_with_parent(elemToUpdate)) {
         GST_ERROR_OBJECT(elemToUpdate, "Couldn't sync state with parent");
@@ -926,7 +934,11 @@ static gpointer create_video_recv_send_pipeline(NvDsNmosAppCtx *appCtx,
     GstElement *pgie = NULL;
     GstElement *nvosd = NULL;
     if (appCtx->config.enablePgie) {
-        pgie = gst_element_factory_make("nvinfer", NULL);
+        if (appCtx->config.pluginType) {
+            pgie = gst_element_factory_make("nvinferserver", NULL);
+        } else {
+            pgie = gst_element_factory_make("nvinfer", NULL);
+        }
         nvosd = gst_element_factory_make("nvdsosd", NULL);
 
         if (!pgie || !nvosd) {
@@ -1121,7 +1133,7 @@ static gpointer create_video_recv_send_pipeline(NvDsNmosAppCtx *appCtx,
     }
 
     GstPad *sinkpad, *srcpad;
-    sinkpad = gst_element_get_request_pad(streammux, "sink_0");
+    sinkpad = gst_element_request_pad_simple(streammux, "sink_0");
     if (!sinkpad) {
         NVGSTDS_ERR_MSG_V("Streammux request sink pad failed");
         return NULL;
@@ -1496,7 +1508,11 @@ static gpointer create_video_pipeline(NvDsNmosAppCtx *appCtx,
     GstElement *pgie = NULL;
     GstElement *nvosd = NULL;
     if (appCtx->config.enablePgie) {
-        pgie = gst_element_factory_make("nvinfer", NULL);
+        if (appCtx->config.pluginType) {
+            pgie = gst_element_factory_make("nvinferserver", NULL);
+        } else {
+            pgie = gst_element_factory_make("nvinfer", NULL);
+        }
         nvosd = gst_element_factory_make("nvdsosd", NULL);
 
         if (!pgie || !nvosd) {
@@ -1516,8 +1532,8 @@ static gpointer create_video_pipeline(NvDsNmosAppCtx *appCtx,
     g_object_set(G_OBJECT(source), "address", connection->address, "port", media->port, NULL);
     gint pt = atoi(gst_sdp_media_get_format(media, 0));
     GstCaps *caps = gst_sdp_media_get_caps_from_media(media, pt);
-    gint width, height;
-    gint rate_n, rate_d;
+    gint width = 0, height = 0;
+    gint rate_n = 0, rate_d = 0;
     if (caps) {
         GstCaps *vcaps = get_video_caps_from_sdp_caps(caps);
         if (vcaps) {
@@ -1642,7 +1658,7 @@ static gpointer create_video_pipeline(NvDsNmosAppCtx *appCtx,
     }
 
     GstPad *sinkpad, *srcpad;
-    sinkpad = gst_element_get_request_pad(streammux, "sink_0");
+    sinkpad = gst_element_request_pad_simple(streammux, "sink_0");
     if (!sinkpad) {
         NVGSTDS_ERR_MSG_V("Streammux request sink pad failed");
         return NULL;

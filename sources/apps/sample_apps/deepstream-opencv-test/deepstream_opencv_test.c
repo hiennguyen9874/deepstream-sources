@@ -112,8 +112,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -223,12 +223,15 @@ int main(int argc, char *argv[])
 {
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL,
-               *caps_filter = NULL, *dsexample = NULL, *nvosd = NULL;
+               *caps_filter = NULL, *dsexample = NULL, *nvosd = NULL, *nvvidconv1 = NULL,
+               *caps_filter1 = NULL;
     GstBus *bus = NULL;
     guint bus_watch_id;
     GstPad *osd_sink_pad = NULL;
     gboolean is_nvinfer_server = FALSE;
     gchar *input_stream = NULL;
+    const gchar *new_mux_str = g_getenv("USE_NEW_NVSTREAMMUX");
+    gboolean use_new_mux = !g_strcmp0(new_mux_str, "yes");
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -289,7 +292,7 @@ int main(int argc, char *argv[])
 
     gst_bin_add(GST_BIN(pipeline), source_bin);
 
-    sinkpad = gst_element_get_request_pad(streammux, pad_name_sink);
+    sinkpad = gst_element_request_pad_simple(streammux, pad_name_sink);
     if (!sinkpad) {
         g_printerr("Streammux request sink pad failed. Exiting.\n");
         return -1;
@@ -316,8 +319,10 @@ int main(int argc, char *argv[])
 
     /* Use convertor to convert from NV12 to RGBA as required by dsexample */
     nvvidconv = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
+    nvvidconv1 = gst_element_factory_make("nvvideoconvert", "nvvideo-converter1");
 
     caps_filter = gst_element_factory_make("capsfilter", NULL);
+    caps_filter1 = gst_element_factory_make("capsfilter", NULL);
 
     dsexample = gst_element_factory_make("dsexample", "example-plugin");
 
@@ -328,16 +333,26 @@ int main(int argc, char *argv[])
     if (prop.integrated) {
         sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
     } else {
+#ifdef __aarch64__
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
     }
 
-    if (!pgie || !nvvidconv || !caps_filter || !dsexample || !nvosd || !sink) {
+    if (!pgie || !nvvidconv || !caps_filter || !caps_filter1 || !dsexample || !nvosd || !sink) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
-                 "batch-size", 1, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
+    if (!use_new_mux) {
+        g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
+                     MUXER_OUTPUT_HEIGHT, "batch-size", 1, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, NULL);
+    } else {
+        g_object_set(G_OBJECT(streammux), "batch-size", 1, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, NULL);
+    }
 
     /* Set all the necessary properties of the nvinfer element,
      * the necessary ones are : */
@@ -360,6 +375,14 @@ int main(int argc, char *argv[])
     gst_caps_set_features(caps, 0, feature);
 
     g_object_set(G_OBJECT(caps_filter), "caps", caps, NULL);
+    gst_caps_unref(caps);
+
+    /* Set properties of the caps_filter1 element */
+    caps = gst_caps_new_simple("video/x-raw", "width", G_TYPE_INT, MUXER_OUTPUT_WIDTH, "height",
+                               G_TYPE_INT, MUXER_OUTPUT_HEIGHT, NULL);
+    gst_caps_set_features(caps, 0, gst_caps_features_copy(feature));
+    g_object_set(G_OBJECT(caps_filter1), "caps", caps, NULL);
+    gst_caps_unref(caps);
 
     /* Set properties of the dsexample element */
     g_object_set(G_OBJECT(dsexample), "full-frame", FALSE, NULL);
@@ -375,13 +398,14 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    gst_bin_add_many(GST_BIN(pipeline), pgie, nvvidconv, caps_filter, dsexample, nvosd, sink, NULL);
+    gst_bin_add_many(GST_BIN(pipeline), nvvidconv1, caps_filter1, pgie, nvvidconv, caps_filter,
+                     dsexample, nvosd, sink, NULL);
 
     /* we link the elements together */
     /* file-source -> h264-parser -> nvh264-decoder ->
      * pgie -> nvvidconv -> nvosd -> video-renderer */
-    if (!gst_element_link_many(streammux, pgie, nvvidconv, caps_filter, dsexample, nvosd, sink,
-                               NULL)) {
+    if (!gst_element_link_many(streammux, nvvidconv1, caps_filter1, pgie, nvvidconv, caps_filter,
+                               dsexample, nvosd, sink, NULL)) {
         g_printerr("Elements could not be linked: 2. Exiting.\n");
         return -1;
     }

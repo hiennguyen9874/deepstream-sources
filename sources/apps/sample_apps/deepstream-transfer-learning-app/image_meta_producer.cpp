@@ -145,17 +145,23 @@ std::string ImageMetaProducer::make_kitti_data(const IPData &data)
     // Please refer to :
     // https://docs.nvidia.com/tao/tao-toolkit/text/data_annotation_format.html#object-detection-kitti-format
     ss << data.class_name << " "; // Class names
-    ss << "0.0" << " ";           // Truncation (No data default value)
-    ss << "3" << " "; // Occlusion [ 0 = fully visible, 1 = partly visible, 2 = largely occluded, 3
-                      // = unknown].
-    ss << "0.0" << " "; // Alpha (No data default value)
+    ss << "0.0"
+       << " "; // Truncation (No data default value)
+    ss << "3"
+       << " "; // Occlusion [ 0 = fully visible, 1 = partly visible, 2 = largely occluded, 3 =
+               // unknown].
+    ss << "0.0"
+       << " "; // Alpha (No data default value)
     // Bounding box coordinates:
     ss << data.img_left << " ";                    // ymin
     ss << data.img_top << " ";                     // xmin
     ss << (data.img_left + data.img_width) << " "; // ymax
     ss << (data.img_top + data.img_height) << " "; // xmax
-    ss << "0.0 0.0 0.0" << " ";                    // 3-D dimension (No data default value)
-    ss << "0.0 0.0 0.0" << " ";                    // Location (No data default value)
-    ss << "0.0" << " ";                            // Rotation_y (No data default value)
+    ss << "0.0 0.0 0.0"
+       << " "; // 3-D dimension (No data default value)
+    ss << "0.0 0.0 0.0"
+       << " "; // Location (No data default value)
+    ss << "0.0"
+       << " "; // Rotation_y (No data default value)
     return ss.str();
 }

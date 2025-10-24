@@ -1,6 +1,6 @@
 %YAML 1.2
 ################################################################################
-# Copyright (c) 2021-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -16,16 +16,16 @@ base_image: auto
 stage_model: clean_stage
 
 local_copy_files:
-  - src: "/opt/nvidia/graph-composer/graph_composer-3.0.0_arm64.deb"
-    dst: "/tmp/"
+- src: "/opt/nvidia/graph-composer/graph_composer-runtime-5.1.0_arm64.deb"
+  dst: "/tmp/"
 
 apt_deps:
-  - rsync
-  - libyaml-cpp-dev
-  - python3-yaml
+- rsync
+- libyaml-cpp-dev
+- python3-yaml
 
 custom_runs:
-  - "apt install -y /tmp/graph_composer-3.0.0_arm64.deb && rm -rf /tmp/graph_composer-3.0.0_arm64.deb"
+ - "apt install -y /tmp/graph_composer-runtime-5.1.0_arm64.deb && rm -rf /tmp/graph_composer-runtime-5.1.0_arm64.deb"
 
 work_folder: /workspace/deepstream-videotemplate/
 
@@ -34,20 +34,22 @@ env_list:
   LD_LIBRARY_PATH: "/opt/nvidia/graph-composer/:$LD_LIBRARY_PATH"
   DISPLAY: ":0"
 
+platform: linux/arm64
+
 # Setup entrypoint
 entrypoint:
-  - "gxe"
-  - "--manifest"
-  - "deepstream-videotemplate_manifest.yaml"
-  - "--app"
-  - "deepstream-videotemplate.yaml"
+- "gxe"
+- "--manifest"
+- "deepstream-videotemplate_manifest.yaml"
+- "--app"
+- "deepstream-videotemplate.yaml"
 ---
 # Container Builder Config
 container_builder: main # required
 graph:
-  graph_files: [deepstream-videotemplate.yaml]
+  graph_files: [ deepstream-videotemplate.yaml ]
   graph_dst: /workspace/deepstream-videotemplate/
   manifest_dst: /workspace/deepstream-videotemplate/deepstream-videotemplate_manifest.yaml
   ext_install_root: /workspace/deepstream-videotemplate/
 docker_build:
-  image_name: <docker-container-registry>:deepstream-videotemplate-plugin-jetson
+    image_name: <docker-container-registry>:deepstream-videotemplate-plugin-jetson

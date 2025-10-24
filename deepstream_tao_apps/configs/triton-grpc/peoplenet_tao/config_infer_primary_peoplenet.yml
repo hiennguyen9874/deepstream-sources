@@ -13,14 +13,14 @@
 infer_config {
   unique_id: 1
   gpu_ids: [0]
-  max_batch_size: 1
+  max_batch_size: 2
   backend {
     inputs: [ {
-      name: "input_1"
+      name: "input_1:0"
     }]
     outputs: [
-      {name: "output_bbox/BiasAdd"},
-      {name: "output_cov/Sigmoid"}
+      {name: "output_bbox/BiasAdd:0"},
+      {name: "output_cov/Sigmoid:0"}
     ]
     triton {
       model_name: "peoplenet"
@@ -34,9 +34,9 @@ infer_config {
   preprocess {
     network_format: MEDIA_FORMAT_NONE
     tensor_order: TENSOR_ORDER_LINEAR
-    tensor_name: "input_1"
+    tensor_name: "input_1:0"
     maintain_aspect_ratio: 0
-    frame_scaling_hw: FRAME_SCALING_HW_DEFAULT
+    frame_scaling_hw: FRAME_SCALING_HW_GPU
     frame_scaling_filter: 1
     normalize {
       scale_factor: 0.0039215697906911373
@@ -47,7 +47,7 @@ infer_config {
   postprocess {
     labelfile_path: "../../../models/peoplenet/labels.txt"
     detection {
-      num_detected_classes: 1
+      num_detected_classes: 3
       per_class_params {
         key: 0
         value { pre_threshold: 0.4 }

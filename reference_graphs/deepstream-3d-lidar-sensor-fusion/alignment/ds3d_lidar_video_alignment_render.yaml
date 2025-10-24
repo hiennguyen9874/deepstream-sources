@@ -1,0 +1,390 @@
+################################################################################
+# Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA Corporation and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA Corporation is strictly prohibited.
+#
+################################################################################
+
+application:
+  name: ds3d_lidar_video_alignment_render
+---
+dependencies:
+- extension: multifile
+  uuid: cc4a90b2-fc1a-3c88-9515-f0dbb7655192
+  version: 0.0.1
+- extension: NvDsBaseExt
+  uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
+  version: 1.7.0
+- extension: videorate
+  uuid: fa294645-71b3-3cd5-bc36-04b0a2843478
+  version: 0.0.1
+- extension: png
+  uuid: d1ece856-791c-345c-98a6-4999372a6071
+  version: 0.0.1
+- extension: NvDsConverterExt
+  uuid: 7fe1ae48-7bb3-49a8-98fb-142ba07eb273
+  version: 1.7.0
+- extension: NvDsMuxDemuxExt
+  uuid: 89b8398c-5820-4051-835c-a91f2d49766b
+  version: 1.7.0
+- extension: NvDs3dProcessingExt
+  uuid: ecded987-983c-4fcd-af14-7f961b059c8e
+  version: 0.7.0
+- extension: nvdsgst_3dmixer
+  uuid: 9bc3c4ab-6fa6-3568-a8d4-f17d354b7d3f
+  version: 0.0.1
+- extension: nvdsgst_3dbridge
+  uuid: b7e7847e-56d4-3761-8286-ad162e611b9f
+  version: 0.0.1
+---
+components:
+- name: MultiFileSrc placeholder display-name0
+  parameters:
+    location: /opt/nvidia/deepstream/deepstream/sources/apps/sample_apps/deepstream-3d-lidar-sensor-fusion/sequence1/image_2/%06d.png
+    loop: true
+    out: Static Data Output1
+  type: nvidia::deepstream::MultiFileSrc
+- name: Static Data Output1
+  type: nvidia::deepstream::NvDsStaticOutput
+name: MultiFileSrc placeholder display-name
+ui_property:
+  position:
+    x: -195.1445770263672
+    y: -135.52890014648438
+  state: 0
+---
+components:
+- name: VideoRate placeholder display-name2
+  parameters:
+    video-in: Static Data Input3
+    video-out: Static Data Output4
+  type: nvidia::deepstream::VideoRate
+- name: Static Data Input3
+  type: nvidia::deepstream::NvDsStaticInput
+- name: Static Data Output4
+  type: nvidia::deepstream::NvDsStaticOutput
+name: VideoRate placeholder display-name
+ui_property:
+  position:
+    x: 662.1262817382812
+    y: 98.5735092163086
+  state: 0
+---
+components:
+- name: Deepstream Scheduler5
+  type: nvidia::deepstream::NvDsScheduler
+name: scheduler
+ui_property:
+  position:
+    x: -164.75
+    y: 90.79167175292969
+  state: 0
+---
+components:
+- name: PngDec placeholder display-name6
+  parameters:
+    in: Static Data Input8
+    video-out: Static Data Output7
+  type: nvidia::deepstream::PngDec
+- name: Static Data Output7
+  type: nvidia::deepstream::NvDsStaticOutput
+- name: Static Data Input8
+  type: nvidia::deepstream::NvDsStaticInput
+name: PngDec placeholder display-name
+ui_property:
+  position:
+    x: 170.49075317382812
+    y: -147.8634796142578
+  state: 0
+---
+components:
+- name: Deepstream Data Connection9
+  parameters:
+    source: PngDec placeholder display-name/Static Data Output7
+    target: VideoRate placeholder display-name/Static Data Input3
+  type: nvidia::deepstream::NvDsConnection
+name: node0
+---
+components:
+- name: Deepstream Data Connection10
+  parameters:
+    source: MultiFileSrc placeholder display-name/Static Data Output1
+    target: PngDec placeholder display-name/Static Data Input8
+  type: nvidia::deepstream::NvDsConnection
+name: node1
+---
+components:
+- name: Capability Filter11
+  parameters:
+    caps: video/x-raw, framerate=20/1
+    in: Static Data Input13
+    out: Static Data Output12
+  type: nvidia::deepstream::GstCapsFilter
+- name: Static Data Output12
+  type: nvidia::deepstream::NvDsStaticOutput
+- name: Static Data Input13
+  type: nvidia::deepstream::NvDsStaticInput
+name: Capability Filter
+ui_property:
+  position:
+    x: 355.3920593261719
+    y: 422.2485656738281
+---
+components:
+- name: Deepstream Data Connection14
+  parameters:
+    source: VideoRate placeholder display-name/Static Data Output4
+    target: Capability Filter/Static Data Input13
+  type: nvidia::deepstream::NvDsConnection
+name: node2
+---
+components:
+- name: Video Converter15
+  parameters:
+    compute-hw: 1
+    nvbuf-memory-type: 2
+    video-in: Static Data Input17
+    video-out: Static Data Output16
+  type: nvidia::deepstream::NvDsVideoConvert
+- name: Static Data Output16
+  type: nvidia::deepstream::NvDsStaticOutput
+- name: Static Data Input17
+  type: nvidia::deepstream::NvDsStaticInput
+name: Video Converter
+ui_property:
+  position:
+    x: -404.0236511230469
+    y: 598.344970703125
+---
+components:
+- name: Deepstream Data Connection18
+  parameters:
+    source: Capability Filter/Static Data Output12
+    target: Video Converter/Static Data Input17
+  type: nvidia::deepstream::NvDsConnection
+name: node3
+---
+components:
+- name: Capability Filter19
+  parameters:
+    caps: video/x-raw(memory:NVMM), format=RGBA
+    in: Static Data Input21
+    out: Static Data Output20
+  type: nvidia::deepstream::GstCapsFilter
+- name: Static Data Output20
+  type: nvidia::deepstream::NvDsStaticOutput
+- name: Static Data Input21
+  type: nvidia::deepstream::NvDsStaticInput
+name: Capability Filter1
+ui_property:
+  position:
+    x: 27.41241455078125
+    y: 620.35693359375
+---
+components:
+- name: Deepstream Data Connection22
+  parameters:
+    source: Video Converter/Static Data Output16
+    target: Capability Filter1/Static Data Input21
+  type: nvidia::deepstream::NvDsConnection
+name: node4
+---
+components:
+- name: Stream Muxer23
+  parameters:
+    batch-size: 1
+    compute-hw: 1
+    height: 720
+    nvbuf-memory-type: 2
+    video-in-%u: On Request Data Input24
+    video-out: Static Data Output25
+    width: 1280
+  type: nvidia::deepstream::NvDsStreamMux
+- name: On Request Data Input24
+  type: nvidia::deepstream::NvDsOnRequestInput
+- name: Static Data Output25
+  type: nvidia::deepstream::NvDsStaticOutput
+name: Stream Muxer
+ui_property:
+  position:
+    x: 366.3980712890625
+    y: 642.369140625
+---
+components:
+- name: Deepstream Data Connection26
+  parameters:
+    source: Capability Filter1/Static Data Output20
+    target: Stream Muxer/On Request Data Input24
+  type: nvidia::deepstream::NvDsConnection
+name: node5
+---
+components:
+- name: Deepstream Queue27
+  parameters:
+    in: Static Data Input29
+    out: Static Data Output28
+  type: nvidia::deepstream::NvDsQueue
+- name: Static Data Output28
+  type: nvidia::deepstream::NvDsStaticOutput
+- name: Static Data Input29
+  type: nvidia::deepstream::NvDsStaticInput
+name: Deepstream Queue
+ui_property:
+  position:
+    x: 747.2063598632812
+    y: 655.5762939453125
+---
+components:
+- name: Deepstream Data Connection30
+  parameters:
+    source: Stream Muxer/Static Data Output25
+    target: Deepstream Queue/Static Data Input29
+  type: nvidia::deepstream::NvDsConnection
+name: node6
+---
+components:
+- name: nv_ds3d_src31
+  parameters:
+    config-file: ds3d_lidar_file_loader.yaml
+    out: Static Data Output32
+  type: nvidia::deepstream::NvDs3dSrc
+- name: Static Data Output32
+  type: nvidia::deepstream::NvDsStaticOutput
+name: NvDs3dSrc
+ui_property:
+  position:
+    x: -470.05975341796875
+    y: 891.1053466796875
+---
+components:
+- name: 3D Video Filter33
+  parameters:
+    config-file: ds3d_alignment.yaml
+    in: Static Data Input34
+    out: Static Data Output35
+  type: nvidia::deepstream::NvDs3dFilter
+- name: Static Data Input34
+  type: nvidia::deepstream::NvDsStaticInput
+- name: Static Data Output35
+  type: nvidia::deepstream::NvDsStaticOutput
+name: 3D Video Filter
+ui_property:
+  position:
+    x: 262.94134521484375
+    y: 924.1234130859375
+---
+components:
+- name: NvDs3dMixer placeholder display-name36
+  parameters:
+    config-file: ds3d_mixer.yaml
+    in-%u: On Request Data Input37
+    out: Static Data Output38
+  type: nvidia::deepstream::NvDs3dMixer
+- name: On Request Data Input37
+  type: nvidia::deepstream::NvDsOnRequestInput
+- name: Static Data Output38
+  type: nvidia::deepstream::NvDsStaticOutput
+name: NvDs3dMixer placeholder display-name
+ui_property:
+  position:
+    x: -180.05889892578125
+    y: 939.4940185546875
+---
+components:
+- name: Deepstream Data Connection39
+  parameters:
+    source: NvDs3dSrc/Static Data Output32
+    target: NvDs3dMixer placeholder display-name/On Request Data Input37
+  type: nvidia::deepstream::NvDsConnection
+name: node7
+---
+components:
+- name: NvDs3dBridge placeholder display-name40
+  parameters:
+    config-file: ds3d_video_bridge.yaml
+    in: Static Data Input41
+    out: Static Data Output42
+  type: nvidia::deepstream::NvDs3dBridge
+- name: Static Data Input41
+  type: nvidia::deepstream::NvDsStaticInput
+- name: Static Data Output42
+  type: nvidia::deepstream::NvDsStaticOutput
+name: NvDs3dBridge placeholder display-name
+ui_property:
+  position:
+    x: 986.871337890625
+    y: 715.8170776367188
+---
+components:
+- name: Deepstream Data Connection43
+  parameters:
+    source: Deepstream Queue/Static Data Output28
+    target: NvDs3dBridge placeholder display-name/Static Data Input41
+  type: nvidia::deepstream::NvDsConnection
+name: node8
+---
+components:
+- name: Deepstream Data Connection44
+  parameters:
+    source: NvDs3dBridge placeholder display-name/Static Data Output42
+    target: NvDs3dMixer placeholder display-name/On Request Data Input37
+  type: nvidia::deepstream::NvDsConnection
+name: node9
+---
+components:
+- name: Deepstream Data Connection45
+  parameters:
+    source: NvDs3dMixer placeholder display-name/Static Data Output38
+    target: 3D Video Filter/Static Data Input34
+  type: nvidia::deepstream::NvDsConnection
+name: node10
+---
+components:
+- name: nv_ds3d_sink46
+  parameters:
+    config-file: ds3d_render.yaml
+    in: Static Data Input47
+  type: nvidia::deepstream::NvDs3dSink
+- name: Static Data Input47
+  type: nvidia::deepstream::NvDsStaticInput
+name: NvDs3dSink
+ui_property:
+  position:
+    x: 804.7374267578125
+    y: 927.1597900390625
+---
+components:
+- name: Deepstream Queue50
+  parameters:
+    in: Static Data Input52
+    out: Static Data Output51
+  type: nvidia::deepstream::NvDsQueue
+- name: Static Data Output51
+  type: nvidia::deepstream::NvDsStaticOutput
+- name: Static Data Input52
+  type: nvidia::deepstream::NvDsStaticInput
+name: Deepstream Queue1
+ui_property:
+  position:
+    x: 415.28570556640625
+    y: 1080.0772705078125
+---
+components:
+- name: Deepstream Data Connection53
+  parameters:
+    source: 3D Video Filter/Static Data Output35
+    target: Deepstream Queue1/Static Data Input52
+  type: nvidia::deepstream::NvDsConnection
+name: node12
+---
+components:
+- name: Deepstream Data Connection54
+  parameters:
+    source: Deepstream Queue1/Static Data Output51
+    target: NvDs3dSink/Static Data Input47
+  type: nvidia::deepstream::NvDsConnection
+name: node13

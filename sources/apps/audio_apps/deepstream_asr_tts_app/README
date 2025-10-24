@@ -1,5 +1,5 @@
 *****************************************************************************
-* SPDX-FileCopyrightText: Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+* SPDX-FileCopyrightText: Copyright (c) 2021-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 *
 * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -19,14 +19,14 @@
 1. Prerequisites:
 ===============================================================================
 
-A. DeepStream SDK v6.3 release or later.
+A. DeepStream SDK v8.0 release or later.
 B. NVIDIA Riva SDK v2.0.0 release or later.
 C. Riva ASR and TTS service:
    The Riva ASR, TTS services should be started externally.
    Please check this link for the steps to deploy the models using
    Riva Quick start scripts:
    https://docs.nvidia.com/deeplearning/riva/user-guide/docs/quick-start-guide.html#local-deployment-using-quick-start-scripts
-D. gRPC C++ shared libraries v1.38 installation is needed for the gRPC client:
+D. gRPC C++ shared libraries v1.54.3 installation is needed for the gRPC client:
    Please follow steps given at below link, and add -DBUILD_SHARED_LIBS=ON
    to the cmake build options. (Recommend to use 'make -j4' instead of 'make -j')
    https://grpc.io/docs/languages/cpp/quickstart/
@@ -88,8 +88,8 @@ deprecated in future versions.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=12.1
-      For Jetson, CUDA_VER=11.4
+     For x86, CUDA_VER=12.8
+     For jetson, CUDA_VER=13.0
   $ sudo make (sudo not required in case of docker containers)
 
 NOTE: To compile the sources, run make with "sudo" or root permission.

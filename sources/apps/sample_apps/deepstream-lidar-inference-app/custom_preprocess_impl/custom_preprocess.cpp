@@ -27,8 +27,9 @@ extern "C" IInferCustomPreprocessor *CreateInferServerCustomPreprocess();
     } while (0)
 #endif
 
-#define checkCudaErrors(status)                                                                    \
+#define checkCudaErrors(cudaErrorCode)                                                             \
     {                                                                                              \
+        cudaError_t status = cudaErrorCode;                                                        \
         if (status != 0) {                                                                         \
             std::cout << "Cuda failure: " << cudaGetErrorString(status) << " at line " << __LINE__ \
                       << " in file " << __FILE__ << " error status: " << status << std::endl;      \
@@ -36,11 +37,21 @@ extern "C" IInferCustomPreprocessor *CreateInferServerCustomPreprocess();
         }                                                                                          \
     }
 
+extern "C" void ds3dCustomCudaLidarNormalize(float *in,
+                                             float *out,
+                                             int points,
+                                             float offset,
+                                             float scale,
+                                             cudaStream_t stream);
+
 class NvInferServerCustomPreProcess : public IInferCustomPreprocessor {
 public:
     ~NvInferServerCustomPreProcess() final = default;
-    NvDsInferStatus preproc(GuardDataMap &dataMap, SharedIBatchArray batchArray) override
+    NvDsInferStatus preproc(GuardDataMap &dataMap,
+                            SharedIBatchArray batchArray,
+                            cudaStream_t stream) override
     {
+        DS3D_UNUSED(stream);
         FrameGuard lidarFrame;
         const IOptions *inOptions = batchArray->getOptions();
         std::string key;
@@ -65,7 +76,18 @@ public:
         }
 
         INFER_ASSERT(batchArray->getSize() > 1);
-        const IBatchBuffer *buf = batchArray->getBuffer(0);
+        /*
+           Process all data into Model input tensors
+           "points": FP32, dims [1, 204800, 4], GPU
+           "num_points": INT32, dims [1], GPU
+        */
+        std::unordered_map<std::string, const IBatchBuffer *> tensorTable;
+        for (uint32_t i = 0; i < batchArray->getSize(); ++i) {
+            const IBatchBuffer *curBuf = batchArray->getBuffer(i);
+            InferBufferDescription curDes = curBuf->getBufDesc();
+            tensorTable[curDes.name] = curBuf;
+        }
+        const IBatchBuffer *buf = tensorTable["points"];
         //[0-255] to [0-1]
         InferBufferDescription des = buf->getBufDesc();
         int numPoints = std::accumulate(des.dims.d, des.dims.d + des.dims.numDims - 1, 1,
@@ -73,21 +95,27 @@ public:
         int elementSize = des.dims.d[des.dims.numDims - 1];
         INFER_ASSERT(elementSize == 4);
 
-        float *frame = (float *)lidarFrame->base();
         // normalize intensity values
-        for (int j = 0; j < numPoints; j++) {
-            float &val = frame[j * elementSize + 3];
-            val = (val - _offsets) * _scaleFactor;
+        float *frame = (float *)lidarFrame->base();
+        if (isCpuMem(lidarFrame->memType())) {
+            for (int j = 0; j < numPoints; j++) {
+                float &val = frame[j * elementSize + 3];
+                val = (val - _offsets) * _scaleFactor;
+            }
+            // copy preprocess data to GpuCuda or CpuCuda
+            checkCudaErrors(cudaMemcpyAsync(buf->getBufPtr(0), lidarFrame->base(),
+                                            lidarFrame->bytes(), cudaMemcpyDefault, stream));
+        } else {
+            ds3dCustomCudaLidarNormalize(frame, (float *)buf->getBufPtr(0), numPoints, _offsets,
+                                         _scaleFactor, stream);
+            checkCudaErrors(cudaGetLastError());
         }
-        // copy preprocess data to GpuCuda or CpuCuda
-        checkCudaErrors(cudaMemcpy(buf->getBufPtr(0), lidarFrame->base(), lidarFrame->bytes(),
-                                   cudaMemcpyDefault));
 
         // add the second input.
-        buf = batchArray->getBuffer(1);
+        buf = tensorTable["num_points"];
         unsigned int points_size = numPoints;
-        checkCudaErrors(
-            cudaMemcpy(buf->getBufPtr(0), &points_size, sizeof(unsigned int), cudaMemcpyDefault));
+        checkCudaErrors(cudaMemcpyAsync(buf->getBufPtr(0), &points_size, sizeof(unsigned int),
+                                        cudaMemcpyDefault, stream));
         return NVDSINFER_SUCCESS;
     }
 

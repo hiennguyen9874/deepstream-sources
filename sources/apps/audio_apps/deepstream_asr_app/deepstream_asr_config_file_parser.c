@@ -11,7 +11,7 @@
 #define CHECK_PARSE_ERROR(error)          \
     if (error) {                          \
         g_printerr("%s", error->message); \
-        return FALSE;                     \
+        goto done;                        \
     }
 
 static guint get_num_sources_cfg(gchar *config_file)
@@ -25,6 +25,12 @@ static guint get_num_sources_cfg(gchar *config_file)
 
     if (!g_key_file_load_from_file(cf, config_file, G_KEY_FILE_NONE, &error)) {
         g_printerr("Failed to load config file: %s, %s", config_file, error->message);
+        if (cf) {
+            g_key_file_free(cf);
+        }
+        if (error) {
+            g_error_free(error);
+        }
         return 0;
     }
 
@@ -73,6 +79,7 @@ static gboolean parse_src_config(StreamCtx *sctx,
     gchar **keys = NULL;
     gchar **key = NULL;
     GError *error = NULL;
+    gboolean ret = FALSE;
 
     keys = g_key_file_get_keys(key_file, group, NULL, &error);
 
@@ -95,7 +102,15 @@ static gboolean parse_src_config(StreamCtx *sctx,
             CHECK_PARSE_ERROR(error);
         }
     }
-    return TRUE;
+    ret = TRUE;
+done:
+    if (keys) {
+        g_strfreev(keys);
+    }
+    if (error) {
+        g_error_free(error);
+    }
+    return ret;
 }
 
 static gboolean parse_sink_config(StreamCtx *sctx,
@@ -106,6 +121,7 @@ static gboolean parse_sink_config(StreamCtx *sctx,
     gchar **keys = NULL;
     gchar **key = NULL;
     GError *error = NULL;
+    gboolean ret = FALSE;
 
     keys = g_key_file_get_keys(key_file, group, NULL, &error);
 
@@ -127,7 +143,16 @@ static gboolean parse_sink_config(StreamCtx *sctx,
             CHECK_PARSE_ERROR(error);
         }
     }
-    return TRUE;
+    ret = TRUE;
+done:
+    if (keys) {
+        g_strfreev(keys);
+    }
+    if (error) {
+        g_error_free(error);
+    }
+
+    return ret;
 }
 
 static gboolean parse_config_file_cfg(AppCtx *appctx, gchar *config_file)
@@ -143,7 +168,8 @@ static gboolean parse_config_file_cfg(AppCtx *appctx, gchar *config_file)
 
     if (!g_key_file_load_from_file(cf, config_file, G_KEY_FILE_NONE, &error)) {
         g_printerr("Failed to load config file: %s, %s", config_file, error->message);
-        return FALSE;
+        ret = FALSE;
+        goto done;
     }
 
     groups = g_key_file_get_groups(cf, NULL);

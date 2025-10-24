@@ -266,14 +266,14 @@ static gpointer meta_copy_func(gpointer data, gpointer user_data)
     NvDsEventMsgMeta *srcMeta = (NvDsEventMsgMeta *)user_meta->user_meta_data;
     NvDsEventMsgMeta *dstMeta = NULL;
 
-    dstMeta = g_memdup(srcMeta, sizeof(NvDsEventMsgMeta));
+    dstMeta = g_memdup2(srcMeta, sizeof(NvDsEventMsgMeta));
 
     if (srcMeta->ts)
         dstMeta->ts = g_strdup(srcMeta->ts);
 
     if (srcMeta->objSignature.size > 0) {
         dstMeta->objSignature.signature =
-            g_memdup(srcMeta->objSignature.signature, srcMeta->objSignature.size);
+            g_memdup2(srcMeta->objSignature.signature, srcMeta->objSignature.size);
         dstMeta->objSignature.size = srcMeta->objSignature.size;
     }
 
@@ -382,8 +382,8 @@ int main(int argc, char *argv[])
     }
 
     if (print_version) {
-        g_print("deepstream-app version %d.%d.%d\n", NVDS_APP_VERSION_MAJOR, NVDS_APP_VERSION_MINOR,
-                NVDS_APP_VERSION_MICRO);
+        g_print("deepstream-audio version %d.%d.%d\n", NVDS_APP_VERSION_MAJOR,
+                NVDS_APP_VERSION_MINOR, NVDS_APP_VERSION_MICRO);
         nvds_version_print();
         return 0;
     }

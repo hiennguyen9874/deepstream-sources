@@ -78,6 +78,7 @@ typedef struct NvDsNmosAppConfig {
     gchar *seed;
     gchar *hostName;
     gchar *pgieConfFile;
+    gboolean pluginType;
     NvDsNmosSrcConfig srcConfigs[MAX_SOURCE_NUM];
     NvDsNmosSinkConfig sinkConfigs[MAX_SINK_NUM];
 } NvDsNmosAppConfig;

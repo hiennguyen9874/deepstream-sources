@@ -50,7 +50,7 @@ static GMutex disp_lock;
 
 // Object that will contain the necessary information for metadata file creation.
 // It consumes the metadata created by producers and write them into files.
-static ImageMetaConsumer g_img_meta_consumer;
+static ImageMetaConsumer *g_img_meta_consumer;
 
 GST_DEBUG_CATEGORY(NVDS_APP);
 
@@ -101,8 +101,8 @@ static bool save_image(const std::string &path,
     userData.objNum = obj_counter++;
     userData.quality = 80;
 
-    g_img_meta_consumer.init_image_save_library_on_first_time();
-    nvds_obj_enc_process(g_img_meta_consumer.get_obj_ctx_handle(), &userData, ip_surf, obj_meta,
+    g_img_meta_consumer->init_image_save_library_on_first_time();
+    nvds_obj_enc_process(g_img_meta_consumer->get_obj_ctx_handle(), &userData, ip_surf, obj_meta,
                          frame_meta);
     return true;
 }
@@ -119,8 +119,8 @@ static ImageMetaProducer::IPData make_ipdata(const AppCtx *appCtx,
 {
     ImageMetaProducer::IPData ipdata;
     ipdata.confidence = obj_meta->confidence;
-    ipdata.within_confidence = ipdata.confidence > g_img_meta_consumer.get_min_confidence() &&
-                               ipdata.confidence < g_img_meta_consumer.get_max_confidence();
+    ipdata.within_confidence = ipdata.confidence > g_img_meta_consumer->get_min_confidence() &&
+                               ipdata.confidence < g_img_meta_consumer->get_max_confidence();
     ipdata.class_id = obj_meta->class_id;
     ipdata.class_name = obj_meta->obj_label;
     ipdata.current_frame = frame_meta->frame_num;
@@ -134,7 +134,7 @@ static ImageMetaProducer::IPData make_ipdata(const AppCtx *appCtx,
     std::ostringstream oss;
     oss << std::put_time(std::localtime(&t), "%FT%T%z");
     ipdata.datetime = oss.str();
-    ipdata.image_cropped_obj_path_saved = g_img_meta_consumer.make_img_path(
+    ipdata.image_cropped_obj_path_saved = g_img_meta_consumer->make_img_path(
         ImageMetaConsumer::CROPPED_TO_OBJECT, ipdata.video_stream_nb, ipdata.datetime);
     return ipdata;
 }
@@ -151,19 +151,19 @@ static void display_bad_confidence(float confidence)
 
 static bool obj_meta_is_within_confidence(const NvDsObjectMeta *obj_meta)
 {
-    return obj_meta->confidence > g_img_meta_consumer.get_min_confidence() &&
-           obj_meta->confidence < g_img_meta_consumer.get_max_confidence();
+    return obj_meta->confidence > g_img_meta_consumer->get_min_confidence() &&
+           obj_meta->confidence < g_img_meta_consumer->get_max_confidence();
 }
 
 static bool obj_meta_is_above_min_confidence(const NvDsObjectMeta *obj_meta)
 {
-    return obj_meta->confidence > g_img_meta_consumer.get_min_confidence();
+    return obj_meta->confidence > g_img_meta_consumer->get_min_confidence();
 }
 
 static bool obj_meta_box_is_above_minimum_dimension(const NvDsObjectMeta *obj_meta)
 {
-    return obj_meta->rect_params.width > g_img_meta_consumer.get_min_box_width() &&
-           obj_meta->rect_params.height > g_img_meta_consumer.get_min_box_height();
+    return obj_meta->rect_params.width > g_img_meta_consumer->get_min_box_width() &&
+           obj_meta->rect_params.height > g_img_meta_consumer->get_min_box_height();
 }
 
 /// Callback function that save full images, cropped images, and their related metadata
@@ -181,8 +181,9 @@ static void after_pgie_image_meta_save(AppCtx *appCtx,
                                        NvDsBatchMeta *batch_meta,
                                        guint index)
 {
-    if (g_img_meta_consumer.get_is_stopped()) {
-        std::cerr << "Could not save image and metadata: " << "Consumer is stopped.\n";
+    if (g_img_meta_consumer->get_is_stopped()) {
+        std::cerr << "Could not save image and metadata: "
+                  << "Consumer is stopped.\n";
         return;
     }
 
@@ -195,7 +196,7 @@ static void after_pgie_image_meta_save(AppCtx *appCtx,
     gst_buffer_unmap(buf, &inmap);
 
     /// Creating an ImageMetaProducer and registering a consumer.
-    ImageMetaProducer img_producer = ImageMetaProducer(g_img_meta_consumer);
+    ImageMetaProducer img_producer = ImageMetaProducer(*g_img_meta_consumer);
 
     bool at_least_one_image_saved = false;
 
@@ -203,10 +204,10 @@ static void after_pgie_image_meta_save(AppCtx *appCtx,
          l_frame = l_frame->next) {
         NvDsFrameMeta *frame_meta = static_cast<NvDsFrameMeta *>(l_frame->data);
         unsigned source_number = frame_meta->pad_index;
-        if (g_img_meta_consumer.should_save_data(source_number)) {
-            g_img_meta_consumer.lock_source_nb(source_number);
-            if (!g_img_meta_consumer.should_save_data(source_number)) {
-                g_img_meta_consumer.unlock_source_nb(source_number);
+        if (g_img_meta_consumer->should_save_data(source_number)) {
+            g_img_meta_consumer->lock_source_nb(source_number);
+            if (!g_img_meta_consumer->should_save_data(source_number)) {
+                g_img_meta_consumer->unlock_source_nb(source_number);
                 continue;
             }
         } else
@@ -247,12 +248,12 @@ static void after_pgie_image_meta_save(AppCtx *appCtx,
                 /// Store temporally information about the current object in the producer
                 bool data_was_stacked = img_producer.stack_obj_data(ipdata);
                 /// Save a cropped image if the option was enabled
-                if (data_was_stacked && g_img_meta_consumer.get_save_cropped_images_enabled())
+                if (data_was_stacked && g_img_meta_consumer->get_save_cropped_images_enabled())
                     at_least_one_image_saved |=
                         save_image(ipdata.image_cropped_obj_path_saved, ip_surf, obj_meta,
                                    frame_meta, obj_counter);
                 if (data_was_stacked && !full_frame_written &&
-                    g_img_meta_consumer.get_save_full_frame_enabled()) {
+                    g_img_meta_consumer->get_save_full_frame_enabled()) {
                     unsigned dummy_counter = 0;
 
                     at_least_one_image_saved |=
@@ -267,13 +268,14 @@ static void after_pgie_image_meta_save(AppCtx *appCtx,
         /// Send information contained in the producer and empty it.
         if (at_least_one_metadata_saved) {
             img_producer.send_and_flush_obj_data();
-            g_img_meta_consumer.data_was_saved_for_source(source_number);
+            g_img_meta_consumer->data_was_saved_for_source(source_number);
         }
-        g_img_meta_consumer.unlock_source_nb(source_number);
+        g_img_meta_consumer->unlock_source_nb(source_number);
     }
     /// Wait for all the thread writing jpg files to be finished. (joining a thread list)
-    if (at_least_one_image_saved)
-        nvds_obj_enc_finish(g_img_meta_consumer.get_obj_ctx_handle());
+    if (at_least_one_image_saved) {
+        nvds_obj_enc_finish(g_img_meta_consumer->get_obj_ctx_handle());
+    }
 }
 
 /**
@@ -543,12 +545,14 @@ static gpointer nvds_x_event_thread(gpointer data)
     g_mutex_lock(&disp_lock);
     while (display) {
         XEvent e;
+        memset(&e, 0, sizeof(XEvent));
         guint index;
         while (XPending(display)) {
             XNextEvent(display, &e);
             switch (e.type) {
             case ButtonPress: {
                 XWindowAttributes win_attr;
+                memset(&win_attr, 0, sizeof(XWindowAttributes));
                 XButtonEvent ev = e.xbutton;
                 gint source_id;
                 GstElement *tiler;
@@ -558,6 +562,9 @@ static gpointer nvds_x_event_thread(gpointer data)
                 for (index = 0; index < MAX_INSTANCES; index++)
                     if (ev.window == windows[index])
                         break;
+
+                if (index == MAX_INSTANCES)
+                    break;
 
                 tiler = appCtx[index]->pipeline.tiled_display_bin.tiler;
                 g_object_get(G_OBJECT(tiler), "show-source", &source_id, nullptr);
@@ -682,6 +689,8 @@ int main(int argc, char *argv[])
     GError *error = nullptr;
     guint i;
 
+    g_img_meta_consumer = new ImageMetaConsumer;
+
     ctx = g_option_context_new("Nvidia DeepStream Demo");
     group = g_option_group_new("abc", nullptr, nullptr, nullptr, nullptr);
     g_option_group_add_entries(group, entries);
@@ -693,21 +702,24 @@ int main(int argc, char *argv[])
 
     if (!g_option_context_parse(ctx, &argc, &argv, &error)) {
         NVGSTDS_ERR_MSG_V("%s", error->message);
+        delete g_img_meta_consumer;
         return -1;
     }
 
     if (print_version) {
-        g_print("deepstream-app version %d.%d.%d\n", NVDS_APP_VERSION_MAJOR, NVDS_APP_VERSION_MINOR,
-                NVDS_APP_VERSION_MICRO);
+        g_print("deepstream-transfer-learning-app version %d.%d.%d\n", NVDS_APP_VERSION_MAJOR,
+                NVDS_APP_VERSION_MINOR, NVDS_APP_VERSION_MICRO);
         nvds_version_print();
+        delete g_img_meta_consumer;
         return 0;
     }
 
     if (print_dependencies_version) {
-        g_print("deepstream-app version %d.%d.%d\n", NVDS_APP_VERSION_MAJOR, NVDS_APP_VERSION_MINOR,
-                NVDS_APP_VERSION_MICRO);
+        g_print("deepstream-transfer-learning-app version %d.%d.%d\n", NVDS_APP_VERSION_MAJOR,
+                NVDS_APP_VERSION_MINOR, NVDS_APP_VERSION_MICRO);
         nvds_version_print();
         nvds_dependencies_version_print();
+        delete g_img_meta_consumer;
         return 0;
     }
 
@@ -776,20 +788,25 @@ int main(int argc, char *argv[])
                              "frame-to-skip-rules-path=./my/path/to/file.csv to [img-save]\n";
                 can_start = false;
             }
+            if (nvds_imgsave.second_to_skip_interval <= 0) {
+                std::cout << "[WARNING] second-to-skip-interval value should be a positive "
+                             "integer. Setting to Default.\n";
+                nvds_imgsave.second_to_skip_interval = 600;
+            }
             if (can_start) {
                 /* Initiating the encode process for images. Each init function creates a context
                  * on the specified gpu and can then be used to encode images. Multiple contexts
                  * (even on different gpus) can also be initialized according to user requirements.
                  * Only one is shown here for demonstration purposes. */
-                g_img_meta_consumer.init(nvds_imgsave.gpu_id, nvds_imgsave.output_folder_path,
-                                         nvds_imgsave.frame_to_skip_rules_path,
-                                         nvds_imgsave.min_confidence, nvds_imgsave.max_confidence,
-                                         nvds_imgsave.min_box_width, nvds_imgsave.min_box_height,
-                                         nvds_imgsave.save_image_full_frame,
-                                         nvds_imgsave.save_image_cropped_object,
-                                         nvds_imgsave.second_to_skip_interval, MAX_SOURCE_BINS);
+                g_img_meta_consumer->init(nvds_imgsave.gpu_id, nvds_imgsave.output_folder_path,
+                                          nvds_imgsave.frame_to_skip_rules_path,
+                                          nvds_imgsave.min_confidence, nvds_imgsave.max_confidence,
+                                          nvds_imgsave.min_box_width, nvds_imgsave.min_box_height,
+                                          nvds_imgsave.save_image_full_frame,
+                                          nvds_imgsave.save_image_cropped_object,
+                                          nvds_imgsave.second_to_skip_interval, MAX_SOURCE_BINS);
             }
-            if (g_img_meta_consumer.get_is_stopped()) {
+            if (g_img_meta_consumer->get_is_stopped()) {
                 std::cerr << "Consumer could not be started => exiting...\n\n";
                 return_value = -1;
                 break;
@@ -976,6 +993,7 @@ int main(int argc, char *argv[])
     }
 
     gst_deinit();
+    delete g_img_meta_consumer;
 
     return return_value;
 }

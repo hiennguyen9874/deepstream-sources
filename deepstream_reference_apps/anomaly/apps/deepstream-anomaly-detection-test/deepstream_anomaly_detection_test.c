@@ -325,8 +325,13 @@ int main(int argc, char *argv[])
         sink_infer = gst_element_factory_make("nv3dsink", "nv3dsink-infer");
 
     } else {
+#ifdef __aarch64__
+        sink_of = gst_element_factory_make("nv3dsink", "nv3dsink-of");
+        sink_infer = gst_element_factory_make("nv3dsink", "nv3dsink-infer");
+#else
         sink_of = gst_element_factory_make("nveglglessink", "nvelgglessink-of");
         sink_infer = gst_element_factory_make("nveglglessink", "nvelgglessink-infer");
+#endif
     }
 
     if (!tee) {

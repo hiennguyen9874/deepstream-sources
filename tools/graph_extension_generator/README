@@ -1,0 +1,114 @@
+################################################################################
+# Copyright 2021, NVIDIA CORPORATION
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+################################################################################
+
+The generate_extensions python script generates wrapper Graph components and
+extensions for GStreamer elements using DeepStream interfaces. The
+script uses GObject / GStreamer introspection python modules to load the
+GStreamer element and parse information from it. This information is filled into
+pre-created template files to generate the component, extension and BUILD files.
+
+** NOTE: This project is meant only for generating wrapper extensions for
+GStreamer plugins.
+
+Prerequisites:
+- Graph Composer installed using the debian package
+
+- Install other development dependencies using
+ $ /opt/nvidia/graph-composer/extension-dev/install_dependencies.sh
+
+Usage:
+$ python3 generate_extensions.py element_list.txt <output-directory>
+
+Build:
+$ cd <output-directory>
+- For x86 extension
+$ bazel build extensions/...
+- For Jetson extension
+$ bazel build extensions/... --config=jetson
+
+**NOTE: A sample elements file and a graph to test generated extension has been
+provided. Once the extensions are generated run the following command:
+$ registry extn info -n pango
+Copy the extension uuid from the above command's output and replace the one
+in "timeoverlay.yaml"
+$ /opt/nvidia/graph-composer/execute_graph.sh timeoverlay.yaml
+
+**NOTE: Extensions (shared libraries) built using this project will include the
+following software. Check LICENSE.txt for the corresponding licenses.
+- yaml-cpp
+- GLib
+- GStreamer
+
+The elements in the list are grouped by their plugins.
+
+For each element in the list, the component code is generated at
+"extensions/<elementPluginName>/<elementName>.hpp".
+
+For each such plugin, a extension cpp file containing the code for registration
+of the extension and components is generated at
+"extensions/<pluginName>/<pluginName>_ext.cpp". A bazel BUILD file is generated
+alongside.
+
+Some elements will support signals, actions and property controllers. Components
+are generated for these as well. These components are generated in a separate
+header "<elementName>_interfaces.hpp" since the APIs of these components will be
+called by other components/extensions and hence require the header file to be
+shared for developement use.
+
+If the script is run for the first time or new components are being generated, a
+corresponding YAML for each element is generated at
+"extensions/<elementPluginName>/<elementName>_def.yaml". Also a corresponding YAML
+file for each extension is generated at
+"extensions/<pluginName>/<pluginName>_extdef.yaml"
+
+These YAML files contain information parsed from the element and the plugin. For
+subsequent runs of the script, information in the YAML overrides the information
+parsed from the element and the plugin. Thus, it is possible to modify the
+extension/component partially using autogeneration. Of course, users can modify
+the extension/component code as required manually, but subsequent runs will
+overwrite these modifications and hence users must take care of this.
+
+Some of the possible modifications using YAML are:
+* Extension
+- Change the extension name, uuid, version, author, license, url, description,
+  and labels by modifying corresponding values in the extdef YAML
+
+* Component
+- Change component name by modifying "class-name" value
+- Change component description by modifying "description" value
+- Change component UUID by modifying "uuid" value
+- Change component namespace by modifying "namespace" and "sub-namespace" values
+
+* Parameters
+- "params / list" lists all the properties of the GStreamer element
+- Add property names to "params / ignore" list to not create corresponding
+  GXF parameter
+- Add property names to "params / runtime-control-props-get" and/or
+  "params / runtime-control-props-set" list to add the property to the
+  PropertyController component for the element.
+- Set default values for parameters in the "params / default-values" map in the
+  format:
+params:
+  default-values:
+    <property-name>: '<default-value-c++-syntax>'
+
+* Signal/Actions
+- Signal/action info parsed from element lacks some information like the
+  description of the signal/action, parameter description. The script generates
+  some placeholder descriptions for this.
+- These descriptions can be updated in the component YAML
+- "ignore" value can be set to "false" to ignore the signal/action.

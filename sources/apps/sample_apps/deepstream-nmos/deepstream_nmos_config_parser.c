@@ -66,6 +66,13 @@ gboolean parse_gie(NvDsNmosAppConfig *appConfig,
                 NVGSTDS_ERR_MSG_V("%s", error->message);
                 goto done;
             }
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_PLUGIN_TYPE)) {
+            appConfig->pluginType =
+                g_key_file_get_boolean(keyFile, group, CONFIG_GROUP_PLUGIN_TYPE, &error);
+            if (error) {
+                NVGSTDS_ERR_MSG_V("%s", error->message);
+                goto done;
+            }
         } else if (!g_strcmp0(*key, CONFIG_GROUP_PGIE_CONFIG_FILE)) {
             gchar *pgieConfFile =
                 g_key_file_get_string(keyFile, group, CONFIG_GROUP_PGIE_CONFIG_FILE, &error);
@@ -168,6 +175,9 @@ gboolean parse_sender(NvDsNmosSinkConfig *sinkConfig,
     }
 
     if (!g_key_file_get_integer(keyFile, group, CONFIG_GROUP_ENABLE, &error)) {
+        if (keys) {
+            g_strfreev(keys);
+        }
         // group is not enabled, no need to parse further.
         return TRUE;
     }
@@ -178,7 +188,7 @@ gboolean parse_sender(NvDsNmosSinkConfig *sinkConfig,
 
     if (idStartPtr == idEndPtr || *idEndPtr != '\0') {
         NVGSTDS_ERR_MSG_V("Sink group \"[%s]\" is not in the form \"[sink<%%d>]\"", group);
-        return FALSE;
+        goto done;
     }
 
     // Check if a sender with same id has already been parsed.
@@ -187,7 +197,7 @@ gboolean parse_sender(NvDsNmosSinkConfig *sinkConfig,
             "Did not parse sender group \"[%s]\". Another sender group"
             " with id %d already exists",
             group, sinkIndex);
-        return FALSE;
+        goto done;
     }
 
     for (key = keys; *key; key++) {
@@ -202,6 +212,7 @@ gboolean parse_sender(NvDsNmosSinkConfig *sinkConfig,
             gchar *sdpFile = g_key_file_get_string(keyFile, group, CONFIG_GROUP_SDPFILE, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
+                g_free(sdpFile);
                 goto done;
             }
             gchar *absPath = get_absolute_path(sdpFile, cfgFilePath);
@@ -270,7 +281,8 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
 
     if (!g_key_file_get_integer(keyFile, group, CONFIG_GROUP_ENABLE, &error)) {
         // group is not enabled, no need to parse further.
-        return TRUE;
+        ret = TRUE;
+        goto done;
     }
 
     gchar *idStartPtr = group + strlen(CONFIG_GROUP_RECEIVER);
@@ -279,7 +291,7 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
 
     if (idStartPtr == idEndPtr || *idEndPtr != '\0') {
         NVGSTDS_ERR_MSG_V("Source group \"[%s]\" is not in the form \"[source<%%d>]\"", group);
-        return FALSE;
+        goto done;
     }
 
     // Check if a receiver with same id has already been parsed.
@@ -288,7 +300,7 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
             "Did not parse receiver group \"[%s]\". Another receiver group"
             " with id %d already exists",
             group, srcIndex);
-        return FALSE;
+        goto done;
     }
 
     for (key = keys; *key; key++) {
@@ -302,6 +314,7 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
             gchar *sdpFile = g_key_file_get_string(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
+                g_free(sdpFile);
                 goto done;
             }
             gchar *absPath = get_absolute_path(sdpFile, cfgFilePath);
@@ -322,6 +335,7 @@ gboolean parse_receiver(NvDsNmosSrcConfig *srcConfig,
             gchar *sdpFile = g_key_file_get_string(keyFile, group, *key, &error);
             if (error) {
                 NVGSTDS_ERR_MSG_V("%s", error->message);
+                g_free(sdpFile);
                 goto done;
             }
             gchar *absPath = get_absolute_path(sdpFile, cfgFilePath);

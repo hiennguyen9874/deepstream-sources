@@ -73,8 +73,11 @@ void ImageMetaConsumer::stop()
     th_kitti_.join();
     th_json_.join();
     th_csv_.join();
-    if (image_saving_library_is_init_)
+    mutex_image_save_init_.lock();
+    if (image_saving_library_is_init_) {
         nvds_obj_enc_destroy_context(obj_ctx_handle_);
+    }
+    mutex_image_save_init_.unlock();
 }
 
 void ImageMetaConsumer::init(const unsigned gpu_id,
@@ -352,6 +355,7 @@ bool ImageMetaConsumer::get_save_cropped_images_enabled() const
 
 void ImageMetaConsumer::init_image_save_library_on_first_time()
 {
+    mutex_image_save_init_.lock();
     if (!image_saving_library_is_init_) {
         m_kitti_.lock();
         m_json_.lock();
@@ -368,6 +372,7 @@ void ImageMetaConsumer::init_image_save_library_on_first_time()
         m_json_.unlock();
         m_kitti_.unlock();
     }
+    mutex_image_save_init_.unlock();
 }
 
 bool ImageMetaConsumer::should_save_data(unsigned source_id)

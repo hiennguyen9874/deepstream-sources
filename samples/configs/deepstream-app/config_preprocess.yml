@@ -1,0 +1,54 @@
+####################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+####################################################################################################
+
+property:
+  enable: 1
+  target-unique-ids: 1
+  network-input-order: 0
+  process-on-frame: 1
+  unique-id: 5
+  gpu-id: 0
+  maintain-aspect-ratio: 1
+  symmetric-padding: 1
+  processing-width: 960
+  processing-height: 544
+  network-input-shape: 8;3;544;960
+  scaling-buf-pool-size: 6
+  tensor-buf-pool-size: 6
+  network-color-format: 0
+  tensor-data-type: 0
+  scaling-pool-memory-type: 0
+  scaling-pool-compute-hw: 0
+  tensor-name: input_1:0
+  scaling-filter: 0
+  custom-lib-path: /opt/nvidia/deepstream/deepstream/lib/gst-plugins/libcustom2d_preprocess.so
+  custom-tensor-preparation-function: CustomTensorPreparation
+
+user-configs:
+  pixel-normalization-factor: 0.003921568
+  offsets: 0;0;0
+
+group:
+  - src-ids: 0;1
+    custom-input-transformation-function: CustomAsyncTransformation
+    process-on-roi: 1
+    roi-params-src-0: 300;200;700;800;1300;300;600;700
+    roi-params-src-1: 860;300;900;500;50;300;500;700
+  - src-ids: 2
+    custom-input-transformation-function: CustomAsyncTransformation
+    process-on-roi: 1
+    roi-params-src-2: 50;300;500;700;650;300;500;500;1300;300;600;700
+  - src-ids: 3
+    custom-input-transformation-function: CustomAsyncTransformation
+    process-on-roi: 0
+    draw-roi: 0
+    roi-params-src-3: 0;540;900;500;960;0;900;500

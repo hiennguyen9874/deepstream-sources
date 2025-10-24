@@ -11,9 +11,11 @@
 #pragma GCC diagnostic ignored "-Wclass-memaccess"
 #endif
 
-#ifdef WITH_OPENCV
-#include <opencv2/objdetect/objdetect.hpp>
-#endif
+#include <cassert>
+#include <memory>
+
+#include "nvdsinfer_dbscan.h"
+
 #pragma GCC diagnostic pop
 
 #include "gstnvdsinfer.h"
@@ -27,11 +29,9 @@
 #define INFER_PGIE_CONFIG_FILE "dstensor_pgie_config.txt"
 #define INFER_SGIE1_CONFIG_FILE "dstensor_sgie1_config.txt"
 #define INFER_SGIE2_CONFIG_FILE "dstensor_sgie2_config.txt"
-#define INFER_SGIE3_CONFIG_FILE "dstensor_sgie3_config.txt"
 #define INFERSERVER_PGIE_CONFIG_FILE "inferserver/dstensor_pgie_config.txt"
 #define INFERSERVER_SGIE1_CONFIG_FILE "inferserver/dstensor_sgie1_config.txt"
 #define INFERSERVER_SGIE2_CONFIG_FILE "inferserver/dstensor_sgie2_config.txt"
-#define INFERSERVER_SGIE3_CONFIG_FILE "inferserver/dstensor_sgie3_config.txt"
 
 #define MAX_DISPLAY_LEN 64
 
@@ -46,8 +46,8 @@
 #define MUXER_OUTPUT_WIDTH 1280
 #define MUXER_OUTPUT_HEIGHT 720
 
-#define PGIE_NET_WIDTH 640
-#define PGIE_NET_HEIGHT 368
+#define PGIE_NET_WIDTH 960
+#define PGIE_NET_HEIGHT 544
 
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
@@ -55,15 +55,12 @@
 
 gint frame_number = 0;
 /* These are the strings of the labels for the respective models */
-const gchar sgie1_classes_str[12][32] = {"black",  "blue",   "brown", "gold",   "green", "grey",
-                                         "maroon", "orange", "red",   "silver", "white", "yellow"};
-
-const gchar sgie2_classes_str[20][32] = {"Acura",    "Audi",   "BMW",    "Chevrolet", "Chrysler",
+const gchar sgie1_classes_str[20][32] = {"Acura",    "Audi",   "BMW",    "Chevrolet", "Chrysler",
                                          "Dodge",    "Ford",   "GMC",    "Honda",     "Hyundai",
                                          "Infiniti", "Jeep",   "Kia",    "Lexus",     "Mazda",
                                          "Mercedes", "Nissan", "Subaru", "Toyota",    "Volkswagen"};
 
-const gchar sgie3_classes_str[6][32] = {"coupe", "largevehicle", "sedan", "suv", "truck", "van"};
+const gchar sgie2_classes_str[6][32] = {"coupe", "largevehicle", "sedan", "suv", "truck", "van"};
 
 const gchar pgie_classes_str[PGIE_DETECTED_CLASS_NUM][32] = {"Vehicle", "TwoWheeler", "Person",
                                                              "RoadSign"};
@@ -75,13 +72,14 @@ const gchar pgie_classes_str[PGIE_DETECTED_CLASS_NUM][32] = {"Vehicle", "TwoWhee
 
 const guint sgie1_unique_id = 2;
 const guint sgie2_unique_id = 3;
-const guint sgie3_unique_id = 4;
 
 /* nvds_lib_major_version and nvds_lib_minor_version is the version number of
  * deepstream sdk */
 
 unsigned int nvds_lib_major_version = NVDS_VERSION_MAJOR;
 unsigned int nvds_lib_minor_version = NVDS_VERSION_MINOR;
+
+std::shared_ptr<NvDsInferDBScan> m_DBScanHandle;
 
 /* This is the buffer probe function that we have registered on the sink pad
  * of the OSD element. All the infer elements in the pipeline shall attach
@@ -168,20 +166,26 @@ extern "C" bool NvDsInferParseCustomResnet(std::vector<NvDsInferLayerInfo> const
 static GstPadProbeReturn pgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info, gpointer u_data)
 {
     static guint use_device_mem = 0;
+    gboolean *use_new_mux = (gboolean *)u_data;
+    guint stream_width = 0, stream_height = 0;
+
     static NvDsInferNetworkInfo networkInfo{PGIE_NET_WIDTH, PGIE_NET_HEIGHT, 3};
     NvDsInferParseDetectionParams detectionParams;
     detectionParams.numClassesConfigured = 4;
     detectionParams.perClassPreclusterThreshold = {0.2, 0.2, 0.2, 0.2};
-#ifdef WITH_OPENCV
-    static float groupThreshold = 1;
-    static float groupEps = 0.2;
-#endif
     NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(GST_BUFFER(info->data));
 
     /* Iterate each frame metadata in batch */
     for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
          l_frame = l_frame->next) {
         NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+        if (*use_new_mux) {
+            stream_width = frame_meta->source_frame_width;
+            stream_height = frame_meta->source_frame_height;
+        } else {
+            stream_width = MUXER_OUTPUT_WIDTH;
+            stream_height = MUXER_OUTPUT_HEIGHT;
+        }
 
         /* Iterate user metadata in frames to search PGIE's tensor metadata */
         for (NvDsMetaList *l_user = frame_meta->frame_user_meta_list; l_user != NULL;
@@ -214,23 +218,42 @@ static GstPadProbeReturn pgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *inf
             }
 #endif
             NvDsInferParseCustomResnet(outputLayersInfo, networkInfo, detectionParams, objectList);
-#ifdef WITH_OPENCV
-            /* Seperate detection rectangles per class for grouping. */
-            std::vector<std::vector<cv::Rect>> objectListClasses(PGIE_DETECTED_CLASS_NUM);
+
+            NvDsInferDBScanClusteringParams clusteringParams;
+            clusteringParams.enableATHRFilter = true;
+            clusteringParams.thresholdATHR = 60.0;
+            clusteringParams.eps = 0.95;
+            clusteringParams.minBoxes = 3;
+            clusteringParams.minScore = 0.5;
+            assert(m_DBScanHandle);
+            /* Create perClassObjectList: vector<vector<NvDsInferObjectDetectionInfo>>. Each vector
+             * is of same classID */
+            std::vector<std::vector<NvDsInferObjectDetectionInfo> > perClassObjectList(
+                PGIE_DETECTED_CLASS_NUM);
             for (auto &obj : objectList) {
-                objectListClasses[obj.classId].emplace_back(obj.left, obj.top, obj.width,
-                                                            obj.height);
+                perClassObjectList[obj.classId].emplace_back(obj);
             }
 
-            for (uint32_t c = 0; c < objectListClasses.size(); ++c) {
-                auto &objlist = objectListClasses[c];
+            /* Call NvDsInferDBScanCluster on each of the vector and resize it */
+            for (unsigned int c = 0; c < perClassObjectList.size(); c++) {
+                NvDsInferObjectDetectionInfo *objArray =
+                    (NvDsInferObjectDetectionInfo *)(perClassObjectList[c].data());
+                size_t numObjects = perClassObjectList[c].size();
+
+                /* Cluster together rectangles with similar locations and sizes since these
+                 * rectangles might represent the same object using DBSCAN. */
+                if (clusteringParams.minBoxes > 0) {
+                    NvDsInferDBScanCluster(m_DBScanHandle.get(), &clusteringParams, objArray,
+                                           &numObjects);
+                }
+                perClassObjectList[c].resize(numObjects);
+
+                /* Iterate perClassObjectList for left, top, width, height values of rectangle and
+                 * attach result into frame's obj_meta_list. */
+                auto &objlist = perClassObjectList[c];
                 if (objlist.empty())
                     continue;
 
-                /* Merge and cluster similar detection results */
-                cv::groupRectangles(objlist, groupThreshold, groupEps);
-
-                /* Iterate final rectangules and attach result into frame's obj_meta_list. */
                 for (const auto &rect : objlist) {
                     NvDsObjectMeta *obj_meta = nvds_acquire_obj_meta_from_pool(batch_meta);
                     obj_meta->unique_component_id = meta->unique_id;
@@ -244,10 +267,10 @@ static GstPadProbeReturn pgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *inf
                     NvOSD_TextParams &text_params = obj_meta->text_params;
 
                     /* Assign bounding box coordinates. */
-                    rect_params.left = rect.x * MUXER_OUTPUT_WIDTH / PGIE_NET_WIDTH;
-                    rect_params.top = rect.y * MUXER_OUTPUT_HEIGHT / PGIE_NET_HEIGHT;
-                    rect_params.width = rect.width * MUXER_OUTPUT_WIDTH / PGIE_NET_WIDTH;
-                    rect_params.height = rect.height * MUXER_OUTPUT_HEIGHT / PGIE_NET_HEIGHT;
+                    rect_params.left = rect.left * stream_width / PGIE_NET_WIDTH;
+                    rect_params.top = rect.top * stream_height / PGIE_NET_HEIGHT;
+                    rect_params.width = rect.width * stream_width / PGIE_NET_WIDTH;
+                    rect_params.height = rect.height * stream_height / PGIE_NET_HEIGHT;
 
                     /* Border of width 3. */
                     rect_params.border_width = 3;
@@ -269,7 +292,6 @@ static GstPadProbeReturn pgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *inf
                     nvds_add_obj_meta_to_frame(frame_meta, obj_meta, NULL);
                 }
             }
-#endif
         }
     }
     use_device_mem = 1 - use_device_mem;
@@ -360,10 +382,6 @@ static GstPadProbeReturn sgie_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *inf
                         strcpy(label_info->result_label,
                                sgie2_classes_str[label_info->result_class_id]);
                         break;
-                    case sgie3_unique_id:
-                        strcpy(label_info->result_label,
-                               sgie3_classes_str[label_info->result_class_id]);
-                        break;
                     default:
                         break;
                     }
@@ -392,8 +410,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -423,14 +441,15 @@ int main(int argc, char *argv[])
     GMainLoop *loop = NULL;
     GstElement *pipeline = NULL, *source = NULL, *h264parser = NULL, *queue = NULL, *decoder = NULL,
                *streammux = NULL, *sink = NULL, *pgie = NULL, *nvvidconv = NULL, *nvosd = NULL,
-               *sgie1 = NULL, *sgie2 = NULL, *sgie3 = NULL, *tiler = NULL, *queue2, *queue3,
-               *queue4, *queue5, *queue6;
+               *sgie1 = NULL, *sgie2 = NULL, *tiler = NULL, *queue2, *queue3, *queue4, *queue5;
     g_print("With tracker\n");
 
     int current_device = -1;
     cudaGetDevice(&current_device);
     struct cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, current_device);
+    const gchar *new_mux_str = g_getenv("USE_NEW_NVSTREAMMUX");
+    gboolean use_new_mux = !g_strcmp0(new_mux_str, "yes");
 
     GstBus *bus = NULL;
     guint bus_watch_id = 0;
@@ -489,15 +508,12 @@ int main(int argc, char *argv[])
     queue3 = gst_element_factory_make("queue", NULL);
     queue4 = gst_element_factory_make("queue", NULL);
     queue5 = gst_element_factory_make("queue", NULL);
-    queue6 = gst_element_factory_make("queue", NULL);
 
     /* We need three secondary gies so lets create 3 more instances of
        nvinfer */
     sgie1 = gst_element_factory_make(infer_plugin, "secondary1-nvinference-engine");
 
     sgie2 = gst_element_factory_make(infer_plugin, "secondary2-nvinference-engine");
-
-    sgie3 = gst_element_factory_make(infer_plugin, "secondary3-nvinference-engine");
 
     /* Use convertor to convert from NV12 to RGBA as required by nvosd */
     tiler = gst_element_factory_make("nvmultistreamtiler", "tiler");
@@ -512,16 +528,26 @@ int main(int argc, char *argv[])
     if (prop.integrated) {
         sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
     } else {
+#ifdef __aarch64__
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
     }
 
-    if (!pgie || !sgie1 || !sgie2 || !sgie3 || !nvvidconv || !nvosd || !sink || !tiler) {
+    if (!pgie || !sgie1 || !sgie2 || !nvvidconv || !nvosd || !sink || !tiler) {
         g_printerr("One element could not be created. Exiting.\n");
         return -1;
     }
 
-    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
-                 "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
+    if (!use_new_mux) {
+        g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
+                     MUXER_OUTPUT_HEIGHT, "batch-size", num_sources, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, NULL);
+    } else {
+        g_object_set(G_OBJECT(streammux), "batch-size", num_sources, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, NULL);
+    }
 
     /* Set all the necessary properties of the infer plugin element,
      * Enable Output tensor meta, we can probe PGIE and
@@ -535,8 +561,6 @@ int main(int argc, char *argv[])
                      "output-tensor-meta", TRUE, "process-mode", 2, NULL);
         g_object_set(G_OBJECT(sgie2), "config-file-path", INFER_SGIE2_CONFIG_FILE,
                      "output-tensor-meta", TRUE, "process-mode", 2, NULL);
-        g_object_set(G_OBJECT(sgie3), "config-file-path", INFER_SGIE3_CONFIG_FILE,
-                     "output-tensor-meta", TRUE, "process-mode", 2, NULL);
     } else {
         /* nvinferserver output tensor meta can be enabled in config file.
          * see output_control { output_tensor_meta: true }*/
@@ -545,8 +569,6 @@ int main(int argc, char *argv[])
         g_object_set(G_OBJECT(sgie1), "config-file-path", INFERSERVER_SGIE1_CONFIG_FILE,
                      "process-mode", 2, NULL);
         g_object_set(G_OBJECT(sgie2), "config-file-path", INFERSERVER_SGIE2_CONFIG_FILE,
-                     "process-mode", 2, NULL);
-        g_object_set(G_OBJECT(sgie3), "config-file-path", INFERSERVER_SGIE3_CONFIG_FILE,
                      "process-mode", 2, NULL);
     }
 
@@ -561,9 +583,9 @@ int main(int argc, char *argv[])
 
     /* Set up the pipeline */
     /* we add all elements into the pipeline */
-    /* decoder | pgie1 | sgie1 | sgie2 | sgie3 | etc.. */
-    gst_bin_add_many(GST_BIN(pipeline), streammux, pgie, queue, sgie1, queue5, sgie2, queue6, sgie3,
-                     queue2, tiler, queue3, nvvidconv, queue4, nvosd, sink, NULL);
+    /* decoder | pgie1 | sgie1 | sgie2 | etc.. */
+    gst_bin_add_many(GST_BIN(pipeline), streammux, pgie, queue, sgie1, queue5, sgie2, queue2, tiler,
+                     queue3, nvvidconv, queue4, nvosd, sink, NULL);
 
     for (i = 0; i < num_sources; i++) {
         /* Source element for reading from the file */
@@ -582,12 +604,20 @@ int main(int argc, char *argv[])
             return -1;
         }
 
+        m_DBScanHandle.reset(NvDsInferDBScanCreate(), [](NvDsInferDBScanHandle handle) {
+            if (handle)
+                NvDsInferDBScanDestroy(handle);
+        });
+        if (!m_DBScanHandle) {
+            g_print("failed to create dbscan handle\n");
+        }
+
         GstPad *sinkpad, *srcpad;
         gchar pad_name_sink[16];
         sprintf(pad_name_sink, "sink_%d", i);
         gchar pad_name_src[16] = "src";
 
-        sinkpad = gst_element_get_request_pad(streammux, pad_name_sink);
+        sinkpad = gst_element_request_pad_simple(streammux, pad_name_sink);
         if (!sinkpad) {
             g_printerr("Streammux request sink pad failed. Exiting.\n");
             return -1;
@@ -620,8 +650,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (!gst_element_link_many(streammux, pgie, queue, sgie1, queue5, sgie2, queue6, sgie3, queue2,
-                               tiler, queue3, nvvidconv, queue4, nvosd, sink, NULL)) {
+    if (!gst_element_link_many(streammux, pgie, queue, sgie1, queue5, sgie2, queue2, tiler, queue3,
+                               nvvidconv, queue4, nvosd, sink, NULL)) {
         g_printerr("Elements could not be linked. Exiting.\n");
         return -1;
     }
@@ -641,7 +671,8 @@ int main(int argc, char *argv[])
      * the source pad of PGIE's next queue element, since by that time, PGIE's
      * buffer would have had got tensor metadata. */
     queue_src_pad = gst_element_get_static_pad(queue, "src");
-    gst_pad_add_probe(queue_src_pad, GST_PAD_PROBE_TYPE_BUFFER, pgie_pad_buffer_probe, NULL, NULL);
+    gst_pad_add_probe(queue_src_pad, GST_PAD_PROBE_TYPE_BUFFER, pgie_pad_buffer_probe, &use_new_mux,
+                      NULL);
 
     /* Add probe to get informed of the meta data generated, we add probe to
      * the sink pad of tiler element which is just after all SGIE elements.

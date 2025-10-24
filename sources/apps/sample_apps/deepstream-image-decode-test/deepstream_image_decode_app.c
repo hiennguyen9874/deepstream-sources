@@ -123,8 +123,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_WARNING: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_warning(msg, &error, &debug);
         g_printerr("WARNING from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         g_free(debug);
@@ -133,8 +133,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         break;
     }
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -147,7 +147,7 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 #ifndef PLATFORM_TEGRA
     case GST_MESSAGE_ELEMENT: {
         if (gst_nvmessage_is_stream_eos(msg)) {
-            guint stream_id;
+            guint stream_id = 0;
             if (gst_nvmessage_parse_stream_eos(msg, &stream_id)) {
                 g_print("Got EOS from stream %d\n", stream_id);
             }
@@ -252,6 +252,8 @@ int main(int argc, char *argv[])
     guint tiler_rows, tiler_columns;
     guint pgie_batch_size;
     gboolean is_nvinfer_server = FALSE;
+    const gchar *new_mux_str = g_getenv("USE_NEW_NVSTREAMMUX");
+    gboolean use_new_mux = !g_strcmp0(new_mux_str, "yes");
 
     int current_device = -1;
     cudaGetDevice(&current_device);
@@ -315,7 +317,7 @@ int main(int argc, char *argv[])
         gst_bin_add(GST_BIN(pipeline), source_bin);
 
         g_snprintf(pad_name, 15, "sink_%u", i);
-        sinkpad = gst_element_get_request_pad(streammux, pad_name);
+        sinkpad = gst_element_request_pad_simple(streammux, pad_name);
         if (!sinkpad) {
             g_printerr("Streammux request sink pad failed. Exiting.\n");
             return -1;
@@ -357,7 +359,11 @@ int main(int argc, char *argv[])
     if (prop.integrated) {
         sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
     } else {
+#ifdef __aarch64__
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
     }
     g_object_set(G_OBJECT(sink), "sync", 0, NULL);
 
@@ -366,8 +372,14 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height", MUXER_OUTPUT_HEIGHT,
-                 "batch-size", num_sources, "batched-push-timeout", MUXER_BATCH_TIMEOUT_USEC, NULL);
+    if (!use_new_mux) {
+        g_object_set(G_OBJECT(streammux), "width", MUXER_OUTPUT_WIDTH, "height",
+                     MUXER_OUTPUT_HEIGHT, "batch-size", num_sources, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, NULL);
+    } else {
+        g_object_set(G_OBJECT(streammux), "batch-size", num_sources, "batched-push-timeout",
+                     MUXER_BATCH_TIMEOUT_USEC, NULL);
+    }
 
     /* Configure the nvinfer/nvinferserver element using the config file. */
     if (is_nvinfer_server) {

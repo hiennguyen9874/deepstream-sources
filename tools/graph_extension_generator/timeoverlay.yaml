@@ -1,0 +1,99 @@
+################################################################################
+# Copyright 2021-2025, NVIDIA CORPORATION
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+################################################################################
+#
+dependencies:
+- extension: NvDsOutputSinkExt
+  uuid: 3fc9ad87-03e7-47a8-bbfc-8501c3f7ff2f
+  version: 1.7.0
+- extension: NvDsBaseExt
+  uuid: 56d7e3ec-62c6-4652-bcc8-4f1c3b00df03
+  version: 1.7.0
+- extension: NvDsSourceExt
+  uuid: a632d022-3425-4848-9074-e6483ef74366
+  version: 1.7.0
+- extension: pango
+  uuid: 54e985c4-d9fc-3afa-a2d2-2e55bddaff4a
+  version: 0.0.1
+---
+components:
+- name: xv_image_sink11..7a90
+  parameters:
+    in: nv_ds_static_input12..7ac8
+  type: nvidia::deepstream::XvImageSink
+- name: nv_ds_static_input12..7ac8
+  type: nvidia::deepstream::NvDsStaticInput
+name: XvImageSink..9470
+ui_property:
+  position:
+    x: 747.9606323242188
+    y: 174.4488067626953
+  state: 0
+---
+components:
+- name: video_test_src13..0ef0
+  parameters:
+    video-out: nv_ds_static_output14..0400
+  type: nvidia::deepstream::VideoTestSrc
+- name: nv_ds_static_output14..0400
+  type: nvidia::deepstream::NvDsStaticOutput
+name: VideoTestSrc..7320
+ui_property:
+  position:
+    x: 36.22834396362305
+    y: 152.78744506835938
+  state: 0
+---
+components:
+- name: gst_time_overlay15..0240
+  parameters:
+    video-in: nv_ds_static_input16..0e80
+    video-out: nv_ds_static_output17..0a20
+  type: nvidia::deepstream::GstTimeOverlay
+- name: nv_ds_static_input16..0e80
+  type: nvidia::deepstream::NvDsStaticInput
+- name: nv_ds_static_output17..0a20
+  type: nvidia::deepstream::NvDsStaticOutput
+name: GstTimeOverlay..db38
+ui_property:
+  position:
+    x: 418.9133605957031
+    y: 175.4803009033203
+  state: 0
+---
+components:
+- name: nv_ds_connection18..0a20
+  parameters:
+    source: VideoTestSrc..7320/nv_ds_static_output14..0400
+    target: GstTimeOverlay..db38/nv_ds_static_input16..0e80
+  type: nvidia::deepstream::NvDsConnection
+name: node..5908
+ui_property: {}
+---
+components:
+- name: nv_ds_connection19..33c8
+  parameters:
+    source: GstTimeOverlay..db38/nv_ds_static_output17..0a20
+    target: XvImageSink..9470/nv_ds_static_input12..7ac8
+  type: nvidia::deepstream::NvDsConnection
+name: node..b128
+ui_property: {}
+---
+components:
+- name: nv_ds_scheduler20..0898
+  type: nvidia::deepstream::NvDsScheduler
+name: NvDsScheduler..0518
+ui_property: {}

@@ -1,6 +1,6 @@
 %YAML 1.2
 ################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -27,6 +27,9 @@ local_copy_files:
   dst: "/opt/nvidia/graph-composer/"
 
 - src: "/opt/nvidia/graph-composer/libgxf_core.so"
+  dst: "/opt/nvidia/graph-composer/"
+
+- src: "/opt/nvidia/graph-composer/libgxf_logger.so"
   dst: "/opt/nvidia/graph-composer/"
 
 - src: "deepstream-triton.parameters.container.yaml"

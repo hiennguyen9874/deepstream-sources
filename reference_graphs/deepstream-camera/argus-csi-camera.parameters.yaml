@@ -10,11 +10,11 @@
 ################################################################################
 ---
 components:
-  - name: camera_source_input
-    parameters:
-      type: 1
-      width: 640
-      height: 480
-      sensor-id: 0
-      framerate: 30
+- name: camera_source_input
+  parameters:
+    type: 1
+    width: 640
+    height: 480
+    sensor-id: 0
+    framerate: 30
 name: camera_source_input

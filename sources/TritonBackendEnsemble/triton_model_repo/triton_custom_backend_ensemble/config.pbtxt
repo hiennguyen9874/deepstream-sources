@@ -39,19 +39,14 @@ input [
 ]
 output [
   {
-    name: "CAR_COLOR"
+    name: "VEHICLE_MAKE"
     data_type: TYPE_FP32
-    dims: [12, 1, 1]
-  },
-  {
-    name: "CAR_MAKE"
-    data_type: TYPE_FP32
-    dims: [20, 1, 1]
+    dims: [20]
   },
   {
     name: "VEHICLE_TYPE"
     data_type: TYPE_FP32
-    dims: [6, 1, 1]
+    dims: [6]
   },
   {
     name: "INFERENCE_COUNT"
@@ -75,38 +70,26 @@ ensemble_scheduling {
       }
     },
     {
-      model_name: "Secondary_CarColor"
+      model_name: "Secondary_VehicleMake"
       model_version: 1
       input_map {
-        key: "input_1"
+        key: "input_1:0"
         value: "OBJECT"
       }
       output_map {
-        key: "predictions/Softmax"
-        value: "CAR_COLOR"
-      }
-    },
-    {
-      model_name: "Secondary_CarMake"
-      model_version: 1
-      input_map {
-        key: "input_1"
-        value: "OBJECT"
-      }
-      output_map {
-        key: "predictions/Softmax"
-        value: "CAR_MAKE"
+        key: "predictions/Softmax:0"
+        value: "VEHICLE_MAKE"
       }
     },
     {
       model_name: "Secondary_VehicleTypes"
       model_version: 1
       input_map {
-        key: "input_1"
+        key: "input_1:0"
         value: "OBJECT"
       }
       output_map {
-        key: "predictions/Softmax"
+        key: "predictions/Softmax:0"
         value: "VEHICLE_TYPE"
       }
     }

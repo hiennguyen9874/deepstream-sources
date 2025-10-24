@@ -456,11 +456,11 @@ gst::ElePtr CameraCanApp::createSink()
         conv.reset(gst_element_factory_make("nvvideoconvert", "conv_tiler"));
         osd.reset(gst_element_factory_make("nvdsosd", "nv_osd"));
         osdCapFilter.reset(gst_element_factory_make("capsfilter", "osdCaps"));
-        if (!_isdGPU) {
-            eglsink.reset(gst_element_factory_make("nv3dsink", "nv3d-sink"));
-        } else {
-            eglsink.reset(gst_element_factory_make("nveglglessink", "nvvideo-renderer"));
-        }
+#ifdef __aarch64__
+        eglsink.reset(gst_element_factory_make("nv3dsink", "nv3d-sink"));
+#else
+        eglsink.reset(gst_element_factory_make("nveglglessink", "nvvideo-renderer"));
+#endif
 
         DS_ASSERT(q0 && q1);
         DS_ASSERT(tiler);
@@ -573,7 +573,7 @@ ErrCode CameraCanApp::buildPipeline()
         this->add(src).add(vidconv0).add(conv0Filter).add(mx).add(q1).add(match).add(q2).add(sink);
         gst::PadPtr srcPad(gst_element_get_static_pad(conv0Filter, "src"));
         std::string padName("sink_0");
-        gst::PadPtr sinkPad(gst_element_get_request_pad(mx, padName.c_str()));
+        gst::PadPtr sinkPad(gst_element_request_pad_simple(mx, padName.c_str()));
         DS_ASSERT(srcPad && sinkPad);
         DS3D_THROW_ERROR(gst_pad_link(srcPad.get(), sinkPad.get()) == GST_PAD_LINK_OK,
                          ErrCode::kGst, "link sourc and mux failed.");

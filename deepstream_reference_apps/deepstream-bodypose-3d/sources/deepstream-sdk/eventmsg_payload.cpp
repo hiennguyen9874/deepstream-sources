@@ -949,8 +949,8 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
                     ss << "|#|" << to_str(dsObj->gender) << "|" << dsObj->age << "|"
                        << to_str(dsObj->hair) << "|" << to_str(dsObj->cap) << "|"
                        << to_str(dsObj->glasses) << "|" << to_str(dsObj->facialhair) << "|"
-                       << to_str(dsObj->name) << "|" << "|" << to_str(dsObj->eyecolor) << "|"
-                       << meta->confidence;
+                       << to_str(dsObj->name) << "|"
+                       << "|" << to_str(dsObj->eyecolor) << "|" << meta->confidence;
                 }
             } break;
             case NVDS_OBJECT_TYPE_VEHICLE_EXT: {
@@ -982,8 +982,8 @@ gchar *generate_event_message_minimal(void *privData, NvDsEvent *events, guint s
                     ss << "|#|" << to_str(dsObj->gender) << "|" << dsObj->age << "|"
                        << to_str(dsObj->hair) << "|" << to_str(dsObj->cap) << "|"
                        << to_str(dsObj->glasses) << "|" << to_str(dsObj->facialhair) << "|"
-                       << to_str(dsObj->name) << "|" << "|" << to_str(dsObj->eyecolor) << "|"
-                       << meta->confidence;
+                       << to_str(dsObj->name) << "|"
+                       << "|" << to_str(dsObj->eyecolor) << "|" << meta->confidence;
 
                     if (dsObj->mask)
                         objectMask = dsObj->mask;

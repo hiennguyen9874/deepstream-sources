@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -10,31 +10,31 @@
 ################################################################################
 
 components:
-  - name: multiple_source_input
-    parameters:
-      uri-list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
+- name: multiple_source_input
+  parameters:
+    uri-list: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4;file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4
 name: multiple_source_input
 ---
 components:
-  - name: streammux
-    parameters:
-      batch-size: 4
-      batched-push-timeout: 40000
-      height: 1080
-      width: 1920
+- name: streammux
+  parameters:
+    batch-size: 4
+    batched-push-timeout: 40000
+    height: 1080
+    width: 1920
 name: streammux
 ---
 components:
-  - name: object_detector
-    parameters:
-      batch-size: 4
-  - name: resnet10_4_class_detector
-    parameters:
-      model-engine-file: primary.resnet10.caffemodel_b4_gpu0_int8.engine
+- name: object_detector
+  parameters:
+    batch-size: 4
+- name: resnet18_4_class_detector
+  parameters:
+    model-engine-file: primary.resnet18_trafficcamnet_pruned.onnx_b4_gpu0_int8.engine
 name: object_detector
 ---
 components:
-  - name: per_class_object_counting
-    parameters:
-      overlay-count: false
+- name: per_class_object_counting
+  parameters:
+    overlay-count: false
 name: per_class_object_counting

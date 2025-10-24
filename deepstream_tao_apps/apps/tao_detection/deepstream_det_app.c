@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 
+#include "cuda_runtime_api.h"
 #include "gstnvdsmeta.h"
 #include "nvds_yml_parser.h"
 
@@ -69,6 +70,11 @@ typedef struct _DsSourceBin {
     guint64 prev_accumulated_base;
 } DsSourceBinStruct;
 
+static const char *dgpus_unsupport_hw_enc[] = {
+    "NVIDIA A100", "NVIDIA A30",
+    "NVIDIA H100", // NVIDIA H100 SXM, NVIDIA H100 PCIe, NVIDIA H100 NVL
+    "NVIDIA T500", "GeForce MX570 A", "DGX A100"};
+
 static void parse_tests_yaml(gint *file_loop, gchar *cfg_file_path)
 {
     YAML::Node configyml = YAML::LoadFile(cfg_file_path);
@@ -82,6 +88,25 @@ static void parse_tests_yaml(gint *file_loop, gchar *cfg_file_path)
             *file_loop = 0;
         }
     }
+}
+
+static void parse_filesink_yaml(gint *enc_type, gchar *cfg_file_path)
+{
+    YAML::Node configyml = YAML::LoadFile(cfg_file_path);
+
+    for (YAML::const_iterator itr = configyml["filesink"].begin();
+         itr != configyml["filesink"].end(); ++itr) {
+        std::string paramKey = itr->first.as<std::string>();
+        if (paramKey == "enc-type") {
+            int value = itr->second.as<gint>();
+            if (value == 0 || value == 1) {
+                *enc_type = value;
+            }
+        } else {
+            *enc_type = 0;
+        }
+    }
+    g_print("enc_type:%d\n", *enc_type);
 }
 
 /*
@@ -409,6 +434,37 @@ static gboolean det_bus_call(GstBus *bus, GstMessage *msg, gpointer data)
     return TRUE;
 }
 
+static bool is_enc_hw_support()
+{
+    int current_device = -1;
+    cudaGetDevice(&current_device);
+    struct cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, current_device);
+    bool enc_hw_support = TRUE;
+    if (prop.integrated) {
+        char device_name[50];
+        FILE *ptr = fopen("/proc/device-tree/model", "r");
+
+        if (ptr) {
+            while (fgets(device_name, 50, ptr) != NULL) {
+                if (strstr(device_name, "Orin") && (strstr(device_name, "Nano")))
+                    enc_hw_support = FALSE;
+            }
+        }
+        fclose(ptr);
+    } else {
+        for (int i = 0; i < sizeof(dgpus_unsupport_hw_enc) / sizeof(dgpus_unsupport_hw_enc[0]);
+             i++) {
+            if (!strncasecmp(prop.name, dgpus_unsupport_hw_enc[i],
+                             strlen(dgpus_unsupport_hw_enc[i]))) {
+                enc_hw_support = FALSE;
+                break;
+            }
+        }
+    }
+    return enc_hw_support;
+}
+
 /* Check for parsing error. */
 #define RETURN_ON_PARSER_ERROR(parse_expr)                    \
     if (NVDS_YAML_PARSER_SUCCESS != parse_expr) {             \
@@ -443,9 +499,6 @@ int main(int argc, char *argv[])
     gchar pad_name_sink[16] = "sink_0";
     gchar pad_name_src[16] = "src";
 
-#ifdef PLATFORM_TEGRA
-    GstElement *transform = NULL;
-#endif
     GstBus *bus = NULL;
     guint bus_watch_id;
 
@@ -465,7 +518,12 @@ int main(int argc, char *argv[])
     static guint src_cnt = 0;
     PerfStructInt str;
     fileLoop = FALSE;
+    int enc_type = 0;
     NvDsGieType pgie_type = NVDS_GIE_PLUGIN_INFER;
+    int current_device = -1;
+    cudaGetDevice(&current_device);
+    struct cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, current_device);
 
     if (argc == 2 && (g_str_has_suffix(argv[1], ".yml") || g_str_has_suffix(argv[1], ".yaml"))) {
         isYAML = TRUE;
@@ -611,9 +669,6 @@ int main(int argc, char *argv[])
     tiler = gst_element_factory_make("nvmultistreamtiler", "nvtiler");
 
     /* Finally render the osd output */
-#ifdef PLATFORM_TEGRA
-    transform = gst_element_factory_make("nvegltransform", "nvegl-transform");
-#endif
 
     if (isYAML) {
         GstElement *eglsink = gst_element_factory_make("nveglglessink", "test-egl-sink");
@@ -644,7 +699,17 @@ int main(int argc, char *argv[])
     if (useDisplay == FALSE) {
         if (isImage == FALSE) {
             parser1 = gst_element_factory_make("h264parse", "h264-parser1");
-            enc = gst_element_factory_make("nvv4l2h264enc", "h264-enc");
+            if (isYAML) {
+                parse_filesink_yaml(&enc_type, argv[1]);
+            } else {
+                // 0: HW 1: SW
+                enc_type = is_enc_hw_support() ? 0 : 1;
+            }
+            if (enc_type == 0) {
+                enc = gst_element_factory_make("nvv4l2h264enc", "h264-enc");
+            } else {
+                enc = gst_element_factory_make("x264enc", "h264-enc");
+            }
             if (!useFakeSink) {
                 mux = gst_element_factory_make("qtmux", "mp4-mux");
                 if (!mux) {
@@ -673,19 +738,19 @@ int main(int argc, char *argv[])
         else
             g_object_set(G_OBJECT(sink), "location", "./out.jpg", NULL);
     } else {
-        sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+        if (prop.integrated)
+            sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
+        else
+#ifdef __aarch64__
+            sink = gst_element_factory_make("nv3dsink", "nv3d-sink");
+#else
+            sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
         if (!pgie || !tiler || !nvvidconv || !nvdsosd || !sink) {
             g_printerr("One element could not be created. Exiting.\n");
             return -1;
         }
     }
-
-#ifdef PLATFORM_TEGRA
-    if (!transform) {
-        g_printerr("One tegra element could not be created. Exiting.\n");
-        return -1;
-    }
-#endif
 
     if (isYAML) {
         nvds_parse_streammux(streammux, argv[1], "streammux");
@@ -740,11 +805,7 @@ int main(int argc, char *argv[])
         gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, nvvidconv, nvdsosd, nvvidconv1, enc,
                          parser1, sink, NULL);
     } else {
-#ifdef PLATFORM_TEGRA
-        gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, nvvidconv, nvdsosd, transform, sink, NULL);
-#else
         gst_bin_add_many(GST_BIN(pipeline), pgie, tiler, nvvidconv, nvdsosd, sink, NULL);
-#endif
     }
 
     /* We link the elements together */
@@ -765,18 +826,10 @@ int main(int argc, char *argv[])
             }
         }
     } else {
-#ifdef PLATFORM_TEGRA
-        if (!gst_element_link_many(streammux, pgie, tiler, nvvidconv, nvdsosd, transform, sink,
-                                   NULL)) {
-            g_printerr("Elements could not be linked: 2. Exiting.\n");
-            return -1;
-        }
-#else
         if (!gst_element_link_many(streammux, pgie, tiler, nvvidconv, nvdsosd, sink, NULL)) {
             g_printerr("Elements could not be linked: 2. Exiting.\n");
             return -1;
         }
-#endif
     }
 
     /*Performance measurement video fps*/

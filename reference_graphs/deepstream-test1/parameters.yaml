@@ -10,15 +10,15 @@
 ################################################################################
 
 components:
-  - name: single_source_input
-    parameters:
-      uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4
+- name: single_source_input
+  parameters:
+    uri: file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4
 name: single_source_input
 ---
 components:
-  - name: streammux
-    parameters:
-      batch-size: 1
-      height: 1080
-      width: 1920
+- name: streammux
+  parameters:
+    batch-size: 1
+    height: 1080
+    width: 1920
 name: streammux

@@ -53,14 +53,8 @@ static inline const char *safeStr(const std::string &str)
     return str.c_str();
 }
 
-// constant values definition
-/** Labels for the CarColor classifier model. */
-static const std::vector<std::string> kCarColorLabels = {"black", "blue",   "brown",  "gold",
-                                                         "green", "grey",   "maroon", "orange",
-                                                         "red",   "silver", "white",  "yellow"};
-
-/** Labels for the CarMake classifier model. */
-static const std::vector<std::string> kCarMakeLabels = {
+/** Labels for the VehicleMake classifier model. */
+static const std::vector<std::string> kVehicleMakeLabels = {
     "acura", "audi",     "bmw",     "chevrolet", "chrysler", "dodge",     "ford",
     "gmc",   "honda",    "hyundai", "infiniti",  "jeep",     "kia",       "lexus",
     "mazda", "mercedes", "nissan",  "subaru",    "toyota",   "volkswagen"};
@@ -319,12 +313,10 @@ public:
         std::vector<const dsis::IBatchBuffer *> classTensorOutput;
         std::vector<std::vector<std::string>> labels;
 
-        classTensorOutput.push_back(tensors["CAR_COLOR"]);
-        classTensorOutput.push_back(tensors["CAR_MAKE"]);
+        classTensorOutput.push_back(tensors["VEHICLE_MAKE"]);
         classTensorOutput.push_back(tensors["VEHICLE_TYPE"]);
 
-        labels.push_back(kCarColorLabels);
-        labels.push_back(kCarMakeLabels);
+        labels.push_back(kVehicleMakeLabels);
         labels.push_back(kVehicleTypeLabels);
 
         /* Get the number of attributes supported by the classifier. */

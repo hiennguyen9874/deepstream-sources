@@ -102,8 +102,8 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data)
         g_main_loop_quit(loop);
         break;
     case GST_MESSAGE_ERROR: {
-        gchar *debug;
-        GError *error;
+        gchar *debug = NULL;
+        GError *error = NULL;
         gst_message_parse_error(msg, &error, &debug);
         g_printerr("ERROR from element %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
         if (debug)
@@ -160,11 +160,14 @@ static gboolean read_data(AppSrcData *data)
         void *cuda_device_data;
         if (cudaMalloc((void **)&cuda_device_data, data->frame_size) != cudaSuccess) {
             g_print("ERROR !! Unable to allocate device memory. \n");
+            free(file_data);
             return FALSE;
         } else {
             if (cudaMemcpy(cuda_device_data, file_data, data->frame_size, cudaMemcpyHostToDevice) !=
                 cudaSuccess) {
                 g_print("ERROR !! Unable to copy between device and host memories. \n");
+                free(file_data);
+                cudaFree(cuda_device_data);
                 return FALSE;
             }
         }
@@ -485,10 +488,15 @@ int main(int argc, char *argv[])
         g_object_set(G_OBJECT(nvvidconv3), "nvbuf-memory-type", 2, "compute-hw", 1, NULL);
     }
 
-    if (prop.integrated)
+    if (prop.integrated) {
         sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
-    else
+    } else {
+#ifdef __aarch64__
+        sink = gst_element_factory_make("nv3dsink", "nvvideo-renderer");
+#else
         sink = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
+#endif
+    }
 
     if (!sink) {
         g_printerr("Display sink could not be created. Exiting.\n");
@@ -546,7 +554,7 @@ int main(int argc, char *argv[])
     GstPad *sinkpad, *srcpad;
     gchar pad_name_sink[16] = "sink_0";
     gchar pad_name_src[16] = "src";
-    sinkpad = gst_element_get_request_pad(streammux, pad_name_sink);
+    sinkpad = gst_element_request_pad_simple(streammux, pad_name_sink);
     if (!sinkpad) {
         g_printerr("Streammux request sink pad failed. Exiting.\n");
         return -1;
@@ -583,9 +591,9 @@ int main(int argc, char *argv[])
     }
     /* Manually link the Tee, which has "Request" pads.
      * This tee, in case of multistream usecase, will come before tiler element. */
-    tee_source_pad1 = gst_element_get_request_pad(tee, "src_0");
+    tee_source_pad1 = gst_element_request_pad_simple(tee, "src_0");
     osd_sink_pad = gst_element_get_static_pad(nvosd, "sink");
-    tee_source_pad2 = gst_element_get_request_pad(tee, "src_1");
+    tee_source_pad2 = gst_element_request_pad_simple(tee, "src_1");
     appsink_sink_pad = gst_element_get_static_pad(appsink, "sink");
     if (gst_pad_link(tee_source_pad1, osd_sink_pad) != GST_PAD_LINK_OK) {
         g_printerr("Tee could not be linked to display sink.\n");

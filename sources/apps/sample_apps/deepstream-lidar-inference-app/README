@@ -1,5 +1,5 @@
 *****************************************************************************
-* SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+* SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 *
 * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -60,15 +60,17 @@ sinck_caps and src_caps.
 * Support lidar file input and 3D detection bbox file dump.
 
 ## Performance
-Below table shows the end-to-end performance with this sample application.
+Perforamnce improvement continues.
+Enable GPU cuda buffer sharing for whole pipeline, update config for `lidarsource` with
+    mem_type: gpu
+    gpu_id: 0
+`lidar_triton_infer` by `createLidarInferenceFilter` supports CPU and GPU lidar
+frame automatically.
+`lidar_render` by `createLidarDataRender` supports CPU and GPU lidar frame automatically.
 
-| Device    | Number of streams | Batch Size |  Trtion mode |Total FPS |
-|-----------| ----------------- | -----------|-------------|-----------|
-|Jetson Orin|     1             |     1      |CAPI         | 17.589909 |
-|Jetson Orin|     1             |     1      |GPRC         | 5.025041  |
-|T4         |     1             |     1      |CAPI         | 49.657476 |
-|T4         |     1             |     1      |GPRC         | 20.134758 |
-
+`triton_mode_CAPI.txt` eanbles triton inference with better performance on single machine.
+`triton_mode_GRPC.txt` eanbles triton inference running deepstream SDK client and
+Triton model deployment server cross multiple containers/machines.
 
 # Prerequisites
 DeepStream SDK
@@ -98,7 +100,7 @@ For x86 platforms, This app must run inside deepstream-triton containers.
 Follow tags in  https://catalog.ngc.nvidia.com/orgs/nvidia/containers/deepstream to get
 latest version.
 
-$ export DS_TRITON_IMG=nvcr.io/nvidia/deepstream:6.3-triton
+$ export DS_TRITON_IMG=nvcr.io/nvidia/deepstream:8.0-triton
 $ docker pull ${DS_TRITON_IMG}
 Note: for other latest version, switch to deepstream:x.x.x-triton. [x.x.x] stands for
 the version numbers.
@@ -152,4 +154,4 @@ please refer to https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_
 
 ## Notice
 1. model will gives different num_boxes each time when testing the same file.
-2. lidarsource only supports lidar_datatype:FP32 and  mem_type:cpu now
+2. lidarsource only supports lidar_datatype:FP32. mem_type supports [gpu, cpu]

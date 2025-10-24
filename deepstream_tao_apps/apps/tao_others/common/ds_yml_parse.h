@@ -9,6 +9,9 @@ extern "C" {
 #include <gst/rtsp-server/rtsp-server.h>
 
 #include "nvds_yml_parser.h"
+#define _PATH_MAX 1024
+
+typedef enum { ENCODER_TYPE_HW, ENCODER_TYPE_SW } EncHwSwType;
 
 NvDsYamlParserStatus ds_parse_rtsp_output(GstElement *sink,
                                           GstRTSPServer *server,
@@ -24,6 +27,8 @@ guint ds_parse_group_type(gchar *cfg_file_path, const char *group);
 
 guint ds_parse_enc_type(gchar *cfg_file_path, const char *group);
 
+guint ds_parse_enc_codec(gchar *cfg_file_path, const char *group);
+
 GString *ds_parse_file_name(gchar *cfg_file_path, const char *group);
 
 GString *ds_parse_config_yml_filepath(gchar *cfg_file_path, const char *group);
@@ -31,6 +36,45 @@ GString *ds_parse_config_yml_filepath(gchar *cfg_file_path, const char *group);
 NvDsYamlParserStatus ds_parse_videotemplate_config(GstElement *vtemplate,
                                                    gchar *cfg_file_path,
                                                    const char *group);
+
+NvDsYamlParserStatus ds_parse_ocdr_videotemplate_config(GstElement *vtemplate,
+                                                        gchar *cfg_file_path,
+                                                        const char *group);
+
+NvDsYamlParserStatus ds_parse_nvdsanalytics(GstElement *element,
+                                            gchar *cfg_file_path,
+                                            const char *group);
+
+void create_video_encoder(bool isH264,
+                          int enc_type,
+                          GstElement **conv_capfilter,
+                          GstElement **outenc,
+                          GstElement **encparse,
+                          GstElement **rtppay);
+
+/** Function to get the absolute path of a file.*/
+gboolean get_absolute_file_path_yaml(const gchar *cfg_file_path,
+                                     const gchar *file_path,
+                                     char *abs_path_str);
+
+/** Parse preprocess configurations. */
+NvDsYamlParserStatus nvds_parse_preprocess(GstElement *element,
+                                           gchar *app_cfg_file_path,
+                                           const char *group);
+
+/** Parse postprocess configurations. */
+NvDsYamlParserStatus nvds_parse_postprocess(GstElement *element,
+                                            gchar *app_cfg_file_path,
+                                            const char *group);
+
+/** Parse width and height of nvstreammux. */
+void parse_streammux_width_height_yaml(gint *width, gint *height, gchar *cfg_file_path);
+
+/** Parse type of sink. */
+void parse_sink_type_yaml(gint *type, gchar *cfg_file_path);
+
+/** Parse enc type of sink. */
+void parse_sink_enc_type_yaml(gint *enc_type, gchar *cfg_file_path);
 
 #ifdef __cplusplus
 }

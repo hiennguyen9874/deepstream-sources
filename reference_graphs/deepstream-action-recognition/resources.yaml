@@ -9,7 +9,7 @@
 #
 ################################################################################
 files:
-  - src: config_preprocess_3d_custom.txt
-    target: config_preprocess_3d_custom.txt
-  - src: config_preprocess_2d_custom.txt
-    target: config_preprocess_2d_custom.txt
+- src: config_preprocess_3d_custom.txt
+  target: config_preprocess_3d_custom.txt
+- src: config_preprocess_2d_custom.txt
+  target: config_preprocess_2d_custom.txt

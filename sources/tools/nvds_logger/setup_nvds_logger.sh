@@ -1,19 +1,21 @@
 #! /bin/bash
 
-######################################################################
-# Copyright (c) 2018-2020 NVIDIA Corporation.  All rights reserved.
+####################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2018-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
-#
-######################################################################
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+####################################################################################################
 
-# usage: sudo ./setup_nvds_logger.sh [path to log]
-# eg:    sudo ./setup_nvds_logger.sh /tmp/nvds/ds.log
-#
+# usage: sudo ./setup_nvds_logger.sh [log name]
+# eg:    sudo ./setup_nvds_logger.sh ds.log
+# log name is optional, if not provided, it will default to ds.log
+# Log file will be found in /var/log/nvds/[log_name]
 # Note: user can set logging severity level to enable log filtering as mentioned below
 
 if [[ $EUID -ne 0 ]]; then
@@ -21,15 +23,14 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-nvdslogpath="/tmp/nvds/"
-nvdslogfilepath="/tmp/nvds/ds.log"
+nvdslogpath="/var/log/nvds/"
+nvdslogfilepath="/var/log/nvds/ds.log"
 
 if [ "$1" != "" ]; then
-    nvdslogfilepath=$1
-    nvdslogpath=$(dirname "${nvdslogfilepath}")
+    nvdslogfilepath="$nvdslogpath$1"
 fi
 
-echo "Using logging location: $nvdslogpath"
+echo "Using logging location: $nvdslogfilepath"
 rm -rf /run/rsyslogd.pid
 
 if [ ! -d $nvdslogpath ]; then

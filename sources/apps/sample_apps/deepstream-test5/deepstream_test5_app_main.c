@@ -1,5 +1,6 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <cuda_runtime_api.h>
 #include <errno.h>
 #include <glib.h>
 #include <gst/gst.h>
@@ -20,6 +21,7 @@
 #include "deepstream_config_file_parser.h"
 #include "deepstream_test5_app.h"
 #include "gstnvdsmeta.h"
+#include "nvbufsurface.h"
 #include "nvds_version.h"
 #include "nvdsmeta_schema.h"
 
@@ -29,6 +31,7 @@
 
 #define INOTIFY_EVENT_SIZE (sizeof(struct inotify_event))
 #define INOTIFY_EVENT_BUF_LEN (1024 * (INOTIFY_EVENT_SIZE + 16))
+#define MAX_NAME_LENGTH 32752
 
 #define IS_YAML(file) (g_str_has_suffix(file, ".yml") || g_str_has_suffix(file, ".yaml"))
 
@@ -167,6 +170,8 @@ GOptionEntry entries[] = {
     {NULL},
 };
 
+static void nanoseconds_to_rfc3339(int64_t nanoseconds, char *output, size_t output_size);
+
 /**
  * @brief  Fill NvDsVehicleObject with the NvDsClassifierMetaList
  *         information in NvDsObjectMeta
@@ -237,7 +242,8 @@ static GstClockTime generate_ts_rfc3339_from_ts(char *buf,
     GstClockTime ts_generated;
 
     if (playback_utc ||
-        (appCtx[0]->config.multi_source_config[stream_id].type != NV_DS_SOURCE_RTSP)) {
+        ((appCtx[0]->config.multi_source_config[stream_id].type != NV_DS_SOURCE_RTSP) &&
+         (appCtx[0]->config.source_attr_all_config.type != NV_DS_SOURCE_IPC))) {
         if (testAppCtx->streams[stream_id].meta_number == 0) {
             testAppCtx->streams[stream_id].timespec_first_frame = extract_utc_from_uri(src_uri);
             memcpy(&tloc, (void *)(&testAppCtx->streams[stream_id].timespec_first_frame.tv_sec),
@@ -248,9 +254,8 @@ static GstClockTime generate_ts_rfc3339_from_ts(char *buf,
                 GST_TIMESPEC_TO_TIME(testAppCtx->streams[stream_id].timespec_first_frame);
             if (ts_generated == 0) {
                 g_print(
-                    "WARNING; playback mode used with URI [%s] not conforming to timestamp format;"
-                    " check README; using system-time\n",
-                    src_uri);
+                    "WARNING; playback mode used with URI not conforming to timestamp format;"
+                    " check README; using system-time\n");
                 clock_gettime(CLOCK_REALTIME, &testAppCtx->streams[stream_id].timespec_first_frame);
                 ts_generated =
                     GST_TIMESPEC_TO_TIME(testAppCtx->streams[stream_id].timespec_first_frame);
@@ -288,14 +293,14 @@ static gpointer meta_copy_func(gpointer data, gpointer user_data)
     NvDsEventMsgMeta *srcMeta = (NvDsEventMsgMeta *)user_meta->user_meta_data;
     NvDsEventMsgMeta *dstMeta = NULL;
 
-    dstMeta = (NvDsEventMsgMeta *)g_memdup(srcMeta, sizeof(NvDsEventMsgMeta));
+    dstMeta = (NvDsEventMsgMeta *)g_memdup2(srcMeta, sizeof(NvDsEventMsgMeta));
 
     if (srcMeta->ts)
         dstMeta->ts = g_strdup(srcMeta->ts);
 
     if (srcMeta->objSignature.size > 0) {
         dstMeta->objSignature.signature =
-            (gdouble *)g_memdup(srcMeta->objSignature.signature, srcMeta->objSignature.size);
+            (gdouble *)g_memdup2(srcMeta->objSignature.signature, srcMeta->objSignature.size);
         dstMeta->objSignature.size = srcMeta->objSignature.size;
     }
 
@@ -430,6 +435,19 @@ static void generate_person_meta(gpointer data)
 }
 #endif /**< GENERATE_DUMMY_META_EXT */
 
+static void nanoseconds_to_rfc3339(int64_t nanoseconds, char *output, size_t output_size)
+{
+    time_t seconds = nanoseconds / 1000000000;
+    int32_t milliseconds = (nanoseconds % 1000000000) / 1000000;
+
+    struct tm *tm_info = gmtime(&seconds);
+
+    char time_str[MAX_TIME_STAMP_LEN];
+    strftime(time_str, MAX_TIME_STAMP_LEN, "%Y-%m-%dT%H:%M:%S", tm_info);
+
+    g_snprintf(output, output_size, "%s.%03dZ", time_str, milliseconds);
+}
+
 static void generate_event_msg_meta(AppCtx *appCtx,
                                     gpointer data,
                                     gint class_id,
@@ -455,17 +473,48 @@ static void generate_event_msg_meta(AppCtx *appCtx,
     meta->frameId = frame_meta->frame_num;
     meta->ts = (gchar *)g_malloc0(MAX_TIME_STAMP_LEN + 1);
     meta->objectId = (gchar *)g_malloc0(MAX_LABEL_SIZE);
+    meta->confidence = obj_params->confidence;
 
     strncpy(meta->objectId, obj_params->obj_label, MAX_LABEL_SIZE);
 
-    /** INFO: This API is called once for every 30 frames (now) */
-    if (useTs && src_uri) {
-        ts_generated =
-            generate_ts_rfc3339_from_ts(meta->ts, MAX_TIME_STAMP_LEN, ts, src_uri, stream_id);
-    } else {
-        generate_ts_rfc3339(meta->ts, MAX_TIME_STAMP_LEN);
+    if (appCtx->config.custom_ts_to_rfc)
+        nanoseconds_to_rfc3339(ts, meta->ts, MAX_TIME_STAMP_LEN);
+    else {
+        /** INFO: This API is called once for every 30 frames (now) */
+        if ((useTs && src_uri) || appCtx->config.source_attr_all_config.type == NV_DS_SOURCE_IPC) {
+            ts_generated =
+                generate_ts_rfc3339_from_ts(meta->ts, MAX_TIME_STAMP_LEN, ts, src_uri, stream_id);
+        } else {
+            generate_ts_rfc3339(meta->ts, MAX_TIME_STAMP_LEN);
+        }
     }
 
+    meta->has3DTracking = false;
+
+    for (NvDsMetaList *l_user = obj_params->obj_user_meta_list; l_user != NULL;
+         l_user = l_user->next) {
+        NvDsUserMeta *user_meta = (NvDsUserMeta *)l_user->data;
+        if (user_meta->base_meta.meta_type == NVDS_OBJ_3D_META) {
+            meta->has3DTracking = true;
+            NvDsObj3DBbox *p3DBbox = (NvDsObj3DBbox *)user_meta->user_meta_data;
+            meta->singleView3DTracking.bbox3d.boxes_3d[0] = p3DBbox->xCentre;
+            meta->singleView3DTracking.bbox3d.boxes_3d[1] = p3DBbox->yCentre;
+            meta->singleView3DTracking.bbox3d.boxes_3d[2] = p3DBbox->zCentre;
+            meta->singleView3DTracking.bbox3d.boxes_3d[3] = p3DBbox->xLen;
+            meta->singleView3DTracking.bbox3d.boxes_3d[4] = p3DBbox->yLen;
+            meta->singleView3DTracking.bbox3d.boxes_3d[5] = p3DBbox->zLen;
+            meta->singleView3DTracking.bbox3d.boxes_3d[6] = p3DBbox->xRot;
+            meta->singleView3DTracking.bbox3d.boxes_3d[7] = p3DBbox->yRot;
+            meta->singleView3DTracking.bbox3d.boxes_3d[8] = p3DBbox->zRot;
+            meta->singleView3DTracking.bbox3d.boxes_3d[9] = p3DBbox->xVel;
+            meta->singleView3DTracking.bbox3d.boxes_3d[10] = p3DBbox->yVel;
+            meta->singleView3DTracking.bbox3d.boxes_3d[11] = p3DBbox->zVel;
+            // Set detection confidence
+            meta->singleView3DTracking.bbox3d.scores_3d = obj_params->confidence;
+        }
+    }
+
+    meta->confidence = obj_params->tracker_confidence;
     /**
      * Valid attributes in the metadata sent over nvmsgbroker:
      * a) Sensor ID (shall be configured in nvmsgconv config file)
@@ -531,6 +580,35 @@ static void generate_event_msg_meta(AppCtx *appCtx,
     }
 }
 
+static void generate_event_msg_meta_dummy(AppCtx *appCtx,
+                                          gpointer data,
+                                          gint stream_id,
+                                          NvDsFrameMeta *frame_meta)
+{
+    NvDsEventMsgMeta *meta = (NvDsEventMsgMeta *)data;
+    GstClockTime ts_generated = 0;
+
+    meta->objType = NVDS_OBJECT_TYPE_DUMMY; /**< object unknown */
+    /* The sensor_id is parsed from the source group name which has the format
+     * [source<sensor-id>]. */
+    meta->sensorId = appCtx->config.multi_source_config[stream_id].camera_id;
+    meta->placeId = appCtx->config.multi_source_config[stream_id].camera_id;
+    meta->moduleId = appCtx->config.multi_source_config[stream_id].camera_id;
+    meta->frameId = frame_meta->frame_num;
+    meta->ts = (gchar *)g_malloc0(MAX_TIME_STAMP_LEN + 1);
+    nanoseconds_to_rfc3339(frame_meta->ntp_timestamp, meta->ts, MAX_TIME_STAMP_LEN);
+
+    /** sensor ID when streams are added using nvmultiurisrcbin REST API */
+    NvDsSensorInfo *sensorInfo = get_sensor_info(appCtx, stream_id);
+    if (sensorInfo) {
+        /** this stream was added using REST API; we have Sensor Info! */
+        LOGD("this stream [%d:%s] was added using REST API; we have Sensor Info\n",
+             sensorInfo->source_id, sensorInfo->sensor_id);
+        meta->sensorStr = g_strdup(sensorInfo->sensor_id);
+    }
+    (void)ts_generated;
+}
+
 /**
  * Callback function to be called once all inferences (Primary + Secondary)
  * are done. This is opportunity to modify content of the metadata.
@@ -543,81 +621,140 @@ static void bbox_generated_probe_after_analytics(AppCtx *appCtx,
                                                  NvDsBatchMeta *batch_meta,
                                                  guint index)
 {
-    NvDsObjectMeta *obj_meta = NULL;
-    GstClockTime buffer_pts = 0;
-    guint32 stream_id = 0;
+    guint flag = 1;
+    char *verbose = getenv("SPARSE4D_DEBUG_TS");
 
-    for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
-         l_frame = l_frame->next) {
-        NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
-        stream_id = frame_meta->source_id;
-        GstClockTime buf_ntp_time = 0;
-        if (playback_utc == FALSE) {
-            /** Calculate the buffer-NTP-time
-             * derived from this stream's RTCP Sender Report here:
-             */
-            StreamSourceInfo *src_stream = &testAppCtx->streams[stream_id];
-            buf_ntp_time = frame_meta->ntp_timestamp;
+    if (batch_meta->batch_user_meta_list) { // for SPARSE4D model
+        for (NvDsMetaList *l = batch_meta->batch_user_meta_list; l; l = l->next) {
+            NvDsUserMeta *user_event_meta = (NvDsUserMeta *)(l->data);
+            NvDsBbox3dObjectList *bbox3d_list =
+                (NvDsBbox3dObjectList *)user_event_meta->user_meta_data;
 
-            if (buf_ntp_time < src_stream->last_ntp_time) {
-                NVGSTDS_WARN_MSG_V(
-                    "Source %d: NTP timestamps are backward in time."
-                    " Current: %lu previous: %lu",
-                    stream_id, buf_ntp_time, src_stream->last_ntp_time);
+            if ((user_event_meta &&
+                 user_event_meta->base_meta.meta_type == NVDS_CUSTOM_MSG_SPARSE4D)) {
+                flag = 0;
+                for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
+                     l_frame = l_frame->next) {
+                    NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+                    if (verbose != NULL && atoi(verbose) == 1) {
+                        if ((bbox3d_list->count < MAX_ENTRIES) && (frame_meta != NULL)) {
+                            g_strlcpy(bbox3d_list->entries[bbox3d_list->count].source_id,
+                                      frame_meta->sensorInfo_meta.sensor_name, MAX_SOURCE_ID_LEN);
+                            bbox3d_list->entries[bbox3d_list->count].timestamp =
+                                frame_meta->ntp_timestamp;
+                            bbox3d_list->count++;
+                        } else {
+                            g_print("This is either EOS case or some error has happened\n");
+                            break;
+                        }
+                    }
+                }
             }
-            src_stream->last_ntp_time = buf_ntp_time;
         }
+    }
+    if (flag == 1) {
+        NvDsObjectMeta *obj_meta = NULL;
+        GstClockTime buffer_pts = 0;
+        guint32 stream_id = 0;
 
-        GList *l;
-        for (l = frame_meta->obj_meta_list; l != NULL; l = l->next) {
-            /* Now using above information we need to form a text that should
-             * be displayed on top of the bounding box, so lets form it here. */
-
-            obj_meta = (NvDsObjectMeta *)(l->data);
-
-            {
-                /**
-                 * Enable only if this callback is after tiler
-                 * NOTE: Scaling back code-commented
-                 * now that bbox_generated_probe_after_analytics() is post analytics
-                 * (say pgie, tracker or sgie)
-                 * and before tiler, no plugin shall scale metadata and will be
-                 * corresponding to the nvstreammux resolution
+        for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
+             l_frame = l_frame->next) {
+            NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+            stream_id = frame_meta->source_id;
+            GstClockTime buf_ntp_time = 0;
+            if (playback_utc == FALSE) {
+                /** Calculate the buffer-NTP-time
+                 * derived from this stream's RTCP Sender Report here:
                  */
-                float scaleW = 0;
-                float scaleH = 0;
-                /* Frequency of messages to be send will be based on use case.
-                 * Here message is being sent for first object every 30 frames.
-                 */
-                buffer_pts = frame_meta->buf_pts;
-                if (!appCtx->config.streammux_config.pipeline_width ||
-                    !appCtx->config.streammux_config.pipeline_height) {
-                    g_print("invalid pipeline params\n");
-                    return;
-                }
-                LOGD("stream %d==%d [%d X %d]\n", frame_meta->source_id, frame_meta->pad_index,
-                     frame_meta->source_frame_width, frame_meta->source_frame_height);
-                scaleW = (float)frame_meta->source_frame_width /
-                         appCtx->config.streammux_config.pipeline_width;
-                scaleH = (float)frame_meta->source_frame_height /
-                         appCtx->config.streammux_config.pipeline_height;
+                StreamSourceInfo *src_stream = &testAppCtx->streams[stream_id];
+                buf_ntp_time = frame_meta->ntp_timestamp;
 
-                if (playback_utc == FALSE) {
-                    /** Use the buffer-NTP-time derived from this stream's RTCP Sender
-                     * Report here:
-                     */
-                    buffer_pts = buf_ntp_time;
+                if (buf_ntp_time < src_stream->last_ntp_time) {
+                    GST_WARNING(
+                        "Source %d: NTP timestamps are backward in time."
+                        " Current: %lu previous: %lu \n",
+                        stream_id, buf_ntp_time, src_stream->last_ntp_time);
                 }
-                /** Generate NvDsEventMsgMeta for every object */
+                src_stream->last_ntp_time = buf_ntp_time;
+            }
+
+            GList *l;
+            if (frame_meta->num_obj_meta) {
+                for (l = frame_meta->obj_meta_list; l != NULL; l = l->next) {
+                    /* Now using above information we need to form a text that should
+                     * be displayed on top of the bounding box, so lets form it here. */
+
+                    obj_meta = (NvDsObjectMeta *)(l->data);
+
+                    {
+                        /**
+                         * Enable only if this callback is after tiler
+                         * NOTE: Scaling back code-commented
+                         * now that bbox_generated_probe_after_analytics() is post analytics
+                         * (say pgie, tracker or sgie)
+                         * and before tiler, no plugin shall scale metadata and will be
+                         * corresponding to the nvstreammux resolution
+                         */
+                        float scaleW = 0;
+                        float scaleH = 0;
+                        /* Frequency of messages to be send will be based on use case.
+                         * Here message is being sent for first object every 30 frames.
+                         */
+                        buffer_pts = frame_meta->buf_pts;
+                        if (!appCtx->config.streammux_config.pipeline_width ||
+                            !appCtx->config.streammux_config.pipeline_height) {
+                            g_print("invalid pipeline params\n");
+                            return;
+                        }
+                        LOGD("stream %d==%d [%d X %d]\n", frame_meta->source_id,
+                             frame_meta->pad_index, frame_meta->source_frame_width,
+                             frame_meta->source_frame_height);
+                        scaleW = (float)frame_meta->source_frame_width /
+                                 appCtx->config.streammux_config.pipeline_width;
+                        scaleH = (float)frame_meta->source_frame_height /
+                                 appCtx->config.streammux_config.pipeline_height;
+
+                        if (playback_utc == FALSE) {
+                            /** Use the buffer-NTP-time derived from this stream's RTCP Sender
+                             * Report here:
+                             */
+                            buffer_pts = buf_ntp_time;
+                        }
+                        /** Generate NvDsEventMsgMeta for every object */
+                        NvDsEventMsgMeta *msg_meta =
+                            (NvDsEventMsgMeta *)g_malloc0(sizeof(NvDsEventMsgMeta));
+                        generate_event_msg_meta(
+                            appCtx, msg_meta, obj_meta->class_id, TRUE,
+                            /**< useTs NOTE: Pass FALSE for files without base-timestamp in URI */
+                            buffer_pts, appCtx->config.multi_source_config[stream_id].uri,
+                            stream_id, appCtx->config.multi_source_config[stream_id].camera_id,
+                            obj_meta, scaleW, scaleH, frame_meta);
+                        testAppCtx->streams[stream_id].meta_number++;
+                        NvDsUserMeta *user_event_meta =
+                            nvds_acquire_user_meta_from_pool(batch_meta);
+                        if (user_event_meta) {
+                            /*
+                             * Since generated event metadata has custom objects for
+                             * Vehicle / Person which are allocated dynamically, we are
+                             * setting copy and free function to handle those fields when
+                             * metadata copy happens between two components.
+                             */
+                            user_event_meta->user_meta_data = (void *)msg_meta;
+                            user_event_meta->base_meta.batch_meta = batch_meta;
+                            user_event_meta->base_meta.meta_type = NVDS_EVENT_MSG_META;
+                            user_event_meta->base_meta.copy_func = (NvDsMetaCopyFunc)meta_copy_func;
+                            user_event_meta->base_meta.release_func =
+                                (NvDsMetaReleaseFunc)meta_free_func;
+                            nvds_add_user_meta_to_frame(frame_meta, user_event_meta);
+                        } else {
+                            g_print("Error in attaching event meta to buffer\n");
+                        }
+                    }
+                }
+            } else if (appCtx->config.dummy_payload) {
                 NvDsEventMsgMeta *msg_meta =
                     (NvDsEventMsgMeta *)g_malloc0(sizeof(NvDsEventMsgMeta));
-                generate_event_msg_meta(
-                    appCtx, msg_meta, obj_meta->class_id, TRUE,
-                    /**< useTs NOTE: Pass FALSE for files without base-timestamp in URI */
-                    buffer_pts, appCtx->config.multi_source_config[stream_id].uri, stream_id,
-                    appCtx->config.multi_source_config[stream_id].camera_id, obj_meta, scaleW,
-                    scaleH, frame_meta);
-                testAppCtx->streams[stream_id].meta_number++;
+                generate_event_msg_meta_dummy(appCtx, msg_meta, stream_id, frame_meta);
                 NvDsUserMeta *user_event_meta = nvds_acquire_user_meta_from_pool(batch_meta);
                 if (user_event_meta) {
                     /*
@@ -636,8 +773,8 @@ static void bbox_generated_probe_after_analytics(AppCtx *appCtx,
                     g_print("Error in attaching event meta to buffer\n");
                 }
             }
+            testAppCtx->streams[stream_id].frameCount++;
         }
-        testAppCtx->streams[stream_id].frameCount++;
     }
 }
 
@@ -673,34 +810,76 @@ static void perf_cb(gpointer context, NvDsAppPerfStruct *str)
 
     g_mutex_lock(&fps_lock);
     guint active_src_count = 0;
-    for (i = 0; i < numf; i++) {
-        fps[i] = str->fps[i];
-        if (fps[i]) {
-            active_src_count++;
-        }
-        fps_avg[i] = str->fps_avg[i];
-    }
-    g_print("Active sources : %u\n", active_src_count);
-    if (header_print_cnt % 20 == 0) {
-        g_print("\n**PERF:  ");
+
+    if (!str->use_nvmultiurisrcbin) {
         for (i = 0; i < numf; i++) {
-            g_print("FPS %d (Avg)\t", i);
+            fps[i] = str->fps[i];
+            if (fps[i]) {
+                active_src_count++;
+            }
+            fps_avg[i] = str->fps_avg[i];
         }
+        g_print("Active sources : %u\n", active_src_count);
+        if (header_print_cnt % 20 == 0) {
+            g_print("\n**PERF:  ");
+            for (i = 0; i < numf; i++) {
+                g_print("FPS %d (Avg)\t", i);
+            }
+            g_print("\n");
+            header_print_cnt = 0;
+        }
+        header_print_cnt++;
+
+        time_t t = time(NULL);
+        struct tm *tm = localtime(&t);
+        printf("%s", asctime(tm));
+        if (num_instances > 1)
+            g_print("PERF(%d): ", appCtx->index);
+        else
+            g_print("**PERF:  ");
+
+        for (i = 0; i < numf; i++) {
+            g_print("%.2f (%.2f)\t", fps[i], fps_avg[i]);
+        }
+    } else {
+        for (guint j = 0; j < str->active_source_size; j++) {
+            i = str->source_detail[j].source_id;
+            fps[i] = str->fps[i];
+            if (fps[i]) {
+                active_src_count++;
+            }
+            fps_avg[i] = str->fps_avg[i];
+        }
+        g_print("Active sources : %u\n", active_src_count);
+        if (header_print_cnt % 20 == 0) {
+            g_print("\n**PERF:  ");
+            for (guint j = 0; j < str->active_source_size; j++) {
+                i = str->source_detail[j].source_id;
+                g_print("FPS %d (Avg)\t", i);
+            }
+            g_print("\n");
+            header_print_cnt = 0;
+        }
+        header_print_cnt++;
+
+        time_t t = time(NULL);
+        struct tm *tm = localtime(&t);
+        printf("%s", asctime(tm));
+        if (num_instances > 1)
+            g_print("PERF(%d): ", appCtx->index);
+        else
+            g_print("**PERF:  ");
+
         g_print("\n");
-        header_print_cnt = 0;
-    }
-    header_print_cnt++;
-
-    time_t t = time(NULL);
-    struct tm *tm = localtime(&t);
-    printf("%s", asctime(tm));
-    if (num_instances > 1)
-        g_print("PERF(%d): ", appCtx->index);
-    else
-        g_print("**PERF:  ");
-
-    for (i = 0; i < numf; i++) {
-        g_print("%.2f (%.2f)\t", fps[i], fps_avg[i]);
+        for (guint j = 0; j < str->active_source_size; j++) {
+            i = str->source_detail[j].source_id;
+            if (!str->stream_name_display) {
+                g_print("%.2f (%.2f)\t", fps[i], fps_avg[i]);
+            } else {
+                g_print("%s[%s] %.2f (%.2f)\t", str->source_detail[j].sensor_id,
+                        str->source_detail[j].sensor_name, fps[i], fps_avg[i]);
+            }
+        }
     }
     g_print("\n");
     g_mutex_unlock(&fps_lock);
@@ -929,6 +1108,7 @@ static gpointer nvds_x_event_thread(gpointer data)
     while (display) {
         XEvent e;
         guint index;
+        memset(&e, 0, sizeof(XEvent));
         while (XPending(display)) {
             XNextEvent(display, &e);
             switch (e.type) {
@@ -937,7 +1117,7 @@ static gpointer nvds_x_event_thread(gpointer data)
                 XButtonEvent ev = e.xbutton;
                 gint source_id;
                 GstElement *tiler;
-
+                memset(&win_attr, 0, sizeof(XWindowAttributes));
                 XGetWindowAttributes(display, ev.window, &win_attr);
 
                 for (index = 0; index < MAX_INSTANCES; index++)
@@ -947,7 +1127,8 @@ static gpointer nvds_x_event_thread(gpointer data)
                 tiler = appCtx[index]->pipeline.tiled_display_bin.tiler;
                 g_object_get(G_OBJECT(tiler), "show-source", &source_id, NULL);
 
-                if (ev.button == Button1 && source_id == -1) {
+                if (ev.button == Button1 && source_id == -1 &&
+                    (index >= 0 && index < MAX_INSTANCES)) {
                     source_id = get_source_id_from_coordinates(
                         ev.x * 1.0 / win_attr.width, ev.y * 1.0 / win_attr.height, appCtx[index]);
                     if (source_id > -1) {
@@ -1135,7 +1316,8 @@ void apply_ota(AppCtx *ota_appCtx)
  */
 gpointer ota_handler_thread(gpointer data)
 {
-    int length, i = 0;
+    ssize_t length = 0;
+    size_t i = 0;
     char buffer[INOTIFY_EVENT_BUF_LEN];
     OTAInfo *ota = (OTAInfo *)data;
     gchar *ota_ds_config_file = ota->override_cfg_file;
@@ -1179,7 +1361,7 @@ gpointer ota_handler_thread(gpointer data)
         if (quit == TRUE)
             goto done;
 
-        while (i < length) {
+        while (i < (size_t)length) {
             struct inotify_event *event = (struct inotify_event *)&buffer[i];
 
             // Enable below function to print the inotify events, used for debugging purpose
@@ -1197,6 +1379,14 @@ gpointer ota_handler_thread(gpointer data)
                     printf("Gstreamer pipeline element nvinfer is yet to be created or invalid\n");
                     continue;
                 }
+            }
+            // Ensure null termination
+            if (event->len < INOTIFY_EVENT_BUF_LEN && event->len < MAX_NAME_LENGTH) {
+                event->name[event->len] = '\0';
+            } else if (INOTIFY_EVENT_BUF_LEN < MAX_NAME_LENGTH) {
+                event->name[INOTIFY_EVENT_BUF_LEN - 1] = '\0';
+            } else {
+                event->name[MAX_NAME_LENGTH - 1] = '\0';
             }
 
             if (event->len) {
@@ -1416,16 +1606,18 @@ int main(int argc, char *argv[])
 
         if (!show_bbox_text) {
             GstElement *nvosd = appCtx[i]->pipeline.instance_bins[0].osd_bin.nvosd;
-            g_object_set(G_OBJECT(nvosd), "display-text", FALSE, NULL);
+            if (nvosd) {
+                g_object_set(G_OBJECT(nvosd), "display-text", FALSE, NULL);
+            }
         }
-
+#if defined(__aarch64__)
         if (gst_element_set_state(appCtx[i]->pipeline.pipeline, GST_STATE_PAUSED) ==
             GST_STATE_CHANGE_FAILURE) {
             NVGSTDS_ERR_MSG_V("Failed to set pipeline to PAUSED");
             return_value = -1;
             goto done;
         }
-
+#endif
         for (j = 0; j < appCtx[i]->config.num_sink_sub_bins; j++) {
             XTextProperty xproperty;
             gchar *title;
@@ -1504,6 +1696,24 @@ int main(int argc, char *argv[])
                 x_event_thread =
                     g_thread_new("nvds-window-event-thread", nvds_x_event_thread, NULL);
         }
+#if !defined(__aarch64__)
+        int is_nvgpu = 0;
+        NvBufSurfaceDeviceInfo dev_info;
+        if (NvBufSurfaceGetDeviceInfo(&dev_info) == 0) {
+            if (dev_info.driverType == NVBUF_DRIVER_TYPE_NVGPU) {
+                is_nvgpu = 1;
+            }
+        }
+
+        if (!is_nvgpu) {
+            if (gst_element_set_state(appCtx[i]->pipeline.pipeline, GST_STATE_PAUSED) ==
+                GST_STATE_CHANGE_FAILURE) {
+                NVGSTDS_ERR_MSG_V("Failed to set pipeline to PAUSED");
+                return_value = -1;
+                goto done;
+            }
+        }
+#endif
     }
 
     /* Dont try to set playing state if error is observed */

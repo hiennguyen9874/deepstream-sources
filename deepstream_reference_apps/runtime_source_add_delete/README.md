@@ -1,13 +1,11 @@
-# RUNTIME SOURCE ADDITION DELETION REFERENCE APP USING DEEPSTREAMSDK 6.3
+# RUNTIME SOURCE ADDITION DELETION REFERENCE APP USING DEEPSTREAMSDK 8.0
 
 ## Introduction
-
 The project contains Runtime source addition/deletion application to show the
 capability of Deepstream SDK.
 
 ## Prerequisites:
-
-DeepStream SDK installed which is available at http://developer.nvidia.com/deepstream-sdk
+DeepStream SDK installed which is available at  http://developer.nvidia.com/deepstream-sdk
 Please follow instructions in the apps/sample_apps/deepstream-app/README on how
 to install the prequisites for Deepstream SDK apps.
 
@@ -19,11 +17,10 @@ to install the prequisites for Deepstream SDK apps.
 - Edit all the inference models config files according to the location of the models to be used
 
 ## Compilation Steps and Execution:
-
 ```
   $ Set CUDA_VER in the MakeFile as per platform.
-      For Jetson, CUDA_VER=11.4
-      For x86, CUDA_VER=12.1
+      For x86, CUDA_VER=12.8
+      For Jetson, CUDA_VER=13.0
   $ sudo make
 
   $ ./deepstream-test-rt-src-add-del <uri> <run forever> <sink> <sync>
@@ -41,3 +38,8 @@ uridecodebin -> nvstreammux -> nvinfer -> nvtracker -> nvtiler -> nvvideoconvert
   source is present in the pipeline
 - The app exits, when final source End of Stream is reached or if the last source is deleted.
 - filesink and nv3dsink (only Jetson) are also supported.
+
+
+
+
+

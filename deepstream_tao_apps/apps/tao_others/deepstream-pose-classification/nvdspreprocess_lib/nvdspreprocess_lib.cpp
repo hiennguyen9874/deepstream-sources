@@ -22,21 +22,18 @@ using std::vector;
 #define _MAX_FRAME_ 300
 #define _MAX_OBJECT_NUM_ 20
 #define _TIME_OUT_ 2
+#define _KEYPOINTS_NUM 34
 #define FREE(p) (free(p), p = NULL)
 
 /*wrap keypoints*/
 struct SObjectContex {
     uint64_t object_id;
     float *x, *y, *z;
-    int frameIndex;
-    bool firstUse;
     long tv_sec;
     SObjectContex()
     {
         object_id = UNTRACKED_OBJECT_ID;
         x = y = z = NULL;
-        frameIndex = 0;
-        firstUse = true;
         tv_sec = 0;
     };
     ~SObjectContex()
@@ -52,12 +49,13 @@ struct CustomCtx {
     /* vector for obejct context*/
     vector<SObjectContex *> multi_objects;
     int one_channel_element_num;
-    int two_channel_element_num;
+    int one_channel_bytes;
     int move_element_num;
+    int move_element_bytes;
     ~CustomCtx()
     {
         int size = multi_objects.size();
-        printf("size:%d\n", size);
+        printf("objects size:%d\n", size);
         for (int i = 0; i < size; i++) {
             delete multi_objects[i];
             multi_objects[i] = NULL;
@@ -104,7 +102,6 @@ SObjectContex *CreateObjectCtx(CustomCtx *ctx)
         pSObjectCtx->x = (float *)calloc(ctx->one_channel_element_num, sizeof(float));
         pSObjectCtx->y = (float *)calloc(ctx->one_channel_element_num, sizeof(float));
         pSObjectCtx->z = (float *)calloc(ctx->one_channel_element_num, sizeof(float));
-        pSObjectCtx->frameIndex = 0;
         ctx->multi_objects.push_back(pSObjectCtx);
     }
     return pSObjectCtx;
@@ -116,10 +113,9 @@ void ResetObjectCtx(CustomCtx *ctx, SObjectContex *pSObjectCtx)
     if (pSObjectCtx) {
         printf("ResetObjectCtx, object_id:%ld\n", pSObjectCtx->object_id);
         pSObjectCtx->object_id = UNTRACKED_OBJECT_ID;
-        memset(pSObjectCtx->x, 0, ctx->one_channel_element_num * sizeof(float));
-        memset(pSObjectCtx->y, 0, ctx->one_channel_element_num * sizeof(float));
-        memset(pSObjectCtx->z, 0, ctx->one_channel_element_num * sizeof(float));
-        pSObjectCtx->frameIndex = 0;
+        memset(pSObjectCtx->x, 0, ctx->one_channel_bytes);
+        memset(pSObjectCtx->y, 0, ctx->one_channel_bytes);
+        memset(pSObjectCtx->z, 0, ctx->one_channel_bytes);
         pSObjectCtx->tv_sec = 0;
     }
 }
@@ -134,7 +130,7 @@ void LoopObjectCtx(CustomCtx *ctx)
         pSObjectCtx = (*itor);
         gettimeofday(&tv, NULL);
         if (pSObjectCtx->object_id != UNTRACKED_OBJECT_ID &&
-            (pSObjectCtx->tv_sec - tv.tv_sec) > _TIME_OUT_) {
+            (tv.tv_sec - pSObjectCtx->tv_sec) > _TIME_OUT_) {
             ResetObjectCtx(ctx, pSObjectCtx);
         }
     }
@@ -147,9 +143,9 @@ void sveKeypoints(CustomCtx *ctx, void *user_meta_data, SObjectContex *pSObjectC
     if (pSObjectCtx) {
         NvDsJoints *ds_joints = (NvDsJoints *)user_meta_data;
         // move from tail to head
-        memmove(pSObjectCtx->x, pSObjectCtx->x + 34, ctx->move_element_num * sizeof(float));
-        memmove(pSObjectCtx->y, pSObjectCtx->y + 34, ctx->move_element_num * sizeof(float));
-        memmove(pSObjectCtx->z, pSObjectCtx->z + 34, ctx->move_element_num * sizeof(float));
+        memmove(pSObjectCtx->x, pSObjectCtx->x + _KEYPOINTS_NUM, ctx->move_element_bytes);
+        memmove(pSObjectCtx->y, pSObjectCtx->y + _KEYPOINTS_NUM, ctx->move_element_bytes);
+        memmove(pSObjectCtx->z, pSObjectCtx->z + _KEYPOINTS_NUM, ctx->move_element_bytes);
 
         // save keypoints
         for (int i = 0; i < ds_joints->num_joints; i++) {
@@ -173,62 +169,65 @@ NvDsPreProcessStatus CustomTensorPreparation(CustomCtx *ctx,
 {
     NvDsPreProcessStatus status = NVDSPREPROCESS_TENSOR_NOT_READY;
 
-    guint64 object_id = batch->units[0].roi_meta.object_meta->object_id;
-    GstBuffer *inbuf = (GstBuffer *)batch->inbuf;
-    NvDsMetaList *l_frame = NULL;
-    NvDsMetaList *l_obj = NULL;
-    NvDsMetaList *l_user = NULL;
-    SObjectContex *pSObjectCtx = NULL;
-    NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(inbuf);
-    for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
-        NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)(l_frame->data);
-        for (l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next) {
-            NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)l_obj->data;
-            if (obj_meta->object_id != object_id)
-                continue;
+    /** acquire a buffer from tensor pool */
+    buf = acquirer->acquire();
+    float *pDst = (float *)buf->memory_ptr;
+    int units = batch->units.size();
+    for (int i = 0; i < units; i++) {
+        guint64 object_id = batch->units[i].roi_meta.object_meta->object_id;
+        GstBuffer *inbuf = (GstBuffer *)batch->inbuf;
+        NvDsMetaList *l_frame = NULL;
+        NvDsMetaList *l_obj = NULL;
+        NvDsMetaList *l_user = NULL;
+        SObjectContex *pSObjectCtx = NULL;
+        NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(inbuf);
 
-            for (l_user = obj_meta->obj_user_meta_list; l_user != NULL; l_user = l_user->next) {
-                NvDsUserMeta *user_meta = (NvDsUserMeta *)l_user->data;
-                if (user_meta->base_meta.meta_type == NVDS_OBJ_META) {
-                    /* find by objectid */
-                    pSObjectCtx = findObjectCtx(ctx, obj_meta->object_id);
-                    if (!pSObjectCtx) {
-                        /* can't find objectid, find one whose objectid is -1 */
-                        pSObjectCtx = findUnusedObjectCtx(ctx, obj_meta->object_id);
-                        if (pSObjectCtx) {
-                            /*can find one whose objectid is not -1, copy keypoints*/
-                            pSObjectCtx->object_id = obj_meta->object_id;
-                            sveKeypoints(ctx, user_meta->user_meta_data, pSObjectCtx);
-                        } else {
-                            /* if no, extent Skeypoints, then copy keypoints*/
-                            pSObjectCtx = CreateObjectCtx(ctx);
-                            printf("extendObjectCtx pSObjectCtx:%p\n", pSObjectCtx);
+        for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
+            NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)(l_frame->data);
+            for (l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next) {
+                NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)l_obj->data;
+                if (obj_meta->object_id != object_id)
+                    continue;
+
+                for (l_user = obj_meta->obj_user_meta_list; l_user != NULL; l_user = l_user->next) {
+                    NvDsUserMeta *user_meta = (NvDsUserMeta *)l_user->data;
+                    if (user_meta->base_meta.meta_type == NVDS_OBJ_META) {
+                        /* find by objectid */
+                        pSObjectCtx = findObjectCtx(ctx, obj_meta->object_id);
+                        if (!pSObjectCtx) {
+                            /* can't find objectid, find one whose objectid is -1 */
+                            pSObjectCtx = findUnusedObjectCtx(ctx, obj_meta->object_id);
                             if (pSObjectCtx) {
+                                /*can find one whose objectid is not -1, copy keypoints*/
                                 pSObjectCtx->object_id = obj_meta->object_id;
                                 sveKeypoints(ctx, user_meta->user_meta_data, pSObjectCtx);
+                            } else {
+                                /* if no, extent Skeypoints, then copy keypoints*/
+                                pSObjectCtx = CreateObjectCtx(ctx);
+                                printf("extendObjectCtx pSObjectCtx:%p\n", pSObjectCtx);
+                                if (pSObjectCtx) {
+                                    pSObjectCtx->object_id = obj_meta->object_id;
+                                    sveKeypoints(ctx, user_meta->user_meta_data, pSObjectCtx);
+                                }
                             }
+                        } else {
+                            /* can find, copy keypoints */
+                            sveKeypoints(ctx, user_meta->user_meta_data, pSObjectCtx);
                         }
-                    } else {
-                        /* can find, copy keypoints */
-                        sveKeypoints(ctx, user_meta->user_meta_data, pSObjectCtx);
                     }
                 }
             }
         }
-    }
 
-    /** acquire a buffer from tensor pool */
-    buf = acquirer->acquire();
-
-    /* copy to buffer, 3 X 300 X 34 X 1 (C T V M) */
-    if (pSObjectCtx) {
-        float *pDst = (float *)buf->memory_ptr;
-        int bufLen = ctx->one_channel_element_num * sizeof(float);
-        cudaMemcpy(pDst, pSObjectCtx->x, bufLen, cudaMemcpyHostToDevice);
-        cudaMemcpy(pDst + ctx->one_channel_element_num, pSObjectCtx->y, bufLen,
-                   cudaMemcpyHostToDevice);
-        cudaMemcpy(pDst + ctx->two_channel_element_num, pSObjectCtx->z, bufLen,
-                   cudaMemcpyHostToDevice);
+        /* copy to buffer, 3 X 300 X 34 X 1 (C T V M) */
+        if (pSObjectCtx) {
+            cudaMemcpy(pDst, pSObjectCtx->x, ctx->one_channel_bytes, cudaMemcpyHostToDevice);
+            pDst = pDst + ctx->one_channel_element_num;
+            cudaMemcpy(pDst, pSObjectCtx->y, ctx->one_channel_bytes, cudaMemcpyHostToDevice);
+            pDst = pDst + ctx->one_channel_element_num;
+            cudaMemcpy(pDst, pSObjectCtx->z, ctx->one_channel_bytes, cudaMemcpyHostToDevice);
+            pDst = pDst + ctx->one_channel_element_num;
+        }
     }
 
     // reset object context if timeout
@@ -256,9 +255,10 @@ CustomCtx *initLib(CustomInitParams initparams)
         printf("frameSeqLen iilegal, use default vaule 300\n");
         len = _MAX_FRAME_;
     }
-    ctx->one_channel_element_num = len * 34;
-    ctx->two_channel_element_num = 2 * len * 34;
-    ctx->move_element_num = (len - 1) * 34;
+    ctx->one_channel_element_num = len * _KEYPOINTS_NUM;
+    ctx->one_channel_bytes = ctx->one_channel_element_num * sizeof(float);
+    ctx->move_element_num = (len - 1) * _KEYPOINTS_NUM;
+    ctx->move_element_bytes = ctx->move_element_num * sizeof(float);
 
     /* initial vector for multi_keypoints*/
     for (int i = 0; i < _MAX_OBJECT_NUM_; i++) {
