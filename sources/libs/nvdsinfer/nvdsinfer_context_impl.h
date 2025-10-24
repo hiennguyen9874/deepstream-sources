@@ -1,13 +1,14 @@
 #ifndef __NVDSINFER_CONTEXT_IMPL_H__
 #define __NVDSINFER_CONTEXT_IMPL_H__
 
-#include <NvCaffeParser.h>
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
 #include <stdarg.h>
 
 #include <condition_variable>
+#include <fstream>
 #include <functional>
+#include <iostream>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -106,7 +107,7 @@ protected:
     }
 
 public:
-    virtual ~InferPostprocessor() = default;
+    virtual ~InferPostprocessor();
     void setDlHandle(const std::shared_ptr<DlLibHandle> &dlHandle) { m_CustomLibHandle = dlHandle; }
     void setNetworkInfo(const NvDsInferNetworkInfo &info) { m_NetworkInfo = info; }
     void setAllLayerInfo(std::vector<NvDsInferBatchDimsLayerInfo> &info)
@@ -160,6 +161,11 @@ protected:
     std::shared_ptr<DlLibHandle> m_CustomLibHandle;
     bool m_CopyInputToHostBuffers = false;
     bool m_disableOutputHostCopy = false;
+    bool m_DumpOpTensor = false;
+    std::vector<std::pair<std::string, std::string>> m_DumpOpTensorFiles;
+    bool m_OverwriteOpTensor = false;
+    std::vector<std::pair<std::string, int>> m_OverwriteOpTensorFilePairs;
+    std::vector<std::ifstream *> m_OverwriteOpTensorFiles;
     /* Network input information. */
     NvDsInferNetworkInfo m_NetworkInfo = {0};
     std::vector<NvDsInferLayerInfo> m_AllLayerInfo;
@@ -313,9 +319,18 @@ private:
     NvDsInferStatus fillSegmentationOutput(const std::vector<NvDsInferLayerInfo> &outputLayers,
                                            NvDsInferSegmentationOutput &output);
 
+    bool parseSemanticSegmentationOutput(std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+                                         NvDsInferNetworkInfo const &networkInfo,
+                                         float segmentationThreshold,
+                                         unsigned int numClasses,
+                                         int *classificationMap,
+                                         float *&classProbabilityMap);
+
 private:
     float m_SegmentationThreshold = 0.0f;
     NvDsInferTensorOrder m_SegmentationOutputOrder = NvDsInferTensorOrder_kNCHW;
+    NvDsInferSemSegmentationParseCustomFunc m_CustomSegmentationParseFunc = nullptr;
+    uint32_t m_NumSegmentationClasses = 0;
 };
 
 class OtherPostprocessor : public InferPostprocessor {
@@ -444,6 +459,11 @@ private:
     bool m_Initialized = false;
     uint32_t m_AutoIncMem = 1;
     double m_MaxGPUMem = 99;
+    bool m_DumpIpTensor = false;
+    std::string m_DumpIpTensorFilePath = " ";
+    bool m_OverwriteIpTensor = false;
+    std::string m_OverwriteIpTensorFilePath = " ";
+    std::ifstream m_OverwriteIpTensorFile;
 };
 
 } // namespace nvdsinfer

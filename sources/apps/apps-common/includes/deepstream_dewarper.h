@@ -1,11 +1,11 @@
 #ifndef __NVGSTDS_DEWARPER_H__
 #define __NVGSTDS_DEWARPER_H__
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
 
 typedef struct {
     GstElement *bin;

@@ -40,6 +40,7 @@ typedef struct {
     GstElement *queue3;
     GstElement *queue4;
     GstElement *queue5;
+    GstElement *queue6;
     GstElement *nvvidconv;
     GstElement *tiler;
     GstElement *nvdslogger;
@@ -49,6 +50,7 @@ typedef struct {
     GstElement *encoder;
     GstElement *parser;
     GstElement *queue_post_encoder;
+    GstElement *nvanalytics;
 
     void *restServer;
     NvDsServerConfig server_conf;

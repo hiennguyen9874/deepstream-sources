@@ -1,5 +1,5 @@
 ################################################################################
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA Corporation and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -10,8 +10,8 @@
 ################################################################################
 
 Refer to the DeepStream SDK documentation for a description of the "nvdspostprocess"
-plugin. The plugin performs parsing of detection/classification and segmentation
-model. The nvinfer is required to generate tensor meta (output-tensor-meta=1)
+plugin. The plugin performs parsing of detection/classification model.
+The nvinfer is required to generate tensor meta (output-tensor-meta=1)
 and parsing of network has to be disabled in nvinfer plugin (network-type=100).
 Please refer configs present in the folder for nvinfer and corresponding yml files
 for nvdspostprocess plugin. In case if one wants to use nvinferserver user can
@@ -42,8 +42,8 @@ NOTE:
 --------------------------------------------------------------------------------
 How to test :
 
-Single Stream and Rendering, set appropriate CUDA_VER, 11.4 for Jetson 12.1 for dGPU
-   $ export CUDA_VER=12.1
+Single Stream and Rendering, set appropriate CUDA_VER, 11.4 for Jetson 12.2 for dGPU
+   $ export CUDA_VER=12.8
    $ make
    $ sudo -E make install
    $ cd postprocesslib_impl
@@ -58,13 +58,10 @@ On dGPU
     ! nvdspostprocess \
     postprocesslib-config-file=config_detector.yml \
     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so \
-    ! queue ! nvinfer config-file-path= config_infer_secondary_carcolor_postprocess.txt \
+    ! queue ! nvinfer \
+    config-file-path= config_infer_secondary_vehiclemake_postprocess.txt \
     ! nvdspostprocess \
-    postprocesslib-config-file=config_classifier_car_color.yml \
-    postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvinfer \
-    config-file-path= config_infer_secondary_carmake_postprocess.txt \
-    ! nvdspostprocess \
-    postprocesslib-config-file=config_classifier_car_make.yml \
+    postprocesslib-config-file= config_classifier_vehicle_make.yml \
     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvinfer \
     config-file-path= config_infer_secondary_vehicletypes_postprocess.txt \
     ! nvdspostprocess  postprocesslib-config-file= \
@@ -81,13 +78,10 @@ On Jetson
     ! nvdspostprocess \
     postprocesslib-config-file=config_detector.yml \
     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so \
-    ! queue ! nvinfer config-file-path= config_infer_secondary_carcolor_postprocess.txt \
+    ! queue ! nvinfer \
+    config-file-path= config_infer_secondary_vehiclemake_postprocess.txt \
     ! nvdspostprocess \
-    postprocesslib-config-file=config_classifier_car_color.yml \
-    postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvinfer \
-    config-file-path= config_infer_secondary_carmake_postprocess.txt \
-    ! nvdspostprocess \
-    postprocesslib-config-file=config_classifier_car_make.yml \
+    postprocesslib-config-file=config_classifier_vehicle_make.yml \
     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvinfer \
     config-file-path= config_infer_secondary_vehicletypes_postprocess.txt \
     ! nvdspostprocess  postprocesslib-config-file= \
@@ -95,27 +89,3 @@ On Jetson
     ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvmultistreamtiler !  nvvideoconvert \
     gpu-id=0 ! nvdsosd ! nv3dsink sync=1 -v  uridecodebin \
     uri=file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4 ! m.sink_1
-
-Test for segmentation model
-
-On dGPU
-     $ gst-launch-1.0 uridecodebin \
-     uri=file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4 \
-     ! m.sink_0 nvstreammux name=m width=1920 height=1080 batch-size=1 ! \
-     nvinfer config-file-path= \
-     config_infer_segmentation_semantic_post_process.txt ! nvdspostprocess \
-     postprocesslib-config-file= config_segmentation_semantic.yml \
-     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvsegvisual ! \
-     nvmultistreamtiler  ! nvvideoconvert gpu-id=0 ! nvdsosd ! nveglglessink \
-     sync=1 -v
-
-
-On Jetson
-     $ gst-launch-1.0 uridecodebin \
-     uri=file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h265.mp4 \
-     ! m.sink_0 nvstreammux name=m width=1920 height=1080 batch-size=1 ! \
-     nvinfer config-file-path= \
-     config_infer_segmentation_semantic_post_process.txt !  nvdspostprocess \
-     postprocesslib-config-file= config_segmentation_semantic.yml \
-     postprocesslib-name= ./postprocesslib_impl/libpostprocess_impl.so ! queue ! nvsegvisual ! \
-     nvmultistreamtiler ! nvvideoconvert gpu-id=0 ! nvdsosd ! nv3dsink sync=1 -v

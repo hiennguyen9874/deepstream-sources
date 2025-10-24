@@ -1,25 +1,12 @@
-################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-################################################################################
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 
 CUDA_VER?=
 ifeq ($(CUDA_VER),)
@@ -35,11 +22,14 @@ SRCS:= gstdsnvmultiurisrcbin.cpp \
 INCS:= $(wildcard *.h)
 
 LIB:=libnvdsgst_nvmultiurisrcbin.so
-LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream/lib/gst-plugins/
+LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream/lib/
+GST_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream/lib/gst-plugins/
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"8.0.0\" \
      -I../../includes \
+     -I../../apps/apps-common/includes/ \
  	 -I/usr/local/cuda-$(CUDA_VER)/include \
+	 -I/usr/include/jsoncpp
 
 LIBS := -shared -Wl,-no-undefined \
  	-L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart
@@ -49,9 +39,9 @@ LIBS+= -L$(LIB_INSTALL_DIR) -L/opt/nvidia/deepstream/deepstream/lib/ \
         -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 ifeq ($(TARGET_DEVICE),aarch64)
-   LIBS+= -L/usr/lib/aarch64-linux-gnu/tegra/ -lgstnvcustomhelper
+   LIBS+= -L/usr/lib/aarch64-linux-gnu/tegra/ -lgstnvcustomhelper -ljsoncpp
 else
-   LIBS+= -L$(LIB_INSTALL_DIR) -lgstnvcustomhelper
+   LIBS+= -L$(LIB_INSTALL_DIR) -lgstnvcustomhelper -ljsoncpp
 endif
 
 OBJS:= $(SRCS:.cpp=.o)
@@ -70,7 +60,7 @@ $(LIB): $(OBJS) $(DEP) Makefile
 	$(CXX) -o $@ $(OBJS) $(LIBS)
 
 install: $(LIB)
-	cp -rv $(LIB) $(LIB_INSTALL_DIR)
+	cp -rv $(LIB) $(GST_INSTALL_DIR)
 
 clean:
 	rm -rf $(OBJS) $(LIB)

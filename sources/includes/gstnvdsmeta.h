@@ -1,12 +1,4 @@
 /**
- * @file
- * <b>NVIDIA GStreamer DeepStream: Metadata Extension</b>
- *
- * @b Description: This file defines the Metadata structure used to
- * carry DeepStream metadata or any other metadata in GStreamer pipeline.
- */
-
-/**
  * @defgroup gstreamer_metagroup_api DeepStream Metadata Extension
  *
  * Defines an API for managing GStreamer DeepStream metadata.

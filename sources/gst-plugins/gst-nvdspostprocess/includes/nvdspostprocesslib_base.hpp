@@ -29,6 +29,7 @@ public:
     /** GPU ID on which we expect to execute the algorithm */
     guint m_gpuId;
 
+    gboolean m_preprocessor_support;
     cudaStream_t m_cudaStream;
 };
 
@@ -37,6 +38,7 @@ DSPostProcessLibraryBase::DSPostProcessLibraryBase()
     m_element = NULL;
     m_gpuId = 0;
     m_cudaStream = 0;
+    m_preprocessor_support = FALSE;
 }
 
 DSPostProcessLibraryBase::DSPostProcessLibraryBase(DSPostProcess_CreateParams *params)
@@ -45,10 +47,12 @@ DSPostProcessLibraryBase::DSPostProcessLibraryBase(DSPostProcess_CreateParams *p
         m_element = params->m_element;
         m_gpuId = params->m_gpuId;
         m_cudaStream = params->m_cudaStream;
+        m_preprocessor_support = params->m_preprocessor_support;
     } else {
         m_element = NULL;
         m_gpuId = 0;
         m_cudaStream = 0;
+        m_preprocessor_support = 0;
     }
 }
 
@@ -59,7 +63,7 @@ DSPostProcessLibraryBase::~DSPostProcessLibraryBase()
 /* Helped function to get the NvBufSurface from the GstBuffer */
 static NvBufSurface *getNvBufSurface(GstBuffer *inbuf)
 {
-    GstMapInfo in_map_info;
+    GstMapInfo in_map_info = GST_MAP_INFO_INIT;
     NvBufSurface *nvbuf_surface = NULL;
 
     /* Map the buffer contents and get the pointer to NvBufSurface. */

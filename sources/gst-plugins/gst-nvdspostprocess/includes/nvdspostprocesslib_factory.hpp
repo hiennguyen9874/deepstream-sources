@@ -35,12 +35,10 @@ public:
 
         m_libHandle = dlopen(m_libName.c_str(), RTLD_NOW);
         if (m_libHandle) {
-            // std::cout << "Library Opened Successfully" << std::endl;
             m_CreateAlgoCtx = dlsym_ptr<IDSPostProcessLibrary *(DSPostProcess_CreateParams *)>(
                 m_libHandle, "CreateCustomAlgoCtx");
             if (!m_CreateAlgoCtx) {
-                // throw std::runtime_error("CreateCustomAlgoCtx function not found in library");
-                std::cout << "CreateCustomAlgoCtx function not found in library" << std::endl;
+                std::cout << "CreateCustomAlgoCtx function not found in library\n";
                 return nullptr;
             }
         } else {
@@ -48,7 +46,6 @@ public:
             std::cout << dlerror() << std::endl;
             return nullptr;
         }
-
         return m_CreateAlgoCtx((DSPostProcess_CreateParams *)params);
     }
 

@@ -1,5 +1,3 @@
-
-
 #ifndef NVDS3D_CUSTOMLIB_FACTORY_HPP
 #define NVDS3D_CUSTOMLIB_FACTORY_HPP
 
@@ -24,10 +22,12 @@ public:
 
     ~CustomLibFactory()
     {
-        if (_libHandle) {
+        if (_libHandle && !_keepOpen) {
+            LOG_DEBUG("dlclose %s", _libName.c_str());
             dlclose(_libHandle);
         }
     }
+    void keepOpen(bool b) { _keepOpen = b; }
 
     template <class CustomRefCtx>
     CustomRefCtx *CreateCtx(const std::string &libName, const std::string &symName)
@@ -60,6 +60,7 @@ public:
 public:
     void *_libHandle = nullptr;
     std::string _libName;
+    bool _keepOpen = false;
 };
 
 } // namespace ds3d

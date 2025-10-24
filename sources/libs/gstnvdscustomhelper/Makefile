@@ -1,25 +1,14 @@
 ################################################################################ 
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-################################################################################
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+################################################################################ 
 
 CUDA_VER?=
 ifeq ($(CUDA_VER),)
@@ -34,11 +23,13 @@ INCS:= $(wildcard *.h) \
 
 LIB:=libnvdsgst_customhelper.so
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
-NVDS_VERSION:=6.3
+NVDS_VERSION:=8.0
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"8.0.0\" \
  	 -I../../includes \
+	 -I../../apps/apps-common/includes/ \
  	 -I/usr/local/cuda-$(CUDA_VER)/include \
+	 -I/usr/include/jsoncpp
 
 LIBS := -shared -Wl,-no-undefined \
  	-L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart \
@@ -48,12 +39,20 @@ LIBS+= -L$(LIB_INSTALL_DIR) -L/opt/nvidia/deepstream/deepstream/lib/ \
        -lnvdsgst_helper -lnvds_rest_server -ldl\
         -Wl,-rpath,$(LIB_INSTALL_DIR) \
 
+ifeq ($(TARGET_DEVICE),aarch64)
+   LIBS+= -L/usr/lib/aarch64-linux-gnu/tegra/ -ljsoncpp
+else
+   LIBS+= -L$(LIB_INSTALL_DIR) -ljsoncpp
+endif
+
 OBJS:= $(SRCS:.c=.o)
 OBJS:= $(OBJS:.cpp=.o)
 
 PKGS:= gstreamer-1.0 gstreamer-base-1.0 gstreamer-video-1.0 
 CFLAGS+= $(shell pkg-config --cflags $(PKGS))
+CFLAGS+= -DPLATFORM_TEGRA
 LIBS+= $(shell pkg-config --libs $(PKGS))
+LIBS+= -lnvdsgst_meta -lnvds_meta
 
 
 all: $(LIB)

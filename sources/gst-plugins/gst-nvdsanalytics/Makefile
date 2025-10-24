@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -24,12 +24,12 @@ SRCS:= gstnvdsanalytics.cpp nvdsanalytics_property_parser.cpp nvdsanalytics_prop
 INCS:= gstnvdsanalytics.h nvdsanalytics_property_parser.h nvdsanalytics_property_yaml_parser.h
 LIB:=libnvdsgst_dsanalytics.so
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=8.0
 
 GST_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/gst-plugins/
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 
-CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"8.0.0\" \
 	 -I ../../includes \
 	 -I ../../libs/nvds_analytics -DNDEBUG
 
@@ -37,7 +37,7 @@ LIBS := -shared -Wl,-no-undefined
 
 
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_meta -lnvds_meta \
-       -lnvds_dsanalytics -ldl -lpthread -lyaml-cpp \
+       -lnvds_dsanalytics  -lnvdsgst_customhelper -ldl -lpthread -lyaml-cpp \
        -Wl,-rpath,$(LIB_INSTALL_DIR)
 
 OBJS:= $(SRCS:.cpp=.o)

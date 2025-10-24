@@ -49,6 +49,7 @@ struct _GstNvStreamMux {
     gboolean query_resolution;
 
     unsigned int batch_size;
+    gint timeout_usec;
 
     GstVideoInfo out_videoinfo;
 

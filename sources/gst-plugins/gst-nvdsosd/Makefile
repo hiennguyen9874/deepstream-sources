@@ -1,11 +1,13 @@
 ################################################################################
-# Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2017-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 #################################################################################
 
 CUDA_VER?=
@@ -20,12 +22,12 @@ LIB:=libnvdsgst_osd.so
 
 TARGET_DEVICE = $(shell gcc -dumpmachine | cut -f1 -d -)
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=8.0
 
 GST_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/gst-plugins/
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"8.0.0\" \
 	 -I../../includes \
 	 -I/usr/local/cuda-$(CUDA_VER)/include \
 

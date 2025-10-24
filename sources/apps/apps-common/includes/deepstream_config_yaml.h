@@ -66,7 +66,9 @@ gboolean parse_gie_yaml(NvDsGieConfig *config, std::string group, gchar *cfg_fil
 
 gboolean parse_preprocess_yaml(NvDsPreProcessConfig *config, gchar *cfg_file_path);
 
-gboolean parse_dewarper_yaml(NvDsDewarperConfig *config, gchar *cfg_file_path);
+gboolean parse_dewarper_yaml(NvDsDewarperConfig *config,
+                             std::string group_str,
+                             gchar *cfg_file_path);
 
 gboolean parse_dsexample_yaml(NvDsDsExampleConfig *config, gchar *cfg_file_path);
 

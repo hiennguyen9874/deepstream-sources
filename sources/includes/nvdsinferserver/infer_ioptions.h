@@ -135,23 +135,17 @@ template <OptionType v>
 constexpr OptionType IOptions::OTypeV<v>::v;
 
 template <typename Value>
-struct IOptions::oType<Value *> : IOptions::OTypeV<OptionType::oObject> {
-};
+struct IOptions::oType<Value *> : IOptions::OTypeV<OptionType::oObject> {};
 template <>
-struct IOptions::oType<bool> : IOptions::OTypeV<OptionType::oBool> {
-};
+struct IOptions::oType<bool> : IOptions::OTypeV<OptionType::oBool> {};
 template <>
-struct IOptions::oType<double> : IOptions::OTypeV<OptionType::oDouble> {
-};
+struct IOptions::oType<double> : IOptions::OTypeV<OptionType::oDouble> {};
 template <>
-struct IOptions::oType<int64_t> : IOptions::OTypeV<OptionType::oInt> {
-};
+struct IOptions::oType<int64_t> : IOptions::OTypeV<OptionType::oInt> {};
 template <>
-struct IOptions::oType<uint64_t> : IOptions::OTypeV<OptionType::oUint> {
-};
+struct IOptions::oType<uint64_t> : IOptions::OTypeV<OptionType::oUint> {};
 template <>
-struct IOptions::oType<std::string> : IOptions::OTypeV<OptionType::oString> {
-};
+struct IOptions::oType<std::string> : IOptions::OTypeV<OptionType::oString> {};
 
 } // namespace nvdsinferserver
 

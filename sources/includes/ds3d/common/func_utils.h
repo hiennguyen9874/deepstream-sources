@@ -26,6 +26,11 @@ inline bool isCpuMem(MemType t)
     return t == MemType::kCpu || t == MemType::kCpuPinned;
 }
 
+inline bool isGpuMem(MemType t)
+{
+    return t == MemType::kGpuCuda;
+}
+
 inline const char *ErrCodeStr(ErrCode code)
 {
     static const std::unordered_map<ErrCode, const char *> kCodeTable = {

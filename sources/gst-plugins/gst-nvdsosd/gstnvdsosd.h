@@ -58,6 +58,8 @@ struct _GstNvDsOsd {
     NvOSD_TextParams *text_params;
     /** List of rectangles to be drawn. */
     NvOSD_RectParams *rect_params;
+    /** List of rectangles to be blurred. */
+    NvOSD_RectParams *blur_rect_params;
     /** List of rectangles for segment masks to be drawn. */
     NvOSD_RectParams *mask_rect_params;
     /** List of segment masks to be drawn. */
@@ -81,6 +83,8 @@ struct _GstNvDsOsd {
     guint num_arrows;
     /** Number of circles to be drawn for a frame. */
     guint num_circles;
+    /** Number of blurs to be drawn for a frame. */
+    guint num_blurs;
 
     /** Structure containing details of rectangles to be drawn for a frame. */
     NvOSD_FrameRectParams *frame_rect_params;
@@ -94,6 +98,8 @@ struct _GstNvDsOsd {
     NvOSD_FrameArrowParams *frame_arrow_params;
     /** Structure containing details of circles to be drawn for a frame. */
     NvOSD_FrameCircleParams *frame_circle_params;
+    /** Structure containing details of blurs to be overlayed for a frame. */
+    NvOSD_FrameRectParams *frame_blur_params;
 
     /** Font of the text to be displayed. */
     gchar *font;
@@ -120,6 +126,13 @@ struct _GstNvDsOsd {
     guint gpu_id;
     /** Pointer to the converted buffer. */
     void *conv_buf;
+
+    /** Boolean indicating whether bbox is to be blurred. */
+    gboolean blur_bbox;
+    /** The gie id and class id needed to be blurred */
+    gchar *blur_gie_class_ids;
+    /** The gie id and class id needed to be blurred */
+    GList *blur_gie_class_list;
 };
 
 /* GStreamer boilerplate. */

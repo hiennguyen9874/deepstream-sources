@@ -1,5 +1,3 @@
-
-
 #ifndef _DS3D_COMMON_HPP_FRAME__HPP
 #define _DS3D_COMMON_HPP_FRAME__HPP
 

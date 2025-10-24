@@ -299,6 +299,7 @@ int run_test(char *test_key)
     printf("Test %d: Disconnecting... in 3 secs\n", ti.test_id);
     sleep(3);
     nv_msgbroker_disconnect(conn_handle);
+    return 0;
 }
 
 int main(int argc, char *argv[])
@@ -335,4 +336,5 @@ int main(int argc, char *argv[])
         t.join();
     }
     printf("Done. All tests finished successfully\n");
+    return 0;
 }

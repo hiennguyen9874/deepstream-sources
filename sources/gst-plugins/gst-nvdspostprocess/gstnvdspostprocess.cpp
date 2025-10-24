@@ -1,25 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
 #include "gstnvdspostprocess.h"
 
 #include <string.h>
@@ -37,9 +15,16 @@
 
 GST_DEBUG_CATEGORY_STATIC(gst_nvdspostprocess_debug);
 #define GST_CAT_DEFAULT gst_nvdspostprocess_debug
+#define DEFAULT_PROP_PREPROCESSOR_SUPPORT FALSE
 
 /* Enum to identify properties */
-enum { PROP_0, PROP_POSTPROCESSLIB_NAME, PROP_GPU_DEVICE_ID, PROP_POSTPROCESSLIB_CONFIG_FILE };
+enum {
+    PROP_0,
+    PROP_POSTPROCESSLIB_NAME,
+    PROP_GPU_DEVICE_ID,
+    PROP_POSTPROCESSLIB_CONFIG_FILE,
+    PROP_PREPROCESSOR_SUPPORT
+};
 
 /* Default values for properties */
 #define DEFAULT_GPU_ID 0
@@ -156,6 +141,13 @@ static void gst_nvdspostprocess_class_init(GstNvDsPostProcessClass *klass)
         g_param_spec_string("postprocesslib-config-file", "Post Process library config file",
                             "Set postprocess library config file to be used", NULL,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+    g_object_class_install_property(
+        gobject_class, PROP_PREPROCESSOR_SUPPORT,
+        g_param_spec_boolean(
+            "preprocessor-support", "Preprocessor Support",
+            "Postprocessor parsing support for custom preprocessor tensors",
+            DEFAULT_PROP_PREPROCESSOR_SUPPORT,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
 
     /* Set sink and src pad capabilities */
     gst_element_class_add_pad_template(
@@ -177,6 +169,7 @@ static void gst_nvdspostprocess_init(GstNvDsPostProcess *nvdspostprocess)
     GstBaseTransform *btrans = GST_BASE_TRANSFORM(nvdspostprocess);
     /* Initialize all property variables to default values */
     nvdspostprocess->gpu_id = DEFAULT_GPU_ID;
+    nvdspostprocess->preprocessor_support = DEFAULT_PROP_PREPROCESSOR_SUPPORT;
     /* We will not be generating a new buffer. Just adding / updating
      * metadata. */
     gst_base_transform_set_in_place(GST_BASE_TRANSFORM(btrans), TRUE);
@@ -217,6 +210,9 @@ static void gst_nvdspostprocess_set_property(GObject *object,
             nvdspostprocess->algo_ctx->SetConfigFile(nvdspostprocess->postprocess_lib_config_file);
         }
         break;
+    case PROP_PREPROCESSOR_SUPPORT:
+        nvdspostprocess->preprocessor_support = g_value_get_boolean(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -242,6 +238,9 @@ static void gst_nvdspostprocess_get_property(GObject *object,
         break;
     case PROP_POSTPROCESSLIB_CONFIG_FILE:
         g_value_set_string(value, nvdspostprocess->postprocess_lib_config_file);
+        break;
+    case PROP_PREPROCESSOR_SUPPORT:
+        g_value_set_boolean(value, nvdspostprocess->preprocessor_support);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -280,6 +279,7 @@ static gboolean gst_nvdspostprocess_start(GstBaseTransform *btrans)
         params.m_element = btrans;
         params.m_gpuId = nvdspostprocess->gpu_id;
         params.m_cudaStream = nvdspostprocess->cu_nbstream;
+        params.m_preprocessor_support = nvdspostprocess->preprocessor_support;
 
         nvdspostprocess->algo_factory = new DSPostProcessLibrary_Factory();
         nvdspostprocess->algo_ctx = nvdspostprocess->algo_factory->CreateCustomAlgoCtx(
@@ -446,7 +446,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_postprocess,
                   DESCRIPTION,
                   nvdspostprocess_plugin_init,
-                  "6.3",
+                  "8.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

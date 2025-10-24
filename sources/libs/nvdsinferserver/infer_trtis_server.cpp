@@ -305,7 +305,7 @@ NvDsInferStatus TrtServerResponse::parseOutputData(const TrtServerRequest *req)
         return NVDSINFER_UNKNOWN_ERROR;
     }
     TRITONSERVER_InferenceResponse *response = m_Data.get();
-    uint32_t outputNum;
+    uint32_t outputNum = 0;
     RETURN_TRTIS_ERROR(TRITONSERVER_InferenceResponseOutputCount(response, &outputNum),
                        "TritonServer model:%s response get output count failed.", safeStr(model()));
     if (outputNum != (uint32_t)req->outputs().size()) {
@@ -1052,7 +1052,7 @@ void TrtISServer::InferComplete(TRITONSERVER_InferenceResponse *response,
     UniqTritonT<TRITONSERVER_InferenceResponse> responsePtr(response,
                                                             TRITONSERVER_InferenceResponseDelete);
     UniqResponse newResponse = pThis->createResponse(std::move(responsePtr), request->id());
-    userData.reset();
+    userData.reset(nullptr);
     done(std::move(request), std::move(newResponse));
 }
 

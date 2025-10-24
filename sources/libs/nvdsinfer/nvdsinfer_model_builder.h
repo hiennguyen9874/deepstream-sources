@@ -1,7 +1,6 @@
 #ifndef __NVDSINFER_MODEL_BUILDER_H__
 #define __NVDSINFER_MODEL_BUILDER_H__
 
-#include <NvCaffeParser.h>
 #include <NvInfer.h>
 #include <NvInferRuntime.h>
 #include <NvOnnxParser.h>
@@ -20,7 +19,7 @@
 #include "nvdsinfer_func_utils.h"
 #include "nvdsinfer_tlt.h"
 
-/* This file provides APIs for building models from Caffe/UFF/ONNX files. It
+/* This file provides APIs for building models from ONNX files. It
  * also defines an interface where users can provide custom model parsers for
  * custom networks. A helper class (TrtEngine) written on top of TensorRT's
  * nvinfer1::ICudaEngine is also defined in this file.
@@ -56,61 +55,6 @@ protected:
 };
 
 /**
- * Implementation of ModelParser for caffemodels derived from BaseModelParser.
- * Manages resources internally required for parsing caffemodels.
- */
-class CaffeModelParser : public BaseModelParser {
-public:
-    CaffeModelParser(const NvDsInferContextInitParams &initParams,
-                     const std::shared_ptr<DlLibHandle> &handle = nullptr);
-    ~CaffeModelParser() override;
-    bool isValid() const override { return m_CaffeParser.get(); }
-    const char *getModelName() const override { return m_ModelPath.c_str(); }
-    bool hasFullDimsSupported() const override { return true; }
-
-    NvDsInferStatus parseModel(nvinfer1::INetworkDefinition &network) override;
-
-private:
-    NvDsInferStatus setPluginFactory();
-
-private:
-    std::string m_ProtoPath;
-    std::string m_ModelPath;
-    std::vector<std::string> m_OutputLayers;
-    NvDsInferPluginFactoryCaffe m_CaffePluginFactory{nullptr};
-    UniquePtrWDestroy<nvcaffeparser1::ICaffeParser> m_CaffeParser;
-};
-
-/**
- * Implementation of ModelParser for UFF models derived from BaseModelParser.
- * Manages resources internally required for parsing UFF models.
- */
-class UffModelParser : public BaseModelParser {
-public:
-    struct ModelParams {
-        std::string uffFilePath;
-        nvuffparser::UffInputOrder inputOrder;
-        std::vector<std::string> inputNames;
-        std::vector<nvinfer1::Dims> inputDims;
-        std::vector<std::string> outputNames;
-    };
-
-public:
-    UffModelParser(const NvDsInferContextInitParams &initParams,
-                   const std::shared_ptr<DlLibHandle> &handle = nullptr);
-    ~UffModelParser() override;
-    NvDsInferStatus parseModel(nvinfer1::INetworkDefinition &network) override;
-    bool isValid() const override { return m_UffParser.get(); }
-    const char *getModelName() const override { return m_ModelParams.uffFilePath.c_str(); }
-    bool hasFullDimsSupported() const override { return false; }
-
-protected:
-    NvDsInferStatus initParser();
-    ModelParams m_ModelParams;
-    UniquePtrWDestroy<nvuffparser::IUffParser> m_UffParser;
-};
-
-/**
  * Implementation of ModelParser for ONNX models derived from BaseModelParser.
  * Manages resources internally required for parsing ONNX models.
  */
@@ -131,7 +75,7 @@ private:
     std::string m_ModelName;
 
 protected:
-    UniquePtrWDestroy<nvonnxparser::IParser> m_OnnxParser;
+    std::unique_ptr<nvonnxparser::IParser> m_OnnxParser;
 };
 
 /**
@@ -146,7 +90,7 @@ public:
     CustomModelParser(const NvDsInferContextInitParams &initParams,
                       const std::shared_ptr<DlLibHandle> &handle);
 
-    ~CustomModelParser(){};
+    ~CustomModelParser() {};
 
     bool isValid() const override { return (bool)m_CustomParser; }
 
@@ -177,12 +121,12 @@ struct BuildParams {
     NvDsInferNetworkMode networkMode = NvDsInferNetworkMode_FP32;
     std::string int8CalibrationFilePath;
     int dlaCore = -1;
-    std::unordered_map<std::string, TensorIOFormat> inputFormats;
+    std::vector<TensorIOFormat> inputFormats;
     std::unordered_map<std::string, TensorIOFormat> outputFormats;
     std::unordered_map<std::string, LayerDevicePrecision> layerDevicePrecisions;
 
 public:
-    virtual ~BuildParams(){};
+    virtual ~BuildParams() {};
     virtual NvDsInferStatus configBuilder(TrtModelBuilder &builder) = 0;
     virtual bool sanityCheck() const;
 };
@@ -225,13 +169,13 @@ private:
  */
 class TrtEngine {
 public:
-    TrtEngine(UniquePtrWDestroy<nvinfer1::ICudaEngine> &&engine, int dlaCore = -1)
+    TrtEngine(std::unique_ptr<nvinfer1::ICudaEngine> &&engine, int dlaCore = -1)
         : m_Engine(std::move(engine)), m_DlaCore(dlaCore)
     {
     }
 
-    TrtEngine(UniquePtrWDestroy<nvinfer1::ICudaEngine> &&engine,
-              const SharedPtrWDestroy<nvinfer1::IRuntime> &runtime,
+    TrtEngine(std::unique_ptr<nvinfer1::ICudaEngine> &&engine,
+              const std::shared_ptr<nvinfer1::IRuntime> &runtime,
               int dlaCore = -1,
               const std::shared_ptr<DlLibHandle> &dlHandle = nullptr,
               nvinfer1::IPluginFactory *pluginFactory = nullptr);
@@ -263,8 +207,8 @@ public:
 private:
     DISABLE_CLASS_COPY(TrtEngine);
 
-    SharedPtrWDestroy<nvinfer1::IRuntime> m_Runtime;
-    UniquePtrWDestroy<nvinfer1::ICudaEngine> m_Engine;
+    std::shared_ptr<nvinfer1::IRuntime> m_Runtime;
+    std::unique_ptr<nvinfer1::ICudaEngine> m_Engine;
     std::shared_ptr<DlLibHandle> m_DlHandle;
     nvinfer1::IPluginFactory *m_RuntimePluginFactory = nullptr;
     int m_DlaCore = -1;
@@ -289,7 +233,8 @@ class TrtModelBuilder {
 public:
     TrtModelBuilder(int gpuId,
                     nvinfer1::ILogger &logger,
-                    const std::shared_ptr<DlLibHandle> &dlHandle = nullptr);
+                    const std::shared_ptr<DlLibHandle> &dlHandle = nullptr,
+                    bool isEngineFile = false);
 
     ~TrtModelBuilder() { m_Parser.reset(); }
 
@@ -325,7 +270,7 @@ public:
 
 private:
     /* Parses a model file using an IModelParser implementation for
-     * Caffe/UFF/ONNX formats or from custom IModelParser implementation.
+     * ONNX formats or from custom IModelParser implementation.
      */
     NvDsInferStatus buildNetwork(const NvDsInferContextInitParams &initParams);
 
@@ -358,9 +303,9 @@ private:
     std::shared_ptr<DlLibHandle> m_DlLib;
     std::shared_ptr<BaseModelParser> m_Parser;
     std::unique_ptr<BuildParams> m_Options;
-    UniquePtrWDestroy<nvinfer1::IBuilder> m_Builder;
-    UniquePtrWDestroy<nvinfer1::IBuilderConfig> m_BuilderConfig;
-    UniquePtrWDestroy<nvinfer1::INetworkDefinition> m_Network;
+    std::unique_ptr<nvinfer1::IBuilder> m_Builder;
+    std::unique_ptr<nvinfer1::IBuilderConfig> m_BuilderConfig;
+    std::unique_ptr<nvinfer1::INetworkDefinition> m_Network;
     std::shared_ptr<nvinfer1::IInt8Calibrator> m_Int8Calibrator;
 
     friend class BuildParams;

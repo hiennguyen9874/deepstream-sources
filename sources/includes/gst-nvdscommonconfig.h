@@ -15,7 +15,25 @@ typedef enum {
     DEC_SKIP_FRAMES_TYPE_KEY_FRAME_ONLY
 } NvDsUriSrcBinDecSkipFrame;
 
-typedef enum { RTP_PROTOCOL_MULTI = 0, RTP_PROTOCOL_TCP = 4 } NvDsUriSrcBinRtpProtocol;
+typedef enum {
+    RTP_PROTOCOL_UNKNOWN = 0,
+    RTP_PROTOCOL_UDP = 1,
+    RTP_PROTOCOL_UDP_MCAST = 2,
+    RTP_PROTOCOL_TCP = 4,
+    RTP_PROTOCOL_UDP_UDPMCAST_TCP = 7,
+    RTP_PROTOCOL_HTTP = 10,
+    RTP_PROTOCOL_TLS = 20
+} NvDsUriSrcBinRtpProtocol;
+
+typedef enum { LEAKY_NONE, LEAKY_UPSTREAM, LEAKY_DOWNSTREAM } NvDsUriSrcBinLeaky;
+
+typedef enum {
+    BUFFER_MODE_UNKNOWN = 0,
+    BUFFER_MODE_SLAVE = 1,
+    BUFFER_MODE_BUFFER = 2,
+    BUFFER_MODE_AUTO = 3,
+    BUFFER_MODE_SYNCED = 4
+} NvDsUriSrcBinBufferMode;
 
 typedef enum { SMART_REC_DISABLE, SMART_REC_CLOUD, SMART_REC_MULTI } NvDsUriSrcBinSRType;
 
@@ -29,13 +47,21 @@ typedef enum { SMART_REC_MP4, SMART_REC_MKV } NvDsUriSrcBinSRCont;
 
 typedef struct _NvDsSensorInfo {
     guint source_id;
+    gchar const *uri;
     gchar const *sensor_id;
+    gchar const *sensor_name;
 } NvDsSensorInfo;
+
+typedef struct _NvDsRtspAttemptsInfo {
+    gboolean attempt_exceeded;
+    guint source_id;
+} NvDsRtspAttemptsInfo;
 
 typedef struct _GstDsNvUriSrcConfig {
     NvDsUriSrcBinType src_type;
     gboolean loop;
     gchar *uri;
+    gchar *sei_uuid;
     gint latency;
     NvDsUriSrcBinSRType smart_record;
     gchar *smart_rec_dir_path;
@@ -47,14 +73,31 @@ typedef struct _GstDsNvUriSrcConfig {
     guint gpu_id;
     gint source_id;
     NvDsUriSrcBinRtpProtocol rtp_protocol;
+    NvDsUriSrcBinBufferMode buffer_mode;
     guint num_extra_surfaces;
     NvDsUriSrcBinDecSkipFrame skip_frames_type;
     guint cuda_memory_type;
     guint drop_frame_interval;
+    gboolean low_latency_mode;
+    gboolean extract_sei_type5_data;
+    gint rtsp_reconnect_interval_sec_org;
     gint rtsp_reconnect_interval_sec;
+    NvDsUriSrcBinLeaky leaky;
+    guint max_size_buffers;
+    gint init_rtsp_reconnect_interval_sec;
+    gint rtsp_reconnect_attempts;
+    gint num_rtsp_reconnects;
     guint udp_buffer_size;
     gchar *sensorId; /**< unique Sensor ID string */
     gboolean disable_passthrough;
+    gchar *sensorName; /**< Sensor Name string; could be NULL */
+    gboolean disable_audio;
+    gboolean drop_on_latency;
+    gboolean ipc_buffer_timestamp_copy;
+    gchar *ipc_socket_path;
+    gint ipc_connection_attempts;
+    guint64 ipc_connection_interval;
+    gboolean sensorIdToPadIdMapping;
 } GstDsNvUriSrcConfig;
 
 typedef struct {
@@ -88,6 +131,13 @@ typedef struct {
     guint maxBatchSize;
     gboolean async_process;
     gboolean no_pipeline_eos;
+    gboolean extract_sei_type5_data;
+    gboolean sort_batch;
+    gboolean buffer_cache;
+    gint buffer_cache_timeout;
+    gboolean extract_sei_sim_time;
+    gboolean align_first_buffer;
+    guint sync_inputs_ntp;
 } GstDsNvStreammuxConfig;
 
 #ifdef __cplusplus

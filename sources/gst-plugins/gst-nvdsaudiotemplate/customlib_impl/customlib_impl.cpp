@@ -106,7 +106,9 @@ bool SampleAlgorithm::SetInitParams(DSCustom_CreateParams *params)
         GstStructure *structure;
         const gchar *format;
         GstAllocationParams allocation_params;
-        GstNvDsAudioAllocatorParams allocator_params;
+        GstNvDsAudioAllocatorParams allocator_params = {0};
+
+        memset(&allocator_params, 0, sizeof(GstNvDsAudioAllocatorParams));
 
         structure = gst_caps_get_structure(params->m_outCaps, 0);
 
@@ -170,8 +172,7 @@ GstCaps *SampleAlgorithm::GetCompatibleCaps(GstPadDirection direction,
         hw_caps = true;
     }
 
-    GstCaps *result = gst_caps_copy(in_caps);
-    return result;
+    return othercaps;
 }
 
 char *SampleAlgorithm::QueryProperties()
@@ -263,8 +264,8 @@ SampleAlgorithm::~SampleAlgorithm()
 
 int SampleAlgorithm::doWork(GstBuffer *inbuf, GstBuffer *outbuf)
 {
-    GstMapInfo in_map_info;
-    GstMapInfo out_map_info;
+    GstMapInfo in_map_info = {0};
+    GstMapInfo out_map_info = {0};
 
     memset(&in_map_info, 0, sizeof(in_map_info));
     if (hw_caps == true)
@@ -459,6 +460,10 @@ void SampleAlgorithm::OutputThread(void)
 
         flow_ret = gst_pad_push(GST_BASE_TRANSFORM_SRC_PAD(m_element), outBuffer);
         GST_DEBUG("FLOW RET = %d\n", flow_ret);
+
+        if (hw_caps == true) {
+            gst_buffer_unref(packetInfo.inbuf);
+        }
 
         lk.lock();
         continue;

@@ -34,6 +34,16 @@ GstEvent *gst_nvevent_infer_interval_update(gchar *stream_id, guint interval)
     return gst_event_new_custom((GstEventType)GST_NVEVENT_INFER_INTERVAL_UPDATE, str);
 }
 
+GstEvent *gst_nvevent_nvtracker_config_update(gchar *stream_id, gchar *configPath)
+{
+    GstStructure *str = gst_structure_new_empty("nv-tracker-config-update");
+
+    gst_structure_set(str, "stream_id", G_TYPE_STRING, stream_id, "config_path", G_TYPE_STRING,
+                      configPath, NULL);
+
+    return gst_event_new_custom((GstEventType)GST_NVEVENT_NVTRACKER_CONFIG_UPDATE, str);
+}
+
 void gst_nvevent_parse_roi_update(GstEvent *event,
                                   gchar **stream_id,
                                   guint *roi_count,
@@ -76,6 +86,18 @@ void gst_nvevent_parse_infer_interval_update(GstEvent *event, gchar **stream_id,
     }
 }
 
+void gst_nvevent_parse_nvtracker_config_update(GstEvent *event,
+                                               gchar **stream_id,
+                                               gchar **configStr)
+{
+    if ((GstEventType)GST_NVEVENT_NVTRACKER_CONFIG_UPDATE == GST_EVENT_TYPE(event)) {
+        const GstStructure *str = gst_event_get_structure(event);
+
+        gst_structure_get(str, "stream_id", G_TYPE_STRING, stream_id, "config_path", G_TYPE_STRING,
+                          configStr, NULL);
+    }
+}
+
 GstEvent *gst_nvevent_osd_process_mode_update(gchar *stream_id, guint process_mode)
 {
     GstStructure *str = gst_structure_new_empty("nv-osd-process-mode-update");
@@ -95,5 +117,22 @@ void gst_nvevent_parse_osd_process_mode_update(GstEvent *event,
 
         gst_structure_get(str, "stream_id", G_TYPE_STRING, stream_id, "process_mode", G_TYPE_UINT,
                           process_mode, NULL);
+    }
+}
+
+GstEvent *gst_nvevent_analytics_reload_config_update(gchar *config_file_path)
+{
+    GstStructure *str = gst_structure_new_empty("nv-analytics-reload_config-update");
+
+    gst_structure_set(str, "config_file_path", G_TYPE_STRING, config_file_path, NULL);
+
+    return gst_event_new_custom((GstEventType)GST_NVEVENT_ANALYTICS_RELOAD_CONFIG_UPDATE, str);
+}
+
+void gst_nvevent_parse_analytics_reload_config_update(GstEvent *event, gchar **config_file_path)
+{
+    if ((GstEventType)GST_NVEVENT_ANALYTICS_RELOAD_CONFIG_UPDATE == GST_EVENT_TYPE(event)) {
+        const GstStructure *str = gst_event_get_structure(event);
+        gst_structure_get(str, "config_file_path", G_TYPE_STRING, config_file_path, NULL);
     }
 }

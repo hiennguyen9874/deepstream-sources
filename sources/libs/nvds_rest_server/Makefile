@@ -1,24 +1,13 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 ################################################################################
 
 CUDA_VER?=
@@ -32,21 +21,21 @@ CXX:= g++
 SRCS:= nvds_dec_parse.cpp nvds_infer_parse.cpp \
        nvds_rest_server.cpp nvds_roi_parse.cpp nvds_stream_parse.cpp \
        nvds_mux_parse.cpp nvds_inferserver_parse.cpp nvds_conv_parse.cpp nvds_enc_parse.cpp \
-       nvds_app_instance_parse.cpp nvds_osd_parse.cpp
+       nvds_app_instance_parse.cpp nvds_osd_parse.cpp nvds_analytics_parse.cpp nvds_nvtracker_parse.cpp
 
 INCS:= $(wildcard *.h)
 LIB:=libnvds_rest_server.so
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
-NVDS_VERSION:=6.3
+NVDS_VERSION:=8.0
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"8.0.0\" \
  	 -I../../includes \
  	 -I/usr/local/cuda-$(CUDA_VER)/include \
 	 -I/usr/include/jsoncpp
- 
+
 LIBS := -shared -Wl,-no-undefined \
  	-L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart
- 
+
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_customhelper -ldl\
         -Wl,-rpath,$(LIB_INSTALL_DIR) -lcivetweb
 

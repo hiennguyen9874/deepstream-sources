@@ -120,4 +120,6 @@
         return uint64Id;                \
     }
 
+#define DS3D_ROUND_UP(value, align) (((value) + (align) - 1) & (~((align) - 1)))
+
 #endif // _DS3D_COMMON_DEFINES__H

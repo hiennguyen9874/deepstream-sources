@@ -57,6 +57,8 @@ typedef enum NvDsObjectType {
     NVDS_OBJECT_TYPE_VEHICLE_EXT,
     NVDS_OBJECT_TYPE_PERSON_EXT,
     NVDS_OBJECT_TYPE_FACE_EXT,
+    NVDS_OBJECT_TYPE_3D,
+    NVDS_OBJECT_TYPE_DUMMY,
     NVDS_OBJECT_TYPE_PRODUCT,     /** New Object Type for Product */
     NVDS_OBJECT_TYPE_PRODUCT_EXT, /** New Object Type for Product */
     /** Reserved for future use. Custom objects must be assigned values
@@ -258,6 +260,112 @@ typedef struct NvDsProductObject {
 } NvDsProductObject;
 
 /**
+ * Holds 2D convex hull metadata.
+ */
+typedef struct NvDsConvexHull {
+    /** Holds a pointer a list of convex hull points. */
+    gint *points;
+    /** Holds the number of points in the convex hull. */
+    guint numFilled;
+} NvDsConvexHull;
+
+typedef struct _NvDsBbox3dObject {
+    float boxes_3d[12];
+    float scores_3d;
+    gchar *labels_3d;
+    gchar *embedding_filter;
+    float cls_scores; // confidence
+    guint instance_ids;
+    NvDsEmbedding *instance_feats;
+} NvDsBbox3dObject;
+
+#define MAX_SOURCE_ID_LEN 128 // Define a maximum length for source_id
+typedef struct {
+    gchar source_id[MAX_SOURCE_ID_LEN];
+    guint64 timestamp;
+} SourceTimePair;
+
+#define MAX_NUM_OBJECTS 600 // Define a maximum number of objects
+#define MAX_ENTRIES 100     // Define max batchsize for sparse4D
+typedef struct _NvDsBbox3dObjectList {
+    NvDsBbox3dObject objects[MAX_NUM_OBJECTS];
+    guint num_objects;
+    guint64 timestamp;
+    gint frame_num;
+    guint camera_id;
+    gchar *sensorStr;
+    SourceTimePair entries[MAX_ENTRIES];
+    int count;
+} NvDsBbox3dObjectList;
+
+/**
+ * Holds Single View 3D Tracking metadata.
+ */
+typedef struct NvDs3DTracking {
+    /** Holds the object's estimated foot location in 2D coordinates on the estimated world ground.
+     */
+    gfloat ptWorldFeet[2];
+    /** Holds the object's estimated foot location in frame coordinates. */
+    gfloat ptImgFeet[2];
+    /** Holds the object's visibility. */
+    gfloat visibility;
+    /** Holds the object's convex hull information */
+    NvDsConvexHull convexHull;
+    NvDsBbox3dObject bbox3d;
+} NvDs3DTracking;
+
+typedef struct {
+    gchar *id;
+    gchar *query;
+    gchar *response;
+} NvDsConversationObject;
+
+typedef struct {
+    GHashTable *info;
+    NvDsConversationObject *conversations;
+    guint num_conversations;
+    NvDsEmbedding *embeddings;
+    guint num_embeddings;
+} NvDsLLMObject;
+
+typedef struct {
+    gchar *id;
+    gchar **objectIds;
+    guint num_objectIds;
+    NvDsCoordinate *coordinates;
+    guint num_coordinates;
+    gchar *description;
+    GHashTable *info;
+    gint64 timestamp; // New field added
+} NvDsInteractionObject;
+
+typedef struct {
+    gchar *id;
+    gchar **objectIds;
+    guint num_objectIds;
+    float amount;
+    GHashTable *info;
+    gint64 timestamp; // New field added
+} NvDsCongestionObject;
+
+typedef struct {
+    gchar *id;
+    gchar *type;
+    gint32 count;
+    NvDsCoordinate *coordinates;
+    guint num_coordinates;
+    gchar **objectIds;
+    guint num_objectIds;
+    GHashTable *info;
+} NvDsTypeMetricsObject;
+
+typedef struct {
+    gint32 *mask;
+    guint mask_size;
+    GHashTable *info;
+} NvDsSegmentationObject;
+
+/**
  * Holds event message meta data.
  *
  * You can attach various types of objects (vehicle, person, face, etc.)
@@ -303,6 +411,19 @@ typedef struct NvDsEventMsgMeta {
     gchar *sensorStr;
     /** Holds a pointer to a string containing other attributes associated with
      the object. */
+
+    SourceTimePair entries[MAX_ENTRIES];
+    int count;
+    NvDsBbox3dObject *bbox3d;
+    NvDsLLMObject *llm;
+    gint num_interactions;
+    NvDsInteractionObject *interactions;
+    gint num_congestions;
+    NvDsCongestionObject *congestions;
+    gint num_fov;
+    NvDsTypeMetricsObject *fov;
+    NvDsSegmentationObject *segmentation;
+
     gchar *otherAttrs;
     /** Holds a pointer to the name of the video file. */
     gchar *videoPath;
@@ -316,6 +437,10 @@ typedef struct NvDsEventMsgMeta {
     NvDsJoints pose;
     /** Holds the object's embedding information */
     NvDsEmbedding embedding;
+    /** Holds the flag for whether single view 3D tracking metadata is available. */
+    bool has3DTracking;
+    /** Holds the single view 3D tracking metadata if available. */
+    NvDs3DTracking singleView3DTracking;
 } NvDsEventMsgMeta;
 
 /**

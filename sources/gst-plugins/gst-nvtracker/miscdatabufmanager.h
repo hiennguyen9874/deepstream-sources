@@ -1,13 +1,3 @@
-/**
- * Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
- *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
- */
 #ifndef _MISCDATABUFMANAGER_H
 #define _MISCDATABUFMANAGER_H
 
@@ -24,11 +14,15 @@
 /** Tracker misc data buffer for a batch. */
 struct NvTrackerMiscDataBuffer {
     /** Past frame objects. */
-    NvDsPastFrameObjBatch pastFrameObjBatch;
+    NvDsTargetMiscDataBatch pastFrameObjBatch;
     /** Target trajectories. */
     NvDsTrajectoryBatch trajectoryBatch;
     /** ReID tensor. */
     NvDsReidTensorBatch reidTensorBatch;
+    /** Terminated Objects . */
+    NvDsTargetMiscDataBatch terminatedTrackBatch;
+    /** Shadow Objects . */
+    NvDsTargetMiscDataBatch shadowTracksBatch;
 };
 
 /** Tracker misc data memory pool. */
@@ -44,7 +38,10 @@ public:
               uint32_t reidFeatureSize,
               uint32_t maxBufferPoolSize,
               bool pastFrame,
-              bool outputReidTensor);
+              bool outputReidTensor,
+              bool outputTerminatedTracks,
+              bool outputShadowTracks,
+              uint32_t maxTerminatedFrameHistory);
     /** Return buffer to pool. */
     void returnBuffer(NvTrackerMiscDataBuffer *data);
     /** Pop a buffer from pool. */
@@ -57,6 +54,8 @@ private:
     bool m_IntentionallyEmpty;
     bool m_PastFrame;
     bool m_OutputReidTensor;
+    bool m_OutputTerminatedTracks;
+    bool m_OutputShadowTracks;
     /** Lock to write the free queue. */
     std::mutex m_Mutex;
     std::condition_variable m_Cond;
@@ -84,6 +83,23 @@ private:
     void releaseReid(NvTrackerMiscDataBuffer *pBuffer);
     /** Clear reid tensors in memory filled previously. */
     void resetReid(NvTrackerMiscDataBuffer *pBuffer);
+    /** Allocate memory for Terminated Tracks */
+    void allocateTerminatedTracks(NvTrackerMiscDataBuffer *pNewBuf,
+                                  uint32_t batchSize,
+                                  uint32_t maxTargetsPerStream,
+                                  uint32_t maxTermTrackFrameHistory);
+    /** Release memory for Terminated Tracks */
+    void releaseTerminatedTracks(NvTrackerMiscDataBuffer *pBuffer);
+    /** Clear memory for Terminated Tracks. */
+    void resetTerminatedTracks(NvTrackerMiscDataBuffer *pBuffer);
+    /** Allocate memory for Shadow Tracks. */
+    void allocateShadowTracks(NvTrackerMiscDataBuffer *pNewBuf,
+                              uint32_t batchSize,
+                              uint32_t maxTargetsPerStream);
+    /** Clear memory for Shadow Tracks. */
+    void releaseShadowTracks(NvTrackerMiscDataBuffer *pBuffer);
+    /** Release memory for Shadow Tracks. */
+    void resetShadowTracks(NvTrackerMiscDataBuffer *pBuffer);
 };
 
 /** GStreamer mini object for GStreamer pipeline to control tracker user meta. */

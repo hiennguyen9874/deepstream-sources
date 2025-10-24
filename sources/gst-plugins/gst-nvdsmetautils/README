@@ -1,5 +1,5 @@
 *****************************************************************************
-* SPDX-FileCopyrightText: Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+* SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.  All rights reserved.
 * SPDX-License-Identifier: MIT
 *
 * Permission is hereby granted, free of charge, to any person obtaining a
@@ -54,5 +54,5 @@ elements namely nvdsmetainsert & nvdsmetaextract in the pipeline.
 ===============================================================================
 
   $ Set CUDA_VER in the MakeFile as per platform.
-      For x86, CUDA_VER=12.1
+      For x86, CUDA_VER=12.8
   $ sudo make

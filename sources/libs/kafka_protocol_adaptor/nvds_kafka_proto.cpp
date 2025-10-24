@@ -1,13 +1,3 @@
-/*
- * Copyright (c) 2018-2022 NVIDIA Corporation.  All rights reserved.
- *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
- */
 #include "nvds_kafka_proto.h"
 
 #include <arpa/inet.h>
@@ -200,7 +190,7 @@ static int test_kafka_broker_endpoint(const char *burl, const char *bport)
     int flags;
     fd_set wfds;
     int error;
-    struct addrinfo *res, hints;
+    struct addrinfo *res, *rp, hints;
 
     if (!port)
         return -1;
@@ -221,18 +211,23 @@ static int test_kafka_broker_endpoint(const char *burl, const char *bport)
     }
 
     // iterate through all ip addresses resolved for the url
-    for (; res != NULL; res = res->ai_next) {
+    for (rp = res; rp != NULL; rp = rp->ai_next) {
         sockid = socket(AF_INET, SOCK_STREAM, 0); // tcp socket
 
         // make socket non-blocking
         flags = fcntl(sockid, F_GETFL);
-        if (fcntl(sockid, F_SETFL, flags | O_NONBLOCK) == -1)
+        if (fcntl(sockid, F_SETFL, flags | O_NONBLOCK) == -1) {
             /* having trouble making socket non-blocking;
               can't check network address, and so assume it is valid
             */
+            close(sockid);
+            freeaddrinfo(res);
             return 0;
+        }
 
         if (!connect(sockid, (struct sockaddr *)res->ai_addr, res->ai_addrlen)) {
+            close(sockid);
+            freeaddrinfo(res);
             return 0; // connection succeeded right away
         } else {
             if (errno == EINPROGRESS) { // normal for non-blocking socker
@@ -248,6 +243,8 @@ static int test_kafka_broker_endpoint(const char *burl, const char *bport)
                 int err = select(sockid + 1, NULL, &wfds, NULL, &conn_timeout);
                 switch (err) {
                 case 0: // timeout
+                    close(sockid);
+                    freeaddrinfo(res);
                     return ETIMEDOUT;
 
                 case 1: // socket unblocked; now figure out why
@@ -255,20 +252,34 @@ static int test_kafka_broker_endpoint(const char *burl, const char *bport)
                     optlen = sizeof(optval);
                     if (getsockopt(sockid, SOL_SOCKET, SO_ERROR, &optval, &optlen) == -1) {
                         /* error getting socket options; can't invalidate address */
+                        close(sockid);
+                        freeaddrinfo(res);
                         return 0;
                     }
-                    if (optval == 0)
+                    if (optval == 0) {
+                        close(sockid);
+                        freeaddrinfo(res);
                         return 0; // no error; connection succeeded
-                    else
+                    } else {
+                        close(sockid);
+                        freeaddrinfo(res);
                         return optval; // connection failed; something wrong with address
+                    }
 
-                case -1: // error in select, can't invalidate address
+                case -1: { // error in select, can't invalidate address
+                    close(sockid);
+                    freeaddrinfo(res);
                     return 0;
                 }
-            } else
+                }
+            } else {
+                close(sockid);
+                freeaddrinfo(res);
                 return 0; // error in connect; can't invalidate address
-        }                 // non-blocking connect did not succeed
+            }
+        } // non-blocking connect did not succeed
     }
+    freeaddrinfo(res);
     return 0; // if we got here then can't invalidate
 }
 
@@ -425,6 +436,8 @@ void *consume(void *ptr)
     return NULL;
 }
 
+/* Function to subscribe to list of topics
+ */
 NvDsMsgApiErrorType kafka_create_topic_subscription(NvDsMsgApiHandle h_ptr,
                                                     char **topics,
                                                     int num_topics,
@@ -602,8 +615,8 @@ NvDsMsgApiErrorType nvds_msgapi_subscribe(NvDsMsgApiHandle h_ptr,
 // There could be several synchronous and asychronous send operations in flight.
 // Once a send operation callback is received the course of action  depends on if it's synch or
 // async
-//  -- if it's sync then the associated complletion flag should  be set
-//  -- if it's asynchronous then completion callback from the user should be called
+// -- if it's sync then the associated complletion flag should  be set
+// -- if it's asynchronous then completion callback from the user should be called
 NvDsMsgApiErrorType nvds_msgapi_send(NvDsMsgApiHandle h_ptr,
                                      char *topic,
                                      const uint8_t *payload,
@@ -647,6 +660,8 @@ NvDsMsgApiErrorType nvds_msgapi_send(NvDsMsgApiHandle h_ptr,
     }
 }
 
+/* nvds_msgapi function for asynchronous send
+ */
 NvDsMsgApiErrorType nvds_msgapi_send_async(NvDsMsgApiHandle h_ptr,
                                            char *topic,
                                            const uint8_t *payload,
@@ -702,6 +717,9 @@ NvDsMsgApiErrorType nvds_msgapi_send_async(NvDsMsgApiHandle h_ptr,
     }
 }
 
+/* nvds_msgapi function for performing work in the nvmsgbroker plugin. In kafka case, poll the kafka
+ * producer
+ */
 void nvds_msgapi_do_work(NvDsMsgApiHandle h_ptr)
 {
     if (h_ptr == NULL) {
@@ -713,6 +731,8 @@ void nvds_msgapi_do_work(NvDsMsgApiHandle h_ptr)
     nvds_kafka_client_poll((NvDsKafkaClientHandle *)h_ptr);
 }
 
+/* nvds_msgapi function for disconnect
+ */
 NvDsMsgApiErrorType nvds_msgapi_disconnect(NvDsMsgApiHandle h_ptr)
 {
     if (!h_ptr) {
@@ -730,7 +750,7 @@ NvDsMsgApiErrorType nvds_msgapi_disconnect(NvDsMsgApiHandle h_ptr)
 }
 
 /**
- * Returns version of API supported byh this adaptor
+ * Returns version of API supported by this adaptor
  */
 char *nvds_msgapi_getversion()
 {

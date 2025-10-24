@@ -105,7 +105,7 @@ extern "C" bool NvDsPostProcessParseCustomResnet(
     /* Find the bbox layer */
     if (bboxLayerIndex == -1) {
         for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
-            if (strcmp(outputLayersInfo[i].layerName, "conv2d_bbox") == 0) {
+            if (strcmp(outputLayersInfo[i].layerName, "output_bbox/BiasAdd") == 0) {
                 bboxLayerIndex = i;
                 getDimsCHWFromDims(bboxLayerDims, outputLayersInfo[i].inferDims);
                 break;
@@ -120,7 +120,7 @@ extern "C" bool NvDsPostProcessParseCustomResnet(
     /* Find the cov layer */
     if (covLayerIndex == -1) {
         for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
-            if (strcmp(outputLayersInfo[i].layerName, "conv2d_cov/Sigmoid") == 0) {
+            if (strcmp(outputLayersInfo[i].layerName, "output_cov/Sigmoid") == 0) {
                 covLayerIndex = i;
                 getDimsCHWFromDims(covLayerDims, outputLayersInfo[i].inferDims);
                 break;
@@ -223,8 +223,8 @@ extern "C" bool NvDsPostProcessParseCustomTfSSD(
     const NvDsInferLayerInfo *classLayer = layerFinder("detection_classes");
     const NvDsInferLayerInfo *boxLayer = layerFinder("detection_boxes");
     if (!scoreLayer || !classLayer || !boxLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
-                  << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types "
+                  << "in output tensors" << std::endl;
         return false;
     }
 
@@ -289,8 +289,8 @@ extern "C" bool NvDsPostProcessParseCustomMrcnnTLT(
     const NvDsInferLayerInfo *maskLayer = layerFinder("mask_head/mask_fcn_logits/BiasAdd");
 
     if (!detectionLayer || !maskLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
-                  << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types "
+                  << "in output tensors" << std::endl;
         return false;
     }
 
@@ -312,7 +312,7 @@ extern "C" bool NvDsPostProcessParseCustomMrcnnTLT(
 
     auto out_det = reinterpret_cast<MrcnnRawDetection *>(detectionLayer->buffer);
     auto out_mask =
-        reinterpret_cast<float(*)[mask_instance_width * mask_instance_height]>(maskLayer->buffer);
+        reinterpret_cast<float (*)[mask_instance_width * mask_instance_height]>(maskLayer->buffer);
 
     for (auto i = 0U; i < det_max_instances; i++) {
         MrcnnRawDetection &rawDec = out_det[i];
@@ -480,8 +480,8 @@ extern "C" bool NvDsPostProcessParseCustomMrcnnTLTV2(
     const NvDsInferLayerInfo *maskLayer = layerFinder("mask_fcn_logits/BiasAdd");
 
     if (!detectionLayer || !maskLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
-                  << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types "
+                  << "in output tensors" << std::endl;
         return false;
     }
 
@@ -503,7 +503,7 @@ extern "C" bool NvDsPostProcessParseCustomMrcnnTLTV2(
 
     auto out_det = reinterpret_cast<MrcnnRawDetection *>(detectionLayer->buffer);
     auto out_mask =
-        reinterpret_cast<float(*)[mask_instance_width * mask_instance_height]>(maskLayer->buffer);
+        reinterpret_cast<float (*)[mask_instance_width * mask_instance_height]>(maskLayer->buffer);
 
     for (auto i = 0U; i < det_max_instances; i++) {
         MrcnnRawDetection &rawDec = out_det[i];
@@ -846,7 +846,12 @@ static NvDsPostProcessParseObjectInfo convertBBox(const float &bx,
                                                   const uint &netW,
                                                   const uint &netH)
 {
-    NvDsPostProcessParseObjectInfo b;
+    NvDsPostProcessParseObjectInfo b = {.classId = UINT32_MAX,
+                                        .left = 0.0,
+                                        .top = 0.0,
+                                        .width = 0.0,
+                                        .height = 0.0,
+                                        .detectionConfidence = 0.0};
     // Restore coordinates to network input resolution
     float xCenter = bx * stride;
     float yCenter = by * stride;

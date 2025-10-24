@@ -1,5 +1,3 @@
-
-
 /**
  * @file infer_extra_processor.h
  *

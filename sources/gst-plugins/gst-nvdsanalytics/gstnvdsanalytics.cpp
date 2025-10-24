@@ -12,8 +12,10 @@
 #include <sstream>
 #include <string>
 
+#include "gst-nvdscustomevent.h"
 #include "nvdsanalytics_property_parser.h"
 #include "nvdsanalytics_property_yaml_parser.h"
+
 GST_DEBUG_CATEGORY_STATIC(gst_nvdsanalytics_debug);
 #define GST_CAT_DEFAULT gst_nvdsanalytics_debug
 
@@ -60,6 +62,8 @@ static void gst_nvdsanalytics_get_property(GObject *object,
                                            guint prop_id,
                                            GValue *value,
                                            GParamSpec *pspec);
+
+static gboolean gst_nvdsanalytics_sink_event(GstBaseTransform *trans, GstEvent *event);
 
 static gboolean gst_nvdsanalytics_set_caps(GstBaseTransform *btrans,
                                            GstCaps *incaps,
@@ -110,6 +114,8 @@ static void gst_nvdsanalytics_class_init(GstNvDsAnalyticsClass *klass)
     gstbasetransform_class->stop = GST_DEBUG_FUNCPTR(gst_nvdsanalytics_stop);
 
     gstbasetransform_class->transform_ip = GST_DEBUG_FUNCPTR(gst_nvdsanalytics_transform_ip);
+
+    gstbasetransform_class->sink_event = GST_DEBUG_FUNCPTR(gst_nvdsanalytics_sink_event);
 
     /* Install properties */
     g_object_class_install_property(
@@ -166,6 +172,7 @@ static void gst_nvdsanalytics_init(GstNvDsAnalytics *nvdsanalytics)
     nvdsanalytics->config_file_path = NULL;
     nvdsanalytics->config_file_parse_successful = FALSE;
     nvdsanalytics->enable = TRUE;
+    nvdsanalytics->reload_config = FALSE;
     nvdsanalytics->stream_analytics_info = new std::unordered_map<gint, StreamInfo>[1];
     nvdsanalytics->stream_analytics_ctx = new std::unordered_map<gint, NvDsAnalyticCtxUptr>[1];
     g_mutex_init(&nvdsanalytics->analytic_mutex);
@@ -325,6 +332,24 @@ static gboolean gst_nvdsanalytics_set_caps(GstBaseTransform *btrans,
     return TRUE;
 }
 
+static gboolean gst_nvdsanalytics_sink_event(GstBaseTransform *trans, GstEvent *event)
+{
+    GstNvDsAnalytics *nvdsanalytics = GST_NVDSANALYTICS(trans);
+
+    if ((GstNvDsCustomEventType)GST_EVENT_TYPE(event) ==
+        GST_NVEVENT_ANALYTICS_RELOAD_CONFIG_UPDATE) {
+        gchar *config_file_path = NULL;
+
+        gst_nvevent_parse_analytics_reload_config_update(event, &config_file_path);
+
+        if (config_file_path) {
+            nvdsanalytics->reload_config = TRUE;
+        }
+    }
+
+    /* Call the sink event handler of the base class */
+    return GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(trans, event);
+}
 /**
  * Called when element recieves an input buffer from upstream element.
  */
@@ -344,6 +369,25 @@ static GstFlowReturn gst_nvdsanalytics_transform_ip(GstBaseTransform *btrans, Gs
     nvds_set_input_system_timestamp(inbuf, GST_ELEMENT_NAME(nvdsanalytics));
 
     nvdsanalytics->batch_num++;
+
+    if (nvdsanalytics->reload_config) {
+        printf("Ready to reload configuration file: %s\n", nvdsanalytics->config_file_path);
+        g_mutex_lock(&nvdsanalytics->analytic_mutex);
+        if (g_str_has_suffix(nvdsanalytics->config_file_path, ".yml") ||
+            g_str_has_suffix(nvdsanalytics->config_file_path, ".yaml")) {
+            nvdsanalytics->config_file_parse_successful = nvdsanalytics_parse_yaml_config_file(
+                nvdsanalytics, nvdsanalytics->config_file_path);
+        } else {
+            nvdsanalytics->config_file_parse_successful =
+                nvdsanalytics_parse_config_file(nvdsanalytics, nvdsanalytics->config_file_path);
+        }
+
+        if (nvdsanalytics->config_file_parse_successful) {
+            nvdsanalytics->stream_analytics_ctx->clear();
+        }
+        g_mutex_unlock(&nvdsanalytics->analytic_mutex);
+        nvdsanalytics->reload_config = FALSE;
+    }
 
     if (FALSE == nvdsanalytics->config_file_parse_successful) {
         GST_ELEMENT_ERROR(nvdsanalytics, LIBRARY, SETTINGS, ("Configuration file parsing failed"),
@@ -387,11 +431,14 @@ static GstFlowReturn gst_nvdsanalytics_transform_ip(GstBaseTransform *btrans, Gs
 
         /* Create context if not present for particular stream */
         if (get_ctx == stream_analytics_ctx.end()) {
+            /* if obj_cnt_win_in_ms is not set, use the default value in lowlevel */
+            if (nvdsanalytics->obj_cnt_win_in_ms == 0)
+                nvdsanalytics->obj_cnt_win_in_ms = 50;
             NvDsAnalyticCtxUptr analytics_ctx = NvDsAnalyticCtx::create(
                 stream_analytics_info[frame_meta->pad_index], frame_meta->pad_index,
                 surface->surfaceList[frame_meta->batch_id].width,
-                surface->surfaceList[frame_meta->batch_id].height,
-                nvdsanalytics->obj_cnt_win_in_ms);
+                surface->surfaceList[frame_meta->batch_id].height, nvdsanalytics->obj_cnt_win_in_ms,
+                300, nvdsanalytics->obj_cnt_win_in_ms);
             stream_analytics_ctx[frame_meta->pad_index] = std::move(analytics_ctx);
         }
         process_params.frmPts = frame_meta->buf_pts;
@@ -910,7 +957,7 @@ static gboolean nvdsanalytics_plugin_init(GstPlugin *plugin)
 {
     GST_DEBUG_CATEGORY_INIT(gst_nvdsanalytics_debug, "nvdsanalytics", 1, "nvdsanalytics plugin");
     // gst_debug_category_set_threshold (gst_nvdsanalytics_debug,
-    //     GstDebugLevel level)
+    //    GstDebugLevel level)
 
     return gst_element_register(plugin, "nvdsanalytics", GST_RANK_PRIMARY, GST_TYPE_DSANALYTICS);
 }
@@ -920,7 +967,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dsanalytics,
                   DESCRIPTION,
                   nvdsanalytics_plugin_init,
-                  "6.3",
+                  "8.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

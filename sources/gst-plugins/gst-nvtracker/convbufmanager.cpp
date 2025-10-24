@@ -140,7 +140,7 @@ void ConvBufManager::deInit()
         }
         ret = NvBufSurfaceDestroy(pBuffer);
         if (ret < 0) {
-            LOG_WARNING("gstnvtracker: Got %d destroying nvbufsurface %p\n", ret, pBuffer);
+            LOG_WARNING("gstnvtracker: Got %d destroying nvbufsurface\n", ret);
         }
         pBuffer = nullptr;
     }

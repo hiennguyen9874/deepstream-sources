@@ -190,6 +190,20 @@ int nvll_osd_draw_segment_masks(NvOSDCtxHandle nvosd_ctx,
                                 NvOSD_FrameSegmentMaskParams *frame_mask_params);
 
 /**
+ * \brief  Blur boxes at a given location in a buffer.
+ *
+ * You must ensure that the length of @a rect_params_list is at least
+ * @a num_rects.
+ *
+ * @param[in] nvosd_ctx A handle for an NvOSD context.
+ * @param[in] frame_rect_params A pointer to the FrameRectParams struct
+ *            containing rectangles information to be overlayed.
+ *
+ * @returns 0 for success, -1 for failure.
+ */
+int nvll_osd_blur_rectangles(NvOSDCtxHandle nvosd_ctx, NvOSD_FrameRectParams *frame_rect_params);
+
+/**
  * \brief  Overlays boxes at a given location in a buffer.
  *
  * Boxes can be configured with:

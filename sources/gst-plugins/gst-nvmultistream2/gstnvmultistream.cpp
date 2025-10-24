@@ -46,7 +46,7 @@ static gboolean plugin_init_2(GstPlugin *plugin)
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     nvdsgst_multistream,
-    DESCRIPTION, plugin_init, "6.3", LICENSE, BINARY_PACKAGE, URL)
+    DESCRIPTION, plugin_init, "8.0", LICENSE, BINARY_PACKAGE, URL)
 #endif
 
 #ifdef ENABLE_GST_NVSTREAMMUX_UNIT_TESTS
@@ -54,7 +54,7 @@ extern "C" gboolean gGstNvMultistream2StaticInit();
 gboolean gGstNvMultistream2StaticInit()
 {
     return gst_plugin_register_static(GST_VERSION_MAJOR, GST_VERSION_MINOR, "nvdsgst_multistream",
-                                      DESCRIPTION, plugin_init_2, "6.3", LICENSE, BINARY_PACKAGE,
+                                      DESCRIPTION, plugin_init_2, "8.0", LICENSE, BINARY_PACKAGE,
                                       PACKAGE, URL);
 }
 #endif
@@ -64,7 +64,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_multistream,
                   DESCRIPTION,
                   plugin_init_2,
-                  "6.3",
+                  "8.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

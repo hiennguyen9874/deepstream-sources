@@ -17,8 +17,15 @@
 
 #include <gst/gst.h>
 
+#include <cstdint>
+#include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "nvdsmeta.h"
+
+#define NVDS_USER_FRAME_META_NVDSANALYTICS NVDS_FRAME_META_NVDSANALYTICS
+#define NVDS_USER_OBJ_META_NVDSANALYTICS NVDS_OBJ_META_NVDSANALYTICS
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,11 +36,6 @@ extern "C" {
  * @ingroup NvDsMetaApi
  * @{
  */
-
-#define NVDS_USER_FRAME_META_NVDSANALYTICS \
-    (nvds_get_user_meta_type((gchar *)"NVIDIA.DSANALYTICSFRAME.USER_META"))
-#define NVDS_USER_OBJ_META_NVDSANALYTICS \
-    (nvds_get_user_meta_type((gchar *)"NVIDIA.DSANALYTICSOBJ.USER_META"))
 
 /**
  * Holds a set of nvdsanalytics object level metadata.

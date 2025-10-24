@@ -152,9 +152,11 @@ NvDsInferStatus InferGrpcContext::specifyBackendDims(BaseBackend *be,
                          safeStr(outC), safeStr(model));
     }
 
-    CTX_RETURN_NVINFER_ERROR(be->specifyInputDims(warmupInputs),
-                             "failed to specify input dims triton backend for model:%s",
-                             safeStr(model));
+    if (!params.disable_warmup()) {
+        CTX_RETURN_NVINFER_ERROR(be->specifyInputDims(warmupInputs),
+                                 "failed to specify input dims triton backend for model:%s",
+                                 safeStr(model));
+    }
 
     be->setFirstDimBatch(firstDimIsBatch);
 

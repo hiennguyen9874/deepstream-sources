@@ -1,5 +1,3 @@
-
-
 #ifndef _DS3D_COMMON_ABI_DATA_OBJ__H
 #define _DS3D_COMMON_ABI_DATA_OBJ__H
 

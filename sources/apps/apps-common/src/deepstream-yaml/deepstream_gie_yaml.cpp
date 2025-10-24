@@ -14,12 +14,14 @@ gboolean parse_gie_yaml(NvDsGieConfig *config, std::string group_str, gchar *cfg
     gboolean ret = FALSE;
     YAML::Node configyml = YAML::LoadFile(cfg_file_path);
     char *group = (char *)malloc(sizeof(char) * 1024);
-    std::strncpy(group, group_str.c_str(), 1024);
+    std::strncpy(group, group_str.c_str(), 1023);
 
     if (configyml[group_str]["enable"]) {
         gboolean val = configyml[group_str]["enable"].as<gboolean>();
-        if (val == FALSE)
+        if (val == FALSE) {
+            g_free(group);
             return TRUE;
+        }
     }
 
     config->bbox_border_color_table = g_hash_table_new(NULL, NULL);
@@ -52,7 +54,7 @@ gboolean parse_gie_yaml(NvDsGieConfig *config, std::string group_str, gchar *cfg
         } else if (paramKey == "model-engine-file") {
             std::string temp = itr->second.as<std::string>();
             char *str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(str, temp.c_str(), 1024);
+            std::strncpy(str, temp.c_str(), 1023);
             config->model_engine_file_path = (char *)malloc(sizeof(char) * 1024);
             if (!get_absolute_file_path_yaml(cfg_file_path, str, config->model_engine_file_path)) {
                 g_printerr("Error: Could not parse model-engine-file in %s.\n", group);
@@ -65,7 +67,7 @@ gboolean parse_gie_yaml(NvDsGieConfig *config, std::string group_str, gchar *cfg
         } else if (paramKey == "audio-transform") {
             std::string temp = itr->second.as<std::string>();
             config->audio_transform = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->audio_transform, temp.c_str(), 1024);
+            std::strncpy(config->audio_transform, temp.c_str(), 1023);
         } else if (paramKey == "audio-framesize") {
             config->frame_size = itr->second.as<guint>();
             config->is_frame_size_set = TRUE;
@@ -78,7 +80,7 @@ gboolean parse_gie_yaml(NvDsGieConfig *config, std::string group_str, gchar *cfg
         } else if (paramKey == "labelfile-path") {
             std::string temp = itr->second.as<std::string>();
             char *str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(str, temp.c_str(), 1024);
+            std::strncpy(str, temp.c_str(), 1023);
             config->label_file_path = (char *)malloc(sizeof(char) * 1024);
             if (!get_absolute_file_path_yaml(cfg_file_path, str, config->label_file_path)) {
                 g_printerr("Error: Could not parse labelfile-path in %s.\n", group);
@@ -89,13 +91,14 @@ gboolean parse_gie_yaml(NvDsGieConfig *config, std::string group_str, gchar *cfg
         } else if (paramKey == "config-file") {
             std::string temp = itr->second.as<std::string>();
             char *str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(str, temp.c_str(), 1024);
+            std::strncpy(str, temp.c_str(), 1023);
             config->config_file_path = (char *)malloc(sizeof(char) * 1024);
             if (!get_absolute_file_path_yaml(cfg_file_path, str, config->config_file_path)) {
                 g_printerr("Error: Could not parse config-file in %s.\n", group);
                 g_free(str);
                 goto done;
             }
+            g_free(str);
         } else if (paramKey == "interval") {
             config->interval = itr->second.as<guint>();
             config->is_interval_set = TRUE;
@@ -175,13 +178,14 @@ gboolean parse_gie_yaml(NvDsGieConfig *config, std::string group_str, gchar *cfg
         } else if (paramKey == "infer-raw-output-dir") {
             std::string temp = itr->second.as<std::string>();
             char *str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(str, temp.c_str(), 1024);
+            std::strncpy(str, temp.c_str(), 1023);
             config->raw_output_directory = (char *)malloc(sizeof(char) * 1024);
             if (!get_absolute_file_path_yaml(cfg_file_path, str, config->raw_output_directory)) {
                 g_printerr("Error: Could not parse infer-raw-output-dir in %s.\n", group);
                 g_free(str);
                 goto done;
             }
+            g_free(str);
         } else if (paramKey == "gpu-id") {
             config->gpu_id = itr->second.as<guint>();
             config->is_gpu_id_set = TRUE;
@@ -200,12 +204,20 @@ gboolean parse_gie_yaml(NvDsGieConfig *config, std::string group_str, gchar *cfg
         cout << "Config file not provided for group " << group_str << endl;
         goto done;
     }
-    g_free(group);
 
     ret = TRUE;
+
+    if (group) {
+        g_free(group);
+        group = NULL;
+    }
 done:
     if (!ret) {
         cout << __func__ << " failed" << endl;
+    }
+    if (group) {
+        g_free(group);
+        group = NULL;
     }
     return ret;
 }

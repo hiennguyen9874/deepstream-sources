@@ -76,6 +76,8 @@ struct _GstNvDsAnalytics {
 
     gboolean enable;
 
+    gboolean reload_config;
+
     // Size of osd font
     guint font_size;
 

@@ -36,6 +36,14 @@
 #define CONFIG_GROUP_INFER_ENABLE_DLA "enable-dla"
 #define CONFIG_GROUP_INFER_USE_DLA_CORE "use-dla-core"
 
+#define CONFIG_GROUP_INFER_DUMP_INPUT_TENSOR "dump-input-tensor"
+#define CONFIG_GROUP_INFER_DUMP_OUTPUT_TENSOR "dump-output-tensor"
+#define CONFIG_GROUP_INFER_OVERWRITE_INPUT_TENSOR "overwrite-input-tensor"
+#define CONFIG_GROUP_INFER_OVERWRITE_OUTPUT_TENSOR "overwrite-output-tensor"
+#define CONFIG_GROUP_INFER_INPUT_TENSOR_FILE "ip-tensor-file"
+#define CONFIG_GROUP_INFER_OUTPUT_TENSOR_FILES "op-tensor-files"
+#define CONFIG_GROUP_INFER_RAW_OUTPUT_FILE_WRITE "raw-output-file-write"
+
 /** Runtime engine parameters. */
 #define CONFIG_GROUP_INFER_BATCH_SIZE "batch-size"
 #define CONFIG_GROUP_INFER_TENSOR_META_POOL_SIZE "tensor-meta-pool-size"
@@ -69,6 +77,7 @@
 #define CONFIG_GROUP_INFER_CUSTOM_LIB_PATH "custom-lib-path"
 #define CONFIG_GROUP_INFER_CUSTOM_PARSE_BBOX_FUNC "parse-bbox-func-name"
 #define CONFIG_GROUP_INFER_CUSTOM_PARSE_BBOX_IM_FUNC "parse-bbox-instance-mask-func-name"
+#define CONFIG_GROUP_INFER_CUSTOM_PARSE_SEGMENTATION_FUNC "parse-segmentation-func-name"
 #define CONFIG_GROUP_INFER_CUSTOM_ENGINE_CREATE_FUNC "engine-create-func-name"
 #define CONFIG_GROUP_INFER_CUSTOM_PARSE_CLASSIFIER_FUNC "parse-classifier-func-name"
 #define CONFIG_GROUP_INFER_CUSTOM_NETWORK_CONFIG "custom-network-config"

@@ -1,11 +1,11 @@
 #ifndef _NVGSTDS_DSANALYTICS_H_
 #define _NVGSTDS_DSANALYTICS_H_
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
 
 typedef struct {
     // Create a bin for the element only if enabled

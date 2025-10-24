@@ -49,9 +49,6 @@
  * as the header file. Gst-nvinfer dynamically loads the library and
  * looks for the same symbol names.
  *
- * See the FasterRCNN sample provided with the SDK for a sample implementation
- * of the interface.
- *
  *
  * @section inputlayerinitialization Input layer initialization
  *
@@ -61,9 +58,6 @@
  * for initializing the other input layers. Gst-nvinfer assumes that the other
  * input layers have static input information, and hence this method is called
  * only once before the first inference.
- *
- * See the FasterRCNN sample provided with the SDK for a sample implementation
- * of the interface.
  *
  *
  * @section customnetworkbuild Interface for building Custom Networks
@@ -99,22 +93,17 @@
  *
  * You can call the macro CHECK_CUSTOM_ENGINE_CREATE_FUNC_PROTOTYPE() after
  * the function definition to validate the function definition.
- *
- * Refer to the Yolo sample provided with the SDK for sample implementation of
- * both the interfaces.
  */
 
 #ifndef _NVDSINFER_CUSTOM_IMPL_H_
 #define _NVDSINFER_CUSTOM_IMPL_H_
 
+#include <NvInfer.h>
+#include <NvInferRuntime.h>
+#include <NvOnnxParser.h>
+
 #include <string>
 #include <vector>
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include "NvCaffeParser.h"
-#include "NvUffParser.h"
-#pragma GCC diagnostic pop
 
 #include "nvdsinfer.h"
 
@@ -382,50 +371,6 @@ typedef bool (*NvDsInferEngineCreateCustomFunc)(nvinfer1::IBuilder *const builde
         nvinfer1::IBuilder *const builder, nvinfer1::IBuilderConfig *const builderConfig, \
         const NvDsInferContextInitParams *const initParams, nvinfer1::DataType dataType,  \
         nvinfer1::ICudaEngine *&cudaEngine);
-
-/**
- * Specifies the type of the Plugin Factory.
- */
-typedef enum {
-    /** Specifies nvcaffeparser1::IPluginFactoryV2. Used only for Caffe models. */
-    PLUGIN_FACTORY_V2 = 2
-} NvDsInferPluginFactoryType;
-
-/**
- * Holds a pointer to a heap-allocated Plugin Factory object required during
- * Caffe model parsing.
- */
-typedef union {
-    nvcaffeparser1::IPluginFactoryV2 *pluginFactoryV2;
-} NvDsInferPluginFactoryCaffe;
-
-/**
- * Gets a new instance of a Plugin Factory interface to be used
- * during parsing of Caffe models. The function must set the correct @a type and
- * the correct field in the @a pluginFactory union, based on the type of the
- * Plugin Factory, (i.e. one of @a pluginFactory, @a pluginFactoryExt, or
- * @a pluginFactoryV2).
- *
- * @param[out] pluginFactory    A reference to the union that contains
- *                              a pointer to the Plugin Factory object.
- * @param[out] type             Specifies the type of @a pluginFactory, i.e.
- *                              which member the @a pluginFactory union
- *                              is valid.
- * @return  True if the Plugin Factory was created successfully, or false
- *  otherwise.
- */
-bool NvDsInferPluginFactoryCaffeGet(NvDsInferPluginFactoryCaffe &pluginFactory,
-                                    NvDsInferPluginFactoryType &type);
-
-/**
- * Destroys a Plugin Factory instance created by
- * NvDsInferPluginFactoryCaffeGet().
- *
- * @param[in] pluginFactory A reference to the union that contains a
- *                          pointer to the Plugin Factory instance returned
- *                          by NvDsInferPluginFactoryCaffeGet().
- */
-void NvDsInferPluginFactoryCaffeDestroy(NvDsInferPluginFactoryCaffe &pluginFactory);
 
 /**
  * Returns a new instance of a Plugin Factory interface to be used

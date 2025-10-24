@@ -1,11 +1,11 @@
 #ifndef __NVGSTDS_COMMON_H__
 #define __NVGSTDS_COMMON_H__
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
 
 #include "deepstream_config.h"
 

@@ -27,7 +27,10 @@ static inline int get_element_size(NvDsInferDataType data_type)
     case INT32:
         return 4;
     case INT8:
+    case UINT8:
         return 1;
+    case INT64:
+        return 8;
     default:
         return 0;
     }
@@ -91,6 +94,10 @@ void attachDetectionMetadata(NvDsFrameMeta *frameMeta,
         NvDsInferObject &obj = detection_output.objects[i];
         const ic::PluginControl::DetectClassFilter *filterParams = nullptr;
         if (detectControl) {
+            const auto &ids = detectControl->filter_out_class_ids();
+            if (!ids.empty() && (std::find(ids.begin(), ids.end(), obj.classIndex) != ids.end()))
+                continue;
+
             auto iter = detectControl->specific_class_filters().find(obj.classIndex);
             if (iter != detectControl->specific_class_filters().end()) {
                 filterParams = &iter->second;
@@ -109,19 +116,33 @@ void attachDetectionMetadata(NvDsFrameMeta *frameMeta,
         /** Clipping the object bounding-box which lies outside the roi
          * specified by nvdspreprosess plugin. */
         if (config.infer_config().clip_object_outside_roi()) {
-            if (obj.left + obj.width >= roiLeft + roiWidth) {
+            if (obj.left + obj.width > roiLeft + roiWidth) {
                 obj.width = roiLeft + roiWidth - obj.left;
+                // Ensure width doesn't go negative due to calculation errors
+                if (obj.width < 0)
+                    obj.width = 0;
             }
-            if (obj.top + obj.height >= roiTop + roiHeight) {
+            if (obj.top + obj.height > roiTop + roiHeight) {
                 obj.height = roiTop + roiHeight - obj.top;
+                // Ensure height doesn't go negative due to calculation errors
+                if (obj.height < 0)
+                    obj.height = 0;
             }
             if (obj.left < roiLeft) {
+                float original_left = obj.left;
                 obj.left = roiLeft;
-                obj.width = obj.width - roiLeft + obj.left;
+                obj.width = obj.width - (obj.left - original_left);
+                // Ensure width doesn't go negative due to calculation errors
+                if (obj.width < 0)
+                    obj.width = 0;
             }
             if (obj.top < roiTop) {
+                float original_top = obj.top;
                 obj.top = roiTop;
-                obj.height = obj.height - roiTop + obj.top;
+                obj.height = obj.height - (obj.top - original_top);
+                // Ensure height doesn't go negative due to calculation errors
+                if (obj.height < 0)
+                    obj.height = 0;
             }
         }
 
@@ -223,6 +244,8 @@ void attachClassificationMetadata(NvDsObjectMeta *objMeta,
     assert(frameMeta);
     NvDsBatchMeta *batchMeta =
         objMeta ? objMeta->base_meta.batch_meta : frameMeta->base_meta.batch_meta;
+    if (frameMeta)
+        frameMeta->bInferDone = TRUE;
 
     if (objInfo.attributes.size() == 0 || objInfo.label.length() == 0)
         return;
@@ -348,10 +371,10 @@ static gpointer copySegmentationMeta(gpointer data, gpointer user_data)
     meta->width = src_meta->width;
     meta->height = src_meta->height;
     meta->class_map =
-        (gint *)g_memdup(src_meta->class_map, meta->width * meta->height * sizeof(gint));
+        (gint *)g_memdup2(src_meta->class_map, meta->width * meta->height * sizeof(gint));
     meta->class_probabilities_map =
-        (gfloat *)g_memdup(src_meta->class_probabilities_map,
-                           meta->classes * meta->width * meta->height * sizeof(gfloat));
+        (gfloat *)g_memdup2(src_meta->class_probabilities_map,
+                            meta->classes * meta->width * meta->height * sizeof(gfloat));
     meta->priv_data = NULL;
 
     return meta;
@@ -366,6 +389,8 @@ void attachSegmentationMetadata(NvDsObjectMeta *objMeta,
     assert(frameMeta);
     NvDsBatchMeta *batchMeta =
         objMeta ? objMeta->base_meta.batch_meta : frameMeta->base_meta.batch_meta;
+    if (frameMeta)
+        frameMeta->bInferDone = TRUE;
 
     MetaLock locker(batchMeta);
     NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(batchMeta);
@@ -420,7 +445,7 @@ static gpointer copy_tensor_output_meta(gpointer data, gpointer user_data)
 
     tensor_output_meta->unique_id = src_meta->unique_id;
     tensor_output_meta->num_output_layers = src_meta->num_output_layers;
-    tensor_output_meta->output_layers_info = (NvDsInferLayerInfo *)g_memdup(
+    tensor_output_meta->output_layers_info = (NvDsInferLayerInfo *)g_memdup2(
         src_meta->output_layers_info, src_meta->num_output_layers * sizeof(NvDsInferLayerInfo));
 
     tensor_output_meta->out_buf_ptrs_host = new void *[src_meta->num_output_layers];
@@ -448,7 +473,8 @@ void attachTensorOutputMeta(NvDsObjectMeta *objMeta,
                             const std::vector<dsis::SharedIBatchBuffer> &tensors,
                             uint32_t batchIdx,
                             const NvDsInferNetworkInfo &inputInfo,
-                            bool maintainAspectRatio)
+                            bool maintainAspectRatio,
+                            bool symmetricPadding)
 {
     NvDsBatchMeta *batchMeta =
         objMeta ? objMeta->base_meta.batch_meta : frameMeta->base_meta.batch_meta;
@@ -485,6 +511,7 @@ void attachTensorOutputMeta(NvDsObjectMeta *objMeta,
     }
     meta->gpu_id = devId;
     meta->maintain_aspect_ratio = maintainAspectRatio;
+    meta->symmetric_padding = symmetricPadding;
 
     NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(batchMeta);
     user_meta->user_meta_data = meta;

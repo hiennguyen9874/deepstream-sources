@@ -139,6 +139,7 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
+    // Send messages
     for (int i = 0; i < 10; i++) {
         char msg[100];
         sprintf(msg, "Hello%d\n", i);
@@ -152,6 +153,7 @@ int main(int argc, char **argv)
         sleep(1);
         nvds_msgapi_do_work_ptr(ah); // need to continuously call do_work to process callbacks
     }
+
     sleep(1);
     nvds_msgapi_disconnect_ptr(ah);
 }

@@ -18,4 +18,7 @@ typedef struct _GstVideoSEIMeta {
 GType gst_video_sei_meta_api_get_type(void) asm("gst_video_sei_meta_api_get_type");
 const GstMetaInfo *gst_video_sei_meta_get_info(void) asm("gst_video_sei_meta_get_info");
 
+GstVideoSEIMeta *gst_buffer_add_video_sei_meta(GstBuffer *buffer);
+GstVideoSEIMeta *gst_buffer_get_video_sei_meta(GstBuffer *buffer);
+
 #endif /*__GST_NVDS_SEI_META_H__*/

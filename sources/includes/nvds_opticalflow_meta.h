@@ -16,8 +16,6 @@
 #ifndef _NVDS_OPTICALFLOW_META_H_
 #define _NVDS_OPTICALFLOW_META_H_
 
-#include <gst/gst.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -27,10 +25,10 @@ extern "C" {
  */
 typedef struct _NvOFFlowVector {
     /** Holds the motion vector X component. */
-    gshort flowx;
+    short flowx;
 
     /** Holds the motion vector Y component. */
-    gshort flowy;
+    short flowy;
 } NvOFFlowVector;
 
 /**
@@ -40,17 +38,21 @@ typedef struct {
     /** Holds the number of rows in the frame for a given block size,
      e.g. if block size is 4 and frame height is 720, then the number of
      rows is (720/4) = 180. */
-    guint rows;
+    unsigned int rows;
     /** Holds the number of columns in the frame for given block size,
      e.g. if block size is 4 and frame width is 1280, then the number of
      columns is (1280/4) = 320. */
-    guint cols;
+    unsigned int cols;
     /** Holds the size of the motion vector. @see NvOFFlowVector. */
-    guint mv_size;
+    unsigned int mv_size;
+    /** Holds the size of the confidence values of the motion vector. */
+    unsigned int cost_size;
     /** Holds the current frame number of the source. */
-    gulong frame_num;
+    unsigned long frame_num;
     /** Holds a pointer to the motion vector. */
     void *data;
+    /** Holds a pointer to the cost of the motion vector. */
+    void *cost;
     /** Reserved for internal use. */
     void *priv;
     /** Reserved for internal use. */

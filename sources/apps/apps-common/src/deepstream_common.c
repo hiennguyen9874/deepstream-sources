@@ -56,7 +56,7 @@ gboolean link_element_to_streammux_sink_pad(GstElement *streammux, GstElement *e
         strcpy(pad_name, "sink_%u");
     }
 
-    mux_sink_pad = gst_element_get_request_pad(streammux, pad_name);
+    mux_sink_pad = gst_element_request_pad_simple(streammux, pad_name);
     if (!mux_sink_pad) {
         NVGSTDS_ERR_MSG_V("Failed to get sink pad from streammux");
         goto done;
@@ -134,7 +134,7 @@ gboolean link_element_to_demux_src_pad(GstElement *demux, GstElement *elem, guin
     g_snprintf(pad_name, 16, "src_%u", index);
     pad_name[15] = '\0';
 
-    demux_src_pad = gst_element_get_request_pad(demux, pad_name);
+    demux_src_pad = gst_element_request_pad_simple(demux, pad_name);
     if (!demux_src_pad) {
         NVGSTDS_ERR_MSG_V("Failed to get sink pad from demux");
         goto done;

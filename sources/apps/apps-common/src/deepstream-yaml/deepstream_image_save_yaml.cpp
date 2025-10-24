@@ -35,11 +35,11 @@ gboolean parse_image_save_yaml(NvDsImageSave *config, gchar *cfg_file_path)
         } else if (paramKey == "output-folder-path") {
             std::string temp = itr->second.as<std::string>();
             config->output_folder_path = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->output_folder_path, temp.c_str(), 1024);
+            std::strncpy(config->output_folder_path, temp.c_str(), 1023);
         } else if (paramKey == "frame-to-skip-rules-path") {
             std::string temp = itr->second.as<std::string>();
             config->frame_to_skip_rules_path = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->frame_to_skip_rules_path, temp.c_str(), 1024);
+            std::strncpy(config->frame_to_skip_rules_path, temp.c_str(), 1023);
         } else if (paramKey == "save-img-full-frame") {
             config->save_image_full_frame = itr->second.as<gboolean>();
         } else if (paramKey == "save-img-cropped-obj") {

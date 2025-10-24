@@ -73,6 +73,7 @@ void *func(void *ptr)
                                    &myinfo);
         sleep(1);
     }
+    return NULL;
 }
 
 int main(int argc, char **argv)
@@ -107,8 +108,8 @@ int main(int argc, char **argv)
     }
 
     // There are 2 options to provide connection string
-    //           format:
-    //           HostName=<my-hub>.azure-devices.net;DeviceId=<device_id>;SharedAccessKey=<my-policy-key>
+    //          format:
+    //          HostName=<my-hub>.azure-devices.net;DeviceId=<device_id>;SharedAccessKey=<my-policy-key>
     // option 1: Full connection string provided as a param in nvds_msgapi_connect()
     // option 2: The full device connection string is provided in config file.
 

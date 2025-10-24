@@ -1,15 +1,3 @@
-
-/**
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
- *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
- */
-
 #ifndef __NVDSINFERSERVER_DEFINES_H__
 #define __NVDSINFERSERVER_DEFINES_H__
 
@@ -115,8 +103,8 @@
 #define READ_SYMBOL(lib, func_name) lib->symbol<decltype(&func_name)>(#func_name)
 
 #define DIVIDE_AND_ROUND_UP(a, b) ((a + b - 1) / b)
-#define INFER_ROUND_UP(value, align) (((value) + (align)-1) & (~((align)-1)))
-#define INFER_ROUND_DOWN(value, align) ((value) & (~((align)-1)))
+#define INFER_ROUND_UP(value, align) (((value) + (align) - 1) & (~((align) - 1)))
+#define INFER_ROUND_DOWN(value, align) ((value) & (~((align) - 1)))
 #define INFER_WILDCARD_DIM_VALUE -1
 #define INFER_MEM_ALIGNMENT 1024
 

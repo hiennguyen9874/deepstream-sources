@@ -6,6 +6,7 @@
 #ifndef _NV_AISLE_CSVPARSER_HPP_
 #define _NV_AISLE_CSVPARSER_HPP_
 
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <map>

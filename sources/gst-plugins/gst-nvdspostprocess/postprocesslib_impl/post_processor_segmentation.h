@@ -1,6 +1,8 @@
 #ifndef __POST_PROCESSOR_SEGMENTATION_HPP__
 #define __POST_PROCESSOR_SEGMENTATION_HPP__
 
+#include <functional>
+
 #include "post_processor.h"
 
 class SegmentationModelPostProcessor : public ModelPostProcessor {
@@ -30,7 +32,9 @@ public:
                         gboolean output_instance_mask,
                         gboolean process_full_frame,
                         float segmentationThreshold,
-                        gboolean maintain_aspect_ratio) override;
+                        gboolean maintain_aspect_ratio,
+                        NvDsRoiMeta *roi_meta,
+                        gboolean symmetric_padding) override;
 
     void releaseFrameOutput(NvDsPostProcessFrameOutput &frameOutput) override;
 

@@ -105,7 +105,7 @@ typedef struct {
     /** transform params for nvbufsurftransform api*/
     NvBufSurfTransformParams transform_params;
     /** sync objects for async transform */
-    NvBufSurfTransformSyncObj_t sync_obj;
+    NvBufSurfTransformSyncObj_t sync_obj = NULL;
 } CustomTransformParams;
 
 /**

@@ -113,12 +113,14 @@ static GstMemory *gst_nvdspreprocess_allocator_alloc(GstAllocator *allocator,
     if (NvBufSurfaceCreate(&tmem->surf, preprocess_allocator->info->batch_size, &create_params) !=
         0) {
         GST_ERROR("Error: Could not allocate internal buffer pool for nvdspreprocess");
+        delete nvmem;
         return nullptr;
     }
 
     if (tmem->surf->memType == NVBUF_MEM_SURFACE_ARRAY) {
         if (NvBufSurfaceMapEglImage(tmem->surf, -1) != 0) {
             GST_ERROR("Error: Could not map EglImage from NvBufSurface for nvdspreprocess");
+            delete nvmem;
             return nullptr;
         }
 
@@ -129,21 +131,26 @@ static GstMemory *gst_nvdspreprocess_allocator_alloc(GstAllocator *allocator,
     tmem->frame_memory_ptrs.assign(preprocess_allocator->info->batch_size, nullptr);
 
     for (guint i = 0; i < preprocess_allocator->info->batch_size; i++) {
+#if defined(__aarch64__)
         if (tmem->surf->memType == NVBUF_MEM_SURFACE_ARRAY) {
             if (cuGraphicsEGLRegisterImage(&tmem->cuda_resources[i],
                                            tmem->surf->surfaceList[i].mappedAddr.eglImage,
                                            CU_GRAPHICS_MAP_RESOURCE_FLAGS_NONE) != CUDA_SUCCESS) {
                 g_printerr("Failed to register EGLImage in cuda\n");
+                delete nvmem;
                 return nullptr;
             }
 
             if (cuGraphicsResourceGetMappedEglFrame(&tmem->egl_frames[i], tmem->cuda_resources[i],
                                                     0, 0) != CUDA_SUCCESS) {
                 g_printerr("Failed to get mapped EGL Frame\n");
+                delete nvmem;
                 return nullptr;
             }
             tmem->frame_memory_ptrs[i] = (char *)tmem->egl_frames[i].frame.pPitch[0];
-        } else {
+        } else
+#endif
+        {
             /* Calculate pointers to individual frame memories in the batch memory and
              * insert in the vector. */
             tmem->frame_memory_ptrs[i] = (char *)tmem->surf->surfaceList[i].dataPtr;

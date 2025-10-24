@@ -61,6 +61,7 @@ void *func(void *ptr)
                                    send_callback, &myinfo);
         sleep(1);
     }
+    return NULL;
 }
 
 int main(int argc, char **argv)

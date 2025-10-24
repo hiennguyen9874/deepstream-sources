@@ -85,10 +85,12 @@ GST_DEBUG_CATEGORY(NVDSPREPROCESS_CFG_PARSER_CAT);
         CHECK_INT_VALUE_NON_NEGATIVE(property, field, group);              \
     }
 
-#define GET_STRING_PROPERTY(group, property, field)                       \
-    {                                                                     \
-        field = g_key_file_get_string(key_file, group, property, &error); \
-        CHECK_ERROR(error, group);                                        \
+#define GET_STRING_PROPERTY(group, property, field)                             \
+    {                                                                           \
+        gchar *temp = g_key_file_get_string(key_file, group, property, &error); \
+        field = temp;                                                           \
+        g_free(temp);                                                           \
+        CHECK_ERROR(error, group);                                              \
     }
 
 #define READ_UINT_PROPERTY(group, property, field)                         \
@@ -106,6 +108,7 @@ GST_DEBUG_CATEGORY(NVDSPREPROCESS_CFG_PARSER_CAT);
         tmp = g_strsplit(*for_key, "-", 5);                                         \
         /*g_print("**** %s &&&&&&\n", tmp[g_strv_length(tmp)-1]);*/                 \
         source_index = g_ascii_strtoull(tmp[g_strv_length(tmp) - 1], &endptr1, 10); \
+        g_strfreev(tmp);                                                            \
     }
 
 #define EXTRACT_GROUP_ID(for_group)                          \
@@ -174,8 +177,10 @@ static gboolean get_absolute_file_path(const gchar *cfg_file_path,
         /* Ignore error if file does not exist and use the unresolved path. */
         if (errno == ENOENT)
             g_strlcpy(abs_real_file_path, abs_file_path, _PATH_MAX);
-        else
+        else {
+            g_free(abs_file_path);
             return FALSE;
+        }
     }
 
     g_free(abs_file_path);
@@ -345,6 +350,8 @@ static gboolean nvdspreprocess_parse_property_group(GstNvDsPreProcess *nvdsprepr
             case NvDsDataType_UINT32:
             case NvDsDataType_INT32:
             case NvDsDataType_FP16:
+            case NvDsDataType_UINT64:
+            case NvDsDataType_INT64:
                 break;
             default:
                 g_printerr("Error. Invalid value for '%s':'%d'\n",
@@ -392,23 +399,24 @@ static gboolean nvdspreprocess_parse_property_group(GstNvDsPreProcess *nvdsprepr
                          nvdspreprocess->tensor_params.tensor_name.c_str(), group);
             nvdspreprocess->property_set.tensor_name = TRUE;
         } else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_CUSTOM_LIB_NAME)) {
-            gchar *str = g_key_file_get_string(key_file, group, *key, &error);
+            gchar *temp = g_key_file_get_string(key_file, group, *key, &error);
+            std::string str = temp;
+            g_free(temp);
             nvdspreprocess->custom_lib_path = new gchar[_PATH_MAX];
-            if (!get_absolute_file_path(cfg_file_path, str, nvdspreprocess->custom_lib_path)) {
+            if (!get_absolute_file_path(cfg_file_path, str.c_str(),
+                                        nvdspreprocess->custom_lib_path)) {
                 g_printerr("Error: Could not parse custom lib path\n");
-                g_free(str);
                 ret = FALSE;
                 delete[] nvdspreprocess->custom_lib_path;
                 goto done;
             }
-            g_free(str);
             GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%s in group '%s'\n", *key,
                          nvdspreprocess->custom_lib_path, group);
             nvdspreprocess->property_set.custom_lib_path = TRUE;
         } else if (!g_strcmp0(*key, NVDSPREPROCESS_PROPERTY_TENSOR_PREPARATION_FUNCTION)) {
             GET_STRING_PROPERTY(group, *key, nvdspreprocess->custom_tensor_function_name);
             GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%s in group '%s'\n", *key,
-                         nvdspreprocess->custom_tensor_function_name, group);
+                         nvdspreprocess->custom_tensor_function_name.c_str(), group);
             nvdspreprocess->property_set.custom_tensor_function_name = TRUE;
         }
     }
@@ -435,7 +443,8 @@ static gboolean nvdspreprocess_parse_property_group(GstNvDsPreProcess *nvdsprepr
                      nvdspreprocess->tensor_params.network_input_shape[3]);
 
     GST_DEBUG_OBJECT(nvdspreprocess, "Custom Lib = %s\n Custom Tensor Preparation Function = %s\n",
-                     nvdspreprocess->custom_lib_path, nvdspreprocess->custom_tensor_function_name);
+                     nvdspreprocess->custom_lib_path,
+                     nvdspreprocess->custom_tensor_function_name.c_str());
 
     ret = TRUE;
 
@@ -506,9 +515,9 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
             GET_STRING_PROPERTY(group, *key, preprocess_group->custom_transform_function_name);
             GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%s in group '%s'\n",
                          NVDSPREPROCESS_GROUP_CUSTOM_INPUT_PREPROCESS_FUNCTION,
-                         preprocess_group->custom_transform_function_name, group);
+                         preprocess_group->custom_transform_function_name.c_str(), group);
             GST_DEBUG_OBJECT(nvdspreprocess, "Custom Transformation Function = %s\n",
-                             preprocess_group->custom_transform_function_name);
+                             preprocess_group->custom_transform_function_name.c_str());
         } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_OPERATE_ON_CLASS_IDS)) {
             class_list =
                 g_key_file_get_integer_list(key_file, group, *key, &class_list_len, &error);
@@ -529,7 +538,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
             guint val = g_key_file_get_integer(key_file, group, *key, &error);
             if ((gint)val < 0) {
                 g_printerr("Error: Negative value specified for %s(%d)\n", *key, val);
-                return FALSE;
+                goto done;
             }
             CHECK_ERROR(error, group);
             preprocess_group->min_input_object_width = val;
@@ -540,7 +549,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
             guint val = g_key_file_get_integer(key_file, group, *key, &error);
             if ((gint)val < 0) {
                 g_printerr("Error: Negative value specified for %s(%d)\n", *key, val);
-                return FALSE;
+                goto done;
             }
             CHECK_ERROR(error, group);
             preprocess_group->min_input_object_height = val;
@@ -551,7 +560,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
             guint val = g_key_file_get_integer(key_file, group, *key, &error);
             if ((gint)val < 0) {
                 g_printerr("Error: Negative value specified for %s(%d)\n", *key, val);
-                return FALSE;
+                goto done;
             }
             CHECK_ERROR(error, group);
             preprocess_group->max_input_object_width = val;
@@ -562,15 +571,26 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
             guint val = g_key_file_get_integer(key_file, group, *key, &error);
             if ((gint)val < 0) {
                 g_printerr("Error: Negative value specified for %s(%d)\n", *key, val);
-                return FALSE;
+                goto done;
             }
             CHECK_ERROR(error, group);
             preprocess_group->max_input_object_height = val;
             GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%d in group '%s'\n", *key,
                          preprocess_group->max_input_object_height, group);
             nvdspreprocess->property_set.max_input_object_height = TRUE;
+        } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_INTERVAL)) {
+            guint val = g_key_file_get_integer(key_file, group, *key, &error);
+            if ((gint)val < 0) {
+                g_printerr("Error: Negative value specified for %s(%d)\n", *key, val);
+                goto done;
+            }
+            CHECK_ERROR(error, group);
+            preprocess_group->interval = val;
+            GST_CAT_INFO(NVDSPREPROCESS_CFG_PARSER_CAT, "Parsed %s=%d in group '%s'\n", *key,
+                         preprocess_group->interval, group);
+            nvdspreprocess->property_set.interval = TRUE;
         } else if (!g_strcmp0(*key, NVDSPREPROCESS_GROUP_ROI_COLOR)) {
-            gsize roi_color_list_len;
+            gsize roi_color_list_len = 0;
             gdouble *roi_color_list =
                 g_key_file_get_double_list(key_file, group, *key, &roi_color_list_len, &error);
             if (roi_color_list == nullptr) {
@@ -690,7 +710,6 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
     }
 
     preprocess_group->num_units = num_units;
-    nvdspreprocess->nvdspreprocess_groups.push_back(preprocess_group);
 
     if (nvdspreprocess->process_on_frame) {
         if (preprocess_group->process_on_roi) {
@@ -700,7 +719,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
                 printf(
                     "ERROR: Some preprocess group config properties not set in preprocess config "
                     "file\n");
-                return FALSE;
+                goto done;
             }
         } else {
             if (!(nvdspreprocess->property_set.src_ids &&
@@ -708,7 +727,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
                 printf(
                     "ERROR: Some preprocess group config properties not set in preprocess config "
                     "file\n");
-                return FALSE;
+                goto done;
             }
         }
     } else {
@@ -719,7 +738,7 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
                 printf(
                     "ERROR: Some preprocess group config properties not set in sgie preprocess "
                     "config file\n");
-                return FALSE;
+                goto done;
             }
         } else {
             if (!(nvdspreprocess->property_set.src_ids &&
@@ -727,14 +746,18 @@ static gboolean nvdspreprocess_parse_common_group(GstNvDsPreProcess *nvdspreproc
                 printf(
                     "ERROR: Some preprocess group config properties not set in sgie preprocess "
                     "config file\n");
-                return FALSE;
+                goto done;
             }
         }
     }
 
+    nvdspreprocess->nvdspreprocess_groups.push_back(preprocess_group);
     ret = TRUE;
     preprocess_group = nullptr;
 done:
+    if (!ret) {
+        delete preprocess_group;
+    }
     return ret;
 }
 
@@ -753,7 +776,9 @@ static gboolean nvdspreprocess_parse_user_configs(GstNvDsPreProcess *nvdspreproc
     CHECK_ERROR(error, group);
 
     for (key = keys; *key; key++) {
-        std::string val = g_key_file_get_string(key_file, group, *key, &error);
+        gchar *temp = g_key_file_get_string(key_file, group, *key, &error);
+        std::string val = temp;
+        g_free(temp);
         GST_DEBUG_OBJECT(nvdspreprocess, "parsed user-config key = %s value = %s\n", *key,
                          val.c_str());
         CHECK_ERROR(error, group);

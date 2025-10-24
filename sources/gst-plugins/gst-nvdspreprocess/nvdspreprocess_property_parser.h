@@ -50,6 +50,7 @@
 #define NVDSPREPROCESS_GROUP_DRAW_ROI "draw-roi"
 #define NVDSPREPROCESS_GROUP_ROI_COLOR "roi-color"
 #define NVDSPREPROCESS_GROUP_OPERATE_ON_CLASS_IDS "operate-on-class-ids"
+#define NVDSPREPROCESS_GROUP_INTERVAL "interval"
 /** Parameters for filtering objects based min/max size threshold
  * when operating in secondary mode.
  */

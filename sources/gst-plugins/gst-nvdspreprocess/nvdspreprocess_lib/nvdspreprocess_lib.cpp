@@ -63,8 +63,10 @@ static gboolean get_absolute_file_path(const gchar *cfg_file_path,
         /* Ignore error if file does not exist and use the unresolved path. */
         if (errno == ENOENT)
             g_strlcpy(abs_real_file_path, abs_file_path, _PATH_MAX);
-        else
+        else {
+            g_free(abs_file_path);
             return FALSE;
+        }
     }
 
     g_free(abs_file_path);
@@ -85,7 +87,7 @@ NvDsPreProcessStatus CustomTensorPreparation(CustomCtx *ctx,
     buf = acquirer->acquire();
 
     /** Prepare Tensor */
-    status = ctx->tensor_impl->prepare_tensor(batch, buf->memory_ptr);
+    status = ctx->tensor_impl->prepare_tensor(batch, tensorParam, buf->memory_ptr);
     if (status != NVDSPREPROCESS_SUCCESS) {
         printf("Custom Lib: Tensor Preparation failed\n");
         acquirer->release(buf);
@@ -99,11 +101,6 @@ NvDsPreProcessStatus CustomTensorPreparation(CustomCtx *ctx,
     }
 
     tensorParam.params.network_input_shape[0] = (int)batch->units.size();
-
-    if (status != NVDSPREPROCESS_SUCCESS) {
-        printf("CustomTensorPreparation failed\n");
-        acquirer->release(buf);
-    }
 
     return status;
 }

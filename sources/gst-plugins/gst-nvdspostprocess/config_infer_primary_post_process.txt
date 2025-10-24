@@ -1,5 +1,5 @@
 ###############################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -59,23 +59,20 @@
 
 [property]
 gpu-id=0
-net-scale-factor=0.0039215697906911373
-model-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/resnet10.caffemodel
-proto-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/resnet10.prototxt
-model-engine-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/resnet10.caffemodel_b30_gpu0_int8.engine
+net-scale-factor=0.00392156862745098
+onnx-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/resnet18_trafficcamnet_pruned.onnx
+model-engine-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/resnet18_trafficcamnet_pruned.onnx_b30_gpu0_fp16.engine
 labelfile-path=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/labels.txt
 int8-calib-file=/opt/nvidia/deepstream/deepstream/samples/models/Primary_Detector/cal_trt.bin
 batch-size=30
 process-mode=1
 model-color-format=0
 ## 0=FP32, 1=INT8, 2=FP16 mode
-network-mode=1
+network-mode=2
 num-detected-classes=4
 interval=0
 network-type=100
 gie-unique-id=1
-output-blob-names=conv2d_bbox;conv2d_cov/Sigmoid
-force-implicit-batch-dim=1
 #parse-bbox-func-name=NvDsInferParseCustomResnet
 #custom-lib-path=/path/to/this/directory/libnvds_infercustomparser.so
 ## 1=DBSCAN, 2=NMS, 3= DBSCAN+NMS Hybrid, 4 = None(No clustering)

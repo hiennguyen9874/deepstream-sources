@@ -1,18 +1,27 @@
-################################################################################
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+#######################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2020-2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 #
-################################################################################
+#######################################################################################################
 
 nvmsgbroker library can be used to make connections with multiple external brokers.
 This library acts as a wrapper around the message adapter libraries(kafka,Azure,redis,amqp)
 provides its own API’s and implements certain features like autoreconnection applicable for
 all the message adapters.
+
+Pre-requisites
+---------------
+- glib-2.0
+
+Install using:
+  sudo apt-get install libglib2.0-dev
 
 Configuration
 --------------
@@ -54,6 +63,10 @@ The following information is expected for each protocol:
     AMQP: /opt/nvidia/deepstream/deepstream/sources/libs/amqp_protocol_adaptor
     Azure Device Client: /opt/nvidia/deepstream/deepstream/sources/libs/azure_protocol_adaptor
     Redis: /opt/nvidia/deepstream/deepstream/sources/libs/redis_protocol_adaptor
+
+Compiling and installing the plugin
+-----------------------------------
+Run make and sudo make install
 
 Sample Application
 -------------

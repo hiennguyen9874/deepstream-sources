@@ -1,14 +1,14 @@
 #ifndef __NVGSTDS_TRACKER_H__
 #define __NVGSTDS_TRACKER_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <gst/gst.h>
 #include <stdint.h>
 
 #include "nvds_tracker_meta.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct {
     gboolean enable;
@@ -25,6 +25,8 @@ typedef struct {
     guint input_tensor_gie_id;
     guint compute_hw;
     guint user_meta_pool_size;
+    gchar *sub_batches;
+    gint sub_batch_err_recovery_trial_cnt;
 } NvDsTrackerConfig;
 
 typedef struct {

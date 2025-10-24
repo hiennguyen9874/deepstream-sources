@@ -48,6 +48,9 @@ typedef struct _GstDsExampleClass GstDsExampleClass;
 #define GST_IS_DSEXAMPLE_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_DSEXAMPLE))
 #define GST_DSEXAMPLE_CAST(obj) ((GstDsExample *)(obj))
 
+/** Maximum batch size to be supported by dsexample. */
+#define NVDSEXAMPLE_MAX_BATCH_SIZE 1024
+
 struct _GstDsExample {
     GstBaseTransform base_trans;
 
@@ -85,8 +88,8 @@ struct _GstDsExample {
     // Flag which defince igpu/dgpu
     guint is_integrated;
 
-    // Amount of objects processed in single call to algorithm
-    guint batch_size;
+    // Maximum batch size
+    guint max_batch_size;
 
     // GPU ID on which we expect to execute the task
     guint gpu_id;
@@ -96,6 +99,9 @@ struct _GstDsExample {
 
     // Boolean indicating if to blur the detected objects
     gboolean blur_objects;
+
+    /** Config params required by NvBufSurfTransform API. */
+    NvBufSurfTransformConfigParams transform_config_params;
 };
 
 // Boiler plate stuff

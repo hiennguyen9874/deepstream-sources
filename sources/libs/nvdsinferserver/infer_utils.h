@@ -832,7 +832,7 @@ NvDsInferStatus tensorBufferCopy(const SharedBatchBuf &in,
                                  const SharedBatchBuf &out,
                                  const SharedCuStream &stream);
 
-} // namespace INFER_EXPORT_API
+} // namespace nvdsinferserver INFER_EXPORT_API
 
 extern "C" {
 

@@ -1,11 +1,18 @@
 #ifndef _GST_NV_VIDEO_TEST_SRC_H_
 #define _GST_NV_VIDEO_TEST_SRC_H_
 
+#undef __noinline__
+
 #include <gst/base/base.h>
 #include <gst/gst.h>
 #include <gst/video/video.h>
-#include <nvbufsurface.h>
 #include <stdio.h>
+
+#if defined(__CUDACC__) || defined(__CUDA_ARCH__) || defined(__CUDA_LIBDEVICE__)
+#define __noinline__ __attribute__((noinline))
+#endif
+
+#include <nvbufsurface.h>
 
 G_BEGIN_DECLS
 
@@ -43,6 +50,7 @@ struct _GstNvVideoTestSrc {
     guint gpu_id;
     NvBufSurfaceMemType memtype;
     gboolean enable_rdma;
+    gint horizontal_speed;
 
     // Stream details set during caps negotiation.
     GstCaps *caps;

@@ -1,5 +1,3 @@
-
-
 #ifndef NVDS3D_GST_GST_PLUGINS_H
 #define NVDS3D_GST_GST_PLUGINS_H
 
@@ -84,6 +82,9 @@ inline ErrCode loadCustomProcessor(const config::ComponentConfig &compConfig,
     uData->configPath = compConfig.filePath;
     processor.setUserData(uData.get(), [holder = customLib, uData = uData](void *) mutable {
         uData.reset();
+        if (holder && holder.use_count() == 1) {
+            holder->keepOpen(true);
+        }
         holder.reset();
     });
     customProcessor = std::move(processor);

@@ -256,8 +256,9 @@ NvDsInferDataType toCapiDataType(InferDataType dt)
     case InferDataType::kFp16:
         return HALF;
     case InferDataType::kInt8:
-    case InferDataType::kUint8:
         return INT8;
+    case InferDataType::kUint8:
+        return UINT8;
     case InferDataType::kInt16:
     case InferDataType::kUint16: {
         InferWarning("force convert inferserver datatype:%s to capi half",
@@ -267,6 +268,8 @@ NvDsInferDataType toCapiDataType(InferDataType dt)
     case InferDataType::kInt32:
     case InferDataType::kUint32:
         return INT32;
+    case InferDataType::kInt64:
+        return INT64;
     case InferDataType::kNone:
     default:
         InferError("Unsupported data-type:%s to capi", safeStr(dataType2Str(dt)));
@@ -396,10 +399,7 @@ bool isCpuMem(InferMemType type)
 std::string memType2Str(InferMemType type)
 {
     const static std::unordered_map<InferMemType, std::string> typeStrs{
-#define MEMTYPE_2_STR(type)       \
-    {                             \
-        InferMemType::type, #type \
-    }
+#define MEMTYPE_2_STR(type) {InferMemType::type, #type}
         MEMTYPE_2_STR(kNone),    MEMTYPE_2_STR(kGpuCuda),   MEMTYPE_2_STR(kCpu),
         MEMTYPE_2_STR(kCpuCuda), MEMTYPE_2_STR(kNvSurface), MEMTYPE_2_STR(kNvSurfaceArray),
 #undef MEMTYPE_2_STR
@@ -512,12 +512,12 @@ NvDsInferStatus tensorBufferCopy(const SharedBatchBuf &in,
     int gpuId = 0;
     enum cudaMemcpyKind kind = (cudaMemcpyKind)-1;
 
-    static std::map<InferMemType, enum cudaMemcpyKind> GPUsrc2dst {
+    static std::map<InferMemType, enum cudaMemcpyKind> GPUsrc2dst{
         {InferMemType::kGpuCuda, cudaMemcpyDeviceToDevice},
         {InferMemType::kCpu, cudaMemcpyDeviceToHost},
         {InferMemType::kCpuCuda, cudaMemcpyDeviceToHost},
     };
-    static std::map<InferMemType, enum cudaMemcpyKind> CPUsrc2dst {
+    static std::map<InferMemType, enum cudaMemcpyKind> CPUsrc2dst{
         {InferMemType::kGpuCuda, cudaMemcpyHostToDevice},
         {InferMemType::kCpu, cudaMemcpyHostToHost},
         {InferMemType::kCpuCuda, cudaMemcpyHostToHost},

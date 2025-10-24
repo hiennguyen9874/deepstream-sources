@@ -1,7 +1,6 @@
 #ifndef __NVDSINFER_BACKEND_H__
 #define __NVDSINFER_BACKEND_H__
 
-#include <NvCaffeParser.h>
 #include <NvInfer.h>
 #include <NvInferRuntime.h>
 #include <cuda_runtime_api.h>
@@ -159,7 +158,7 @@ public:
     /* Get information for a bound layer with index `bindingIdx`. */
     virtual const NvDsInferBatchDimsLayerInfo &getLayerInfo(int bindingIdx) = 0;
     /* Get binding index for a bound layer with name `bindingName`. */
-    virtual int getLayerIdx(const std::string &bindingName) = 0;
+    virtual bool isOutputLayer(const std::string &bindingName) = 0;
 
     /* Returns if the bound layer at index `bindingIdx` can support the
      * provided batch dimensions. */
@@ -190,10 +189,10 @@ public:
     ~TrtBackendContext();
 
 protected:
-    TrtBackendContext(UniquePtrWDestroy<nvinfer1::IExecutionContext> &&ctx,
+    TrtBackendContext(std::unique_ptr<nvinfer1::IExecutionContext> &&ctx,
                       std::shared_ptr<TrtEngine> engine);
 
-    int getLayerIdx(const std::string &bindingName) override;
+    bool isOutputLayer(const std::string &bindingName) override;
     int getNumBoundLayers() override;
 
     const NvDsInferBatchDimsLayerInfo &getLayerInfo(int bindingIdx) override
@@ -221,7 +220,7 @@ protected:
     }
 
 protected:
-    UniquePtrWDestroy<nvinfer1::IExecutionContext> m_Context;
+    std::unique_ptr<nvinfer1::IExecutionContext> m_Context;
     std::shared_ptr<TrtEngine> m_CudaEngine;
     std::vector<NvDsInferBatchDimsLayerInfo> m_AllLayers;
 
@@ -231,32 +230,11 @@ protected:
 };
 
 /**
- * Backend context for implicit batch dimension network.
- */
-class ImplicitTrtBackendContext : public TrtBackendContext {
-public:
-    ImplicitTrtBackendContext(UniquePtrWDestroy<nvinfer1::IExecutionContext> &&ctx,
-                              std::shared_ptr<TrtEngine> engine);
-
-private:
-    NvDsInferStatus initialize() override;
-
-    NvDsInferStatus enqueueBuffer(const std::shared_ptr<InferBatchBuffer> &buffer,
-                                  CudaStream &stream,
-                                  CudaEvent *consumeEvent) override;
-
-protected:
-    bool canSupportBatchDims(int bindingIdx, const NvDsInferBatchDims &batchDims) override;
-
-    int m_MaxBatchSize = 0;
-};
-
-/**
  * Backend context for full dimensions network.
  */
 class FullDimTrtBackendContext : public TrtBackendContext {
 public:
-    FullDimTrtBackendContext(UniquePtrWDestroy<nvinfer1::IExecutionContext> &&ctx,
+    FullDimTrtBackendContext(std::unique_ptr<nvinfer1::IExecutionContext> &&ctx,
                              std::shared_ptr<TrtEngine> engine,
                              int profile = 0);
 
@@ -275,22 +253,9 @@ protected:
 /**
  * Backend context for implicit batch dimension network inferencing on DLA.
  */
-class DlaImplicitTrtBackendContext : public ImplicitTrtBackendContext {
-public:
-    DlaImplicitTrtBackendContext(UniquePtrWDestroy<nvinfer1::IExecutionContext> &&ctx,
-                                 std::shared_ptr<TrtEngine> engine);
-
-    NvDsInferStatus enqueueBuffer(const std::shared_ptr<InferBatchBuffer> &buffer,
-                                  CudaStream &stream,
-                                  CudaEvent *consumeEvent) override;
-};
-
-/**
- * Backend context for implicit batch dimension network inferencing on DLA.
- */
 class DlaFullDimTrtBackendContext : public FullDimTrtBackendContext {
 public:
-    DlaFullDimTrtBackendContext(UniquePtrWDestroy<nvinfer1::IExecutionContext> &&ctx,
+    DlaFullDimTrtBackendContext(std::unique_ptr<nvinfer1::IExecutionContext> &&ctx,
                                 std::shared_ptr<TrtEngine> engine,
                                 int profile = 0);
 

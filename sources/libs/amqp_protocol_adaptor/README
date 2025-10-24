@@ -1,12 +1,14 @@
-Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+#######################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
-#
-################################################################################
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+#######################################################################################################
 
 This project implements protocol adaptor for AMQP.
 The adaptor implements and exposed the DSMI API for client applications to interface with it.
@@ -45,6 +47,18 @@ OR
 
 #pass in the required connection string in the call to nvds_msgapi_connect_ptr:
  conn_handle = msgapi_connect_ptr((char *)"url;port;username;password",(nvds_msgapi_connect_cb_t) sample_msgapi_connect_cb, (char *)CFG_FILE);
+
+NOTE: Option to pass in username and password through config file and connection string is to be deprecated. Follow the below
+steps to set user credentials in environmental variables instead. Only acceptable connection string format after deprecation will be "url;port".
+
+User authentication
+-------------------
+To set username and password, export the following environmental variables:
+
+export USER_AMQP=username
+export PASSWORD_AMQP=password
+
+If username and password are also set in the config, the adaptor will set according to the environmental variables and not the config.
 
 Specify Amqp Exchange
 ---------------------
@@ -88,6 +102,10 @@ For x86,
 On Jetson,
  chmod u+x ~/deepstream_sdk_on_jetson/sources/tools/nvds_logger/setup_nvds_logger.sh
  sudo ~/deepstream_sdk_on_jetson/sources/tools/nvds_logger/setup_nvds_logger.sh
+
+Building the adaptor
+---------------------
+Upon installing the dependencies, to build adaptor library execute 'make' and install with 'make install'
 
 To run test program:
 --------------------

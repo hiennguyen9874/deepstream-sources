@@ -164,6 +164,8 @@ void attachSegmentationMetadata(NvDsObjectMeta *objMeta,
  * @param[in] inputInfo           Dimensions of the input layer for the network.
  * @param[in] maintainAspectRatio maintain_aspect_ratio configuration setting
  *                                value.
+ * @param[in] symmetricPadding     configuration setting
+ *                                value.
  */
 void attachTensorOutputMeta(NvDsObjectMeta *objMeta,
                             NvDsFrameMeta *frameMeta,
@@ -172,7 +174,8 @@ void attachTensorOutputMeta(NvDsObjectMeta *objMeta,
                             const std::vector<dsis::SharedIBatchBuffer> &tensors,
                             uint32_t batchIdx,
                             const NvDsInferNetworkInfo &inputInfo,
-                            bool maintainAspectRatio);
+                            bool maintainAspectRatio,
+                            bool symmetricPadding);
 
 /**
  * @brief Attach the full inference output tensors to the batch metadata.
@@ -181,7 +184,8 @@ void attachTensorOutputMeta(NvDsObjectMeta *objMeta,
  * user metadata of type NVDSINFER_TENSOR_OUTPUT_META.
  *
  * @param[inout] batchMeta Pointer to the bach metadata of the inference input.
- * @param[in] uniqueId      Unique ID of the GIE instance.
+ * @param[in] uniqueId      Unique ID of the GIE
+ * instance.
  * @param[in] tensors       The batch buffer array of the output tensors.
  * @param[in] inputInfo     Dimensions of the input layer for the network.
  */

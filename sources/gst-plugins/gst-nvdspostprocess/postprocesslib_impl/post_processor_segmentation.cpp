@@ -1,24 +1,3 @@
-/**
- * Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
 #include "post_processor_segmentation.h"
 
 using namespace std;
@@ -48,10 +27,10 @@ static gpointer copy_segmentation_meta(gpointer data, gpointer user_data)
     meta->width = src_meta->width;
     meta->height = src_meta->height;
     meta->class_map =
-        (gint *)g_memdup(src_meta->class_map, meta->width * meta->height * sizeof(gint));
+        (gint *)g_memdup2(src_meta->class_map, meta->width * meta->height * sizeof(gint));
     meta->class_probabilities_map =
-        (gfloat *)g_memdup(src_meta->class_probabilities_map,
-                           meta->classes * meta->width * meta->height * sizeof(gfloat));
+        (gfloat *)g_memdup2(src_meta->class_probabilities_map,
+                            meta->classes * meta->width * meta->height * sizeof(gfloat));
     meta->priv_data = NULL;
 
     return meta;
@@ -80,7 +59,7 @@ NvDsPostProcessStatus SegmentationModelPostProcessor::fillSegmentationOutput(
     NvDsPostProcessSegmentationOutput &output)
 {
     std::function<unsigned int(unsigned int, unsigned int, unsigned int)> indAlongChannel = nullptr;
-    NvDsInferDimsCHW outputDimsCHW;
+    NvDsInferDimsCHW outputDimsCHW = {0};
 
     if (m_SegmentationOutputOrder == NvDsPostProcessTensorOrder_kNCHW) {
         getDimsCHWFromDims(outputDimsCHW, outputLayers[0].inferDims);
@@ -101,8 +80,8 @@ NvDsPostProcessStatus SegmentationModelPostProcessor::fillSegmentationOutput(
     output.class_map = (gint *)g_malloc0(sizeof(gint) * output.width * output.height);
 
     output.class_probability_map =
-        (gfloat *)g_memdup((float *)outputLayers[0].buffer,
-                           output.classes * output.width * output.height * sizeof(gfloat));
+        (gfloat *)g_memdup2((float *)outputLayers[0].buffer,
+                            output.classes * output.width * output.height * sizeof(gfloat));
 
     for (unsigned int y = 0; y < output.height; y++) {
         for (unsigned int x = 0; x < output.width; x++) {
@@ -133,13 +112,17 @@ void SegmentationModelPostProcessor::attachMetadata(NvBufSurface *surf,
                                                     gboolean output_instance_mask,
                                                     gboolean process_full_frame,
                                                     float segmentationThreshold,
-                                                    gboolean maintain_aspect_ratio)
+                                                    gboolean maintain_aspect_ratio,
+                                                    NvDsRoiMeta *roi_meta,
+                                                    gboolean symmetric_padding)
 {
     NvDsPostProcessSegmentationOutput &segmentation_output = detection_output.segmentationOutput;
     NvDsUserMeta *user_meta = nvds_acquire_user_meta_from_pool(batch_meta);
     NvDsInferSegmentationMeta *meta =
         (NvDsInferSegmentationMeta *)g_malloc(sizeof(NvDsInferSegmentationMeta));
 
+    if (frame_meta)
+        frame_meta->bInferDone = TRUE;
     meta->classes = segmentation_output.classes;
     meta->width = segmentation_output.width;
     meta->height = segmentation_output.height;

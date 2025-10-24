@@ -28,7 +28,8 @@ extern "C" bool NvDsInferParseCustomPeopleSemSegNet(
 
     auto layerFinder = [&outputLayersInfo](const std::string &name) -> const NvDsInferLayerInfo * {
         for (auto &layer : outputLayersInfo) {
-            if (layer.dataType == INT32 && (layer.layerName && name == layer.layerName)) {
+            if ((layer.dataType == INT32 || layer.dataType == INT64) &&
+                (layer.layerName && name == layer.layerName)) {
                 return &layer;
             }
         }
@@ -39,7 +40,7 @@ extern "C" bool NvDsInferParseCustomPeopleSemSegNet(
 
     if (!classMapLayer) {
         std::cerr << "ERROR: Output layer argmax_1 not found in output tensors"
-                  << " or was not of type INT32" << std::endl;
+                  << " or was not of type INT32/INT64" << std::endl;
         return false;
     }
 
@@ -58,9 +59,21 @@ extern "C" bool NvDsInferParseCustomPeopleSemSegNet(
         return false;
     }
 
+    if (classMapLayer->dataType == INT64) {
+        /* Converting INT64 layer into INT32 */
+        int32_t *tmp_buf = classificationMap;
+        int64_t *class_buf = (static_cast<int64_t *>(classMapLayer->buffer));
+        for (unsigned int i = 0; i < networkInfo.width * networkInfo.height; i++) {
+            *tmp_buf = static_cast<int32_t>(*class_buf);
+            tmp_buf++;
+            class_buf++;
+        }
+    } else {
+        memcpy(classificationMap, classMapLayer->buffer,
+               sizeof(int32_t) * networkInfo.width * networkInfo.height);
+    }
+
     classProbabilityMap = nullptr;
-    memcpy(classificationMap, classMapLayer->buffer,
-           sizeof(int32_t) * networkInfo.width * networkInfo.height);
 
     return true;
 }

@@ -212,6 +212,12 @@ void NvStreamMux::set_batch_size(unsigned int size)
     batch_policy.set_batch_size(size);
 }
 
+void NvStreamMux::set_batch_push_timeout(unsigned int timeout)
+{
+    std::unique_lock<std::mutex> lck(mutex);
+    batch_policy.set_batch_push_timeout(timeout);
+}
+
 unsigned int NvStreamMux::get_batch_size()
 {
     std::unique_lock<std::mutex> lck(mutex);

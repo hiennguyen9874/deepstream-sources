@@ -1,24 +1,3 @@
-/*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION. All rights reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
 #include <string.h>
 
 #include "deepstream_app.h"
@@ -30,6 +9,11 @@
 #define CONFIG_GROUP_APP_GIE_OUTPUT_DIR "gie-kitti-output-dir"
 #define CONFIG_GROUP_APP_GIE_TRACK_OUTPUT_DIR "kitti-track-output-dir"
 #define CONFIG_GROUP_APP_REID_TRACK_OUTPUT_DIR "reid-track-output-dir"
+
+#define CONFIG_GROUP_APP_GLOBAL_GPU_ID "global-gpu-id"
+
+#define CONFIG_GROUP_APP_TERMINATED_TRACK_OUTPUT_DIR "terminated-track-output-dir"
+#define CONFIG_GROUP_APP_SHADOW_TRACK_OUTPUT_DIR "shadow-track-output-dir"
 
 #define CONFIG_GROUP_TESTS "tests"
 #define CONFIG_GROUP_TESTS_FILE_LOOP "file-loop"
@@ -51,7 +35,9 @@ static gboolean parse_source_list(NvDsConfig *config, GKeyFile *key_file, gchar 
     gchar **keys = NULL;
     gchar **key = NULL;
     GError *error = NULL;
-    gsize num_strings;
+    gsize num_strings_uri = 0;
+    gsize num_strings_sensor_id = 0;
+    gsize num_strings_sensor_name = 0;
 
     keys = g_key_file_get_keys(key_file, CONFIG_GROUP_SOURCE_LIST, NULL, &error);
     CHECK_ERROR(error);
@@ -62,11 +48,25 @@ static gboolean parse_source_list(NvDsConfig *config, GKeyFile *key_file, gchar 
                 g_key_file_get_integer(key_file, CONFIG_GROUP_SOURCE_LIST,
                                        CONFIG_GROUP_SOURCE_LIST_NUM_SOURCE_BINS, &error);
             CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_DUMMY_PAYLOAD)) {
+            config->dummy_payload = g_key_file_get_boolean(
+                key_file, CONFIG_GROUP_SOURCE_LIST, CONFIG_GROUP_SOURCE_LIST_DUMMY_PAYLOAD, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_CUSTOM_TS_TO_RFC)) {
+            config->custom_ts_to_rfc =
+                g_key_file_get_boolean(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                       CONFIG_GROUP_SOURCE_LIST_CUSTOM_TS_TO_RFC, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_BATCHED_SENSOR_NAME)) {
+            config->batched_sensor_name =
+                g_key_file_get_string(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                      CONFIG_GROUP_SOURCE_LIST_BATCHED_SENSOR_NAME, &error);
+            CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_URI_LIST)) {
-            config->uri_list =
-                g_key_file_get_string_list(key_file, CONFIG_GROUP_SOURCE_LIST,
-                                           CONFIG_GROUP_SOURCE_LIST_URI_LIST, &num_strings, &error);
-            if (num_strings > MAX_SOURCE_BINS) {
+            config->uri_list = g_key_file_get_string_list(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                                          CONFIG_GROUP_SOURCE_LIST_URI_LIST,
+                                                          &num_strings_uri, &error);
+            if (num_strings_uri > MAX_SOURCE_BINS) {
                 NVGSTDS_ERR_MSG_V("App supports max %d sources", MAX_SOURCE_BINS);
                 goto done;
             }
@@ -74,8 +74,17 @@ static gboolean parse_source_list(NvDsConfig *config, GKeyFile *key_file, gchar 
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_SENSOR_ID_LIST)) {
             config->sensor_id_list = g_key_file_get_string_list(
                 key_file, CONFIG_GROUP_SOURCE_LIST, CONFIG_GROUP_SOURCE_LIST_SENSOR_ID_LIST,
-                &num_strings, &error);
-            if (num_strings > MAX_SOURCE_BINS) {
+                &num_strings_sensor_id, &error);
+            if (num_strings_sensor_id > MAX_SOURCE_BINS) {
+                NVGSTDS_ERR_MSG_V("App supports max %d sources", MAX_SOURCE_BINS);
+                goto done;
+            }
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_SENSOR_NAME_LIST)) {
+            config->sensor_name_list = g_key_file_get_string_list(
+                key_file, CONFIG_GROUP_SOURCE_LIST, CONFIG_GROUP_SOURCE_LIST_SENSOR_NAME_LIST,
+                &num_strings_sensor_name, &error);
+            if (num_strings_sensor_name > MAX_SOURCE_BINS) {
                 NVGSTDS_ERR_MSG_V("App supports max %d sources", MAX_SOURCE_BINS);
                 goto done;
             }
@@ -84,6 +93,11 @@ static gboolean parse_source_list(NvDsConfig *config, GKeyFile *key_file, gchar 
             config->use_nvmultiurisrcbin =
                 g_key_file_get_boolean(key_file, CONFIG_GROUP_SOURCE_LIST,
                                        CONFIG_GROUP_SOURCE_LIST_USE_NVMULTIURISRCBIN, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_STREAM_NAME_DISPLAY)) {
+            config->stream_name_display =
+                g_key_file_get_boolean(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                       CONFIG_GROUP_SOURCE_LIST_STREAM_NAME_DISPLAY, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_HTTP_IP)) {
             config->http_ip = g_key_file_get_string(key_file, CONFIG_GROUP_SOURCE_LIST,
@@ -102,6 +116,20 @@ static gboolean parse_source_list(NvDsConfig *config, GKeyFile *key_file, gchar 
             config->sgie_batch_size = g_key_file_get_integer(
                 key_file, CONFIG_GROUP_SOURCE_LIST, CONFIG_GROUP_SOURCE_SGIE_BATCH_SIZE, &error);
             CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_EXTRACT_SEI_TYPE5_DATA)) {
+            config->extract_sei_type5_data =
+                g_key_file_get_integer(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                       CONFIG_GROUP_SOURCE_EXTRACT_SEI_TYPE5_DATA, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_LIST_LOW_LATENCY_MODE)) {
+            config->low_latency_mode =
+                g_key_file_get_integer(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                       CONFIG_GROUP_SOURCE_LIST_LOW_LATENCY_MODE, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_SOURCE_SEI_UUID)) {
+            config->sei_uuid = g_key_file_get_string(key_file, CONFIG_GROUP_SOURCE_LIST,
+                                                     CONFIG_GROUP_SOURCE_SEI_UUID, &error);
+            CHECK_ERROR(error);
         } else {
             NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_SOURCE_LIST);
         }
@@ -111,12 +139,20 @@ static gboolean parse_source_list(NvDsConfig *config, GKeyFile *key_file, gchar 
                            &error)) {
         if (g_key_file_has_key(key_file, CONFIG_GROUP_SOURCE_LIST,
                                CONFIG_GROUP_SOURCE_LIST_NUM_SOURCE_BINS, &error)) {
-            if (num_strings != config->total_num_sources) {
+            if (num_strings_uri != config->total_num_sources) {
                 NVGSTDS_ERR_MSG_V("Mismatch in URIs provided and num-source-bins.");
                 goto done;
             }
+            if (num_strings_sensor_id != config->total_num_sources) {
+                NVGSTDS_ERR_MSG_V("Mismatch in Sensor IDs provided and num-source-bins.");
+                goto done;
+            }
+            if (num_strings_sensor_name != config->total_num_sources) {
+                NVGSTDS_ERR_MSG_V("Mismatch in Sensor Names provided and num-source-bins.");
+                goto done;
+            }
         } else {
-            config->total_num_sources = num_strings;
+            config->total_num_sources = num_strings_uri;
         }
     }
 
@@ -142,6 +178,13 @@ static gboolean set_source_all_configs(NvDsConfig *config, gchar *cfg_file_path)
         config->multi_source_config[i].camera_id = i;
         if (config->uri_list) {
             char *uri = config->uri_list[i];
+            if (!uri) {
+                NVGSTDS_ERR_MSG_V(
+                    "uri %d entry of list is NULL, use valid uri separated by ';' with the "
+                    "source-list section",
+                    (i + 1));
+                return FALSE;
+            }
             if (g_str_has_prefix(config->uri_list[i], "file://")) {
                 config->multi_source_config[i].type = NV_DS_SOURCE_URI;
                 config->multi_source_config[i].uri = g_strdup(uri + 7);
@@ -252,6 +295,24 @@ static gboolean parse_app(NvDsConfig *config, GKeyFile *key_file, gchar *cfg_fil
                 g_key_file_get_string(key_file, CONFIG_GROUP_APP,
                                       CONFIG_GROUP_APP_REID_TRACK_OUTPUT_DIR, &error));
             CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_APP_GLOBAL_GPU_ID)) {
+            /** App Level GPU ID is set here if it is present in APP LEVEL config group
+             * if gpu_id prop is not set for any component, this global_gpu_id will be used */
+            config->global_gpu_id = g_key_file_get_integer(key_file, CONFIG_GROUP_APP,
+                                                           CONFIG_GROUP_APP_GLOBAL_GPU_ID, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_APP_TERMINATED_TRACK_OUTPUT_DIR)) {
+            config->terminated_track_output_path = get_absolute_file_path(
+                cfg_file_path,
+                g_key_file_get_string(key_file, CONFIG_GROUP_APP,
+                                      CONFIG_GROUP_APP_TERMINATED_TRACK_OUTPUT_DIR, &error));
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_APP_SHADOW_TRACK_OUTPUT_DIR)) {
+            config->shadow_track_output_path = get_absolute_file_path(
+                cfg_file_path,
+                g_key_file_get_string(key_file, CONFIG_GROUP_APP,
+                                      CONFIG_GROUP_APP_SHADOW_TRACK_OUTPUT_DIR, &error));
+            CHECK_ERROR(error);
         } else {
             NVGSTDS_WARN_MSG_V("Unknown key '%s' for group [%s]", *key, CONFIG_GROUP_APP);
         }
@@ -284,6 +345,9 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
     config->source_list_enabled = FALSE;
     config->source_attr_all_parsed = FALSE;
 
+    /** Initialize global gpu id to -1 */
+    config->global_gpu_id = -1;
+
     if (!APP_CFG_PARSER_CAT) {
         GST_DEBUG_CATEGORY_INIT(APP_CFG_PARSER_CAT, "NVDS_CFG_PARSER", 0, NULL);
     }
@@ -291,6 +355,15 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
     if (!g_key_file_load_from_file(cfg_file, cfg_file_path, G_KEY_FILE_NONE, &error)) {
         GST_CAT_ERROR(APP_CFG_PARSER_CAT, "Failed to load uri file: %s", error->message);
         goto done;
+    }
+
+    /** App group parsing at top level to set global_gpu_id (if available)
+     * before any other group parsing */
+    if (g_key_file_has_group(cfg_file, CONFIG_GROUP_APP)) {
+        if (!parse_app(config, cfg_file, cfg_file_path)) {
+            GST_CAT_ERROR(APP_CFG_PARSER_CAT, "Failed to parse '%s' group", CONFIG_GROUP_APP);
+            goto done;
+        }
     }
 
     if (g_key_file_has_group(cfg_file, CONFIG_GROUP_SOURCE_LIST)) {
@@ -309,6 +382,12 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
         g_key_file_remove_group(cfg_file, CONFIG_GROUP_SOURCE_LIST, &error);
     }
     if (g_key_file_has_group(cfg_file, CONFIG_GROUP_SOURCE_ALL)) {
+        /** set gpu_id for source component using global_gpu_id(if available) */
+        if (config->global_gpu_id != -1) {
+            config->source_attr_all_config.gpu_id = config->global_gpu_id;
+        }
+        /** if gpu_id for source component is present,
+         * it will override the value set using global_gpu_id in parse_source function */
         if (!parse_source(&config->source_attr_all_config, cfg_file,
                           (gchar *)CONFIG_GROUP_SOURCE_ALL, cfg_file_path)) {
             GST_CAT_ERROR(APP_CFG_PARSER_CAT, "Failed to parse '%s' group",
@@ -316,7 +395,6 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
             goto done;
         }
         config->source_attr_all_parsed = TRUE;
-
         if (!set_source_all_configs(config, cfg_file_path)) {
             ret = FALSE;
             goto done;
@@ -328,10 +406,6 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
     for (group = groups; *group; group++) {
         gboolean parse_err = FALSE;
         GST_CAT_DEBUG(APP_CFG_PARSER_CAT, "Parsing group: %s", *group);
-        if (!g_strcmp0(*group, CONFIG_GROUP_APP)) {
-            parse_err = !parse_app(config, cfg_file, cfg_file_path);
-        }
-
         if (!strncmp(*group, CONFIG_GROUP_SOURCE, sizeof(CONFIG_GROUP_SOURCE) - 1)) {
             if (config->num_source_sub_bins == MAX_SOURCE_BINS) {
                 NVGSTDS_ERR_MSG_V("App supports max %d sources", MAX_SOURCE_BINS);
@@ -360,6 +434,12 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
             } else {
                 source_id = config->num_source_sub_bins;
             }
+            /**  set gpu_id for source component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->multi_source_config[source_id].gpu_id = config->global_gpu_id;
+            }
+            /** if gpu_id for source component is present,
+             * it will override the value set using global_gpu_id in parse_source function */
             parse_err = !parse_source(&config->multi_source_config[source_id], cfg_file, *group,
                                       cfg_file_path);
             if (config->source_list_enabled &&
@@ -374,14 +454,32 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_STREAMMUX)) {
+            /** set gpu_id for streammux component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->streammux_config.gpu_id = config->global_gpu_id;
+            }
+            /** if gpu_id for streammux component is present,
+             * it will override the value set using global_gpu_id in parse_streammux function */
             parse_err = !parse_streammux(&config->streammux_config, cfg_file, cfg_file_path);
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_OSD)) {
+            /** set gpu_id for osd component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->osd_config.gpu_id = config->global_gpu_id;
+            }
+            /** if gpu_id for osd component is present,
+             * it will override the value set using global_gpu_id in parse_osd function */
             parse_err = !parse_osd(&config->osd_config, cfg_file);
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_SEGVISUAL)) {
+            /** set gpu_id for segvisual component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->segvisual_config.gpu_id = config->global_gpu_id;
+            }
+            /** if gpu_id for segvisual component is present,
+             * it will override the value set using global_gpu_id in parse_segvisual function */
             parse_err = !parse_segvisual(&config->segvisual_config, cfg_file);
         }
 
@@ -391,11 +489,24 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_PRIMARY_GIE)) {
+            /** set gpu_id for primary gie component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->primary_gie_config.gpu_id = config->global_gpu_id;
+                config->primary_gie_config.is_gpu_id_set = TRUE;
+            }
+            /** if gpu_id for primary gie component is present,
+             * it will override the value set using global_gpu_id in parse_gie function */
             parse_err = !parse_gie(&config->primary_gie_config, cfg_file,
                                    (gchar *)CONFIG_GROUP_PRIMARY_GIE, cfg_file_path);
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_TRACKER)) {
+            /** set gpu_id for tracker component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->tracker_config.gpu_id = config->global_gpu_id;
+            }
+            /**  if gpu_id for tracker component is present,
+             * it will override the value set using global_gpu_id in parse_tracker function */
             parse_err = !parse_tracker(&config->tracker_config, cfg_file, cfg_file_path);
         }
 
@@ -405,6 +516,15 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
                 ret = FALSE;
                 goto done;
             }
+            /** set gpu_id for secondary gie component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->secondary_gie_sub_bin_config[config->num_secondary_gie_sub_bins].gpu_id =
+                    config->global_gpu_id;
+                config->secondary_gie_sub_bin_config[config->num_secondary_gie_sub_bins]
+                    .is_gpu_id_set = TRUE;
+            }
+            /**  if gpu_id for secondary gie component is present,
+             * it will override the value set using global_gpu_id in parse_gie function */
             parse_err = !parse_gie(
                 &config->secondary_gie_sub_bin_config[config->num_secondary_gie_sub_bins], cfg_file,
                 *group, cfg_file_path);
@@ -438,6 +558,19 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
                 ret = FALSE;
                 goto done;
             }
+            /** set gpu_id for sink component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                GError *error = NULL;
+                if (g_key_file_get_integer(cfg_file, *group, "enable", &error) == TRUE &&
+                    error == NULL) {
+                    config->sink_bin_sub_bin_config[config->num_sink_sub_bins]
+                        .encoder_config.gpu_id =
+                        config->sink_bin_sub_bin_config[config->num_sink_sub_bins]
+                            .render_config.gpu_id = config->global_gpu_id;
+                }
+            }
+            /** if gpu_id for sink component is present,
+             * it will override the value set using global_gpu_id in parse_sink function */
             parse_err = !parse_sink(&config->sink_bin_sub_bin_config[config->num_sink_sub_bins],
                                     cfg_file, *group, cfg_file_path);
             if (config->sink_bin_sub_bin_config[config->num_sink_sub_bins].enable) {
@@ -461,10 +594,22 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_TILED_DISPLAY)) {
+            /** set gpu_id for tiled display component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->tiled_display_config.gpu_id = config->global_gpu_id;
+            }
+            /** if gpu_id for tiled display component is present,
+             * it will override the value set using global_gpu_id in parse_tiled_display function */
             parse_err = !parse_tiled_display(&config->tiled_display_config, cfg_file);
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_IMG_SAVE)) {
+            /** set gpu_id for image save component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->image_save_config.gpu_id = config->global_gpu_id;
+            }
+            /** if gpu_id for image save component is present,
+             * it will override the value set using global_gpu_id in parse_image_save function */
             parse_err =
                 !parse_image_save(&config->image_save_config, cfg_file, *group, cfg_file_path);
         }
@@ -474,6 +619,12 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
         }
 
         if (!g_strcmp0(*group, CONFIG_GROUP_DSEXAMPLE)) {
+            /**  set gpu_id for dsexample component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->dsexample_config.gpu_id = config->global_gpu_id;
+            }
+            /** if gpu_id for dsexample component is present,
+             * it will override the value set using global_gpu_id in parse_dsexample function */
             parse_err = !parse_dsexample(&config->dsexample_config, cfg_file);
         }
 
@@ -498,6 +649,13 @@ gboolean parse_config_file(NvDsConfig *config, gchar *cfg_file_path)
                     goto done;
                 }
             }
+            /** set gpu_id for dewarper component using global_gpu_id(if available) */
+            if (config->global_gpu_id != -1) {
+                config->multi_source_config[source_id].dewarper_config.gpu_id =
+                    config->global_gpu_id;
+            }
+            /** if gpu_id for dewarper component is present,
+             * it will override the value set using global_gpu_id in parse_dewarper function */
             parse_err = !parse_dewarper(&config->multi_source_config[source_id].dewarper_config,
                                         cfg_file, cfg_file_path, *group);
             if (config->multi_source_config[source_id].dewarper_config.enable)

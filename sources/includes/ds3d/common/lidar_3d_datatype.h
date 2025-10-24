@@ -2,6 +2,8 @@
 #define _DS3D_COMMON_INFERENCE_DATATYPE__H
 
 #include <ds3d/common/common.h>
+#include <ds3d/common/defines.h>
+#include <ds3d/common/func_utils.h>
 #include <ds3d/common/idatatype.h>
 
 #undef DS3D_MAX_LABEL_SIZE
@@ -51,6 +53,12 @@ struct Lidar3DBbox {
         : centerX(centerX_), centerY(centerY_), centerZ(centerZ_), dx(length_), dy(width_),
           dz(height_), yaw(yaw_), cid(cid_), score(score_)
     {
+    }
+
+    void dump() const
+    {
+        LOG_DEBUG("pos (%.3f %.3f %.3f) size (%.3f %.3f %.3f) score %.3f labels %s", centerX,
+                  centerY, centerZ, dx, dy, dz, score, labels);
     }
 };
 

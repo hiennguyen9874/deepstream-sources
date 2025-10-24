@@ -1,11 +1,3 @@
-/**
- * @file
- * <b>NVIDIA DeepStream: Message Schema Generation Library Interface</b>
- *
- * @b Description: This file specifies the NVIDIA DeepStream message schema generation
- * library interface.
- */
-
 #ifndef NVMSGCONV_H_
 #define NVMSGCONV_H_
 
@@ -33,7 +25,6 @@ typedef struct NvDsMsg2pCtx {
  *      the NvDs metadata related information
         to be processed to generate payloads
  */
-
 typedef struct {
     /** Holds the object metadata */
     void *objMeta;
@@ -41,6 +32,11 @@ typedef struct {
     void *frameMeta;
     /** media type: (ex: audio, video) */
     gchar *mediaType;
+    /** datamap for buffers from ds3d components */
+    // abiRefDataMap* typecasted to void*
+    // NvDs3D_Find1stDataMap() will be used to get this pointer
+    // in LL library, we can:
+    void *datamap;
 } NvDsMsg2pMetaInfo;
 
 /**

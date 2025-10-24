@@ -81,64 +81,134 @@ __device__ static void write_color(NvBufSurfaceParams *surf, int x, int y, const
         }
         break;
     }
+    case NVBUF_COLOR_FORMAT_UYVP:
+    case NVBUF_COLOR_FORMAT_UYVP_ER: {
+        // UYVP is 10-bit 4:2:2 packed format
+        // Each group of 2 pixels (U|Y, V|Y) is packed into 5 bytes
+        // Layout: U0(10) Y0(10) V0(10) Y1(10) = 40 bits = 5 bytes
+        // We need to handle 2 pixels at a time
+
+        if (x % 2 == 0) // Only process even pixels, handle pairs
+        {
+            ColorYUV yuv = rgb.toYUV();
+
+            // Calculate byte position for this pixel pair
+            int pair_index = x / 2;
+            int byte_offset = (y * surf->pitch) + (pair_index * 5);
+            uint8_t *p = (uint8_t *)surf->dataPtr + byte_offset;
+
+            // Convert 8-bit YUV to 10-bit (multiply by 4)
+            uint16_t u10 = ((uint16_t)(yuv.u * 255)) << 2;
+            uint16_t y0_10 = ((uint16_t)(yuv.y * 255)) << 2;
+            uint16_t v10 = ((uint16_t)(yuv.v * 255)) << 2;
+            uint16_t y1_10 = y0_10; // For test pattern, use same Y for both pixels
+
+            // Pack into 5 bytes: U0(10) Y0(10) V0(10) Y1(10)
+            // Byte 0: U0[9:2]
+            p[0] = (u10 >> 2) & 0xFF;
+            // Byte 1: U0[1:0] Y0[9:4]
+            p[1] = ((u10 & 0x03) << 6) | ((y0_10 >> 4) & 0x3F);
+            // Byte 2: Y0[3:0] V0[9:6]
+            p[2] = ((y0_10 & 0x0F) << 4) | ((v10 >> 6) & 0x0F);
+            // Byte 3: V0[5:0] Y1[9:8]
+            p[3] = ((v10 & 0x3F) << 2) | ((y1_10 >> 8) & 0x03);
+            // Byte 4: Y1[7:0]
+            p[4] = y1_10 & 0xFF;
+        }
+        break;
+    }
+    case NVBUF_COLOR_FORMAT_BGRA64_LE: {
+        // BGRA64_LE is 64 bits per pixel (16 bits per component, little-endian)
+        // Layout: B(16) G(16) R(16) A(16) in little-endian order
+        uint16_t *p = (uint16_t *)((uint8_t *)surf->dataPtr + (y * surf->pitch) + (x * 8));
+
+        // Convert from 0.0-1.0 range to 0-65535 range (16-bit)
+        p[0] = (uint16_t)(rgb.b * 65535); // Blue
+        p[1] = (uint16_t)(rgb.g * 65535); // Green
+        p[2] = (uint16_t)(rgb.r * 65535); // Red
+        p[3] = 65535;                     // Alpha (fully opaque)
+        break;
+    }
+    case NVBUF_COLOR_FORMAT_RGBA_10_10_10_2_709:
+    case NVBUF_COLOR_FORMAT_RGBA_10_10_10_2_2020: {
+        // RGB10A2_LE is 32 bits per pixel (10 bits for R,G,B and 2 bits for A)
+        // Layout in little-endian: R[9:0] G[9:0] B[9:0] A[1:0]
+        uint32_t *p = (uint32_t *)((uint8_t *)surf->dataPtr + (y * surf->pitch) + (x * 4));
+
+        // Convert from 0.0-1.0 range to 0-1023 range (10-bit)
+        uint32_t r10 = (uint32_t)(rgb.r * 1023) & 0x3FF;
+        uint32_t g10 = (uint32_t)(rgb.g * 1023) & 0x3FF;
+        uint32_t b10 = (uint32_t)(rgb.b * 1023) & 0x3FF;
+        uint32_t a2 = 3; // Alpha (fully opaque - 2 bits)
+
+        // Pack into 32-bit word: A[1:0] B[9:0] G[9:0] R[9:0]
+        *p = (a2 << 30) | (b10 << 20) | (g10 << 10) | r10;
+        break;
+    }
     }
 }
 
-__global__ void smpte_kernel(NvBufSurfaceParams *surf)
+__global__ void smpte_kernel(NvBufSurfaceParams *surf, int horizontal_offset)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
     for (int i = index; i < surf->width * surf->height; i += stride) {
         int p_y = i / surf->width;
         int p_x = i - (p_y * surf->width);
+
+        // Positive horizontal_speed moves pattern to the left
+        int effective_x = (p_x + horizontal_offset) % surf->width;
+        if (effective_x < 0) {
+            effective_x += surf->width;
+        }
         ColorRGB c;
         if (p_y < 0.67 * surf->height) {
             int bar_width = surf->width / 7.0;
-            if (p_x < bar_width)
+            if (effective_x < bar_width)
                 c = GREY;
-            else if (p_x < bar_width * 2)
+            else if (effective_x < bar_width * 2)
                 c = YELLOW;
-            else if (p_x < bar_width * 3)
+            else if (effective_x < bar_width * 3)
                 c = CYAN;
-            else if (p_x < bar_width * 4)
+            else if (effective_x < bar_width * 4)
                 c = GREEN;
-            else if (p_x < bar_width * 5)
+            else if (effective_x < bar_width * 5)
                 c = MAGENTA;
-            else if (p_x < bar_width * 6)
+            else if (effective_x < bar_width * 6)
                 c = RED;
             else
                 c = BLUE;
         } else if (p_y < 0.75 * surf->height) {
             int bar_width = surf->width / 7.0;
-            if (p_x < bar_width)
+            if (effective_x < bar_width)
                 c = BLUE;
-            else if (p_x < bar_width * 2)
+            else if (effective_x < bar_width * 2)
                 c = BLACK;
-            else if (p_x < bar_width * 3)
+            else if (effective_x < bar_width * 3)
                 c = MAGENTA;
-            else if (p_x < bar_width * 4)
+            else if (effective_x < bar_width * 4)
                 c = BLACK;
-            else if (p_x < bar_width * 5)
+            else if (effective_x < bar_width * 5)
                 c = CYAN;
-            else if (p_x < bar_width * 6)
+            else if (effective_x < bar_width * 6)
                 c = BLACK;
             else
                 c = GREY;
         } else {
             int bar_width = (surf->width / 7.0 * 5.0) / 4.0;
-            if (p_x < bar_width)
+            if (effective_x < bar_width)
                 c = OXFORD;
-            else if (p_x < bar_width * 2)
+            else if (effective_x < bar_width * 2)
                 c = WHITE;
-            else if (p_x < bar_width * 3)
+            else if (effective_x < bar_width * 3)
                 c = VIOLET;
-            else if (p_x < bar_width * 4)
+            else if (effective_x < bar_width * 4)
                 c = BLACK;
-            else if (p_x < (surf->width / 21.0) * 16)
+            else if (effective_x < (surf->width / 21.0) * 16)
                 c = SUPERBLACK;
-            else if (p_x < (surf->width / 21.0) * 17)
+            else if (effective_x < (surf->width / 21.0) * 17)
                 c = BLACK;
-            else if (p_x < (int)(surf->width / 7.0) * 6)
+            else if (effective_x < (int)(surf->width / 7.0) * 6)
                 c = DARKGREY;
             else
                 c = BLACK;
@@ -149,7 +219,11 @@ __global__ void smpte_kernel(NvBufSurfaceParams *surf)
 
 extern "C" void gst_nv_video_test_src_smpte(GstNvVideoTestSrc *src)
 {
-    smpte_kernel<<<src->cuda_num_blocks, src->cuda_block_size>>>(src->cuda_surf);
+    // Calculate horizontal offset based on frame number and speed
+    int horizontal_offset = src->filled_frames * src->horizontal_speed;
+
+    // Pass the offset to the kernel
+    smpte_kernel<<<src->cuda_num_blocks, src->cuda_block_size>>>(src->cuda_surf, horizontal_offset);
 }
 
 __device__ static int mandelbrot(double x, double y, int max_iter)

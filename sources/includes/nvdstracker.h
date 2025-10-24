@@ -20,6 +20,9 @@
 #include <stdint.h>
 #include <time.h>
 
+#include <string>
+#include <vector>
+
 #include "nvbufsurface.h"
 #include "nvds_tracker_meta.h"
 
@@ -30,6 +33,8 @@ extern "C" {
 #define NVMOT_MAX_TRANSFORMS 4
 
 typedef uint64_t NvMOTStreamId;
+typedef uint32_t NvMOTFrameNum;
+typedef uint16_t NvMOTClassId;
 
 /**
  * @brief Compute target flags.
@@ -65,8 +70,6 @@ typedef struct _NvMOTPerTransformBatchConfig {
     uint32_t maxPitch;
     /** Holds the maximum size of the buffer in bytes. */
     uint32_t maxSize;
-    /** Holds the color format: RGB, NV12 etc. */
-    uint32_t colorFormat;
 } NvMOTPerTransformBatchConfig;
 
 /**
@@ -75,12 +78,6 @@ typedef struct _NvMOTPerTransformBatchConfig {
 typedef struct _NvMOTMiscConfig {
     /** Holds the ID of the GPU to be used. */
     uint32_t gpuId;
-    /** Holds the maximum number of objects to track per stream. 0 means
-     track an unlimited number of objects. */
-    uint32_t maxObjPerStream;
-    /** Holds the maximum number of objects to track per batch. 0 means
-     track an unlimited number of objects. */
-    uint32_t maxObjPerBatch;
     /** Holds a pointer to a callback for logging messages. */
     typedef void (*logMsg)(int logLevel, const char *format, ...);
 } NvMOTMiscConfig;
@@ -176,13 +173,28 @@ typedef struct _NvMOTRect {
 } NvMOTRect;
 
 /**
+ * @brief Holds the segmentaiton mask of an object.
+ */
+typedef struct _NvMOTMask {
+    /** Holds the segmentation mask. Size is width*height, in row major. Element range is from 0
+     * to 1. */
+    float *data;
+    /** Width of the segmentation mask. */
+    uint32_t width;
+    /** Height of the segmentation mask. */
+    uint32_t height;
+    /** Allocated size. */
+    uint32_t allocatedSize;
+} NvMOTMask;
+
+/**
  * @brief Holds information about an object to be tracked.
  *
  * NvMOT creates an instance of this structure for each tracked object.
  */
 typedef struct _NvMOTObjToTrack {
     /** Holds the class of the object. */
-    uint16_t classId;
+    NvMOTClassId classId;
     /** Holds the bounding box of the object. */
     NvMOTRect bbox;
     /** Holds the detection confidence of the object. */
@@ -220,9 +232,13 @@ typedef struct _NvMOTObjToTrackList {
 typedef struct _NvMOTFrame {
     /** Holds the stream ID of the stream source for this frame. */
     NvMOTStreamId streamID;
+    /** Holds the index of the stream in the sequence of streams */
+    /** Should be constant throughout the tenure of the stream */
+    /** A number ranging from 0 to (maxStreams - 1) */
+    uint32_t seq_index;
     /** Holds the sequential frame number that identifies the frame
      within the stream. */
-    uint32_t frameNum;
+    NvMOTFrameNum frameNum;
     /** Holds the width of the original source frame. */
     uint32_t srcFrameWidth;
     /** Holds the height of the original source frame. */
@@ -252,7 +268,7 @@ typedef struct _NvMOTFrame {
  */
 typedef struct _NvMOTTrackedObj {
     /** Holds the class ID of the object to be tracked. */
-    uint16_t classId;
+    NvMOTClassId classId;
     /** Holds a unique ID for the object, assigned by the tracker. */
     uint64_t trackingId;
     /** Holds the bounding box. */
@@ -263,8 +279,23 @@ typedef struct _NvMOTTrackedObj {
     uint32_t age;
     /** Holds a pointer to the associated input object, if there is one. */
     NvMOTObjToTrack *associatedObjectIn;
-    /** Each target’s reid tensor index in batch.*/
-    int32_t reidInd;
+    /** Each target’s reid vector information.*/
+    NvDsObjReid reid;
+    /** Object visibility. */
+    float visibility;
+    /** Foot location in frame coordinates. */
+    float ptImgFeet[2];
+    /** Foot location in 3D coordinates. */
+    float ptWorldFeet[2];
+    /** Convex hull information projected on frame. */
+    NvDsObjConvexHull convexHull;
+    /** Each object's segmentation mask. */
+    NvMOTMask mask;
+    /** 3D bbox in world co-ordinates. */
+    NvDsObj3DBbox bbox3DWorld;
+    /** 3D bbox in frame co-ordinates. */
+    /** 8 corners of bbox */
+    float bbox3DImg[8][2];
     /** Reserved custom data field. */
     uint8_t reserved[128];
 } NvMOTTrackedObj;
@@ -276,7 +307,7 @@ typedef struct _NvMOTTrackedObjList {
     /** Holds the stream ID of the stream associated with objects in the list.*/
     NvMOTStreamId streamID;
     /** Holds the frame number for objects in the list. */
-    uint32_t frameNum;
+    NvMOTFrameNum frameNum;
     /** Holds a Boolean which is true if this entry in the batch is valid. */
     bool valid;
     /** Holds a pointer to a list or array of object information blocks. */
@@ -306,7 +337,14 @@ typedef struct _NvMOTTrackedObjBatch {
  */
 typedef struct _NvMOTTrackerMiscData {
     /** Holds past frame data of current batch. */
-    NvDsPastFrameObjBatch *pPastFrameObjBatch;
+    NvDsTargetMiscDataBatch *pPastFrameObjBatch;
+
+    /** Holds the history of terminated tracks*/
+    NvDsTargetMiscDataBatch *pTerminatedTrackBatch;
+
+    /** Holds the frame info of shadow tracks*/
+    NvDsTargetMiscDataBatch *pShadowTrackBatch;
+
 } NvMOTTrackerMiscData;
 
 /**
@@ -318,6 +356,12 @@ typedef struct _NvMOTProcessParams {
     uint32_t numFrames;    /**< Holds the number of frames in the batch. */
     NvMOTFrame *frameList; /**< Holds a pointer to an array of frame data. */
 } NvMOTProcessParams;
+
+/**
+ * @brief Holds an opaque context handle.
+ */
+struct NvMOTContext;
+typedef struct NvMOTContext *NvMOTContextHandle;
 
 typedef struct _NvMOTQuery {
     /** Holds flags for supported compute targets. @see NvMOTCompute. */
@@ -339,17 +383,27 @@ typedef struct _NvMOTQuery {
     uint32_t reidFeatureSize;
     /** Whether to output target trajectories in user meta. */
     bool outputTrajectory;
+    /** Whether to output visibility in user meta. */
+    bool outputVisibility;
+    /** Whether to output foot location in user meta. */
+    bool outputFootLocation;
+    /** Whether to output convex hull in user meta. */
+    bool outputConvexHull;
+    /** Holdes maximum number of points in a convex hull. */
+    uint32_t maxConvexHullSize;
     /** Holds a Boolean which is true if outputing past frame is supported. */
     bool supportPastFrame;
     /** Holds flags for whether batch or none batch mode is supported. */
     NvMOTBatchMode batchMode;
+    /** Whether to output terminted Tacks info in user meta. */
+    bool outputTerminatedTracks;
+    /** maximum frame of history to save per terminated track. */
+    uint32_t maxTrajectoryBufferLength;
+    /** Whether to output Shadow Tracks info in user meta. */
+    bool outputShadowTracks;
+    /** Hold the context handle. */
+    NvMOTContextHandle contextHandle;
 } NvMOTQuery;
-
-/**
- * @brief Holds an opaque context handle.
- */
-struct NvMOTContext;
-typedef struct NvMOTContext *NvMOTContextHandle;
 
 /**
  * @brief Initializes a tracking context for a batch of one or more image
@@ -388,7 +442,7 @@ void NvMOT_DeInit(NvMOTContextHandle contextHandle);
  * frames in their respective streams. Once processed, each frame becomes part
  * of the history and the previous frame in its stream.
  *
- * @param [in]  contextHandle  A context handle obtained from NvMOTInit().
+ * @param [in]  contextHandle  A context handle obtained from NvMOT_Init().
  * @param [in]  pParams        A pointer to parameters for the batch
  *                             to be processed.
  * @param [out] pTrackedObjectsBatch
@@ -406,8 +460,9 @@ NvMOTStatus NvMOT_Process(NvMOTContextHandle contextHandle,
 /**
  * @brief Process the past-frame data in the low-level tracker lib and retrieve
  *
- * Given a context and batch of frame(s), process the past-frame data of each tracked object stored
- * in the low-level tracker lib , put it into the past-frame data strcture, and retrieve it
+ * Given a context and batch of frame(s), process the past-frame
+ * data of each tracked object stored in the low-level tracker lib,
+ * put it into the past-frame data strcture, and retrieve it
  *
  * @param [in] pContext The context handle obtained from NvMOTInit()
  * @param [in] pParams Pointer to parameters for the batch of frames with the available stream ID
@@ -452,6 +507,20 @@ NvMOTStatus NvMOT_Query(uint16_t customConfigFilePathSize,
  * @return  Status of stream removal.
  */
 NvMOTStatus NvMOT_RemoveStreams(NvMOTContextHandle contextHandle, NvMOTStreamId streamIdMask);
+
+/**
+ * @brief Updates Dynamic Parameters for the low level tracker
+ *
+ * An optional function
+ *
+ * This function may be called only when all processing is quiesced.
+ *
+ * @param [in] contextHandle    The context handle obtained from NvMOTInit().
+ * @param [in] configStr        Stringified config for the tracker.
+ *
+ * @return  Status of config update
+ */
+NvMOTStatus NvMOT_UpdateParams(NvMOTContextHandle contextHandle, const std::string &configStr);
 
 /** @} */ // end of API group
 

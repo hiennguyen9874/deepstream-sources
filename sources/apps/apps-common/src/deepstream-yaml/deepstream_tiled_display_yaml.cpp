@@ -32,7 +32,9 @@ gboolean parse_tiled_display_yaml(NvDsTiledDisplayConfig *config, gchar *cfg_fil
         } else if (paramKey == "compute-hw") {
             config->compute_hw = itr->second.as<guint>();
         } else if (paramKey == "buffer-pool-size") {
-            config->compute_hw = itr->second.as<guint>();
+            config->buffer_pool_size = itr->second.as<guint>();
+        } else if (paramKey == "square-seq-grid") {
+            config->square_seq_grid = itr->second.as<gboolean>();
         } else {
             cout << "[WARNING] Unknown param found in tiled-display: " << paramKey << endl;
         }

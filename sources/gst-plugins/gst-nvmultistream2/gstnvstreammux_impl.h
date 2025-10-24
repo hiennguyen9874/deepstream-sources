@@ -65,7 +65,7 @@ public:
     {
         void *ret = NULL;
 
-        GstMapInfo info; // TBD FIXME = GST_MAP_INFO_INIT;
+        GstMapInfo info = {0}; // TBD FIXME = GST_MAP_INFO_INIT;
 
         if (gst_buffer_map((GstBuffer *)wrapped, &info, GST_MAP_READ)) {
             raw = ret = info.data;

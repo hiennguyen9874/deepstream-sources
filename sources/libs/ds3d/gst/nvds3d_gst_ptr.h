@@ -1,5 +1,3 @@
-
-
 #ifndef NVDS3D_GST_NVDS3D_GST_H
 #define NVDS3D_GST_NVDS3D_GST_H
 
@@ -36,7 +34,9 @@ struct GstMiniObjectFunc {
     }
     static void unref(GstMiniObjDerived *p)
     {
-        return gst_mini_object_unref(GST_MINI_OBJECT_CAST(p));
+        if (p) {
+            gst_mini_object_unref(GST_MINI_OBJECT_CAST(p));
+        }
     }
 };
 
@@ -113,7 +113,7 @@ using BufferPtr = GstMiniObjPtr<GstBuffer>;
 class PadPtr : public GstObjPtr<GstPad> {
 public:
     PadPtr(GstPad *pad, bool takeOwner = true)
-        : GstObjPtr<GstPad>(pad, (GST_PAD_NAME(pad) ? GST_PAD_NAME(pad) : ""), takeOwner)
+        : GstObjPtr<GstPad>(pad, (pad && (GST_PAD_NAME(pad)) ? GST_PAD_NAME(pad) : ""), takeOwner)
     {
     }
     template <typename... Args>
@@ -169,7 +169,7 @@ public:
     ElePtr &link(ElePtr &next, std::string &sinkPadName)
     {
         auto srcPad = gst_element_get_static_pad(get(), "src");
-        auto sinkPad = gst_element_get_request_pad(next.get(), sinkPadName.c_str());
+        auto sinkPad = gst_element_request_pad_simple(next.get(), sinkPadName.c_str());
         DS3D_THROW_ERROR_FMT(gst_pad_link(srcPad, sinkPad) == GST_PAD_LINK_OK, ErrCode::kGst,
                              "link element %s[%s] to %s[%s] failed", name().c_str(), "src",
                              next.name().c_str(), sinkPadName.c_str());

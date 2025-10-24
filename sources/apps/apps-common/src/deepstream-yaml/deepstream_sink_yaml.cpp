@@ -15,6 +15,9 @@ gboolean parse_sink_yaml(NvDsSinkSubBinConfig *config, std::string group_str, gc
 
     config->encoder_config.rtsp_port = 8554;
     config->encoder_config.udp_port = 5000;
+    config->encoder_config.codec = NV_DS_ENCODER_H264;
+    config->encoder_config.container = NV_DS_CONTAINER_MP4;
+    config->encoder_config.compute_hw = 0;
     config->render_config.qos = FALSE;
     config->link_to_demux = FALSE;
     config->msg_conv_broker_config.new_api = FALSE;
@@ -52,6 +55,8 @@ gboolean parse_sink_yaml(NvDsSinkSubBinConfig *config, std::string group_str, gc
             config->encoder_config.container = (NvDsContainerType)itr->second.as<int>();
         } else if (paramKey == "codec") {
             config->encoder_config.codec = (NvDsEncoderType)itr->second.as<int>();
+        } else if (paramKey == "compute-hw") {
+            config->encoder_config.compute_hw = itr->second.as<int>();
         } else if (paramKey == "enc-type") {
             config->encoder_config.enc_type = (NvDsEncHwSwType)itr->second.as<int>();
         } else if (paramKey == "bitrate") {
@@ -63,7 +68,7 @@ gboolean parse_sink_yaml(NvDsSinkSubBinConfig *config, std::string group_str, gc
         } else if (paramKey == "output-file") {
             std::string temp = itr->second.as<std::string>();
             config->encoder_config.output_file_path = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->encoder_config.output_file_path, temp.c_str(), 1024);
+            std::strncpy(config->encoder_config.output_file_path, temp.c_str(), 1023);
         } else if (paramKey == "source-id") {
             config->source_id = itr->second.as<guint>();
         } else if (paramKey == "rtsp-port") {
@@ -85,26 +90,27 @@ gboolean parse_sink_yaml(NvDsSinkSubBinConfig *config, std::string group_str, gc
         } else if (paramKey == "msg-conv-config" || paramKey == "msg-conv-payload-type" ||
                    paramKey == "msg-conv-msg2p-lib" || paramKey == "msg-conv-comp-id" ||
                    paramKey == "debug-payload-dir" || paramKey == "multiple-payloads" ||
-                   paramKey == "msg-conv-msg2p-new-api" || paramKey == "msg-conv-frame-interval") {
+                   paramKey == "msg-conv-msg2p-new-api" || paramKey == "msg-conv-frame-interval" ||
+                   paramKey == "msg-conv-dummy-payload") {
             ret = parse_msgconv_yaml(&config->msg_conv_broker_config, group_str, cfg_file_path);
             if (!ret)
                 goto done;
         } else if (paramKey == "msg-broker-proto-lib") {
             std::string temp = itr->second.as<std::string>();
             config->msg_conv_broker_config.proto_lib = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->msg_conv_broker_config.proto_lib, temp.c_str(), 1024);
+            std::strncpy(config->msg_conv_broker_config.proto_lib, temp.c_str(), 1023);
         } else if (paramKey == "msg-broker-conn-str") {
             std::string temp = itr->second.as<std::string>();
             config->msg_conv_broker_config.conn_str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->msg_conv_broker_config.conn_str, temp.c_str(), 1024);
+            std::strncpy(config->msg_conv_broker_config.conn_str, temp.c_str(), 1023);
         } else if (paramKey == "topic") {
             std::string temp = itr->second.as<std::string>();
             config->msg_conv_broker_config.topic = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->msg_conv_broker_config.topic, temp.c_str(), 1024);
+            std::strncpy(config->msg_conv_broker_config.topic, temp.c_str(), 1023);
         } else if (paramKey == "msg-broker-config") {
             std::string temp = itr->second.as<std::string>();
             char *str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(str, temp.c_str(), 1024);
+            std::strncpy(str, temp.c_str(), 1023);
             config->msg_conv_broker_config.broker_config_file_path =
                 (char *)malloc(sizeof(char) * 1024);
             if (!get_absolute_file_path_yaml(

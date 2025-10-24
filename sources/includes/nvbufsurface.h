@@ -44,11 +44,8 @@ extern "C" {
 #define NVBUFSURFACE_CHROMA_SUBSAMPLING_HORIZ_DEFAULT 0
 #define NVBUFSURFACE_CHROMA_SUBSAMPLING_VERT_DEFAULT 1
 
-#define NVBUFSURFACE_CHROMA_SUBSAMPLING_PARAMS_DEFAULT   \
-    {                                                    \
-        NVBUFSURFACE_CHROMA_SUBSAMPLING_HORIZ_DEFAULT,   \
-            NVBUFSURFACE_CHROMA_SUBSAMPLING_VERT_DEFAULT \
-    }
+#define NVBUFSURFACE_CHROMA_SUBSAMPLING_PARAMS_DEFAULT \
+    {NVBUFSURFACE_CHROMA_SUBSAMPLING_HORIZ_DEFAULT, NVBUFSURFACE_CHROMA_SUBSAMPLING_VERT_DEFAULT}
 
 /**
  *  Defines mapping types of NvBufSurface.
@@ -264,6 +261,38 @@ typedef enum {
     NVBUF_COLOR_FORMAT_NV12_12LE_709,
     /** Specifies BT.709 colorspace - Y/CbCr ER 4:2:0 12-bit multi-planar. */
     NVBUF_COLOR_FORMAT_NV12_12LE_709_ER,
+    /** Specifies 8 bit GRAY scale ER - single plane */
+    NVBUF_COLOR_FORMAT_GRAY8_ER,
+    /** Specifies BT.709 colorspace - Y/CbCr 4:2:2 planar */
+    NVBUF_COLOR_FORMAT_UYVY_709,
+    /** Specifies BT.709 colorspace - Y/CbCr ER 4:2:2 planar */
+    NVBUF_COLOR_FORMAT_UYVY_709_ER,
+    /** Specifies BT.2020 colorspace - Y/CbCr 4:2:2 planar */
+    NVBUF_COLOR_FORMAT_UYVY_2020,
+    /** Specifies 16 bit GRAY scale - single plane */
+    NVBUF_COLOR_FORMAT_GRAY16_LE,
+    /** Specifies 64 bit BGRA (B16 G16 R16 A16) interleaved */
+    NVBUF_COLOR_FORMAT_BGRA64_LE,
+    /** Specifies BT.2020 colorspace - Y/CbCr 4:2:2 multi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_2020,
+    /** Specifies BT.601_ER colorspace - Y/CbCr 4:2:2 10-bit semi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_10LE_ER,
+    /** Specifies BT.709 colorspace - Y/CbCr 4:2:2 10-bit semi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_10LE_709,
+    /** Specifies BT.709_ER colorspace - Y/CbCr 4:2:2 10-bit semi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_10LE_709_ER,
+    /** Specifies BT.2020 colorspace - Y/CbCr 4:2:2 10-bit semi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_10LE_2020,
+    /** Specifies BT.601 colorspace - Y/CbCr 4:2:2 12-bit semi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_12LE,
+    /** Specifies BT.601_ER colorspace - Y/CbCr 4:2:2 12-bit semi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_12LE_ER,
+    /** Specifies BT.709 colorspace - Y/CbCr 4:2:2 12-bit semi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_12LE_709,
+    /** Specifies BT.709_ER colorspace - Y/CbCr 4:2:2 12-bit semi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_12LE_709_ER,
+    /** Specifies BT.2020 colorspace - Y/CbCr 4:2:2 12-bit semi-planar. */
+    NVBUF_COLOR_FORMAT_NV16_12LE_2020,
     NVBUF_COLOR_FORMAT_LAST
 } NvBufSurfaceColorFormat;
 
@@ -323,7 +352,9 @@ typedef struct NvBufSurfacePlaneParamsEx {
     uint32_t physicaladdress[NVBUF_MAX_PLANES];
     /** flags associated with planes */
     uint64_t flags[NVBUF_MAX_PLANES];
-
+    /** DRM modifier for plane */
+    uint64_t drmModifier[NVBUF_MAX_PLANES];
+    /** Holds the reserved space for future use. */
     void *_reserved[STRUCTURE_PADDING * NVBUF_MAX_PLANES];
 } NvBufSurfacePlaneParamsEx;
 
@@ -345,17 +376,23 @@ typedef struct NvBufSurfacePlaneParams {
     uint32_t psize[NVBUF_MAX_PLANES];
     /** Holds the number of bytes occupied by a pixel in each plane. */
     uint32_t bytesPerPix[NVBUF_MAX_PLANES];
-
+    /** Holds the reserved space for future use. */
     void *_reserved[STRUCTURE_PADDING * NVBUF_MAX_PLANES];
 } NvBufSurfacePlaneParams;
 
 /**
  * Holds Chroma Subsampling parameters for NvBufSurface allocation.
+ * The members chromaLocHoriz and chromaLocVert accept these values:
+ * 0: Left horizontal or top vertical position
+ * 1: Center horizontal or center vertical position
+ * 2: Right horizontal or bottom vertical position
  */
 typedef struct NvBufSurfaceChromaSubsamplingParams {
     /** location settings */
     uint8_t chromaLocHoriz;
     uint8_t chromaLocVert;
+    /** Reserved for alignment */
+    uint8_t _reserved[6];
 } NvBufSurfaceChromaSubsamplingParams;
 
 /**
@@ -381,6 +418,8 @@ typedef struct NvBufSurfaceCreateParams {
     NvBufSurfaceLayout layout;
     /** Holds the type of memory to be allocated. */
     NvBufSurfaceMemType memType;
+    /** Holds the reserved space for future use. */
+    void *_reserved[STRUCTURE_PADDING];
 } NvBufSurfaceCreateParams;
 
 /**
@@ -397,15 +436,15 @@ typedef struct NvBufSurfaceAllocateParams {
     /** components tag to be used for memory allocation */
     NvBufSurfaceTag memtag;
     /** disable pitch padding allocation only applicable for cuda and system memory allocation
-        pitch would be width times bytes per pixel for the plane, for odd width it would be
-        multiple of 2, also note for some non standard video resolution cuda kernels may fail
-        due to unaligned pitch
-        */
+       pitch would be width times bytes per pixel for the plane, for odd width it would be
+       multiple of 2, also note for some non standard video resolution cuda kernels may fail
+       due to unaligned pitch
+     */
     bool disablePitchPadding;
     /** Used void* from custom param for 64 bit machine, using other uint32_t param */
     uint32_t _reservedParam;
-
-    void *_reserved[STRUCTURE_PADDING - 1];
+    /** Holds the reserved space for future use. */
+    void *_reserved[STRUCTURE_PADDING];
 } NvBufSurfaceAllocateParams;
 
 /**
@@ -416,7 +455,11 @@ typedef struct NvBufSurfaceMappedAddr {
     void *addr[NVBUF_MAX_PLANES];
     /** Holds a pointer to a mapped EGLImage. */
     void *eglImage;
-
+    /** Holds a pointer to a mapped NVRM memory */
+    void *nvmmPtr;
+    /** Holds a pointer to a mapped CUDA memory */
+    void *cudaPtr;
+    /** Holds the reserved space for future use. */
     void *_reserved[STRUCTURE_PADDING];
 } NvBufSurfaceMappedAddr;
 
@@ -440,6 +483,32 @@ typedef struct NvBufSurfaceParamsEx {
 
     void *_reserved[STRUCTURE_PADDING];
 } NvBufSurfaceParamsEx;
+
+/**
+ * Holds information of CUDA buffer.
+ * Applicable for tegra OpenRM only.
+ */
+typedef struct NvBufSurfaceCudaBuffer {
+    /**
+     * Holds a base pointer to allocated CUDA memory.
+     * It is different from dataPtr when CUDA allocated
+     * address is not page aligned for image buffers.
+     * It is same as dataPtr for other buffers.
+     */
+    void *basePtr;
+    /**
+     * Holds a page aligned data pointer to CUDA memory for image buffers
+     * if CUDA allocated address is not page aligned.
+     * It is same as basePtr for other buffers.
+     */
+    void *dataPtr;
+    /** Holds a pointer to external CUDA memory for imported CUDA buffers */
+    void *extMem;
+    /** Holds a pointer to external CUDA mipmaped array for imported CUDA buffers */
+    void *mipmap;
+    /** Reserved */
+    uint8_t reserved[64];
+} NvBufSurfaceCudaBuffer;
 
 /**
  * Hold the information of single buffer in the batch.
@@ -470,8 +539,11 @@ typedef struct NvBufSurfaceParams {
     NvBufSurfaceMappedAddr mappedAddr;
     /** pointers of extended parameters of single buffer in the batch.*/
     NvBufSurfaceParamsEx *paramex;
+    /** Holds a pointer to CUDA buffer. Applicable for only CUDA Device and CUDA Host memory on
+     * tegra OpenRM.*/
+    NvBufSurfaceCudaBuffer *cudaBuffer;
 
-    void *_reserved[STRUCTURE_PADDING - 1];
+    void *_reserved[STRUCTURE_PADDING];
 } NvBufSurfaceParams;
 
 /**
@@ -492,6 +564,8 @@ typedef struct NvBufSurface {
     NvBufSurfaceMemType memType;
     /** Holds a pointer to an array of batched buffers. */
     NvBufSurfaceParams *surfaceList;
+    /** Holds a flag for Imported buffer. */
+    bool isImportedBuf;
 
     void *_reserved[STRUCTURE_PADDING];
 } NvBufSurface;
@@ -521,6 +595,21 @@ typedef struct NvBufSurfaceMapPlaneParams {
 } NvBufSurfaceMapPlaneParams;
 
 /**
+ * CUDA IPC memory handle for NvBufSurface
+ */
+typedef struct NvBufSurfaceCudaIpcMemHandle_t {
+    char reserved[64];
+} NvBufSurfaceCudaIpcMemHandle;
+
+/**
+ * The extended map parameters NvBufSurface
+ */
+typedef struct NvBufSurfaceExtendedMapParams_t {
+    NvBufSurfaceCudaIpcMemHandle memHandle;
+    void *reserved[64];
+} NvBufSurfaceExtendedMapParams;
+
+/**
  * Holds buffer parameters to map the buffer received from another process.
  */
 typedef struct NvBufSurfaceMapParams {
@@ -544,9 +633,44 @@ typedef struct NvBufSurfaceMapParams {
     NvBufSurfaceChromaSubsamplingParams chromaSubsampling;
     /** Holds plane parameters */
     NvBufSurfaceMapPlaneParams planes[NVBUF_MAX_PLANES];
+    /** Holds the extended Map parameters */
+    void *extendedMapParams;
+    /** Holds the reserved space for future use. */
+    void *_reserved[STRUCTURE_PADDING];
+} NvBufSurfaceMapParams;
+
+/**
+ * Holds information about mapped CUDA buffer
+ */
+typedef struct NvBufSurfaceNvmmBuffer {
+    /** Holds a pointer to mapped nvmm memory */
+    void *dataPtr;
+    /** Holds a DMABUF FD */
+    uint64_t bufferDesc;
     /** Reserved */
     uint8_t reserved[64];
-} NvBufSurfaceMapParams;
+} NvBufSurfaceNvmmBuffer;
+
+/**
+ * Defines the type of underlying kernel driver detected for GPU access.
+ */
+typedef enum {
+    NVBUF_DRIVER_TYPE_UNKNOWN = 0,
+    NVBUF_DRIVER_TYPE_NVGPU,
+    NVBUF_DRIVER_TYPE_RM
+} NvBufSurfaceDriverType;
+
+/**
+ * Holds information about the underlying device.
+ */
+typedef struct NvBufSurfaceDeviceInfo {
+    /** The detected device type (nvgpu, OpenRM, etc.). */
+    NvBufSurfaceDriverType driverType;
+    /** Indicates if VIC is present on the platform. */
+    bool isVicPresent;
+    /** Reserved for future use. */
+    uint8_t reserved[64];
+} NvBufSurfaceDeviceInfo;
 
 /**
  * \brief  Allocates a batch of buffers.
@@ -677,7 +801,7 @@ int NvBufSurfaceCopy(NvBufSurface *srcSurf, NvBufSurface *dstSurf);
  * This function can be used to copy plane memory content from source raw buffer pointer
  * to specific destination batch buffer of supported memory type.
  *
- * @param[in] surf pointer to NvBufSurface structure.
+ * @param[in] Surf pointer to NvBufSurface structure.
  * @param[in] index index of buffer in the batch.
  * @param[in] plane index of plane in buffer.
  * @param[in] out_width aligned width of the raw data plane.
@@ -689,8 +813,8 @@ int NvBufSurfaceCopy(NvBufSurface *srcSurf, NvBufSurface *dstSurf);
 int NvBufSurface2Raw(NvBufSurface *Surf,
                      unsigned int index,
                      unsigned int plane,
-                     unsigned int outwidth,
-                     unsigned int outheight,
+                     unsigned int out_width,
+                     unsigned int out_height,
                      unsigned char *ptr);
 
 /**
@@ -705,15 +829,15 @@ int NvBufSurface2Raw(NvBufSurface *Surf,
  * @param[in] plane index of plane in buffer.
  * @param[in] in_width aligned width of the raw data plane.
  * @param[in] in_height aligned height of the raw data plane.
- * @param[in] surf pointer to NvBufSurface structure.
+ * @param[in] Surf pointer to NvBufSurface structure.
  *
  * @return 0 for success, -1 for failure.
  */
 int Raw2NvBufSurface(unsigned char *ptr,
                      unsigned int index,
                      unsigned int plane,
-                     unsigned int inwidth,
-                     unsigned int inheight,
+                     unsigned int in_width,
+                     unsigned int in_height,
                      NvBufSurface *Surf);
 
 /**
@@ -838,7 +962,90 @@ int NvBufSurfaceImport(NvBufSurface **out_nvbuf_surf, const NvBufSurfaceMapParam
  */
 int NvBufSurfaceGetMapParams(const NvBufSurface *surf, int index, NvBufSurfaceMapParams *params);
 
-/** @} */
+/**
+ * \brief  Creates an CUDA buffer from the memory of one or more
+ * \ref NvBufSurface buffers.
+ *
+ * Only memory type \ref NVBUF_MEM_SURFACE_ARRAY is supported.
+ *
+ * This function returns the created CUDA buffer by storing its address at
+ * \a surf->surfaceList->mappedAddr->cudaPtr. (\a surf is a pointer to
+ * an NvBufSurface. \a surfaceList is a pointer to an \ref NvBufSurfaceParams.
+ * \a mappedAddr is a pointer to an \ref NvBufSurfaceMappedAddr.
+ * \a cudaPtr is a pointer to an \ref NvBufSurfaceCudaBuffer.
+ *
+ * You can use this function in scenarios where a CUDA operation on Jetson
+ * hardware memory (identified by \ref NVBUF_MEM_SURFACE_ARRAY) is required.
+ * The NvBufSurfaceCudaBuffer struct provided by this function can be used
+ * to get dataPtr of CUDA memory.
+ *
+ * @param[in,out] surf  A pointer to an NvBufSurface structure. The function
+ *                      stores a pointer to the created CUDA buffer in
+ *                      a descendant of this structure; see the notes above.
+ * @param[in]     index Index of a buffer in the batch. -1 specifies all buffers
+ *                      in the batch.
+ *
+ * @return 0 for success, or -1 otherwise.
+ */
+int NvBufSurfaceMapCudaBuffer(NvBufSurface *surf, int index);
+
+/**
+ * \brief  Destroys the previously created CUDA buffer.
+ *
+ * @param[in] surf      A pointer to an \ref NvBufSurface structure.
+ * @param[in] index     The index of a buffer in the batch. -1 specifies all
+ *                      buffers in the batch.
+ *
+ * @return 0 if successful, or -1 otherwise.
+ */
+int NvBufSurfaceUnMapCudaBuffer(NvBufSurface *surf, int index);
+
+/**
+ * \brief  Creates an NVMM buffer from the memory of one or more
+ * \ref NvBufSurface buffers.
+ *
+ * Only memory type \ref NVBUF_MEM_CUDA_DEVICE and \ref NVBUF_MEM_CUDA_PINNED
+ * are supported.
+ *
+ * This function returns the created NVMM buffer by storing its address at
+ * \a surf->surfaceList->mappedAddr->nvmmPtr. (\a surf is a pointer to
+ * an NvBufSurface. \a surfaceList is a pointer to an \ref NvBufSurfaceParams.
+ * \a mappedAddr is a pointer to an \ref NvBufSurfaceMappedAddr.
+ * \a nvmmPtr is a pointer to NVMM buffer of memory type \ref NVBUF_MEM_SURFACE_ARRAY.
+ *
+ * You can use this function in scenarios where a NVBUF_MEM_SURFACE_ARRAY operation
+ * on Jetson hardware memory identified by \ref NVBUF_MEM_CUDA_DEVICE and
+ * \ref NVBUF_MEM_CUDA_PINNED are required.
+ *
+ * @param[in,out] surf  A pointer to an NvBufSurface structure. The function
+ *                      stores a pointer to the created NVMM buffer in
+ *                      a descendant of this structure; see the notes above.
+ * @param[in]     index Index of a buffer in the batch. -1 specifies all buffers
+ *                      in the batch.
+ *
+ * @return 0 for success, or -1 otherwise.
+ */
+int NvBufSurfaceMapNvmmBuffer(NvBufSurface *surf, int index);
+
+/**
+ * \brief  Destroys the previously created NVMM buffer.
+ *
+ * @param[in] surf      A pointer to an \ref NvBufSurface structure.
+ * @param[in] index     The index of a buffer in the batch. -1 specifies all
+ *                      buffers in the batch.
+ *
+ * @return 0 if successful, or -1 otherwise.
+ */
+int NvBufSurfaceUnMapNvmmBuffer(NvBufSurface *surf, int index);
+
+/**
+ * \brief  Retrieves information about the underlying GPU device driver.
+ *
+ * This function attempts to determine if the system is using 'nvgpu' or
+ * an OpenRM-based driver by checking loaded kernel modules. Also it checks
+ * if VIC is present on the platform.
+ */
+int NvBufSurfaceGetDeviceInfo(NvBufSurfaceDeviceInfo *info);
 
 #ifdef __cplusplus
 }

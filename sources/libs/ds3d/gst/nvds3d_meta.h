@@ -1,5 +1,3 @@
-
-
 #ifndef _NVDS3D_GST_NVDS3D_META__H
 #define _NVDS3D_GST_NVDS3D_META__H
 

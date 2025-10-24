@@ -1,11 +1,11 @@
 #ifndef __NVGSTDS_SECONDARY_GIE_H__
 #define __NVGSTDS_SECONDARY_GIE_H__
 
+#include "deepstream_gie.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "deepstream_gie.h"
 
 typedef struct {
     GstElement *queue;

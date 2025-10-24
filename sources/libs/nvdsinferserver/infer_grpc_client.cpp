@@ -164,7 +164,7 @@ NvDsInferStatus InferGrpcClient::UnloadModel(const std::string &model_name, cons
     return NVDSINFER_SUCCESS;
 }
 
-#ifndef __aarch64__
+#if !defined(__aarch64__) || defined(AARCH64_IS_SBSA)
 static cudaError_t CreateCUDAIPCHandle(cudaIpcMemHandle_t *cudaHandle,
                                        void *deviceMemPtr,
                                        int deviceId)
@@ -188,12 +188,14 @@ tc::Error InferGrpcClient::SetInputCudaSharedMemory(tc::InferInput *inferInput,
     char bufferName[MAX_STR_LEN];
     const InferBufferDescription &inDesc = inbuf->getBufDesc();
     size_t bytes = inbuf->getTotalBytes();
+    size_t bufOffset = inbuf->getBufOffset(0);
+    void *bufBase = (void *)((char *)inbuf->getBufPtr(0) - bufOffset);
+    size_t bufSize = bufOffset + bytes;
 
     snprintf(bufferName, MAX_STR_LEN, "inbuf_%p_%lu", inbuf.get(), bufId);
     std::string inputCudaBufName(bufferName);
 
-    cudaError_t cuErr =
-        CreateCUDAIPCHandle(&inputCudaHandle, (void *)inbuf->getBufPtr(0), inDesc.devId);
+    cudaError_t cuErr = CreateCUDAIPCHandle(&inputCudaHandle, bufBase, inDesc.devId);
     if (cuErr != cudaSuccess) {
         InferError("Failed to create IPC handle, err :%d, err_str:%s", (int)cuErr,
                    cudaGetErrorName(cuErr));
@@ -201,13 +203,12 @@ tc::Error InferGrpcClient::SetInputCudaSharedMemory(tc::InferInput *inferInput,
     }
 
     err = m_GrpcClient->RegisterCudaSharedMemory(inputCudaBufName, inputCudaHandle, inDesc.devId,
-                                                 bytes);
+                                                 bufSize);
     if (!err.IsOk()) {
         InferError("Failed to register CUDA shared memory.");
         return err;
     }
 
-    size_t bufOffset = inbuf->getBufOffset(0);
     if (bufOffset == (size_t)-1) {
         return tc::Error("Invalid CUDA buffer offset.");
     }
@@ -233,7 +234,6 @@ SharedGrpcRequest InferGrpcClient::createRequest(const std::string &model,
                                                  const std::vector<TritonClassParams> &classList)
 {
     tc::Error err;
-    tc::InferInput *inferInput;
     SharedGrpcRequest request;
 
     SharedBatchArray inputs = std::dynamic_pointer_cast<BaseBatchArray>(input);
@@ -249,6 +249,7 @@ SharedGrpcRequest InferGrpcClient::createRequest(const std::string &model,
     void *hostMem = NULL;
 
     for (auto &inbuf : inBufs) {
+        tc::InferInput *inferInput;
         const InferBufferDescription &inDesc = inbuf->getBufDesc();
 
         InferDims fullShape = fullDims(inbuf->getBatchSize(), inDesc.dims);
@@ -282,7 +283,7 @@ SharedGrpcRequest InferGrpcClient::createRequest(const std::string &model,
                                (int)err, cudaGetErrorName(err));
                 }
             }
-#ifndef __aarch64__
+#if !defined(__aarch64__) || defined(AARCH64_IS_SBSA)
             if (m_EnableCudaBufferSharing) {
                 err = SetInputCudaSharedMemory(inferInput, inbuf, request, inputs->bufId());
             } else
@@ -396,7 +397,7 @@ void InferGrpcClient::InferComplete(tc::InferResult *result,
     InferDims dsDims{0, {0}};
     uint32_t batchSize = 0;
 
-#ifndef __aarch64__
+#if !defined(__aarch64__) || defined(AARCH64_IS_SBSA)
     for (auto &cudaBufName : request->getInputCudaBufNames()) {
         err = m_GrpcClient->UnregisterCudaSharedMemory(cudaBufName);
         if (!err.IsOk()) {

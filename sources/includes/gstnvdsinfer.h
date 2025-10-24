@@ -81,6 +81,10 @@ typedef struct {
     NvDsInferNetworkInfo network_info;
     /** Whether aspect ratio was maintained while scaling to network resolution */
     gboolean maintain_aspect_ratio;
+    /** Whether symmetric padding was maintained while scaling to network resolution
+     * valid only when maintain_aspect_ratio is true
+     */
+    gboolean symmetric_padding;
 } NvDsInferTensorMeta;
 
 /**

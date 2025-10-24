@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -31,16 +31,17 @@ CXX:= g++ -std=c++17
 
 SRCS:= postprocesslib_impl.cpp post_processor.cpp post_processor_detect.cpp \
        post_processor_instance_segment.cpp  post_processor_custom_impl.cpp \
-       post_processor_classify.cpp post_processor_segmentation.cpp
+       post_processor_classify.cpp post_processor_segmentation.cpp post_processor_bodypose.cpp
 
 INCS:= $(wildcard *.h)
 LIB:=libpostprocess_impl.so
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=8.0
 
-CFLAGS+= -fPIC -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -DDS_VERSION=\"8.0.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
-	 -I ../../../includes -I../includes -I /opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/sources/includes -I./
+	 -I ../../../includes -I../includes  -I../../eigen/ -I /opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/sources/includes -I./ \
+	 -I /opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/sources/gst-plugins/gst-nvdspostprocess/includes
 
 GST_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/gst-plugins/
 LIB_INSTALL_DIR?=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
@@ -53,7 +54,7 @@ endif
 LIBS += -shared -Wl,-no-undefined -L/usr/lib/x86_64-linux-gnu/  -lyaml-cpp \
 	-L/usr/local/cuda-$(CUDA_VER)/lib64/ -lcudart -ldl -lpthread \
 	-L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_meta -lnvds_meta \
-	-lnvbufsurface -lnvbufsurftransform -lnvdsbufferpool -L/usr/local/deepstream -lnvds_inferutils\
+	-lnvbufsurface -lnvbufsurftransform -lnvdsbufferpool  -lnvds_inferutils\
 	-Wl,-rpath,$(LIB_INSTALL_DIR)
 
 OBJS:= $(SRCS:.cpp=.o)

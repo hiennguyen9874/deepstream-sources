@@ -24,6 +24,25 @@ __global__ void NvDsPreProcessConvert_CxToP3FloatKernel(float *outBuffer,
     }
 }
 
+__global__ void NvDsPreProcessConvert_CxToP3HalfKernel(half *outBuffer,
+                                                       unsigned char *inBuffer,
+                                                       unsigned int width,
+                                                       unsigned int height,
+                                                       unsigned int pitch,
+                                                       unsigned int inputPixelSize,
+                                                       float scaleFactor)
+{
+    unsigned int row = blockIdx.y * blockDim.y + threadIdx.y;
+    unsigned int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (col < width && row < height) {
+        for (unsigned int k = 0; k < 3; k++) {
+            outBuffer[width * height * k + row * width + col] =
+                scaleFactor * inBuffer[row * pitch + col * inputPixelSize + k];
+        }
+    }
+}
+
 __global__ void NvDsPreProcessConvert_CxToL3FloatKernel(float *outBuffer,
                                                         unsigned char *inBuffer,
                                                         unsigned int width,
@@ -45,6 +64,28 @@ __global__ void NvDsPreProcessConvert_CxToL3FloatKernel(float *outBuffer,
 
 __global__ void NvDsPreProcessConvert_CxToP3FloatKernelWithMeanSubtraction(
     float *outBuffer,
+    unsigned char *inBuffer,
+    unsigned int width,
+    unsigned int height,
+    unsigned int pitch,
+    unsigned int inputPixelSize,
+    float scaleFactor,
+    float *meanDataBuffer)
+{
+    unsigned int row = blockIdx.y * blockDim.y + threadIdx.y;
+    unsigned int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (col < width && row < height) {
+        for (unsigned int k = 0; k < 3; k++) {
+            outBuffer[width * height * k + row * width + col] =
+                scaleFactor * ((float)inBuffer[row * pitch + col * inputPixelSize + k] -
+                               meanDataBuffer[(row * width * 3) + (col * 3) + k]);
+        }
+    }
+}
+
+__global__ void NvDsPreProcessConvert_CxToP3HalfKernelWithMeanSubtraction(
+    half *outBuffer,
     unsigned char *inBuffer,
     unsigned int width,
     unsigned int height,
@@ -87,6 +128,25 @@ __global__ void NvDsPreProcessConvert_CxToL3FloatKernelWithMeanSubtraction(
     }
 }
 
+__global__ void NvDsPreProcessConvert_CxToP3RHalfKernel(half *outBuffer,
+                                                        unsigned char *inBuffer,
+                                                        unsigned int width,
+                                                        unsigned int height,
+                                                        unsigned int pitch,
+                                                        unsigned int inputPixelSize,
+                                                        float scaleFactor)
+{
+    unsigned int row = blockIdx.y * blockDim.y + threadIdx.y;
+    unsigned int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (col < width && row < height) {
+        for (unsigned int k = 0; k < 3; k++) {
+            outBuffer[width * height * k + row * width + col] =
+                scaleFactor * inBuffer[row * pitch + col * inputPixelSize + (2 - k)];
+        }
+    }
+}
+
 __global__ void NvDsPreProcessConvert_CxToP3RFloatKernel(float *outBuffer,
                                                          unsigned char *inBuffer,
                                                          unsigned int width,
@@ -121,6 +181,28 @@ __global__ void NvDsPreProcessConvert_CxToL3RFloatKernel(float *outBuffer,
         for (unsigned int k = 0; k < 3; k++) {
             outBuffer[row * width * 3 + col * 3 + k] =
                 scaleFactor * inBuffer[row * pitch + col * inputPixelSize + (2 - k)];
+        }
+    }
+}
+
+__global__ void NvDsPreProcessConvert_CxToP3RHalfKernelWithMeanSubtraction(
+    half *outBuffer,
+    unsigned char *inBuffer,
+    unsigned int width,
+    unsigned int height,
+    unsigned int pitch,
+    unsigned int inputPixelSize,
+    float scaleFactor,
+    float *meanDataBuffer)
+{
+    unsigned int row = blockIdx.y * blockDim.y + threadIdx.y;
+    unsigned int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (col < width && row < height) {
+        for (unsigned int k = 0; k < 3; k++) {
+            outBuffer[width * height * k + row * width + col] =
+                scaleFactor * ((float)inBuffer[row * pitch + col * inputPixelSize + (2 - k)] -
+                               meanDataBuffer[(row * width * 3) + (col * 3) + k]);
         }
     }
 }
@@ -302,6 +384,29 @@ void NvDsPreProcessConvert_C4ToP3Float(float *outBuffer,
     }
 }
 
+void NvDsPreProcessConvert_C4ToP3Half(half *outBuffer,
+                                      unsigned char *inBuffer,
+                                      unsigned int width,
+                                      unsigned int height,
+                                      unsigned int pitch,
+                                      float scaleFactor,
+                                      float *meanDataBuffer,
+                                      cudaStream_t stream)
+{
+    dim3 threadsPerBlock(THREADS_PER_BLOCK, THREADS_PER_BLOCK);
+    dim3 blocks((width + THREADS_PER_BLOCK_1) / threadsPerBlock.x,
+                (height + THREADS_PER_BLOCK_1) / threadsPerBlock.y);
+
+    if (meanDataBuffer == NULL) {
+        NvDsPreProcessConvert_CxToP3HalfKernel<<<blocks, threadsPerBlock, 0, stream>>>(
+            outBuffer, inBuffer, width, height, pitch, 4, scaleFactor);
+    } else {
+        NvDsPreProcessConvert_CxToP3HalfKernelWithMeanSubtraction<<<blocks, threadsPerBlock, 0,
+                                                                    stream>>>(
+            outBuffer, inBuffer, width, height, pitch, 4, scaleFactor, meanDataBuffer);
+    }
+}
+
 void NvDsPreProcessConvert_C4ToL3Float(float *outBuffer,
                                        unsigned char *inBuffer,
                                        unsigned int width,
@@ -368,6 +473,29 @@ void NvDsPreProcessConvert_C3ToL3RFloat(float *outBuffer,
         NvDsPreProcessConvert_CxToL3RFloatKernelWithMeanSubtraction<<<blocks, threadsPerBlock, 0,
                                                                       stream>>>(
             outBuffer, inBuffer, width, height, pitch, 3, scaleFactor, meanDataBuffer);
+    }
+}
+
+void NvDsPreProcessConvert_C4ToP3RHalf(half *outBuffer,
+                                       unsigned char *inBuffer,
+                                       unsigned int width,
+                                       unsigned int height,
+                                       unsigned int pitch,
+                                       float scaleFactor,
+                                       float *meanDataBuffer,
+                                       cudaStream_t stream)
+{
+    dim3 threadsPerBlock(THREADS_PER_BLOCK, THREADS_PER_BLOCK);
+    dim3 blocks((width + THREADS_PER_BLOCK_1) / threadsPerBlock.x,
+                (height + THREADS_PER_BLOCK_1) / threadsPerBlock.y);
+
+    if (meanDataBuffer == NULL) {
+        NvDsPreProcessConvert_CxToP3RHalfKernel<<<blocks, threadsPerBlock, 0, stream>>>(
+            outBuffer, inBuffer, width, height, pitch, 4, scaleFactor);
+    } else {
+        NvDsPreProcessConvert_CxToP3RHalfKernelWithMeanSubtraction<<<blocks, threadsPerBlock, 0,
+                                                                     stream>>>(
+            outBuffer, inBuffer, width, height, pitch, 4, scaleFactor, meanDataBuffer);
     }
 }
 

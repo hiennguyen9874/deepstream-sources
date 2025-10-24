@@ -312,6 +312,14 @@ void BatchPolicy::set_batch_size(unsigned int size)
     config.batch_size = size;
 }
 
+void BatchPolicy::set_batch_push_timeout(unsigned int timeout)
+{
+    config.overall_min_fps_n = (1000000 / timeout);
+    config.overall_min_fps_d = 1;
+    min_fps_dur = NanoSecondsType(((double)config.overall_min_fps_d * 1000000000.0) /
+                                  (double)(config.overall_min_fps_n));
+}
+
 void BatchPolicy::set_num_surfaces(unsigned int num)
 {
     num_surfaces_per_frame = num;

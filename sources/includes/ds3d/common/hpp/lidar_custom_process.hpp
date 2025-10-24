@@ -9,7 +9,9 @@ using namespace nvdsinferserver;
 class IInferCustomPreprocessor {
 public:
     virtual ~IInferCustomPreprocessor() = default;
-    virtual NvDsInferStatus preproc(GuardDataMap &dataMap, SharedIBatchArray batchArray) = 0;
+    virtual NvDsInferStatus preproc(GuardDataMap &dataMap,
+                                    SharedIBatchArray batchArray,
+                                    cudaStream_t stream) = 0;
 };
 
 } // namespace ds3d

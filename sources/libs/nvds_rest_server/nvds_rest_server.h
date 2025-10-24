@@ -1,73 +1,99 @@
 #ifndef _NVDS_SERVER_H_
 #define _NVDS_SERVER_H_
 
+#include <json/json.h>
+
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
+#include "gst-nvdscommonconfig.h"
 #include "gst-nvdscustomevent.h"
+#define UNKNOWN_STRING "unknown"
+#define EMPTY_STRING ""
 
 typedef enum {
     DROP_FRAME_INTERVAL = 1 << 0,
     SKIP_FRAMES = 1 << 1,
     LOW_LATENCY_MODE = 1 << 2,
-} NvDsDecPropFlag;
+} NvDsServerDecPropFlag;
 
 typedef enum {
     BITRATE = 1 << 0,
     FORCE_IDR = 1 << 1,
     FORCE_INTRA = 1 << 2,
     IFRAME_INTERVAL = 1 << 3,
-} NvDsEncPropFlag;
+} NvDsServerEncPropFlag;
 
 typedef enum {
     SRC_CROP = 1 << 0,
     DEST_CROP = 1 << 1,
     FLIP_METHOD = 1 << 2,
     INTERPOLATION_METHOD = 1 << 3,
-} NvDsConvPropFlag;
+} NvDsServerConvPropFlag;
 
 typedef enum {
     BATCHED_PUSH_TIMEOUT = 1 << 0,
     MAX_LATENCY = 1 << 1,
-} NvDsMuxPropFlag;
+} NvDsServerMuxPropFlag;
 
 typedef enum {
     INFER_INTERVAL = 1 << 0,
-} NvDsInferPropFlag;
+} NvDsServerInferPropFlag;
 
 typedef enum {
     INFERSERVER_INTERVAL = 1 << 0,
-} NvDsInferServerPropFlag;
+} NvDsServerInferServerPropFlag;
+
+typedef enum {
+    NVTRACKER_CONFIG = 1 << 0,
+} NvDsServerNvTrackerPropFlag;
+
+typedef enum {
+    GET_LIVE_STREAM_INFO = 1 << 0,
+    GET_DS_READINESS_INFO = 1 << 1,
+} NvDsServerGetRequestPropFlag;
 
 typedef enum {
     PROCESS_MODE = 1 << 0,
-} NvDsOsdPropFlag;
+} NvDsServerOsdPropFlag;
+
+typedef enum {
+    RELOAD_CONFIG = 1 << 0,
+} NvDsServerAnalyticsPropFlag;
 
 typedef enum {
     ROI_UPDATE = 1 << 0,
-} NvDsRoiPropFlag;
+} NvDsServerRoiPropFlag;
 
 typedef enum {
     QUIT_APP = 1 << 0,
-} NvDsAppInstanceFlag;
+} NvDsServerAppInstanceFlag;
 
 typedef enum {
     QUIT_SUCCESS = 0,
     QUIT_FAIL,
-} NvDsAppInstanceStatus;
+} NvDsServerAppInstanceStatus;
 
 typedef enum {
     STREAM_ADD_SUCCESS = 0,
     STREAM_ADD_FAIL,
     STREAM_REMOVE_SUCCESS,
     STREAM_REMOVE_FAIL,
-} NvDsStreamStatus;
+} NvDsServerStreamStatus;
+
+typedef enum {
+    GET_LIVE_STREAM_INFO_SUCCESS = 0,
+    GET_LIVE_STREAM_INFO_FAIL,
+    GET_DS_READINESS_INFO_SUCCESS,
+    GET_DS_READINESS_INFO_FAIL
+} NvDsServerGetRequestStatus;
 
 typedef enum {
     ROI_UPDATE_SUCCESS = 0,
     ROI_UPDATE_FAIL,
-} NvDsRoiStatus;
+} NvDsServerRoiStatus;
 
 typedef enum {
     DROP_FRAME_INTERVAL_UPDATE_SUCCESS = 0,
@@ -76,7 +102,7 @@ typedef enum {
     SKIP_FRAMES_UPDATE_FAIL,
     LOW_LATENCY_MODE_UPDATE_SUCCESS,
     LOW_LATENCY_MODE_UPDATE_FAIL,
-} NvDsDecStatus;
+} NvDsServerDecStatus;
 
 typedef enum {
     BITRATE_UPDATE_SUCCESS = 0,
@@ -87,7 +113,7 @@ typedef enum {
     FORCE_INTRA_UPDATE_FAIL,
     IFRAME_INTERVAL_UPDATE_SUCCESS,
     IFRAME_INTERVAL_UPDATE_FAIL,
-} NvDsEncStatus;
+} NvDsServerEncStatus;
 
 typedef enum {
     DEST_CROP_UPDATE_SUCCESS = 0,
@@ -98,85 +124,128 @@ typedef enum {
     INTERPOLATION_METHOD_UPDATE_FAIL,
     FLIP_METHOD_UPDATE_SUCCESS,
     FLIP_METHOD_UPDATE_FAIL,
-} NvDsConvStatus;
+} NvDsServerConvStatus;
 
 typedef enum {
     BATCHED_PUSH_TIMEOUT_UPDATE_SUCCESS = 0,
     BATCHED_PUSH_TIMEOUT_UPDATE_FAIL,
     MAX_LATENCY_UPDATE_SUCCESS,
     MAX_LATENCY_UPDATE_FAIL,
-} NvDsMuxStatus;
+} NvDsServerMuxStatus;
 
 typedef enum {
     INFER_INTERVAL_UPDATE_SUCCESS = 0,
     INFER_INTERVAL_UPDATE_FAIL,
-} NvDsInferStatus;
+} NvDsServerInferStatus;
 
 typedef enum {
     INFERSERVER_INTERVAL_UPDATE_SUCCESS = 0,
     INFERSERVER_INTERVAL_UPDATE_FAIL,
-} NvDsInferServerStatus;
+} NvDsServerInferServerStatus;
+
+typedef enum {
+    NVTRACKER_CONFIG_UPDATE_SUCCESS = 0,
+    NVTRACKER_CONFIG_UPDATE_FAIL,
+} NvDsServerNvTrackerStatus;
 
 typedef enum {
     PROCESS_MODE_UPDATE_SUCCESS = 0,
     PROCESS_MODE_UPDATE_FAIL,
-} NvDsOsdStatus;
+} NvDsServerOsdStatus;
 
-typedef struct NvDsDecInfo {
+typedef enum {
+    RELOAD_CONFIG_UPDATE_SUCCESS = 0,
+    RELOAD_CONFIG_UPDATE_FAIL,
+} NvDsServerAnalyticsStatus;
+
+typedef enum {
+    StatusOk = 0,                      // HTTP error code : 200
+    StatusAccepted,                    // HTTP error code : 202
+    StatusBadRequest,                  // HTTP error code : 400
+    StatusUnauthorized,                // HTTP error code : 401
+    StatusForbidden,                   // HTTP error code : 403
+    StatusMethodNotAllowed,            // HTTP error code : 405
+    StatusNotAcceptable,               // HTTP error code : 406
+    StatusProxyAuthenticationRequired, // HTTP error code : 407
+    StatusRequestTimeout,              // HTTP error code : 408
+    StatusPreconditionFailed,          // HTTP error code : 412
+    StatusPayloadTooLarge,             // HTTP error code : 413
+    StatusUriTooLong,                  // HTTP error code : 414
+    StatusUnsupportedMediaType,        // HTTP error code : 415
+    StatusInternalServerError,         // HTTP error code : 500
+    StatusNotImplemented               // HTTP error code : 501
+} NvDsServerStatusCode;
+
+typedef struct NvDsServerErrorInfo {
+    std::pair<int, std::string> err_log;
+    NvDsServerStatusCode code;
+} NvDsServerErrorInfo;
+
+typedef struct NvDsServerDecInfo {
     std::string root_key;
     std::string stream_id;
     guint drop_frame_interval;
     guint skip_frames;
     gboolean low_latency_mode;
-    NvDsDecStatus status;
-    NvDsDecPropFlag dec_flag;
+    NvDsServerDecStatus status;
+    NvDsServerDecPropFlag dec_flag;
     std::string dec_log;
-} NvDsDecInfo;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerDecInfo;
 
-typedef struct NvDsEncInfo {
+typedef struct NvDsServerEncInfo {
     std::string root_key;
     std::string stream_id;
     guint bitrate;
     gboolean force_idr;
     gboolean force_intra;
     guint iframeinterval;
-    NvDsEncStatus status;
-    NvDsEncPropFlag enc_flag;
+    NvDsServerEncStatus status;
+    NvDsServerEncPropFlag enc_flag;
     std::string enc_log;
-} NvDsEncInfo;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerEncInfo;
 
-typedef struct NvDsConvInfo {
+typedef struct NvDsServerConvInfo {
     std::string root_key;
     std::string stream_id;
     std::string src_crop;
     std::string dest_crop;
     guint flip_method;
     guint interpolation_method;
-    NvDsConvStatus status;
-    NvDsConvPropFlag conv_flag;
+    NvDsServerConvStatus status;
+    NvDsServerConvPropFlag conv_flag;
     std::string conv_log;
-} NvDsConvInfo;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerConvInfo;
 
-typedef struct NvDsMuxInfo {
+typedef struct NvDsServerMuxInfo {
     std::string root_key;
     gint batched_push_timeout;
     guint max_latency;
-    NvDsMuxStatus status;
-    NvDsMuxPropFlag mux_flag;
+    NvDsServerMuxStatus status;
+    NvDsServerMuxPropFlag mux_flag;
     std::string mux_log;
-} NvDsMuxInfo;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerMuxInfo;
 
-typedef struct NvDsRoiInfo {
+typedef struct NvDsServerRoiInfo {
     std::string root_key;
     std::string stream_id;
     guint roi_count;
     std::vector<RoiDimension> vect;
-    NvDsRoiStatus status;
-    NvDsRoiPropFlag roi_flag;
+    NvDsServerRoiStatus status;
+    NvDsServerRoiPropFlag roi_flag;
     std::string roi_log;
-} NvDsRoiInfo;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerRoiInfo;
 
-typedef struct NvDsStreamInfo {
+typedef struct NvDsServerStreamInfo {
     std::string key;
     std::string value_camera_id;
     std::string value_camera_name;
@@ -189,70 +258,125 @@ typedef struct NvDsStreamInfo {
 
     std::string headers_source;
     std::string headers_created_at;
-    NvDsStreamStatus status;
+    NvDsServerStreamStatus status;
     std::string stream_log;
-} NvDsStreamInfo;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerStreamInfo;
 
-typedef struct NvDsInferInfo {
+typedef struct NvDsGetRequestInfo {
+    std::string root_key;
+    std::string stream_id;
+    NvDsServerGetRequestStatus status;
+    NvDsServerGetRequestPropFlag get_request_flag;
+    std::string get_request_log;
+    std::string uri;
+    Json::Value stream_info;
+    std::vector<NvDsSensorInfo *> sensorInfo_vec;
+    NvDsServerErrorInfo err_info;
+} NvDsServerGetRequestInfo;
+
+typedef struct NvDsServerInferInfo {
     std::string root_key;
     std::string stream_id;
     guint interval;
-    NvDsInferStatus status;
-    NvDsInferPropFlag infer_flag;
+    NvDsServerInferStatus status;
+    NvDsServerInferPropFlag infer_flag;
     std::string infer_log;
-} NvDsInferInfo;
-
-typedef struct NvDsOsdInfo {
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerInferInfo;
+typedef struct NvDsServerOsdInfo {
     std::string root_key;
     std::string stream_id;
     guint process_mode;
-    NvDsOsdStatus status;
-    NvDsOsdPropFlag osd_flag;
+    NvDsServerOsdStatus status;
+    NvDsServerOsdPropFlag osd_flag;
     std::string osd_log;
-} NvDsOsdInfo;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerOsdInfo;
 
-typedef struct NvDsAppInstanceInfo {
+typedef struct NvDsServerAnalyticsInfo {
+    std::string root_key;
+    std::string stream_id;
+    std::string config_file_path;
+    NvDsServerAnalyticsStatus status;
+    NvDsServerAnalyticsPropFlag analytics_flag;
+    std::string analytics_log;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerAnalyticsInfo;
+
+typedef struct NvDsServerAppInstanceInfo {
     std::string root_key;
     gboolean app_quit;
-    NvDsAppInstanceStatus status;
-    NvDsAppInstanceFlag appinstance_flag;
+    NvDsServerAppInstanceStatus status;
+    NvDsServerAppInstanceFlag appinstance_flag;
     std::string app_log;
-} NvDsAppInstanceInfo;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerAppInstanceInfo;
 
-typedef struct NvDsInferServerInfo {
+typedef struct NvDsServerInferServerInfo {
     std::string root_key;
     std::string stream_id;
     guint interval;
-    NvDsInferServerStatus status;
-    NvDsInferServerPropFlag inferserver_flag;
+    NvDsServerInferServerStatus status;
+    NvDsServerInferServerPropFlag inferserver_flag;
     std::string inferserver_log;
-} NvDsInferServerInfo;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerInferServerInfo;
 
-typedef struct NvDsResponseInfo {
+typedef struct NvDsServerNvTrackerInfo {
+    std::string root_key;
+    std::string stream_id;
+    std::string config_path;
+    NvDsServerNvTrackerStatus status;
+    NvDsServerNvTrackerPropFlag nvTracker_flag;
+    std::string nvTracker_log;
+    std::string uri;
+    NvDsServerErrorInfo err_info;
+} NvDsServerNvTrackerInfo;
+typedef struct NvDsServerResponseInfo {
     std::string status;
     std::string reason;
-} NvDsResponseInfo;
+    Json::Value stream_info;
+} NvDsServerResponseInfo;
 
 typedef struct NvDsServerConfig {
     std::string ip;
     std::string port;
 } NvDsServerConfig;
 
+using cb_func = std::function<NvDsServerStatusCode(const Json::Value &req_info,
+                                                   const Json::Value &in,
+                                                   Json::Value &out,
+                                                   struct mg_connection *conn,
+                                                   void *ctx)>;
+
 typedef struct NvDsServerCallbacks {
-    std::function<void(NvDsRoiInfo *roi_info, void *ctx)> roi_cb;
-    std::function<void(NvDsDecInfo *dec_info, void *ctx)> dec_cb;
-    std::function<void(NvDsEncInfo *enc_info, void *ctx)> enc_cb;
-    std::function<void(NvDsStreamInfo *stream_info, void *ctx)> stream_cb;
-    std::function<void(NvDsInferInfo *infer_info, void *ctx)> infer_cb;
-    std::function<void(NvDsConvInfo *conv_info, void *ctx)> conv_cb;
-    std::function<void(NvDsMuxInfo *mux_info, void *ctx)> mux_cb;
-    std::function<void(NvDsInferServerInfo *inferserver_info, void *ctx)> inferserver_cb;
-    std::function<void(NvDsOsdInfo *osd_info, void *ctx)> osd_cb;
-    std::function<void(NvDsAppInstanceInfo *appinstance_info, void *ctx)> appinstance_cb;
+    std::function<void(NvDsServerRoiInfo *roi_info, void *ctx)> roi_cb;
+    std::function<void(NvDsServerDecInfo *dec_info, void *ctx)> dec_cb;
+    std::function<void(NvDsServerEncInfo *enc_info, void *ctx)> enc_cb;
+    std::function<void(NvDsServerStreamInfo *stream_info, void *ctx)> stream_cb;
+    std::function<void(NvDsServerInferInfo *infer_info, void *ctx)> infer_cb;
+    std::function<void(NvDsServerConvInfo *conv_info, void *ctx)> conv_cb;
+    std::function<void(NvDsServerMuxInfo *mux_info, void *ctx)> mux_cb;
+    std::function<void(NvDsServerInferServerInfo *inferserver_info, void *ctx)> inferserver_cb;
+    std::function<void(NvDsServerNvTrackerInfo *nvTracker_info, void *ctx)> nvTracker_cb;
+    std::function<void(NvDsServerOsdInfo *osd_info, void *ctx)> osd_cb;
+    std::function<void(NvDsServerAppInstanceInfo *appinstance_info, void *ctx)> appinstance_cb;
+    std::function<void(NvDsServerAnalyticsInfo *analytics_info, void *ctx)> analytics_cb;
+    std::function<void(NvDsServerGetRequestInfo *get_request_info, void *ctx)> get_request_cb;
+    std::unordered_map<std::string, cb_func> custom_cb_endpt;
 } NvDsServerCallbacks;
+
 class NvDsRestServer;
 NvDsRestServer *nvds_rest_server_start(NvDsServerConfig *server_config,
                                        NvDsServerCallbacks *server_cb);
 void nvds_rest_server_stop(NvDsRestServer *ctx);
+bool iequals(const std::string &a, const std::string &b);
 
 #endif

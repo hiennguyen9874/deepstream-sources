@@ -100,11 +100,16 @@
 
 /**
  * Defines internal data formats used by the inference engine.
+ * The NvDsInferNetworkMode is aligned with network-level precision
+ *  options "--fp16","--int8","--noTF32" and "--best" for trtexec.
+ *  Please refer to
+ * https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html#trtexec-flags
  */
 typedef enum {
     NvDsInferNetworkMode_FP32,
     NvDsInferNetworkMode_INT8,
-    NvDsInferNetworkMode_FP16
+    NvDsInferNetworkMode_FP16,
+    NvDsInferNetworkMode_BEST
 } NvDsInferNetworkMode;
 
 /**
@@ -377,6 +382,9 @@ typedef struct _NvDsInferContextInitParams {
     /** Holds number of output IO formats specified. */
     unsigned int numOutputIOFormats;
 
+    /** Holds the name of segmentation parse function in the custom library. */
+    char customSegmentationParseFuncName[_MAX_STR_LENGTH];
+
     /**Can be used to specify the device type and inference precision of layers.
      * For each layer specified the format is
      * "<layer-name>:<device-type>:<precision>" */
@@ -407,6 +415,29 @@ typedef struct _NvDsInferContextInitParams {
     /** Max gpu memory that can be occupied while expanding the bufferpool.
      */
     double maxGPUMemPer;
+
+    /** Boolean flag indicating whether or not to dump raw input tensor data.
+     */
+    int dumpIpTensor;
+    /** Boolean flag indicating whether or not to dump raw input tensor data.
+     */
+    int dumpOpTensor;
+    /** Boolean flag indicating whether or not to overwrite raw input tensor
+     *  data provided by the user into the buffer for inference.
+     */
+    int overwriteIpTensor;
+    /** Path to the raw input tensor data that is going to be used to overwrite
+     *  the buffer.
+     */
+    char ipTensorFilePath[_PATH_MAX];
+    /** Boolean flag indicating whether or not to overwrite raw ouput tensor
+     *  data provided by the user into the buffer for inference.
+     */
+    int overwriteOpTensor;
+    /** List of paths to the raw output tensor data that are going to be used
+     *  to overwrite the different output buffers.
+     */
+    char **opTensorFilePath;
 
 } NvDsInferContextInitParams;
 

@@ -47,7 +47,7 @@ public:
     virtual bool StartWithParams(DSCustom_CreateParams *params) = 0;
     virtual bool HandleEvent(GstEvent *event) = 0;
     virtual BufferResult ProcessBuffer(GstBuffer *inbuf) = 0;
-    virtual ~IDSCustomLibrary(){};
+    virtual ~IDSCustomLibrary() {};
 };
 
 } // namespace nvdsspeech

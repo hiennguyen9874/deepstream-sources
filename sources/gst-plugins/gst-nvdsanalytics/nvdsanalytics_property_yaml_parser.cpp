@@ -134,7 +134,12 @@ static gboolean nvdsanalytics_parse_yaml_roi_filtering_group(GstNvDsAnalytics *n
     // gint operate_on_class = -1;
     std::vector<gint> operate_on_class_vec;
     gboolean inverse_roi = FALSE;
-    ROIInfo roi_info;
+    ROIInfo roi_info = {.enable = false,
+                        .roi_pts = {},
+                        .roi_label = "",
+                        .inverse_roi = false,
+                        .operate_on_class = {},
+                        .stream_id = 0};
     std::vector<ROIInfo> roi_vec;
     gsize list_len = 0;
     std::unordered_map<int, StreamInfo> *stream_analytics_info =
@@ -143,17 +148,20 @@ static gboolean nvdsanalytics_parse_yaml_roi_filtering_group(GstNvDsAnalytics *n
 
     YAML::Node config = YAML::LoadFile(cfg_file_path);
 
-    if (config[group]) {
-        for (YAML::const_iterator itr = config[group].begin(); itr != config[group].end(); ++itr) {
+    std::string group_string = group;
+
+    if (config[group_string]) {
+        for (YAML::const_iterator itr = config[group_string].begin();
+             itr != config[group_string].end(); ++itr) {
             std::string paramKey = itr->first.as<std::string>();
             if (!g_strcmp0(paramKey.c_str(), DSANALYTICS_PROPERTY_ENABLE)) {
-                if (config[group]["enable"])
+                if (config[group_string]["enable"])
                     enable = itr->second.as<gboolean>();
                 GST_CAT_INFO(NVDSANALYTICS_CFG_PARSER_YAML_CAT, "Parsed '%s=%d' in group '%s'\n",
                              paramKey.c_str(), enable, group);
             } else if (!g_strcmp0(paramKey.c_str(), DSANALYTICS_PROPERTY_CLASS_ID)) {
                 std::string values = itr->second.as<std::string>();
-                std::vector<std::string> vec = split_string(values);
+                std::vector<std::string> vec = split_string(std::move(values));
                 list_len = vec.size();
                 operate_on_class_vec.clear();
                 for (gsize icnt = 0; icnt < list_len; icnt++) {
@@ -164,7 +172,7 @@ static gboolean nvdsanalytics_parse_yaml_roi_filtering_group(GstNvDsAnalytics *n
                 }
             } else if (!g_strcmp0(paramKey.c_str(),
                                   DSANALYTICS_PROPERTY_GROUP_ROI_FILTERING_INVERSE_ROI)) {
-                if (config[group]["inverse-roi"])
+                if (config[group_string]["inverse-roi"])
                     inverse_roi = itr->second.as<gboolean>();
                 GST_CAT_INFO(NVDSANALYTICS_CFG_PARSER_YAML_CAT, "Parsed '%s=%d' in group '%s'\n",
                              paramKey.c_str(), inverse_roi, group);
@@ -172,16 +180,18 @@ static gboolean nvdsanalytics_parse_yaml_roi_filtering_group(GstNvDsAnalytics *n
                                 sizeof(DSANALYTICS_PROPERTY_ROI) - 1)) {
                 gchar *keywords = (gchar *)paramKey.c_str();
                 size_t str_len = strlen(keywords);
-                gchar *label = (gchar *)g_malloc(str_len - sizeof(DSANALYTICS_PROPERTY_ROI) + 1);
-                g_strlcpy(label, &keywords[sizeof(DSANALYTICS_PROPERTY_ROI) - 1],
-                          str_len - sizeof(DSANALYTICS_PROPERTY_ROI));
+                size_t prefix_len = sizeof(DSANALYTICS_PROPERTY_ROI) - 1;
+                size_t label_len = str_len - prefix_len + 1; // +1 for null terminator
+                gchar *label = (gchar *)g_malloc(sizeof(gchar) * label_len);
+                g_strlcpy(label, &keywords[prefix_len], label_len);
                 roi_info.roi_label = label;
                 std::string values = itr->second.as<std::string>();
-                std::vector<std::string> vec = split_string(values);
+                std::vector<std::string> vec = split_string(std::move(values));
                 list_len = vec.size();
                 // Check if the list is populated correctly
                 if (list_len % 2 != 0) {
                     ret = FALSE;
+                    g_free(label);
                     goto done;
                 }
                 GST_CAT_INFO(NVDSANALYTICS_CFG_PARSER_YAML_CAT, "Parsed '%s' in group '%s'\n",
@@ -196,12 +206,14 @@ static gboolean nvdsanalytics_parse_yaml_roi_filtering_group(GstNvDsAnalytics *n
                         GST_CAT_INFO(NVDSANALYTICS_CFG_PARSER_YAML_CAT,
                                      "Parsed '%s' in group '%s'\n", keywords, group);
                         ret = FALSE;
+                        g_free(label);
                         goto done;
                     }
                     roi_info.roi_pts.push_back(std::make_pair(x_value, y_value));
                 }
                 roi_vec.push_back(roi_info);
                 roi_info.roi_pts.clear();
+                g_free(label);
             } else {
                 g_print("Unknown key '%s' in group in '%s'\n", paramKey.c_str(), group);
             }
@@ -217,7 +229,14 @@ static gboolean nvdsanalytics_parse_yaml_roi_filtering_group(GstNvDsAnalytics *n
         roi.operate_on_class = operate_on_class_vec;
     }
     if (stream_analytics_info->count(stream_id) == 0) {
-        StreamInfo stream_specific_info;
+        StreamInfo stream_specific_info = {
+            .roi_info = {},
+            .overcrowding_info = {},
+            .linecrossing_info = {},
+            .direction_info = {},
+            .config_width = nvdsanalytics->configuration_width,
+            .config_height = nvdsanalytics->configuration_height,
+        };
         for (ROIInfo &roi : roi_vec) {
             stream_specific_info.roi_info.push_back(roi);
         }
@@ -246,7 +265,13 @@ static gboolean nvdsanalytics_parse_yaml_overcrowding_group(GstNvDsAnalytics *nv
     std::vector<gint> operate_on_class_vec;
     gint object_threshold = 1;
     gint time_threshold_in_ms = 2000;
-    OverCrowdingInfo oc_info;
+    OverCrowdingInfo oc_info = {.enable = false,
+                                .roi_pts = {},
+                                .oc_label = "",
+                                .operate_on_class = {},
+                                .stream_id = 0,
+                                .time_threshold_in_ms = 2000,
+                                .object_threshold = 1};
     std::vector<OverCrowdingInfo> oc_vec;
     gsize list_len = 0;
     std::unordered_map<int, StreamInfo> *stream_analytics_info =
@@ -254,17 +279,20 @@ static gboolean nvdsanalytics_parse_yaml_overcrowding_group(GstNvDsAnalytics *nv
     oc_info.stream_id = stream_id;
     YAML::Node config = YAML::LoadFile(cfg_file_path);
 
-    if (config[group]) {
-        for (YAML::const_iterator itr = config[group].begin(); itr != config[group].end(); ++itr) {
+    std::string group_string = group;
+
+    if (config[group_string]) {
+        for (YAML::const_iterator itr = config[group_string].begin();
+             itr != config[group_string].end(); ++itr) {
             std::string paramKey = itr->first.as<std::string>();
             if (!g_strcmp0(paramKey.c_str(), DSANALYTICS_PROPERTY_ENABLE)) {
-                if (config[group]["enable"])
+                if (config[group_string]["enable"])
                     enable = itr->second.as<gboolean>();
                 GST_CAT_INFO(NVDSANALYTICS_CFG_PARSER_YAML_CAT, "Parsed '%s=%d' in group '%s'\n",
                              paramKey.c_str(), enable, group);
             } else if (!g_strcmp0(paramKey.c_str(), DSANALYTICS_PROPERTY_CLASS_ID)) {
                 std::string values = itr->second.as<std::string>();
-                std::vector<std::string> vec = split_string(values);
+                std::vector<std::string> vec = split_string(std::move(values));
                 list_len = vec.size();
                 operate_on_class_vec.clear();
                 for (gsize icnt = 0; icnt < list_len; icnt++) {
@@ -285,12 +313,13 @@ static gboolean nvdsanalytics_parse_yaml_overcrowding_group(GstNvDsAnalytics *nv
                                 sizeof(DSANALYTICS_PROPERTY_ROI) - 1)) {
                 gchar *keywords = (gchar *)paramKey.c_str();
                 size_t str_len = strlen(keywords);
-                gchar *label = (gchar *)malloc(sizeof(gchar) * 10);
-                g_strlcpy(label, &keywords[sizeof(DSANALYTICS_PROPERTY_ROI) - 1],
-                          str_len - sizeof(DSANALYTICS_PROPERTY_ROI));
+                size_t prefix_len = sizeof(DSANALYTICS_PROPERTY_ROI) - 1;
+                size_t label_len = str_len - prefix_len + 1; // +1 for null terminator
+                gchar *label = (gchar *)g_malloc(sizeof(gchar) * label_len);
+                g_strlcpy(label, &keywords[prefix_len], label_len);
                 oc_info.oc_label = label;
                 std::string values = itr->second.as<std::string>();
-                std::vector<std::string> vec = split_string(values);
+                std::vector<std::string> vec = split_string(std::move(values));
                 list_len = vec.size();
                 // FIXME: Handle multiple ROIs
                 GST_CAT_INFO(NVDSANALYTICS_CFG_PARSER_YAML_CAT, "Parsed '%s' in group '%s'\n",
@@ -304,12 +333,14 @@ static gboolean nvdsanalytics_parse_yaml_overcrowding_group(GstNvDsAnalytics *nv
                         GST_CAT_INFO(NVDSANALYTICS_CFG_PARSER_YAML_CAT,
                                      "Parsed '%s' in group '%s' fail\n", keywords, group);
                         ret = FALSE;
+                        g_free(label);
                         goto done;
                     }
                     oc_info.roi_pts.push_back(std::make_pair(x_value, y_value));
                 }
                 oc_vec.push_back(oc_info);
                 oc_info.roi_pts.clear();
+                g_free(label);
             } else {
                 g_print("Unknown key '%s' in group in '%s'\n", paramKey.c_str(), group);
             }
@@ -326,7 +357,14 @@ static gboolean nvdsanalytics_parse_yaml_overcrowding_group(GstNvDsAnalytics *nv
         oc.operate_on_class = operate_on_class_vec;
     }
     if (stream_analytics_info->count(stream_id) == 0) {
-        StreamInfo stream_specific_info;
+        StreamInfo stream_specific_info = {
+            .roi_info = {},
+            .overcrowding_info = {},
+            .linecrossing_info = {},
+            .direction_info = {},
+            .config_width = nvdsanalytics->configuration_width,
+            .config_height = nvdsanalytics->configuration_height,
+        };
         for (OverCrowdingInfo &oc : oc_vec) {
             stream_specific_info.overcrowding_info.push_back(oc);
         }
@@ -363,17 +401,20 @@ static gboolean nvdsanalytics_parse_yaml_direction_detection_group(GstNvDsAnalyt
     dir_info.mode = eMode::balanced;
     YAML::Node config = YAML::LoadFile(cfg_file_path);
 
-    if (config[group]) {
-        for (YAML::const_iterator itr = config[group].begin(); itr != config[group].end(); ++itr) {
+    std::string group_string = group;
+
+    if (config[group_string]) {
+        for (YAML::const_iterator itr = config[group_string].begin();
+             itr != config[group_string].end(); ++itr) {
             std::string paramKey = itr->first.as<std::string>();
             if (!g_strcmp0(paramKey.c_str(), DSANALYTICS_PROPERTY_ENABLE)) {
-                if (config[group]["enable"])
+                if (config[group_string]["enable"])
                     enable = itr->second.as<gboolean>();
                 GST_CAT_INFO(NVDSANALYTICS_CFG_PARSER_YAML_CAT, "Parsed %s=%u in group '%s'\n",
                              paramKey.c_str(), enable, group);
             } else if (!g_strcmp0(paramKey.c_str(), DSANALYTICS_PROPERTY_CLASS_ID)) {
                 std::string values = itr->second.as<std::string>();
-                std::vector<std::string> vec = split_string(values);
+                std::vector<std::string> vec = split_string(std::move(values));
                 list_len = vec.size();
                 operate_on_class_vec.clear();
 
@@ -389,27 +430,29 @@ static gboolean nvdsanalytics_parse_yaml_direction_detection_group(GstNvDsAnalyt
                            sizeof(DSANALYTICS_PROPERTY_GROUP_DIRECTION_DETECTION_DIRECTION) - 1)) {
                 gchar *keywords = (gchar *)paramKey.c_str();
                 size_t str_len = strlen(keywords);
-                gchar *label = (gchar *)malloc(sizeof(gchar) * 10);
+                size_t prefix_len =
+                    sizeof(DSANALYTICS_PROPERTY_GROUP_DIRECTION_DETECTION_DIRECTION) - 1;
+                size_t label_len = str_len - prefix_len + 1; // +1 for null terminator
+                gchar *label = (gchar *)g_malloc(sizeof(gchar) * label_len);
                 std::string values = itr->second.as<std::string>();
-                std::vector<std::string> vec = split_string(values);
+                std::vector<std::string> vec = split_string(std::move(values));
                 list_len = vec.size();
-                g_strlcpy(
-                    label,
-                    &keywords[sizeof(DSANALYTICS_PROPERTY_GROUP_DIRECTION_DETECTION_DIRECTION) - 1],
-                    str_len - sizeof(DSANALYTICS_PROPERTY_GROUP_DIRECTION_DETECTION_DIRECTION));
+                g_strlcpy(label, &keywords[prefix_len], label_len);
                 gint x1, y1, x2, y2;
                 // gfloat magxy=0.0f, xval=0.0f, yval=0.0f;
 
                 dir_info.dir_label = label;
                 // Check if the list is populated correctly
-                if (list_len != 8) {
+                if (list_len != 4) {
                     ret = FALSE;
+                    g_free(label);
                     goto done;
                 }
 
                 for (gsize icnt = 0; icnt < list_len; icnt++) {
                     if (std::stoi(vec[icnt]) < 0) {
                         ret = FALSE;
+                        g_free(label);
                         goto done;
                     }
                 }
@@ -435,8 +478,10 @@ static gboolean nvdsanalytics_parse_yaml_direction_detection_group(GstNvDsAnalyt
                     dir_vec.push_back(dir_info);
                 else
                     *it = dir_info;
+                g_free(label);
             } else if (!g_strcmp0(paramKey.c_str(), DSANALYTICS_PROPERTY_MODE)) {
-                mode = (gchar *)itr->second.as<std::string>().c_str();
+                std::string str = itr->second.as<std::string>();
+                mode = (gchar *)str.c_str();
 
                 if (!strcmp(mode, "strict")) {
                     dir_info.mode = eMode::strict;
@@ -467,7 +512,14 @@ static gboolean nvdsanalytics_parse_yaml_direction_detection_group(GstNvDsAnalyt
     });
 
     if (stream_analytics_info->count(stream_id) == 0) {
-        StreamInfo stream_specific_info;
+        StreamInfo stream_specific_info = {
+            .roi_info = {},
+            .overcrowding_info = {},
+            .linecrossing_info = {},
+            .direction_info = {},
+            .config_width = nvdsanalytics->configuration_width,
+            .config_height = nvdsanalytics->configuration_height,
+        };
         for (DirectionInfo &dir : dir_vec)
             stream_specific_info.direction_info.push_back(dir);
 
@@ -495,7 +547,16 @@ static gboolean nvdsanalytics_parse_yaml_linecrossing_group(GstNvDsAnalytics *nv
     gboolean enable = FALSE;
     gboolean extended = TRUE;
     std::vector<gint> operate_on_class_vec;
-    LineCrossingInfo lc_info;
+    LineCrossingInfo lc_info = {.enable = false,
+                                .extended = true,
+                                .lc_label = "",
+                                .lc_dir = std::make_pair(0.0, 0.0),
+                                .lc_info = {},
+                                .lcdir_pts = {},
+                                .operate_on_class = {},
+                                .stream_id = 0,
+                                .mode = eMode::loose,
+                                .mode_dir = eModeDir::use_dir};
     std::vector<LineCrossingInfo> lc_vec;
     gint *lc_list = nullptr;
     gsize list_len = 0;
@@ -506,23 +567,26 @@ static gboolean nvdsanalytics_parse_yaml_linecrossing_group(GstNvDsAnalytics *nv
     lc_info.stream_id = stream_id;
     YAML::Node config = YAML::LoadFile(cfg_file_path);
 
-    if (config[group]) {
-        for (YAML::const_iterator itr = config[group].begin(); itr != config[group].end(); ++itr) {
+    std::string group_string = group;
+
+    if (config[group_string]) {
+        for (YAML::const_iterator itr = config[group_string].begin();
+             itr != config[group_string].end(); ++itr) {
             std::string paramKey = itr->first.as<std::string>();
             if (!g_strcmp0(paramKey.c_str(), DSANALYTICS_PROPERTY_ENABLE)) {
-                if (config[group]["enable"])
+                if (config[group_string]["enable"])
                     enable = itr->second.as<gboolean>();
                 GST_CAT_INFO(NVDSANALYTICS_CFG_PARSER_YAML_CAT, "Parsed '%s=%d' in group '%s'\n",
                              paramKey.c_str(), enable, group);
             } else if (!g_strcmp0(paramKey.c_str(),
                                   DSANALYTICS_PROPERTY_GROUP_LINE_CROSSING_EXTENDED)) {
-                if (config[group]["extended"])
+                if (config[group_string]["extended"])
                     extended = itr->second.as<gboolean>();
                 GST_CAT_INFO(NVDSANALYTICS_CFG_PARSER_YAML_CAT, "Parsed '%s=%d' in group '%s'\n",
                              paramKey.c_str(), extended, group);
             } else if (!g_strcmp0(paramKey.c_str(), DSANALYTICS_PROPERTY_CLASS_ID)) {
                 std::string values = itr->second.as<std::string>();
-                std::vector<std::string> vec = split_string(values);
+                std::vector<std::string> vec = split_string(std::move(values));
                 list_len = vec.size();
 
                 operate_on_class_vec.clear();
@@ -539,12 +603,13 @@ static gboolean nvdsanalytics_parse_yaml_linecrossing_group(GstNvDsAnalytics *nv
                 gchar *keywords = (gchar *)paramKey.c_str();
                 gint x1, y1, x2, y2;
                 size_t str_len = strlen(keywords);
-                gchar *label = (gchar *)malloc(sizeof(gchar) * 10);
+                size_t prefix_len = sizeof(DSANALYTICS_PROPERTY_GROUP_LINE_CROSSING_LC) - 1;
+                size_t label_len = str_len - prefix_len + 1; // +1 for null terminator
+                gchar *label = (gchar *)g_malloc(sizeof(gchar) * label_len);
                 std::string values = itr->second.as<std::string>();
-                std::vector<std::string> vec = split_string(values);
+                std::vector<std::string> vec = split_string(std::move(values));
                 list_len = vec.size();
-                g_strlcpy(label, &keywords[sizeof(DSANALYTICS_PROPERTY_GROUP_LINE_CROSSING_LC) - 1],
-                          str_len - sizeof(DSANALYTICS_PROPERTY_GROUP_LINE_CROSSING_LC));
+                g_strlcpy(label, &keywords[prefix_len], label_len);
 
                 bool replace_old = false;
                 // gfloat magxy=0.0f, xval=0.0f, yval=0.0f;
@@ -553,11 +618,13 @@ static gboolean nvdsanalytics_parse_yaml_linecrossing_group(GstNvDsAnalytics *nv
                 // Check if the list is populated correctly
                 if (list_len != 8) {
                     ret = FALSE;
+                    g_free(label);
                     goto done;
                 }
                 for (gsize icnt = 0; icnt < list_len; icnt++) {
                     if (std::stoi(vec[icnt]) < 0) {
                         ret = FALSE;
+                        g_free(label);
                         goto done;
                     }
                 }
@@ -596,8 +663,10 @@ static gboolean nvdsanalytics_parse_yaml_linecrossing_group(GstNvDsAnalytics *nv
                 }
                 lc_info.lc_info.clear();
                 lc_info.lcdir_pts.clear();
+                g_free(label);
             } else if (!g_strcmp0(paramKey.c_str(), DSANALYTICS_PROPERTY_MODE)) {
-                mode = (gchar *)itr->second.as<std::string>().c_str();
+                std::string str = itr->second.as<std::string>();
+                mode = (gchar *)str.c_str();
 
                 if (!strcmp(mode, "strict"))
                     eMd = eMode::strict;
@@ -627,7 +696,14 @@ static gboolean nvdsanalytics_parse_yaml_linecrossing_group(GstNvDsAnalytics *nv
         }
 
         if (stream_analytics_info->count(stream_id) == 0) {
-            StreamInfo stream_specific_info;
+            StreamInfo stream_specific_info = {
+                .roi_info = {},
+                .overcrowding_info = {},
+                .linecrossing_info = {},
+                .direction_info = {},
+                .config_width = nvdsanalytics->configuration_width,
+                .config_height = nvdsanalytics->configuration_height,
+            };
             for (LineCrossingInfo &lc : lc_vec)
                 stream_specific_info.linecrossing_info.push_back(lc);
 

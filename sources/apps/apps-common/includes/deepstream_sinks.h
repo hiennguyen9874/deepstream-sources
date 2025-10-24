@@ -5,11 +5,11 @@
 #define IS_TEGRA
 #endif
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
 
 typedef enum {
     NV_DS_SINK_FAKE = 1,
@@ -40,6 +40,7 @@ typedef struct {
     NvDsContainerType container;
     NvDsEncoderType codec;
     NvDsEncHwSwType enc_type;
+    guint compute_hw;
     gint bitrate;
     guint profile;
     gint sync;
@@ -82,6 +83,8 @@ typedef struct {
     gboolean multiple_payloads;
     gboolean conv_msg2p_new_api;
     guint conv_frame_interval;
+    gboolean conv_dummy_payload;
+    gchar *embedding_filter;
     /** Broker settings */
     gchar *proto_lib;
     gchar *conn_str;
@@ -91,6 +94,7 @@ typedef struct {
     gboolean disable_msgconv;
     gint sync;
     gboolean new_api;
+    guint broker_sleep_time;
 } NvDsSinkMsgConvBrokerConfig;
 
 typedef struct {

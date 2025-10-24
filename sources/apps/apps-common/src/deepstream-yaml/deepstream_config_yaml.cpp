@@ -70,8 +70,11 @@ gboolean get_absolute_file_path_yaml(const gchar *cfg_file_path,
         /* Ignore error if file does not exist and use the unresolved path. */
         if (errno == ENOENT)
             g_strlcpy(abs_real_file_path, abs_file_path, _PATH_MAX);
-        else
+        else {
+            if (abs_file_path)
+                g_free(abs_file_path);
             return FALSE;
+        }
     }
 
     g_free(abs_file_path);

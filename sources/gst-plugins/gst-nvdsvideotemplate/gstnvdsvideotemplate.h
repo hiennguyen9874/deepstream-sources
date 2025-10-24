@@ -78,6 +78,23 @@ struct _GstNvDsVideoTemplate {
     NvBufSurfTransformConfigParams config_params;
     gint compute_hw;
     cudaStream_t cu_nbstream;
+
+    // NVIDIA Video Memory
+    void *inter_buf;
+
+    // OpenCV related
+    void *cvmat;
+
+    // Config file path
+    gchar *config_file_path;
+
+    // Input caps width and height
+    gint in_width;
+    gint in_height;
+
+    // Output caps width and height
+    gint out_width;
+    gint out_height;
 };
 
 /** Boiler plate stuff */

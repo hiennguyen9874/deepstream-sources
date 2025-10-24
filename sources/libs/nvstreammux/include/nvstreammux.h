@@ -70,7 +70,7 @@ public:
     /*
      * @brief release lock on mux
      */
-    virtual void wait(){};
+    virtual void wait() {};
 
     /*
      * @brief release lock on mux
@@ -177,13 +177,13 @@ public:
      * @brief add sink pad
      * @param pad [IN] the pad to be added
      */
-    virtual void add_sink(SinkPad *pad){};
+    virtual void add_sink(SinkPad *pad) {};
 
     /*
      * @brief remove sink pad
      * @param pad [IN] the pad to be added
      */
-    virtual void remove_sink(SinkPad pad){};
+    virtual void remove_sink(SinkPad pad) {};
 
     /*
      * @brief add buffer to sink pad
@@ -265,6 +265,12 @@ public:
      * @param  batch-size [IN]
      */
     void set_batch_size(unsigned int size);
+
+    /**
+     * @brief  set batch_policy.set_batch_push_timeout()
+     * @param  batch-size [IN]
+     */
+    void set_batch_push_timeout(unsigned int timeout);
 
     /**
      * @brief  return batch_policy.get_batch_size()

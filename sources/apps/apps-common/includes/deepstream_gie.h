@@ -1,11 +1,11 @@
 #ifndef __NVGSTDS_GIE_H__
 #define __NVGSTDS_GIE_H__
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
 
 #include "deepstream_config.h"
 #include "gstnvdsinfer.h"
@@ -14,6 +14,7 @@ extern "C" {
 typedef enum {
     NV_DS_GIE_PLUGIN_INFER = 0,
     NV_DS_GIE_PLUGIN_INFER_SERVER,
+    NV_DS_GIE_PLUGIN_VIDEO_TEMPLATE,
 } NvDsGiePluginType;
 
 typedef struct {

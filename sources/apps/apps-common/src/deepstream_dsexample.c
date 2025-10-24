@@ -64,9 +64,11 @@ gboolean create_dsexample_bin(NvDsDsExampleConfig *config, NvDsDsExampleBin *bin
 
     g_object_set(G_OBJECT(bin->elem_dsexample), "full-frame", config->full_frame,
                  "processing-width", config->processing_width, "processing-height",
-                 config->processing_height, "blur-objects", config->blur_objects, "unique-id",
-                 config->unique_id, "gpu-id", config->gpu_id, NULL);
-
+                 config->processing_height, "unique-id", config->unique_id, "gpu-id",
+                 config->gpu_id, "blur-objects", config->blur_objects, NULL);
+    if (config->batch_size) {
+        g_object_set(G_OBJECT(bin->elem_dsexample), "batch-size", config->batch_size, NULL);
+    }
     g_object_set(G_OBJECT(bin->pre_conv), "gpu-id", config->gpu_id, NULL);
 
     g_object_set(G_OBJECT(bin->pre_conv), "nvbuf-memory-type", config->nvbuf_memory_type, NULL);

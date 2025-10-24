@@ -16,6 +16,7 @@ gboolean parse_osd_yaml(NvDsOSDConfig *config, gchar *cfg_file_path)
     config->draw_text = TRUE;
     config->draw_bbox = TRUE;
     config->draw_mask = FALSE;
+    config->mode = MODE_GPU;
 
     YAML::Node configyml = YAML::LoadFile(cfg_file_path);
     for (YAML::const_iterator itr = configyml["osd"].begin(); itr != configyml["osd"].end();
@@ -71,7 +72,7 @@ gboolean parse_osd_yaml(NvDsOSDConfig *config, gchar *cfg_file_path)
         } else if (paramKey == "font") {
             std::string temp = itr->second.as<std::string>();
             config->font = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->font, temp.c_str(), 1024);
+            std::strncpy(config->font, temp.c_str(), 1023);
         } else if (paramKey == "show-clock") {
             config->enable_clock = itr->second.as<gboolean>();
         } else if (paramKey == "clock-x-offset") {
@@ -83,7 +84,7 @@ gboolean parse_osd_yaml(NvDsOSDConfig *config, gchar *cfg_file_path)
         } else if (paramKey == "hw-blend-color-attr") {
             std::string temp = itr->second.as<std::string>();
             config->hw_blend_color_attr = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->hw_blend_color_attr, temp.c_str(), 1024);
+            std::strncpy(config->hw_blend_color_attr, temp.c_str(), 1023);
         } else if (paramKey == "nvbuf-memory-type") {
             config->nvbuf_memory_type = itr->second.as<guint>();
         } else if (paramKey == "clock-color") {

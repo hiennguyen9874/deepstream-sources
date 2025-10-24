@@ -207,8 +207,8 @@ static gboolean nvdsanalytics_parse_property_group(GstNvDsAnalytics *nvdsanalyti
                                                DSANALYTICS_PROPERTY_OBJ_CNT_WIN_MS, &error);
     CHECK_IF_PRESENT(error, DSANALYTICS_PROPERTY);
     if (!error) {
-        CHECK_INT_VALUE_RANGE(DSANALYTICS_PROPERTY_OBJ_CNT_WIN_MS, osd_mode, DSANALYTICS_PROPERTY,
-                              1, 1000000000);
+        CHECK_INT_VALUE_RANGE(DSANALYTICS_PROPERTY_OBJ_CNT_WIN_MS, obj_cnt_win_in_ms,
+                              DSANALYTICS_PROPERTY, 1, 1000000000);
     }
 
     if (error) {
@@ -355,7 +355,14 @@ static gboolean nvdsanalytics_parse_direction_detection_group(GstNvDsAnalytics *
     });
 
     if (stream_analytics_info->count(stream_id) == 0) {
-        StreamInfo stream_specific_info;
+        StreamInfo stream_specific_info = {
+            .roi_info = {},
+            .overcrowding_info = {},
+            .linecrossing_info = {},
+            .direction_info = {},
+            .config_width = nvdsanalytics->configuration_width,
+            .config_height = nvdsanalytics->configuration_height,
+        };
         for (DirectionInfo &dir : dir_vec)
             stream_specific_info.direction_info.push_back(dir);
 
@@ -385,7 +392,16 @@ static gboolean nvdsanalytics_parse_linecrossing_group(GstNvDsAnalytics *nvdsana
     gboolean enable = FALSE;
     gboolean extended = TRUE;
     std::vector<gint> operate_on_class_vec;
-    LineCrossingInfo lc_info;
+    LineCrossingInfo lc_info = {.enable = false,
+                                .extended = true,
+                                .lc_label = "",
+                                .lc_dir = std::make_pair(0.0, 0.0),
+                                .lc_info = {},
+                                .lcdir_pts = {},
+                                .operate_on_class = {},
+                                .stream_id = 0,
+                                .mode = eMode::loose,
+                                .mode_dir = eModeDir::use_dir};
     std::vector<LineCrossingInfo> lc_vec;
     gint *lc_list = nullptr;
     gsize list_len = 0;
@@ -510,7 +526,14 @@ static gboolean nvdsanalytics_parse_linecrossing_group(GstNvDsAnalytics *nvdsana
     }
 
     if (stream_analytics_info->count(stream_id) == 0) {
-        StreamInfo stream_specific_info;
+        StreamInfo stream_specific_info = {
+            .roi_info = {},
+            .overcrowding_info = {},
+            .linecrossing_info = {},
+            .direction_info = {},
+            .config_width = nvdsanalytics->configuration_width,
+            .config_height = nvdsanalytics->configuration_height,
+        };
         for (LineCrossingInfo &lc : lc_vec)
             stream_specific_info.linecrossing_info.push_back(lc);
 
@@ -540,7 +563,13 @@ static gboolean nvdsanalytics_parse_overcrowding_group(GstNvDsAnalytics *nvdsana
     std::vector<gint> operate_on_class_vec;
     gint object_threshold = 1;
     gint time_threshold_in_ms = 2000;
-    OverCrowdingInfo oc_info;
+    OverCrowdingInfo oc_info = {.enable = false,
+                                .roi_pts = {},
+                                .oc_label = "",
+                                .operate_on_class = {},
+                                .stream_id = 0,
+                                .time_threshold_in_ms = 2000,
+                                .object_threshold = 1};
     std::vector<OverCrowdingInfo> oc_vec;
     gint *roi_list = nullptr;
     gsize list_len = 0;
@@ -617,7 +646,14 @@ static gboolean nvdsanalytics_parse_overcrowding_group(GstNvDsAnalytics *nvdsana
         oc.operate_on_class = operate_on_class_vec;
     }
     if (stream_analytics_info->count(stream_id) == 0) {
-        StreamInfo stream_specific_info;
+        StreamInfo stream_specific_info = {
+            .roi_info = {},
+            .overcrowding_info = {},
+            .linecrossing_info = {},
+            .direction_info = {},
+            .config_width = nvdsanalytics->configuration_width,
+            .config_height = nvdsanalytics->configuration_height,
+        };
         for (OverCrowdingInfo &oc : oc_vec) {
             stream_specific_info.overcrowding_info.push_back(oc);
         }
@@ -649,7 +685,12 @@ static gboolean nvdsanalytics_parse_roi_filtering_group(GstNvDsAnalytics *nvdsan
     // gint operate_on_class = -1;
     std::vector<gint> operate_on_class_vec;
     gboolean inverse_roi = FALSE;
-    ROIInfo roi_info;
+    ROIInfo roi_info = {.enable = false,
+                        .roi_pts = {},
+                        .roi_label = "",
+                        .inverse_roi = false,
+                        .operate_on_class = {},
+                        .stream_id = 0};
     std::vector<ROIInfo> roi_vec;
     gint *roi_list = nullptr;
     gsize list_len = 0;
@@ -725,7 +766,14 @@ static gboolean nvdsanalytics_parse_roi_filtering_group(GstNvDsAnalytics *nvdsan
         roi.operate_on_class = operate_on_class_vec;
     }
     if (stream_analytics_info->count(stream_id) == 0) {
-        StreamInfo stream_specific_info;
+        StreamInfo stream_specific_info = {
+            .roi_info = {},
+            .overcrowding_info = {},
+            .linecrossing_info = {},
+            .direction_info = {},
+            .config_width = nvdsanalytics->configuration_width,
+            .config_height = nvdsanalytics->configuration_height,
+        };
         for (ROIInfo &roi : roi_vec) {
             stream_specific_info.roi_info.push_back(roi);
         }

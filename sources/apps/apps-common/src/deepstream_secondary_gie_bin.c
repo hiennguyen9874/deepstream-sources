@@ -90,7 +90,11 @@ static void write_infer_output_to_file(GstBuffer *buf,
             element_size = 4;
             break;
         case INT8:
+        case UINT8:
             element_size = 1;
+            break;
+        case INT64:
+            element_size = 8;
             break;
         }
 

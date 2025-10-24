@@ -221,9 +221,10 @@ typedef struct _NvOSD_CircleParams {
 
     NvOSD_ColorParams bg_color; /*< Holds the circle's background color. */
 
+    unsigned int circle_width; /**< Holds the circle's border width in pixels. */
+
     unsigned int reserved; /**< Reserved for future use; currently
                               for internal use only. */
-
 } NvOSD_CircleParams;
 
 #ifdef __cplusplus

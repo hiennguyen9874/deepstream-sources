@@ -93,11 +93,10 @@ static void check_if_sys_rtcp_time_is_ntp_sync(GstNvDsNtpCalculator *calc, GstCl
         generate_rfc3339_str_from_ts(ntp_framets_str, ntp);
         generate_rfc3339_str_from_ts(systs_framets_str, sys_time_nsec);
 
-        GST_ELEMENT_WARNING(calc->elem, LIBRARY, SETTINGS,
-                            ("Either host or Source %d seems to be out of NTP sync \
-         SYS TIME = %s CALCULATED NTP TIME = %s",
-                             calc->source_id, systs_framets_str, ntp_framets_str),
-                            (NULL));
+        GST_WARNING_OBJECT(calc->elem,
+                           "Either host or Source %d seems to be out of NTP sync SYS TIME = %s "
+                           "CALCULATED NTP TIME = %s",
+                           calc->source_id, systs_framets_str, ntp_framets_str);
     }
 }
 

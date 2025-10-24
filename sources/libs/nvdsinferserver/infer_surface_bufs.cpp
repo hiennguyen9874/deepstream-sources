@@ -36,14 +36,19 @@ bool SurfaceBuffer::init(int width, int height, InferMediaFormat format, int gpu
     NvBufSurfaceColorFormat color{NVBUF_COLOR_FORMAT_INVALID};
     int channel = 0;
     bool isNCHW = true;
-    int isIntegrated = -1;
+    int is_nvgpu = 0;
 
-    cudaDeviceGetAttribute(&isIntegrated, cudaDevAttrIntegrated, gpuId);
+    NvBufSurfaceDeviceInfo dev_info;
+    if (NvBufSurfaceGetDeviceInfo(&dev_info) == 0) {
+        if (dev_info.driverType == NVBUF_DRIVER_TYPE_NVGPU) {
+            is_nvgpu = 1;
+        }
+    }
 
     switch (format) {
     case InferMediaFormat::kRGB:
     case InferMediaFormat::kBGR:
-        if (isIntegrated) {
+        if (dev_info.isVicPresent) {
             color = NVBUF_COLOR_FORMAT_RGBA;
             channel = 4;
             m_ColorFormat = InferMediaFormat::kRGBA;
@@ -55,7 +60,7 @@ bool SurfaceBuffer::init(int width, int height, InferMediaFormat format, int gpu
         isNCHW = false;
         break;
     case InferMediaFormat::kGRAY:
-        if (isIntegrated)
+        if (dev_info.isVicPresent)
             color = NVBUF_COLOR_FORMAT_NV12;
         else
             color = NVBUF_COLOR_FORMAT_GRAY8;
@@ -77,7 +82,7 @@ bool SurfaceBuffer::init(int width, int height, InferMediaFormat format, int gpu
     params.isContiguous = 1;
     params.colorFormat = color;
     params.layout = NVBUF_LAYOUT_PITCH;
-    if (isIntegrated)
+    if (is_nvgpu)
         params.memType = NVBUF_MEM_SURFACE_ARRAY;
     else
         params.memType = NVBUF_MEM_CUDA_DEVICE;
@@ -87,7 +92,7 @@ bool SurfaceBuffer::init(int width, int height, InferMediaFormat format, int gpu
         return false;
     }
 
-    if (isIntegrated) {
+    if (is_nvgpu) {
         if (NvBufSurfaceMapEglImage(m_Surf, -1) != 0) {
             InferError("Error: Could not map EglImage from NvBufSurface for nvinfer");
             return false;
@@ -96,7 +101,7 @@ bool SurfaceBuffer::init(int width, int height, InferMediaFormat format, int gpu
     m_BufPtrs.resize(m_ReservedSize, nullptr);
     setBatchSize(m_ReservedSize);
 
-    if (isIntegrated) {
+    if (is_nvgpu) {
 #ifdef IS_TEGRA
         m_EglFrames.resize(m_ReservedSize);
         m_CudaResources.resize(m_ReservedSize);
@@ -128,7 +133,7 @@ bool SurfaceBuffer::init(int width, int height, InferMediaFormat format, int gpu
     }
     normalizeDims(dims);
 
-    InferMemType memType = isIntegrated ? InferMemType::kNvSurface : InferMemType::kNvSurfaceArray;
+    InferMemType memType = is_nvgpu ? InferMemType::kNvSurface : InferMemType::kNvSurfaceArray;
 
     InferBufferDescription bufDesc{
         memType : memType,

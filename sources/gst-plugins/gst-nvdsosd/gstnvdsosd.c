@@ -39,6 +39,8 @@ enum {
     PROP_GPU_DEVICE_ID,
     PROP_SHOW_BBOX,
     PROP_SHOW_MASK,
+    PROP_BLUR_GIE_CLASS_IDS,
+    PROP_BLUR_BBOX
 };
 
 /* the capabilities of the inputs and outputs. */
@@ -135,6 +137,7 @@ static GstCaps *gst_nvds_osd_transform_caps(GstBaseTransform *trans,
 {
     GstNvDsOsd *nvdsosd = GST_NVDSOSD(trans);
     GstCaps *ret;
+    GstCaps *new_caps;
     GstCaps *caps_rgba = gst_caps_from_string("video/x-raw(memory:NVMM), format=(string)RGBA");
 
     GST_DEBUG_OBJECT(trans, "identity from: %" GST_PTR_FORMAT, caps);
@@ -146,8 +149,11 @@ static GstCaps *gst_nvds_osd_transform_caps(GstBaseTransform *trans,
 
     /* Force to RGBA format for CPU mode. */
     if (nvdsosd->nvdsosd_mode == MODE_CPU) {
-        ret = gst_caps_intersect_full(ret, caps_rgba, GST_CAPS_INTERSECT_FIRST);
+        new_caps = gst_caps_intersect_full(ret, caps_rgba, GST_CAPS_INTERSECT_FIRST);
+        gst_caps_unref(ret);
+        ret = new_caps;
     }
+    gst_caps_unref(caps_rgba);
 
     return ret;
 }
@@ -277,6 +283,7 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
     unsigned int line_cnt = 0;
     unsigned int arrow_cnt = 0;
     unsigned int circle_cnt = 0;
+    unsigned int blur_cnt = 0;
     unsigned int i = 0;
 
     gpointer state = NULL;
@@ -344,6 +351,40 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
             }
             rect_cnt = 0;
         }
+
+        if (nvdsosd->blur_bbox) {
+            if (nvdsosd->blur_gie_class_list != NULL) {
+                for (GList *it = nvdsosd->blur_gie_class_list; it; it = it->next) {
+                    gint gie_id = g_array_index((GArray *)(it->data), gint, 0);
+                    gint class_id = g_array_index((GArray *)(it->data), gint, 1);
+                    GST_LOG_OBJECT(nvdsosd, "blur gie %d class %d \n", gie_id, class_id);
+                    if (object_meta->unique_component_id == gie_id &&
+                        object_meta->class_id == class_id) {
+                        nvdsosd->blur_rect_params[blur_cnt] = object_meta->rect_params;
+                        blur_cnt++;
+                    }
+                }
+            } else {
+                nvdsosd->blur_rect_params[blur_cnt] = object_meta->rect_params;
+                blur_cnt++;
+            }
+        }
+
+        if (blur_cnt == MAX_OSD_ELEMS) {
+            nvdsosd->frame_blur_params->num_rects = blur_cnt;
+            nvdsosd->frame_blur_params->rect_params_list = nvdsosd->blur_rect_params;
+            /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_rect_params->surf' instead */
+            nvdsosd->frame_blur_params->buf_ptr = NULL;
+            nvdsosd->frame_blur_params->mode = nvdsosd->nvdsosd_mode;
+            nvdsosd->frame_blur_params->surf = surface;
+            if (nvll_osd_blur_rectangles(nvdsosd->nvdsosd_context, nvdsosd->frame_blur_params) ==
+                -1) {
+                GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to blur image"), NULL);
+                return GST_FLOW_ERROR;
+            }
+            blur_cnt = 0;
+        }
+
         if (nvdsosd->draw_mask && object_meta->mask_params.data &&
             object_meta->mask_params.size > 0) {
             nvdsosd->mask_rect_params[segment_cnt] = object_meta->rect_params;
@@ -497,6 +538,7 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
     nvdsosd->num_lines = line_cnt;
     nvdsosd->num_arrows = arrow_cnt;
     nvdsosd->num_circles = circle_cnt;
+    nvdsosd->num_blurs = blur_cnt;
     if (rect_cnt != 0 && nvdsosd->draw_bbox) {
         nvdsosd->frame_rect_params->num_rects = nvdsosd->num_rect;
         nvdsosd->frame_rect_params->rect_params_list = nvdsosd->rect_params;
@@ -577,6 +619,19 @@ static GstFlowReturn gst_nvds_osd_transform_ip(GstBaseTransform *trans, GstBuffe
         }
     }
 
+    if (blur_cnt != 0 && nvdsosd->blur_bbox) {
+        nvdsosd->frame_blur_params->num_rects = blur_cnt;
+        nvdsosd->frame_blur_params->rect_params_list = nvdsosd->blur_rect_params;
+        /** Use of buf_ptr is deprecated, use 'nvdsosd->frame_rect_params->surf' instead */
+        nvdsosd->frame_blur_params->buf_ptr = NULL;
+        nvdsosd->frame_blur_params->mode = nvdsosd->nvdsosd_mode;
+        nvdsosd->frame_blur_params->surf = surface;
+        if (nvll_osd_blur_rectangles(nvdsosd->nvdsosd_context, nvdsosd->frame_blur_params) == -1) {
+            GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED, ("Unable to blur image"), NULL);
+            return GST_FLOW_ERROR;
+        }
+    }
+
     if (nvdsosd->nvdsosd_mode == MODE_GPU) {
         if (nvll_osd_apply(nvdsosd->nvdsosd_context, NULL, surface) == -1) {
             GST_ELEMENT_ERROR(nvdsosd, RESOURCE, FAILED,
@@ -604,7 +659,14 @@ static void gst_nvds_osd_finalize(GObject *object)
     if (nvdsosd->clock_text_params.font_params.font_name) {
         g_free((char *)nvdsosd->clock_text_params.font_params.font_name);
     }
+    if (nvdsosd->blur_gie_class_ids) {
+        g_free((char *)nvdsosd->blur_gie_class_ids);
+    }
+    if (nvdsosd->blur_gie_class_list) {
+        g_list_free(nvdsosd->blur_gie_class_list);
+    }
     g_free(nvdsosd->rect_params);
+    g_free(nvdsosd->blur_rect_params);
     g_free(nvdsosd->mask_rect_params);
     g_free(nvdsosd->mask_params);
     g_free(nvdsosd->text_params);
@@ -618,6 +680,7 @@ static void gst_nvds_osd_finalize(GObject *object)
     g_free(nvdsosd->frame_line_params);
     g_free(nvdsosd->frame_arrow_params);
     g_free(nvdsosd->frame_circle_params);
+    g_free(nvdsosd->frame_blur_params);
 
     G_OBJECT_CLASS(parent_class)->finalize(object);
 }
@@ -706,6 +769,19 @@ static void gst_nvds_osd_class_init(GstNvDsOsdClass *klass)
         g_param_spec_uint("gpu-id", "Set GPU Device ID", "Set GPU Device ID", 0, G_MAXUINT, 0,
                           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY));
 
+    g_object_class_install_property(
+        gobject_class, PROP_BLUR_GIE_CLASS_IDS,
+        g_param_spec_string(
+            "blur-on-gie-class-ids", "Blur on GIE Class Ids",
+            "Blur the bbox generated by GIE with the unique ID and class ID", NULL,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_BLUR_BBOX,
+        g_param_spec_boolean(
+            "blur-bbox", "Blur Bbox", "Attach inference tensor outputs as buffer metadata", FALSE,
+            (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
+
     gst_element_class_set_details_simple(
         gstelement_class, "NvDsOsd plugin", "NvDsOsd functionality",
         "Gstreamer bounding box draw element",
@@ -771,6 +847,56 @@ static void gst_nvds_osd_set_property(GObject *object,
     case PROP_GPU_DEVICE_ID:
         nvdsosd->gpu_id = g_value_get_uint(value);
         break;
+    case PROP_BLUR_GIE_CLASS_IDS: {
+        if (nvdsosd->blur_gie_class_ids) {
+            g_free((char *)nvdsosd->blur_gie_class_ids);
+        }
+        nvdsosd->blur_gie_class_ids = (gchar *)g_value_dup_string(value);
+        gboolean is_digit_flag = TRUE;
+        gchar **split_ids = NULL;
+        gchar **split_gie_class = NULL;
+        gint i = 0, j = 0;
+        split_ids = g_strsplit(nvdsosd->blur_gie_class_ids, ";", -1);
+        for (i = 0; split_ids[i] != NULL && is_digit_flag; i++) {
+            GArray *array = g_array_new(FALSE, FALSE, sizeof(gint));
+            if (split_gie_class != NULL) {
+                g_strfreev(split_gie_class);
+            }
+            split_gie_class = g_strsplit(split_ids[i], ",", 2);
+            for (j = 0; split_gie_class[j] != NULL; j++) {
+                gint tmp = -1;
+                gchar *endptr = NULL;
+                tmp = g_ascii_strtoll(split_gie_class[j], &endptr, 10);
+                if (tmp == 0 && endptr == split_gie_class[j]) {
+                    g_print(
+                        "Please check whether the blur parameter are correct. We'll blur all the "
+                        "object!\n");
+                    if (nvdsosd->blur_gie_class_list) {
+                        g_list_free(nvdsosd->blur_gie_class_list);
+                    }
+                    nvdsosd->blur_gie_class_list = NULL;
+                    is_digit_flag = FALSE;
+                    break;
+                }
+                g_array_append_val(array, tmp);
+            }
+            if (is_digit_flag) {
+                nvdsosd->blur_gie_class_list = g_list_prepend(nvdsosd->blur_gie_class_list, array);
+            }
+        }
+        if (split_gie_class != NULL) {
+            g_strfreev(split_gie_class);
+            split_gie_class = NULL;
+        }
+        if (split_ids != NULL) {
+            g_strfreev(split_ids);
+            split_ids = NULL;
+        }
+        break;
+    }
+    case PROP_BLUR_BBOX:
+        nvdsosd->blur_bbox = g_value_get_boolean(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -821,6 +947,12 @@ static void gst_nvds_osd_get_property(GObject *object,
     case PROP_GPU_DEVICE_ID:
         g_value_set_uint(value, nvdsosd->gpu_id);
         break;
+    case PROP_BLUR_GIE_CLASS_IDS:
+        g_value_set_string(value, nvdsosd->blur_gie_class_ids);
+        break;
+    case PROP_BLUR_BBOX:
+        g_value_set_boolean(value, nvdsosd->blur_bbox);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -848,6 +980,7 @@ static void gst_nvds_osd_init(GstNvDsOsd *nvdsosd)
     nvdsosd->clock_text_params.font_params.font_color.blue = 0.0;
     nvdsosd->clock_text_params.font_params.font_color.alpha = 1.0;
     nvdsosd->rect_params = g_new0(NvOSD_RectParams, MAX_OSD_ELEMS);
+    nvdsosd->blur_rect_params = g_new0(NvOSD_RectParams, MAX_OSD_ELEMS);
     nvdsosd->mask_rect_params = g_new0(NvOSD_RectParams, MAX_OSD_ELEMS);
     nvdsosd->mask_params = g_new0(NvOSD_MaskParams, MAX_OSD_ELEMS);
     nvdsosd->text_params = g_new0(NvOSD_TextParams, MAX_OSD_ELEMS);
@@ -860,6 +993,10 @@ static void gst_nvds_osd_init(GstNvDsOsd *nvdsosd)
     nvdsosd->frame_line_params = g_new0(NvOSD_FrameLineParams, MAX_OSD_ELEMS);
     nvdsosd->frame_arrow_params = g_new0(NvOSD_FrameArrowParams, MAX_OSD_ELEMS);
     nvdsosd->frame_circle_params = g_new0(NvOSD_FrameCircleParams, MAX_OSD_ELEMS);
+    nvdsosd->frame_blur_params = g_new0(NvOSD_FrameRectParams, MAX_OSD_ELEMS);
+    nvdsosd->blur_bbox = false;
+    nvdsosd->blur_gie_class_ids = NULL;
+    nvdsosd->blur_gie_class_list = NULL;
 }
 
 /**
@@ -897,7 +1034,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_osd,
                   PACKAGE_DESCRIPTION,
                   nvdsosd_init,
-                  "6.3",
+                  "8.0",
                   PACKAGE_LICENSE,
                   PACKAGE_NAME,
                   PACKAGE_URL)

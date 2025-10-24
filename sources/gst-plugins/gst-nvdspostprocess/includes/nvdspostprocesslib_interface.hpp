@@ -16,6 +16,7 @@ struct DSPostProcess_CreateParams {
     GstBaseTransform *m_element;
     guint m_gpuId;
     cudaStream_t m_cudaStream;
+    bool m_preprocessor_support;
 };
 
 struct Property {
@@ -30,7 +31,7 @@ public:
     virtual bool HandleEvent(GstEvent *event) = 0;
     virtual bool SetConfigFile(const gchar *config_file) = 0;
     virtual BufferResult ProcessBuffer(GstBuffer *inbuf) = 0;
-    virtual ~IDSPostProcessLibrary(){};
+    virtual ~IDSPostProcessLibrary() {};
 };
 
 #endif

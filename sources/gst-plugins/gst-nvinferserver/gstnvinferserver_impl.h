@@ -472,6 +472,7 @@ private:
     bool isOtherNetowrk() const;
     bool isFullFrame() const;
     bool maintainAspectRatio() const;
+    bool symmetricPadding() const;
     bool needOutputTensorMeta() const;
     bool hasCustomProcess() const;
     uint32_t inferInterval() const { return m_PluginConfig.input_control().interval(); }

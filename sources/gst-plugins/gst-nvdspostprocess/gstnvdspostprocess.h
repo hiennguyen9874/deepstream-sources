@@ -77,6 +77,8 @@ struct _GstNvDsPostProcess {
     NvBufSurfTransformConfigParams config_params;
     gint compute_hw;
     cudaStream_t cu_nbstream;
+    /** Boolean to indicate whether postprocessor support for preprocesor should be enabled */
+    gboolean preprocessor_support;
 };
 
 /** Boiler plate stuff */

@@ -54,7 +54,7 @@ int json_get_key_value(const char *msg, int msglen, const char *path, char *valu
 
         memcpy(subpath, remstr, subpath_len);
 
-        subpath[subpath_len] = '\0';
+        subpath[subpath_len - 1] = '\0';
 
         jvalue = json_object_get(subroot, subpath);
         remstr = dotptr + 1;

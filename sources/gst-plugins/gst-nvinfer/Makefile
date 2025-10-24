@@ -1,17 +1,19 @@
-################################################################################
-# Copyright (c) 2017-2023, NVIDIA CORPORATION.  All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2017-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
-#################################################################################
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 
 CUDA_VER?=
 ifeq ($(CUDA_VER),)
   $(error "CUDA_VER is not set")
 endif
+
+WSL:=$(shell uname -a | grep -io "microsoft" | tr '[:upper:]' '[:lower:]')
 
 CXX:= g++
 SRCS:= gstnvinfer.cpp  gstnvinfer_allocator.cpp gstnvinfer_property_parser.cpp \
@@ -19,9 +21,9 @@ SRCS:= gstnvinfer.cpp  gstnvinfer_allocator.cpp gstnvinfer_property_parser.cpp \
 INCS:= $(wildcard *.h)
 LIB:=libnvdsgst_infer.so
 
-NVDS_VERSION:=6.3
+NVDS_VERSION:=8.0
 
-CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"6.3.0\" \
+CFLAGS+= -fPIC -std=c++11 -DDS_VERSION=\"8.0.0\" \
 	 -I /usr/local/cuda-$(CUDA_VER)/include \
 	 -I ../../includes \
 	 -I ../gst-nvdspreprocess/include \
@@ -36,6 +38,10 @@ LIBS := -shared -Wl,-no-undefined \
 LIBS+= -L$(LIB_INSTALL_DIR) -lnvdsgst_helper -lnvdsgst_customhelper -lnvdsgst_meta -lnvds_meta \
        -lnvds_infer -lnvbufsurface -lnvbufsurftransform -ldl -lpthread -lyaml-cpp \
        -lcuda -Wl,-rpath,$(LIB_INSTALL_DIR)
+
+ifeq ("microsoft", "$(WSL)")
+  LIBS+= -L/usr/lib/wsl/lib/
+endif
 
 OBJS:= $(SRCS:.cpp=.o)
 

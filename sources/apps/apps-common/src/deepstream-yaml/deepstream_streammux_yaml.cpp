@@ -42,16 +42,17 @@ gboolean parse_streammux_yaml(NvDsStreammuxConfig *config, gchar *cfg_file_path)
             config->frame_duration = itr->second.as<guint64>();
         } else if (paramKey == "nvbuf-memory-type") {
             config->nvbuf_memory_type = itr->second.as<guint>();
-        } else if (paramKey == "config-file") {
+        } else if (paramKey == "config-file-path") {
             std::string temp = itr->second.as<std::string>();
             char *str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(str, temp.c_str(), 1024);
+            std::strncpy(str, temp.c_str(), 1023);
             config->config_file_path = (char *)malloc(sizeof(char) * 1024);
             if (!get_absolute_file_path_yaml(cfg_file_path, str, config->config_file_path)) {
                 g_printerr("Error: Could not parse config-file in streammux\n");
                 g_free(str);
                 goto done;
             }
+            g_free(str);
         } else if (paramKey == "compute-hw") {
             config->compute_hw = itr->second.as<gint>();
         } else if (paramKey == "attach-sys-ts") {

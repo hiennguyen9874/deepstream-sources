@@ -1,13 +1,13 @@
 #ifndef __NVGSTDS_TILED_DISPLAY_H__
 #define __NVGSTDS_TILED_DISPLAY_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <gst/gst.h>
 
 #include "nvll_osd_struct.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct {
     GstElement *bin;
@@ -43,6 +43,7 @@ typedef struct {
      *  */
     guint compute_hw;
     guint buffer_pool_size;
+    guint square_seq_grid;
 } NvDsTiledDisplayConfig;
 
 /**

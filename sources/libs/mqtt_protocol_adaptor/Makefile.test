@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@
 ################################################################################
 # this  Makefile is to be used to build the test application to exercise the sample mqtt protocol adaptor
 CXX:=g++
-NVDS_VERSION:=6.3
+NVDS_VERSION:=8.0
 DS_INC:= /opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/sources/includes/
 
 DS_LIB:=/opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/

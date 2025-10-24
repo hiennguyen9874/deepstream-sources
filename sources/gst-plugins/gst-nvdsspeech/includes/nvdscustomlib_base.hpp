@@ -77,7 +77,6 @@ bool DSCustomLibraryBase::StartWithParams(DSCustom_CreateParams *params)
     } else {
         m_OutType = CapsType::kText;
     }
-    gst_audio_info_from_caps(&m_outAudioInfo, m_outCaps);
 
     m_inAudioFmt = GST_AUDIO_FORMAT_INFO_FORMAT(m_inAudioInfo.finfo);
 

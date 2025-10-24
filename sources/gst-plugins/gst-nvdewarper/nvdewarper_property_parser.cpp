@@ -155,7 +155,7 @@ static gboolean nvdewarper_parse_surface_attributes(Gstnvdewarper *nvdewarper,
                 g_key_file_get_double(key_file, group, CONFIG_GROUP_DEWARPER_SURFACE_ROLL, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_DEWARPER_SURFACE_FOCAL_LENGTH)) {
-            gsize length;
+            gsize length = 0;
             gdouble *focal_length = g_key_file_get_double_list(
                 key_file, group, CONFIG_GROUP_DEWARPER_SURFACE_FOCAL_LENGTH, &length, &error);
             CHECK_ERROR(error);
@@ -186,7 +186,7 @@ static gboolean nvdewarper_parse_surface_attributes(Gstnvdewarper *nvdewarper,
                 key_file, group, CONFIG_GROUP_DEWARPER_SURFACE_FIELD_OF_VIEW, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_DEWARPER_SURFACE_DISTORTION)) {
-            gsize length;
+            gsize length = 0;
             gdouble *distortion = g_key_file_get_double_list(
                 key_file, group, CONFIG_GROUP_DEWARPER_SURFACE_DISTORTION, &length, &error);
             CHECK_ERROR(error);
@@ -223,7 +223,7 @@ static gboolean nvdewarper_parse_surface_attributes(Gstnvdewarper *nvdewarper,
                 key_file, group, CONFIG_GROUP_DEWARPER_SURFACE_CONTROL, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_DEWARPER_SURFACE_ROTATION_MATRIX)) {
-            gsize length;
+            gsize length = 0;
             gdouble *matrix = g_key_file_get_double_list(
                 key_file, group, CONFIG_GROUP_DEWARPER_SURFACE_ROTATION_MATRIX, &length, &error);
             CHECK_ERROR(error);
@@ -241,7 +241,7 @@ static gboolean nvdewarper_parse_surface_attributes(Gstnvdewarper *nvdewarper,
             }
             g_free(matrix);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_DEWARPER_SURFACE_DST_FOCAL_LENGTH)) {
-            gsize length;
+            gsize length = 0;
             gdouble *focal_length = g_key_file_get_double_list(
                 key_file, group, CONFIG_GROUP_DEWARPER_SURFACE_DST_FOCAL_LENGTH, &length, &error);
             CHECK_ERROR(error);
@@ -256,7 +256,7 @@ static gboolean nvdewarper_parse_surface_attributes(Gstnvdewarper *nvdewarper,
                 surfaceParams.dstFocalLength[i] = focal_length[i];
             g_free(focal_length);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_DEWARPER_SURFACE_DST_PRINCIPAL_POINT)) {
-            gsize length;
+            gsize length = 0;
             gdouble *principal_point = g_key_file_get_double_list(
                 key_file, group, CONFIG_GROUP_DEWARPER_SURFACE_DST_PRINCIPAL_POINT, &length,
                 &error);
@@ -393,7 +393,7 @@ gboolean nvdewarper_parse_config_file(Gstnvdewarper *nvdewarper, gchar *cfg_file
             if (!strncmp(*group, CONFIG_GROUP_DEWARPER_SURFACE_ATTRS_PREFIX,
                          sizeof(CONFIG_GROUP_DEWARPER_SURFACE_ATTRS_PREFIX) - 1)) {
                 gchar *key1 = *group + sizeof(CONFIG_GROUP_DEWARPER_SURFACE_ATTRS_PREFIX) - 1;
-                gchar *endptr;
+                gchar *endptr = NULL;
                 guint64 surface_index = g_ascii_strtoull(key1, &endptr, 10);
 
                 if (surface_index == 0 && endptr == key1) {

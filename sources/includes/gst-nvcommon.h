@@ -31,18 +31,20 @@ extern "C" {
     ((memType1 == NVBUF_MEM_DEFAULT && memType2 == NVBUF_MEM_SURFACE_ARRAY) || \
      (memType1 == NVBUF_MEM_SURFACE_ARRAY && memType2 == NVBUF_MEM_DEFAULT))
 
-#define GET_DEFAULT_MEM_TYPE(mem_type)                  \
-    {                                                   \
-        int current_device = -1;                        \
-        cudaGetDevice(&current_device);                 \
-        struct cudaDeviceProp prop;                     \
-        cudaGetDeviceProperties(&prop, current_device); \
-        if (prop.integrated)                            \
-            mem_type = NVBUF_MEM_SURFACE_ARRAY;         \
-        else                                            \
-            mem_type = NVBUF_MEM_CUDA_DEVICE;           \
+#define GET_DEFAULT_MEM_TYPE(mem_type)                            \
+    {                                                             \
+        int is_nvgpu = 0;                                         \
+        NvBufSurfaceDeviceInfo dev_info;                          \
+        if (NvBufSurfaceGetDeviceInfo(&dev_info) == 0) {          \
+            if (dev_info.driverType == NVBUF_DRIVER_TYPE_NVGPU) { \
+                is_nvgpu = 1;                                     \
+            }                                                     \
+        }                                                         \
+        if (is_nvgpu)                                             \
+            mem_type = NVBUF_MEM_SURFACE_ARRAY;                   \
+        else                                                      \
+            mem_type = NVBUF_MEM_CUDA_DEVICE;                     \
     }
-
 #endif
 
 #define CHECK_NVDS_MEMORY_AND_GPUID(object, surface)                                             \
@@ -126,4 +128,4 @@ int gst_nvbuf_memory_get_value(const char *mem_type_string);
 }
 #endif
 
-#endif
+#endif /* __GST_NVCOMMON_H__ */

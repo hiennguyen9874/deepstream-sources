@@ -90,7 +90,7 @@ extern "C" bool NvDsInferParseCustomResnet(std::vector<NvDsInferLayerInfo> const
     /* Find the bbox layer */
     if (bboxLayerIndex == -1) {
         for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
-            if (strcmp(outputLayersInfo[i].layerName, "conv2d_bbox") == 0) {
+            if (strcmp(outputLayersInfo[i].layerName, "output_bbox/BiasAdd:0") == 0) {
                 bboxLayerIndex = i;
                 getDimsCHWFromDims(bboxLayerDims, outputLayersInfo[i].inferDims);
                 break;
@@ -105,7 +105,7 @@ extern "C" bool NvDsInferParseCustomResnet(std::vector<NvDsInferLayerInfo> const
     /* Find the cov layer */
     if (covLayerIndex == -1) {
         for (unsigned int i = 0; i < outputLayersInfo.size(); i++) {
-            if (strcmp(outputLayersInfo[i].layerName, "conv2d_cov/Sigmoid") == 0) {
+            if (strcmp(outputLayersInfo[i].layerName, "output_cov/Sigmoid:0") == 0) {
                 covLayerIndex = i;
                 getDimsCHWFromDims(covLayerDims, outputLayersInfo[i].inferDims);
                 break;
@@ -207,8 +207,8 @@ extern "C" bool NvDsInferParseCustomTfSSD(std::vector<NvDsInferLayerInfo> const 
     const NvDsInferLayerInfo *classLayer = layerFinder("detection_classes");
     const NvDsInferLayerInfo *boxLayer = layerFinder("detection_boxes");
     if (!scoreLayer || !classLayer || !boxLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
-                  << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types "
+                  << "in output tensors" << std::endl;
         return false;
     }
 
@@ -273,8 +273,8 @@ extern "C" bool NvDsInferParseCustomMrcnnTLT(
     const NvDsInferLayerInfo *maskLayer = layerFinder("mask_head/mask_fcn_logits/BiasAdd");
 
     if (!detectionLayer || !maskLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
-                  << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types "
+                  << "in output tensors" << std::endl;
         return false;
     }
 
@@ -296,7 +296,7 @@ extern "C" bool NvDsInferParseCustomMrcnnTLT(
 
     auto out_det = reinterpret_cast<MrcnnRawDetection *>(detectionLayer->buffer);
     auto out_mask =
-        reinterpret_cast<float(*)[mask_instance_width * mask_instance_height]>(maskLayer->buffer);
+        reinterpret_cast<float (*)[mask_instance_width * mask_instance_height]>(maskLayer->buffer);
 
     for (auto i = 0U; i < det_max_instances; i++) {
         MrcnnRawDetection &rawDec = out_det[i];
@@ -525,8 +525,8 @@ extern "C" bool NvDsInferParseCustomMrcnnTLTV2(
     const NvDsInferLayerInfo *maskLayer = layerFinder("mask_fcn_logits/BiasAdd");
 
     if (!detectionLayer || !maskLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
-                  << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types "
+                  << "in output tensors" << std::endl;
         return false;
     }
 
@@ -548,7 +548,7 @@ extern "C" bool NvDsInferParseCustomMrcnnTLTV2(
 
     auto out_det = reinterpret_cast<MrcnnRawDetection *>(detectionLayer->buffer);
     auto out_mask =
-        reinterpret_cast<float(*)[mask_instance_width * mask_instance_height]>(maskLayer->buffer);
+        reinterpret_cast<float (*)[mask_instance_width * mask_instance_height]>(maskLayer->buffer);
 
     for (auto i = 0U; i < det_max_instances; i++) {
         MrcnnRawDetection &rawDec = out_det[i];
@@ -668,8 +668,8 @@ extern "C" bool NvDsInferParseCustomDDETRTAO(
         layerFinder("pred_logits"); // 1 x num_queries x num_classes
 
     if (!boxLayer || !classLayer) {
-        std::cerr << "ERROR: some layers missing or unsupported data types " << "in output tensors"
-                  << std::endl;
+        std::cerr << "ERROR: some layers missing or unsupported data types "
+                  << "in output tensors" << std::endl;
         return false;
     }
 

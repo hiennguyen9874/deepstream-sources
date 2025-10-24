@@ -25,6 +25,7 @@ enum {
     PROP_CUSTOMLIB_PROPS_VALUES,
     PROP_DUMMY_META_INSERT,
     PROP_FILL_DUMMY_BATCH_META,
+    PROP_CONFIG_FILE_PATH,
 };
 
 /* Default values for properties */
@@ -39,6 +40,7 @@ enum {
             gst_element_post_message(                                                              \
                 GST_ELEMENT(nvdsvideotemplate),                                                    \
                 gst_message_new_error(GST_OBJECT(nvdsvideotemplate), err, msg));                   \
+            g_error_free(err);                                                                     \
         }                                                                                          \
     } while (0)
 
@@ -61,8 +63,8 @@ static GstStaticPadTemplate gst_nvdsvideotemplate_sink_template = GST_STATIC_PAD
     GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE_WITH_FEATURES(
         "memory:NVMM",
         "{ "
-        "NV12, RGBA, I420 }") ";" GST_VIDEO_CAPS_MAKE("{ "
-                                                      "NV12, RGBA, I420 }")));
+        "NV12, RGBA, I420 , RGB, BGR, GRAY8}") ";" GST_VIDEO_CAPS_MAKE("{ "
+                                                                       "NV12, RGBA, I420 }")));
 
 static GstStaticPadTemplate gst_nvdsvideotemplate_src_template = GST_STATIC_PAD_TEMPLATE(
     "src",
@@ -70,8 +72,8 @@ static GstStaticPadTemplate gst_nvdsvideotemplate_src_template = GST_STATIC_PAD_
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE_WITH_FEATURES(
         GST_CAPS_FEATURE_MEMORY_NVMM,
-        "{ NV12, RGBA, I420 }") ";" GST_VIDEO_CAPS_MAKE("{ "
-                                                        "NV12, RGBA, I420 }")));
+        "{ NV12, RGBA, I420, RGB, GRAY8, BGR }") ";" GST_VIDEO_CAPS_MAKE("{ "
+                                                                         "NV12, RGBA, I420 }")));
 
 /* Define our element type. Standard GObject/GStreamer boilerplate stuff */
 #define gst_nvdsvideotemplate_parent_class parent_class
@@ -85,6 +87,7 @@ static void gst_nvdsvideotemplate_get_property(GObject *object,
                                                guint prop_id,
                                                GValue *value,
                                                GParamSpec *pspec);
+static void gst_nvdsvideotemplate_finalize(GObject *object);
 static gboolean gst_nvdsvideotemplate_sink_event(GstBaseTransform *btrans, GstEvent *event);
 
 static gboolean gst_nvdsvideotemplate_set_caps(GstBaseTransform *btrans,
@@ -121,7 +124,7 @@ static gboolean gst_nvdsvideotemplate_query(GstBaseTransform *trans,
     filter = GST_NVDSVIDEOTEMPLATE(trans);
 
     if (gst_nvquery_is_update_caps(query)) {
-        guint stream_index;
+        guint stream_index = 0;
         const GValue *frame_rate = NULL;
         GstStructure *str;
 
@@ -307,6 +310,7 @@ static void gst_nvdsvideotemplate_class_init(GstNvDsVideoTemplateClass *klass)
     /* Overide base class functions */
     gobject_class->set_property = GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_set_property);
     gobject_class->get_property = GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_get_property);
+    gobject_class->finalize = GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_finalize);
 
     gstbasetransform_class->transform_caps =
         GST_DEBUG_FUNCPTR(gst_nvdsvideotemplate_transform_caps);
@@ -331,6 +335,13 @@ static void gst_nvdsvideotemplate_class_init(GstNvDsVideoTemplateClass *klass)
         g_param_spec_uint(
             "gpu-id", "Set GPU Device ID", "Set GPU Device ID", 0, G_MAXUINT, 0,
             GParamFlags(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
+
+    g_object_class_install_property(
+        gobject_class, PROP_CONFIG_FILE_PATH,
+        g_param_spec_string("config-file", "Config file path",
+                            "Set config file path to load properties from (takes precedence over "
+                            "individual properties)",
+                            NULL, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(
         gobject_class, PROP_CUSTOMLIB_NAME,
@@ -386,11 +397,78 @@ static void gst_nvdsvideotemplate_init(GstNvDsVideoTemplate *nvdsvideotemplate)
     /* Initialize all property variables to default values */
     nvdsvideotemplate->gpu_id = DEFAULT_GPU_ID;
     nvdsvideotemplate->num_batch_buffers = 1;
+    nvdsvideotemplate->config_file_path = NULL;
+    nvdsvideotemplate->custom_lib_name = NULL;
+    nvdsvideotemplate->custom_prop_string = NULL;
+    nvdsvideotemplate->vecProp = NULL;
+
+    nvdsvideotemplate->algo_factory = new DSCustomLibrary_Factory();
+    nvdsvideotemplate->algo_factory->Initialize();
 
     nvdsvideotemplate->sinkcaps =
         gst_static_pad_template_get_caps(&gst_nvdsvideotemplate_sink_template);
     nvdsvideotemplate->srccaps =
         gst_static_pad_template_get_caps(&gst_nvdsvideotemplate_src_template);
+}
+
+/* Function to parse config file and set properties */
+static gboolean gst_nvdsvideotemplate_parse_config_file(GstNvDsVideoTemplate *nvdsvideotemplate)
+{
+    if (!nvdsvideotemplate->config_file_path)
+        return TRUE;
+
+    std::ifstream config_file(nvdsvideotemplate->config_file_path);
+    if (!config_file.is_open()) {
+        GST_ERROR_ON_BUS("Config File Error", "Could not open config file: %s",
+                         nvdsvideotemplate->config_file_path);
+        return FALSE;
+    }
+
+    std::string line;
+    while (std::getline(config_file, line)) {
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == '#')
+            continue;
+
+        size_t delimiter_pos = line.find('=');
+        if (delimiter_pos == std::string::npos)
+            continue;
+
+        std::string key = line.substr(0, delimiter_pos);
+        std::string value = line.substr(delimiter_pos + 1);
+
+        // Trim whitespace
+        key.erase(0, key.find_first_not_of(" \t"));
+        key.erase(key.find_last_not_of(" \t") + 1);
+        value.erase(0, value.find_first_not_of(" \t"));
+        value.erase(value.find_last_not_of(" \t") + 1);
+
+        if (key == "customlib-name") {
+            if (nvdsvideotemplate->custom_lib_name)
+                g_free(nvdsvideotemplate->custom_lib_name);
+            nvdsvideotemplate->custom_lib_name = g_strdup(value.c_str());
+        } else if (key == "gpu-id") {
+            nvdsvideotemplate->gpu_id = std::stoi(value);
+        } else if (key == "dummy-meta-insert") {
+            nvdsvideotemplate->dummy_meta_insert = (value == "true" || value == "1");
+        } else if (key == "fill-dummy-batch-meta") {
+            nvdsvideotemplate->fill_dummy_batch_meta = (value == "true" || value == "1");
+        } else if (key.find("customlib-props") == 0) {
+            if (!nvdsvideotemplate->vecProp) {
+                nvdsvideotemplate->vecProp = new std::vector<Property>;
+            }
+            size_t prop_delimiter = value.find(':');
+            if (prop_delimiter != std::string::npos) {
+                std::string prop_key = value.substr(0, prop_delimiter);
+                std::string prop_value = value.substr(prop_delimiter + 1);
+                Property prop(prop_key, prop_value);
+                nvdsvideotemplate->vecProp->push_back(prop);
+            }
+        }
+    }
+
+    config_file.close();
+    return TRUE;
 }
 
 /* Function called when a property of the element is set. Standard boilerplate.
@@ -402,53 +480,79 @@ static void gst_nvdsvideotemplate_set_property(GObject *object,
 {
     GstNvDsVideoTemplate *nvdsvideotemplate = GST_NVDSVIDEOTEMPLATE(object);
     switch (prop_id) {
+    case PROP_CONFIG_FILE_PATH:
+        if (nvdsvideotemplate->config_file_path) {
+            g_free(nvdsvideotemplate->config_file_path);
+        }
+        nvdsvideotemplate->config_file_path = g_value_dup_string(value);
+        if (nvdsvideotemplate->config_file_path) {
+            if (!gst_nvdsvideotemplate_parse_config_file(nvdsvideotemplate)) {
+                GST_ERROR_ON_BUS("Config File Error", "Failed to parse config file");
+            }
+        }
+        break;
     case PROP_GPU_DEVICE_ID:
-        nvdsvideotemplate->gpu_id = g_value_get_uint(value);
+        // Only set if config file is not specified
+        if (!nvdsvideotemplate->config_file_path) {
+            nvdsvideotemplate->gpu_id = g_value_get_uint(value);
+        }
         break;
     case PROP_DUMMY_META_INSERT:
-        nvdsvideotemplate->dummy_meta_insert = g_value_get_boolean(value);
+        // Only set if config file is not specified
+        if (!nvdsvideotemplate->config_file_path) {
+            nvdsvideotemplate->dummy_meta_insert = g_value_get_boolean(value);
+        }
         break;
     case PROP_FILL_DUMMY_BATCH_META:
-        nvdsvideotemplate->fill_dummy_batch_meta = g_value_get_boolean(value);
+        // Only set if config file is not specified
+        if (!nvdsvideotemplate->config_file_path) {
+            nvdsvideotemplate->fill_dummy_batch_meta = g_value_get_boolean(value);
+        }
         break;
     case PROP_CUSTOMLIB_NAME:
-        if (nvdsvideotemplate->custom_lib_name) {
-            g_free(nvdsvideotemplate->custom_lib_name);
+        // Only set if config file is not specified
+        if (!nvdsvideotemplate->config_file_path) {
+            if (nvdsvideotemplate->custom_lib_name) {
+                g_free(nvdsvideotemplate->custom_lib_name);
+            }
+            nvdsvideotemplate->custom_lib_name = (gchar *)g_value_dup_string(value);
         }
-        nvdsvideotemplate->custom_lib_name = (gchar *)g_value_dup_string(value);
         break;
-    case PROP_CUSTOMLIB_PROPS: {
-        if (!nvdsvideotemplate->vecProp) {
-            nvdsvideotemplate->vecProp = new std::vector<Property>;
-        }
-        {
-            if (nvdsvideotemplate->custom_prop_string) {
-                g_free(nvdsvideotemplate->custom_prop_string);
-                nvdsvideotemplate->custom_prop_string = NULL;
+    case PROP_CUSTOMLIB_PROPS:
+        // Only set if config file is not specified
+        if (!nvdsvideotemplate->config_file_path) {
+            if (!nvdsvideotemplate->vecProp) {
+                nvdsvideotemplate->vecProp = new std::vector<Property>;
             }
-            nvdsvideotemplate->custom_prop_string = (gchar *)g_value_dup_string(value);
-            std::string propStr(nvdsvideotemplate->custom_prop_string);
-            std::size_t found = 0;
-            std::size_t start = 0;
+            {
+                if (nvdsvideotemplate->custom_prop_string) {
+                    g_free(nvdsvideotemplate->custom_prop_string);
+                    nvdsvideotemplate->custom_prop_string = NULL;
+                }
+                nvdsvideotemplate->custom_prop_string = (gchar *)g_value_dup_string(value);
+                std::string propStr(nvdsvideotemplate->custom_prop_string);
+                std::size_t found = 0;
+                std::size_t start = 0;
 
-            found = propStr.find_first_of(":");
-            if (found == 0) {
-                GST_ERROR_ON_BUS("Custom Library property Error",
-                                 "Custom Library property Error: required format is: "
-                                 "customlib-props=\"[key:value]\"");
-                return;
-            }
-            Property prop(propStr.substr(start, found), propStr.substr(found + 1));
-            nvdsvideotemplate->vecProp->push_back(prop);
-            if (nullptr != nvdsvideotemplate->algo_ctx) {
-                bool ret = nvdsvideotemplate->algo_ctx->SetProperty(prop);
-                if (!ret) {
-                    GST_ERROR_ON_BUS("SetProperty Error", "SetProperty Error (%s:%s)",
-                                     prop.key.c_str(), prop.value.c_str());
+                found = propStr.find_first_of(":");
+                if (found == 0) {
+                    GST_ERROR_ON_BUS("Custom Library property Error",
+                                     "Custom Library property Error: required format is: "
+                                     "customlib-props=\"[key:value]\"");
+                    return;
+                }
+                Property prop(propStr.substr(start, found), propStr.substr(found + 1));
+                nvdsvideotemplate->vecProp->push_back(prop);
+                if (nullptr != nvdsvideotemplate->algo_ctx) {
+                    bool ret = nvdsvideotemplate->algo_ctx->SetProperty(prop);
+                    if (!ret) {
+                        GST_ERROR_ON_BUS("SetProperty Error", "SetProperty Error (%s:%s)",
+                                         prop.key.c_str(), prop.value.c_str());
+                    }
                 }
             }
         }
-    } break;
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -466,6 +570,9 @@ static void gst_nvdsvideotemplate_get_property(GObject *object,
     GstNvDsVideoTemplate *nvdsvideotemplate = GST_NVDSVIDEOTEMPLATE(object);
 
     switch (prop_id) {
+    case PROP_CONFIG_FILE_PATH:
+        g_value_set_string(value, nvdsvideotemplate->config_file_path);
+        break;
     case PROP_GPU_DEVICE_ID:
         g_value_set_uint(value, nvdsvideotemplate->gpu_id);
         break;
@@ -526,12 +633,11 @@ static gboolean gst_nvdsvideotemplate_start(GstBaseTransform *btrans)
     cudaStreamCreateWithFlags(&(nvdsvideotemplate->cu_nbstream), cudaStreamNonBlocking);
 
     try {
-        nvdsvideotemplate->algo_factory = new DSCustomLibrary_Factory();
         nvdsvideotemplate->algo_ctx = nvdsvideotemplate->algo_factory->CreateCustomAlgoCtx(
             nvdsvideotemplate->custom_lib_name, G_OBJECT(btrans));
 
         if (nvdsvideotemplate->algo_ctx && nvdsvideotemplate->vecProp &&
-            nvdsvideotemplate->vecProp && nvdsvideotemplate->vecProp->size()) {
+            nvdsvideotemplate->vecProp->size()) {
             GST_INFO_OBJECT(nvdsvideotemplate, "Setting custom lib properties # %lu",
                             nvdsvideotemplate->vecProp->size());
             for (std::vector<Property>::iterator it = nvdsvideotemplate->vecProp->begin();
@@ -558,6 +664,26 @@ error:
     return FALSE;
 }
 
+static void gst_nvdsvideotemplate_finalize(GObject *object)
+{
+    GstNvDsVideoTemplate *nvdsvideotemplate = GST_NVDSVIDEOTEMPLATE(object);
+
+    if (nvdsvideotemplate->vecProp)
+        delete nvdsvideotemplate->vecProp;
+
+    if (nvdsvideotemplate->custom_lib_name) {
+        g_free(nvdsvideotemplate->custom_lib_name);
+        nvdsvideotemplate->custom_lib_name = NULL;
+    }
+
+    if (nvdsvideotemplate->config_file_path) {
+        g_free(nvdsvideotemplate->config_file_path);
+        nvdsvideotemplate->config_file_path = NULL;
+    }
+
+    G_OBJECT_CLASS(parent_class)->finalize(object);
+}
+
 /**
  * Stop the process thread and free up all the resources
  */
@@ -578,13 +704,6 @@ static gboolean gst_nvdsvideotemplate_stop(GstBaseTransform *btrans)
     if (nvdsvideotemplate->algo_factory)
         delete nvdsvideotemplate->algo_factory;
 
-    if (nvdsvideotemplate->vecProp)
-        delete nvdsvideotemplate->vecProp;
-
-    if (nvdsvideotemplate->custom_lib_name) {
-        g_free(nvdsvideotemplate->custom_lib_name);
-        nvdsvideotemplate->custom_lib_name = NULL;
-    }
     if (nvdsvideotemplate->custom_prop_string) {
         g_free(nvdsvideotemplate->custom_prop_string);
         nvdsvideotemplate->custom_prop_string = NULL;
@@ -652,7 +771,7 @@ static gboolean gst_nvdsvideotemplate_sink_event(GstBaseTransform *btrans, GstEv
 
     ret = GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(btrans, event);
     if (ret == FALSE) {
-        GstState cur_state;
+        GstState cur_state = GST_STATE_NULL;
         gst_element_get_state(GST_ELEMENT(btrans), &cur_state, NULL, 0);
         if (!(event != NULL || cur_state == GST_STATE_NULL || cur_state == GST_STATE_PAUSED))
             GST_ERROR_ON_BUS("sink_event error", "sink_event error");
@@ -693,7 +812,7 @@ static GstFlowReturn gst_nvdsvideotemplate_submit_input_buffer(GstBaseTransform 
             return flow_ret;
         } else if (result == BufferResult::Buffer_Drop) {
             GST_DEBUG("nvdsvideotemplate: -- Dropping Buffer");
-            // TODO unref the buffer so that it will be dropped
+            gst_buffer_unref(inbuf);
             return GST_FLOW_OK;
         } else if (result == BufferResult::Buffer_Error) {
             GST_ERROR_ON_BUS("Buffer_Error", "Error in processing from customlib (%s): %u",
@@ -744,7 +863,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_videotemplate,
                   DESCRIPTION,
                   nvdsvideotemplate_plugin_init,
-                  "6.3",
+                  "8.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

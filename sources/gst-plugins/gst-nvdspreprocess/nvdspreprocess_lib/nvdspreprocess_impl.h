@@ -175,7 +175,9 @@ public:
     /** synchronize cuda stream */
     NvDsPreProcessStatus syncStream();
     /** method to prepare tensor using cuda kernels */
-    NvDsPreProcessStatus prepare_tensor(NvDsPreProcessBatch *batch, void *&devBuf);
+    NvDsPreProcessStatus prepare_tensor(NvDsPreProcessBatch *batch,
+                                        CustomTensorParams &tensorParam,
+                                        void *&devBuf);
 
 private:
     NvDsPreProcessStatus readMeanImageFile();

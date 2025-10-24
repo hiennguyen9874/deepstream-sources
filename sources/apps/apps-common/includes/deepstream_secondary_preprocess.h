@@ -1,13 +1,13 @@
 #ifndef __NVGSTDS_SECONDARY_PREPROCESS_H__
 #define __NVGSTDS_SECONDARY_PREPROCESS_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <gst/gst.h>
 
 #include "deepstream_preprocess.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct {
     GstElement *queue;

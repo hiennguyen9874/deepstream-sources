@@ -38,6 +38,7 @@ enum {
             gst_element_post_message(                                                              \
                 GST_ELEMENT(nvdsaudiotemplate),                                                    \
                 gst_message_new_error(GST_OBJECT(nvdsaudiotemplate), err, msg));                   \
+            g_error_free(err);                                                                     \
         }                                                                                          \
     } while (0)
 
@@ -54,8 +55,7 @@ enum {
     "audio/x-raw(memory:NVMM), "                            \
     "format = (string) " format                             \
     ", "                                                    \
-    "rate = " GST_AUDIO_RATE_RANGE                          \
-    ", "                                                    \
+    "rate = [ 1, 2147483647 ], "                            \
     "layout = (string) interleaved, "                       \
     "channels = " channels
 
@@ -63,8 +63,7 @@ enum {
     "audio/x-raw, "                                            \
     "format = (string) " format                                \
     ", "                                                       \
-    "rate = " GST_AUDIO_RATE_RANGE                             \
-    ", "                                                       \
+    "rate = [ 1, 2147483647 ], "                               \
     "layout = (string) interleaved, "                          \
     "channels = " channels
 
@@ -77,8 +76,7 @@ static GstStaticPadTemplate gst_nvdsaudiotemplate_sink_template = GST_STATIC_PAD
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS(GST_AUDIO_CAPS_MAKE_WITH_FEATURES(
         "{S16LE, F32LE}",
-        GST_AUDIO_CHANNELS_RANGE) ";" GST_AUDIO_SW_CAPS_MAKE_WITH_FEATURES("{S16LE, F32LE}",
-                                                                           GST_AUDIO_CHANNELS_RANGE)));
+        "1") ";" GST_AUDIO_SW_CAPS_MAKE_WITH_FEATURES("{S16LE, F32LE}", "1")));
 
 static GstStaticPadTemplate gst_nvdsaudiotemplate_src_template = GST_STATIC_PAD_TEMPLATE(
     "src",
@@ -86,8 +84,7 @@ static GstStaticPadTemplate gst_nvdsaudiotemplate_src_template = GST_STATIC_PAD_
     GST_PAD_ALWAYS,
     GST_STATIC_CAPS(GST_AUDIO_CAPS_MAKE_WITH_FEATURES(
         "{S16LE, F32LE}",
-        GST_AUDIO_CHANNELS_RANGE) ";" GST_AUDIO_SW_CAPS_MAKE_WITH_FEATURES("{S16LE, F32LE}",
-                                                                           GST_AUDIO_CHANNELS_RANGE)));
+        "1") ";" GST_AUDIO_SW_CAPS_MAKE_WITH_FEATURES("{S16LE, F32LE}", "1")));
 
 /* Define our element type. Standard GObject/GStreamer boilerplate stuff */
 #define gst_nvdsaudiotemplate_parent_class parent_class
@@ -101,6 +98,7 @@ static void gst_nvdsaudiotemplate_get_property(GObject *object,
                                                guint prop_id,
                                                GValue *value,
                                                GParamSpec *pspec);
+static void gst_nvdsaudiotemplate_finalize(GObject *object);
 static gboolean gst_nvdsaudiotemplate_sink_event(GstBaseTransform *btrans, GstEvent *event);
 
 static gboolean gst_nvdsaudiotemplate_set_caps(GstBaseTransform *btrans,
@@ -134,11 +132,7 @@ static GstCaps *gst_nvdsaudiotemplate_transform_caps(GstBaseTransform *trans,
                                                      GstCaps *caps,
                                                      GstCaps *filter)
 {
-    // GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE (trans);
     GstCaps *ret = gst_caps_copy(caps);
-
-    // g_print ("Inside Transform_Caps \ncaps = %s\n", gst_caps_to_string(caps));
-    // g_print ("filter_caps = %s\n\n", gst_caps_to_string(filter));
 
     if (!ret)
         return nullptr;
@@ -159,7 +153,6 @@ static gboolean gst_nvdsaudiotemplate_accept_caps(GstBaseTransform *btrans,
     gboolean ret = TRUE;
     GstNvDsAudioTemplate *nvdsaudiotemplate = NULL;
     GstCaps *allowed = NULL;
-    // GstCapsFeatures *features;
 
     nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(btrans);
 
@@ -205,6 +198,35 @@ no_transform_possible: {
 }
 }
 
+static void gst_nvdsaudiotemplate_finalize(GObject *object)
+{
+    GstNvDsAudioTemplate *nvdsaudiotemplate = GST_NVDSAUDIOTEMPLATE(object);
+
+    if (nvdsaudiotemplate->sinkcaps) {
+        gst_caps_unref(nvdsaudiotemplate->sinkcaps);
+        nvdsaudiotemplate->sinkcaps = NULL;
+    }
+
+    if (nvdsaudiotemplate->srccaps) {
+        gst_caps_unref(nvdsaudiotemplate->srccaps);
+        nvdsaudiotemplate->sinkcaps = NULL;
+    }
+
+    if (nvdsaudiotemplate->vecProp)
+        delete nvdsaudiotemplate->vecProp;
+
+    if (nvdsaudiotemplate->custom_lib_name) {
+        g_free(nvdsaudiotemplate->custom_lib_name);
+        nvdsaudiotemplate->custom_lib_name = NULL;
+    }
+    if (nvdsaudiotemplate->custom_prop_string) {
+        g_free(nvdsaudiotemplate->custom_prop_string);
+        nvdsaudiotemplate->custom_prop_string = NULL;
+    }
+
+    G_OBJECT_CLASS(parent_class)->finalize(object);
+}
+
 /* Install properties, set sink and src pad capabilities, override the required
  * functions of the base class, These are common to all instances of the
  * element.
@@ -227,6 +249,7 @@ static void gst_nvdsaudiotemplate_class_init(GstNvDsAudioTemplateClass *klass)
     /* Overide base class functions */
     gobject_class->set_property = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_set_property);
     gobject_class->get_property = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_get_property);
+    gobject_class->finalize = GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_finalize);
 
     gstbasetransform_class->transform_caps =
         GST_DEBUG_FUNCPTR(gst_nvdsaudiotemplate_transform_caps);
@@ -478,18 +501,6 @@ static gboolean gst_nvdsaudiotemplate_stop(GstBaseTransform *btrans)
     if (nvdsaudiotemplate->algo_factory)
         delete nvdsaudiotemplate->algo_factory;
 
-    if (nvdsaudiotemplate->vecProp)
-        delete nvdsaudiotemplate->vecProp;
-
-    if (nvdsaudiotemplate->custom_lib_name) {
-        g_free(nvdsaudiotemplate->custom_lib_name);
-        nvdsaudiotemplate->custom_lib_name = NULL;
-    }
-    if (nvdsaudiotemplate->custom_prop_string) {
-        g_free(nvdsaudiotemplate->custom_prop_string);
-        nvdsaudiotemplate->custom_prop_string = NULL;
-    }
-
     GST_DEBUG_OBJECT(nvdsaudiotemplate, "ctx lib released \n");
     return TRUE;
 }
@@ -548,7 +559,7 @@ static gboolean gst_nvdsaudiotemplate_sink_event(GstBaseTransform *btrans, GstEv
         return ret;
     ret = GST_BASE_TRANSFORM_CLASS(parent_class)->sink_event(btrans, event);
     if (ret == FALSE) {
-        GstState cur_state;
+        GstState cur_state = GST_STATE_NULL;
         gst_element_get_state(GST_ELEMENT(btrans), &cur_state, NULL, 0);
         if (!(event != NULL || cur_state == GST_STATE_NULL || cur_state == GST_STATE_PAUSED))
             GST_ERROR_ON_BUS("sink_event error", "sink_event error");
@@ -633,7 +644,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_audiotemplate,
                   DESCRIPTION,
                   dsaudiotemplate_plugin_init,
-                  "6.3",
+                  "8.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

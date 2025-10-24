@@ -33,7 +33,9 @@ public:
                         gboolean output_instance_mask,
                         gboolean process_full_frame,
                         float segmentationThreshold,
-                        gboolean maintain_aspect_ratio) override;
+                        gboolean maintain_aspect_ratio,
+                        NvDsRoiMeta *roi_meta,
+                        gboolean symmetric_padding) override;
 
     void releaseFrameOutput(NvDsPostProcessFrameOutput &frameOutput) override;
 
@@ -75,6 +77,7 @@ private:
     std::vector<std::vector<NvDsPostProcessObjectDetectionInfo>> m_PerClassObjectList;
 
     NvDsPostProcessParseCustomFunc m_CustomBBoxParseFunc = nullptr;
+    bool m_PreprocessorSupport = FALSE;
 };
 
 #endif

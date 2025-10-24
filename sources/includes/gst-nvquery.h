@@ -1,11 +1,3 @@
-/**
- * @file
- * <b>NVIDIA GStreamer DeepStream: Helper Queries</b>
- *
- * @b Description: This file specifies the NVIDIA DeepStream GStreamer helper
- * query functions.
- *
- */
 #ifndef __GST_NVQUERY_H__
 #define __GST_NVQUERY_H__
 

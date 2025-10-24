@@ -19,8 +19,8 @@
 #ifndef _NVDS_VERSION_H_
 #define _NVDS_VERSION_H_
 
-#define NVDS_VERSION_MAJOR 6
-#define NVDS_VERSION_MINOR 3
+#define NVDS_VERSION_MAJOR 8
+#define NVDS_VERSION_MINOR 0
 #define NVDS_VERSION_MICRO 0
 
 #ifdef __cplusplus

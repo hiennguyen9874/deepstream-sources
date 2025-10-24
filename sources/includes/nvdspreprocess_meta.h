@@ -52,6 +52,8 @@ typedef struct {
      * when sum of roi's exceeds the batch size*/
     guint meta_id;
 
+    /** parameter to inform whether aspect ratio is maintained in the preprocess tensor*/
+    gboolean maintain_aspect_ratio;
 } NvDsPreProcessTensorMeta;
 
 /**

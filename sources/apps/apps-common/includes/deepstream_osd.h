@@ -1,11 +1,11 @@
 #ifndef __NVGSTDS_OSD_H__
 #define __NVGSTDS_OSD_H__
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
 
 #include "nvll_osd_struct.h"
 

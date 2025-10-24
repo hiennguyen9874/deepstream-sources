@@ -50,7 +50,16 @@ typedef enum {
     /** Specifies a custom event to indicate osd process mode update
      of a particular stream in a batch. */
     GST_NVEVENT_OSD_PROCESS_MODE_UPDATE =
-        GST_EVENT_MAKE_TYPE(408, FLAG(DOWNSTREAM) | FLAG(SERIALIZED))
+        GST_EVENT_MAKE_TYPE(408, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+    /** Specifies a custom event to indicate analytics reload_config update
+     of a particular stream in a batch. */
+    GST_NVEVENT_ANALYTICS_RELOAD_CONFIG_UPDATE =
+        GST_EVENT_MAKE_TYPE(409, FLAG(DOWNSTREAM) | FLAG(SERIALIZED)),
+
+    /** Specifies a custom event to indicate nvTracker config update
+     for all streams . */
+    GST_NVEVENT_NVTRACKER_CONFIG_UPDATE =
+        GST_EVENT_MAKE_TYPE(410, FLAG(DOWNSTREAM) | FLAG(SERIALIZED))
 } GstNvDsCustomEventType;
 #undef FLAG
 
@@ -101,6 +110,28 @@ GstEvent *gst_nvevent_infer_interval_update(gchar *stream_id, guint interval);
 void gst_nvevent_parse_infer_interval_update(GstEvent *event, gchar **stream_id, guint *interval);
 
 /**
+ * Creates a new "nv-tracker-config-update" event.
+ *
+ * @param[out] stream_id    Stream ID of the stream for which infer-interval-update is to be sent
+ * @param[out] configStr    A reference to the parsed char string in the tracker plugin
+ */
+GstEvent *gst_nvevent_nvtracker_config_update(gchar *stream_id, gchar *configStr);
+
+/**
+ * Parses a "nv-tracker-config-update" event received on the sinkpad.
+ *
+ * @param[in] event         The event received on the sinkpad
+ *                          when the stream ID sends a infer-interval-update event.
+ * @param[out] stream_id    A pointer to the parsed stream ID for which
+ *                          the event is sent.
+ * @param[out] configStr    A reference to the parsed char string
+ *                          in the tracker plugin
+ */
+void gst_nvevent_parse_nvtracker_config_update(GstEvent *event,
+                                               gchar **stream_id,
+                                               gchar **configStr);
+
+/**
  * Creates a new "nv-osd-process-mode-update" event.
  *
  * @param[out] stream_id    Stream ID of the stream for which osd-process-mode-update is to be sent
@@ -121,6 +152,20 @@ GstEvent *gst_nvevent_osd_process_mode_update(gchar *stream_id, guint process_mo
 void gst_nvevent_parse_osd_process_mode_update(GstEvent *event,
                                                gchar **stream_id,
                                                guint *process_mode);
+/**
+ * Creates a new "nv-analytics-reload_config-update" event.
+ *
+ * @param[out] config_file_path   The config file path
+ */
+GstEvent *gst_nvevent_analytics_reload_config_update(gchar *config_file_path);
+
+/**
+ * Parses a "nv-analytics-reload_config-update" event.
+ *
+ * @param[in] event         The event received on the sinkpad
+ * @param[out] config_file_path   A pointer to the parsed config file path
+ */
+void gst_nvevent_parse_analytics_reload_config_update(GstEvent *event, gchar **config_file_path);
 
 #ifdef __cplusplus
 }

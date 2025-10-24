@@ -21,6 +21,12 @@ gboolean set_streammux_properties(NvDsStreammuxConfig *config, GstElement *eleme
 
         g_object_set(G_OBJECT(element), "batched-push-timeout", config->batched_push_timeout, NULL);
 
+        g_object_set(G_OBJECT(element), "compute-hw", config->compute_hw, NULL);
+        g_object_set(G_OBJECT(element), "sort-batch", config->sort_batch, NULL);
+        g_object_set(G_OBJECT(element), "cache-buffer", config->buffer_cache, NULL);
+        g_object_set(G_OBJECT(element), "cache-buffer-timeout", config->buffer_cache_timeout, NULL);
+        g_object_set(G_OBJECT(element), "sync-inputs-ntp", config->sync_inputs_ntp, NULL);
+
         if (config->buffer_pool_size >= 4) {
             g_object_set(G_OBJECT(element), "buffer-pool-size", config->buffer_pool_size, NULL);
         }
@@ -58,6 +64,16 @@ gboolean set_streammux_properties(NvDsStreammuxConfig *config, GstElement *eleme
     g_object_set(G_OBJECT(element), "frame-num-reset-on-eos", config->frame_num_reset_on_eos, NULL);
     g_object_set(G_OBJECT(element), "drop-pipeline-eos", config->no_pipeline_eos, NULL);
 
+    if (config->extract_sei_type5_data) {
+        g_object_set(G_OBJECT(element), "extract-sei-type5-data", config->extract_sei_type5_data,
+                     NULL);
+    }
+    if (config->extract_sei_sim_time) {
+        g_object_set(G_OBJECT(element), "extract-sei-sim-time", config->extract_sei_sim_time, NULL);
+    }
+    if (config->align_first_buffer) {
+        g_object_set(G_OBJECT(element), "align-first-buffer", config->align_first_buffer, NULL);
+    }
     if (config->num_surface_per_frame > 1) {
         g_object_set(G_OBJECT(element), "num-surfaces-per-frame", config->num_surface_per_frame,
                      NULL);

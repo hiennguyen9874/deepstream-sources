@@ -732,6 +732,15 @@ NvDsInferStatus ClassifyPostprocessor::fillClassificationOutput(
                 "custom parse function");
             return NVDSINFER_CUSTOM_LIB_FAILED;
         }
+        // apply labels to attributes if not set
+        for (auto &attr : attributes) {
+            if (attr.attributeLabel == nullptr && m_Labels.size() > attr.attributeIndex &&
+                attr.attributeValue < m_Labels[attr.attributeIndex].size()) {
+                attr.attributeLabel =
+                    strdup(m_Labels[attr.attributeIndex][attr.attributeValue].c_str());
+                attrString.append(attr.attributeLabel).append(" ");
+            }
+        }
     } else {
         if (!parseAttributesFromSoftmaxLayers(outputLayers, m_NetworkInfo, m_ClassifierThreshold,
                                               attributes, attrString)) {
@@ -753,45 +762,97 @@ NvDsInferStatus ClassifyPostprocessor::fillClassificationOutput(
     return NVDSINFER_SUCCESS;
 }
 
-NvDsInferStatus SegmentPostprocessor::fillSegmentationOutput(
-    const std::vector<NvDsInferLayerInfo> &outputLayers,
-    NvDsInferSegmentationOutput &output)
+bool SegmentPostprocessor::parseSemanticSegmentationOutput(
+    std::vector<NvDsInferLayerInfo> const &outputLayersInfo,
+    NvDsInferNetworkInfo const &networkInfo,
+    float segmentationThreshold,
+    unsigned int numClasses,
+    int *classificationMap,
+    float *&classProbabilityMap)
 {
+    assert(classificationMap);
+
+    for (auto const &layer : outputLayersInfo) {
+        if (layer.dataType != FLOAT) {
+            printError(
+                "Default segment parsing function supports datatype"
+                "FP32 only but received output tensor: %s with datatype: %s",
+                safeStr(layer.layerName),
+                safeStr(dataType2Str(static_cast<NvDsInferDataType>(layer.dataType))));
+            return false;
+        }
+    }
+
     std::function<unsigned int(unsigned int, unsigned int, unsigned int)> indAlongChannel = nullptr;
-    NvDsInferDimsCHW outputDimsCHW;
+    NvDsInferDimsCHW outputDimsCHW = {0};
 
     if (m_SegmentationOutputOrder == NvDsInferTensorOrder_kNCHW) {
-        getDimsCHWFromDims(outputDimsCHW, outputLayers[0].inferDims);
+        getDimsCHWFromDims(outputDimsCHW, outputLayersInfo[0].inferDims);
         indAlongChannel = [&outputDimsCHW](int x, int y, int c) -> int {
             return c * outputDimsCHW.w * outputDimsCHW.h + y * outputDimsCHW.w + x;
         };
     } else if (m_SegmentationOutputOrder == NvDsInferTensorOrder_kNHWC) {
-        getDimsHWCFromDims(outputDimsCHW, outputLayers[0].inferDims);
+        getDimsHWCFromDims(outputDimsCHW, outputLayersInfo[0].inferDims);
         indAlongChannel = [&outputDimsCHW](int x, int y, int c) -> int {
             return outputDimsCHW.c * (y * outputDimsCHW.w + x) + c;
         };
     }
+    if (numClasses != outputDimsCHW.c) {
+        printError(
+            "Configured number for classes %u differs from"
+            " number of channels in output %u",
+            numClasses, outputDimsCHW.c);
+        return false;
+    }
 
-    output.width = outputDimsCHW.w;
-    output.height = outputDimsCHW.h;
-    output.classes = outputDimsCHW.c;
+    classProbabilityMap = (float *)outputLayersInfo[0].buffer;
 
-    output.class_map = new int[output.width * output.height];
-    output.class_probability_map = (float *)outputLayers[0].buffer;
-
-    for (unsigned int y = 0; y < output.height; y++) {
-        for (unsigned int x = 0; x < output.width; x++) {
+    for (unsigned int y = 0; y < networkInfo.height; y++) {
+        for (unsigned int x = 0; x < networkInfo.width; x++) {
             float max_prob = -1;
-            int &cls = output.class_map[y * output.width + x] = -1;
-            for (unsigned int c = 0; c < output.classes; c++) {
-                float prob = output.class_probability_map[indAlongChannel(x, y, c)];
-                if (prob > max_prob && prob > m_SegmentationThreshold) {
+            int &cls = classificationMap[y * networkInfo.width + x] = -1;
+            for (unsigned int c = 0; c < numClasses; c++) {
+                float prob = classProbabilityMap[indAlongChannel(x, y, c)];
+                if (prob > max_prob && prob > segmentationThreshold) {
                     cls = c;
                     max_prob = prob;
                 }
             }
         }
     }
+    return true;
+}
+
+NvDsInferStatus SegmentPostprocessor::fillSegmentationOutput(
+    const std::vector<NvDsInferLayerInfo> &outputLayers,
+    NvDsInferSegmentationOutput &output)
+{
+    output.width = m_NetworkInfo.width;
+    output.height = m_NetworkInfo.height;
+    output.classes = m_NumSegmentationClasses;
+    output.class_map = new int[output.width * output.height];
+    output.class_probability_map = nullptr;
+
+    /* Call custom parsing function if specified otherwise use the one
+     * written along with this implementation. */
+    if (m_CustomSegmentationParseFunc) {
+        if (!m_CustomSegmentationParseFunc(outputLayers, m_NetworkInfo, m_SegmentationThreshold,
+                                           m_NumSegmentationClasses, output.class_map,
+                                           output.class_probability_map)) {
+            printError(
+                "Failed to parse semantic segmentation output using "
+                "custom parse function");
+            return NVDSINFER_CUSTOM_LIB_FAILED;
+        }
+    } else {
+        if (!parseSemanticSegmentationOutput(outputLayers, m_NetworkInfo, m_SegmentationThreshold,
+                                             m_NumSegmentationClasses, output.class_map,
+                                             output.class_probability_map)) {
+            printError("Failed to parse semantic segmentation output.");
+            return NVDSINFER_OUTPUT_PARSING_FAILED;
+        }
+    }
+
     return NVDSINFER_SUCCESS;
 }
 

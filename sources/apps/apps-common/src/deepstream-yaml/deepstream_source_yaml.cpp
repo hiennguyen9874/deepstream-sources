@@ -50,15 +50,15 @@ gboolean parse_source_yaml(NvDsSourceConfig *config,
         } else if (paramKey == "alsa-device") {
             std::string temp = source_values[i];
             config->alsa_device = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->alsa_device, temp.c_str(), 1024);
+            std::strncpy(config->alsa_device, temp.c_str(), 1023);
         } else if (paramKey == "video-format") {
             std::string temp = source_values[i];
             config->video_format = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->video_format, temp.c_str(), 1024);
+            std::strncpy(config->video_format, temp.c_str(), 1023);
         } else if (paramKey == "uri") {
             std::string temp = source_values[i];
             char *uri = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(uri, temp.c_str(), 1024);
+            std::strncpy(uri, temp.c_str(), 1023);
             char *str;
             if (g_str_has_prefix(uri, "file://")) {
                 str = g_strdup(uri + 7);
@@ -106,7 +106,7 @@ gboolean parse_source_yaml(NvDsSourceConfig *config,
         } else if (paramKey == "smart-rec-dir-path") {
             std::string temp = source_values[i];
             config->dir_path = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->dir_path, temp.c_str(), 1024);
+            std::strncpy(config->dir_path, temp.c_str(), 1023);
 
             if (access(config->dir_path, 2)) {
                 if (errno == ENOENT || errno == ENOTDIR) {
@@ -119,7 +119,7 @@ gboolean parse_source_yaml(NvDsSourceConfig *config,
         } else if (paramKey == "smart-rec-file-prefix") {
             std::string temp = source_values[i];
             config->file_prefix = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->file_prefix, temp.c_str(), 1024);
+            std::strncpy(config->file_prefix, temp.c_str(), 1023);
         } else if (paramKey == "smart-rec-video-cache") {
             cout << "Deprecated config smart-rec-video-cache used in source. Use smart-rec-cache "
                     "instead"
@@ -138,7 +138,13 @@ gboolean parse_source_yaml(NvDsSourceConfig *config,
             config->smart_rec_duration = std::stoul(source_values[i]);
         } else if (paramKey == "smart-rec-interval") {
             config->smart_rec_interval = std::stoul(source_values[i]);
-        } else {
+        }
+#if defined(__aarch64__) && !defined(AARCH64_IS_SBSA)
+        else if (paramKey == "copy-hw") {
+            config->nvvideoconvert_copy_hw = std::stoul(source_values[i]);
+        }
+#endif
+        else {
             cout << "[WARNING] Unknown param found in source : " << paramKey << endl;
         }
     }

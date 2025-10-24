@@ -1,11 +1,11 @@
 #ifndef _NVGSTDS_STREAMMUX_H_
 #define _NVGSTDS_STREAMMUX_H_
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
 
 typedef struct {
     // Struct members to store config / properties for the element
@@ -15,6 +15,9 @@ typedef struct {
     gint batch_size;
     gint batched_push_timeout;
     gint compute_hw;
+    gboolean sort_batch;
+    gboolean buffer_cache;
+    gint buffer_cache_timeout;
     gint num_surface_per_frame;
     gint interpolation_method;
     guint64 frame_duration;
@@ -32,6 +35,10 @@ typedef struct {
     gboolean async_process;
     gboolean no_pipeline_eos;
     gboolean use_nvmultiurisrcbin;
+    gboolean extract_sei_type5_data;
+    gboolean extract_sei_sim_time;
+    gboolean align_first_buffer;
+    guint sync_inputs_ntp;
 } NvDsStreammuxConfig;
 
 // Function to create the bin and set properties

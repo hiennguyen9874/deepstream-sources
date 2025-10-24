@@ -39,6 +39,11 @@ gboolean create_tracking_bin(NvDsTrackerConfig *config, NvDsTrackerBin *bin)
 
     g_object_set(G_OBJECT(bin->tracker), "user-meta-pool-size", config->user_meta_pool_size, NULL);
 
+    g_object_set(G_OBJECT(bin->tracker), "sub-batches", config->sub_batches, NULL);
+
+    g_object_set(G_OBJECT(bin->tracker), "sub-batch-err-recovery-trial-cnt",
+                 config->sub_batch_err_recovery_trial_cnt, NULL);
+
     gst_bin_add_many(GST_BIN(bin->bin), bin->tracker, NULL);
 
     NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->tracker, "sink");

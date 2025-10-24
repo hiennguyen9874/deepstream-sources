@@ -18,6 +18,7 @@
 #include "gst-nvdscustomevent.h"
 #include "gstnvdspreprocess_allocator.h"
 #include "nvdspreprocess_property_parser.h"
+#include "nvdspreprocess_yaml_parser.h"
 
 GST_DEBUG_CATEGORY_STATIC(gst_nvdspreprocess_debug);
 #define GST_CAT_DEFAULT gst_nvdspreprocess_debug
@@ -91,9 +92,6 @@ enum {
 #define Y_BYTES_PER_PIXEL 1
 #define UV_BYTES_PER_PIXEL 2
 
-#define MIN_INPUT_OBJECT_WIDTH 16
-#define MIN_INPUT_OBJECT_HEIGHT 16
-
 #define NVTX_TEAL_COLOR 0xFF008080
 
 #define CHECK_NPP_STATUS(npp_status, error_str)                                                  \
@@ -159,6 +157,7 @@ static gpointer gst_nvdspreprocess_output_loop(gpointer data);
 
 static gboolean gst_nvdspreprocess_sink_event(GstBaseTransform *trans, GstEvent *event);
 
+static void gst_nvdspreprocess_finalize(GObject *object);
 static gboolean gst_nvdspreprocess_src_query(GstPad *pad, GstObject *parent, GstQuery *query);
 
 template <class T>
@@ -184,6 +183,7 @@ static void gst_nvdspreprocess_class_init(GstNvDsPreProcessClass *klass)
     gstelement_class = (GstElementClass *)klass;
     gstbasetransform_class = (GstBaseTransformClass *)klass;
 
+    gobject_class->finalize = GST_DEBUG_FUNCPTR(gst_nvdspreprocess_finalize);
     /* Overide base class functions */
     gobject_class->set_property = GST_DEBUG_FUNCPTR(gst_nvdspreprocess_set_property);
     gobject_class->get_property = GST_DEBUG_FUNCPTR(gst_nvdspreprocess_get_property);
@@ -301,6 +301,29 @@ static void gst_nvdspreprocess_init(GstNvDsPreProcess *nvdspreprocess)
                                GST_DEBUG_FUNCPTR(gst_nvdspreprocess_src_query));
 }
 
+static void gst_nvdspreprocess_finalize(GObject *object)
+{
+    GstNvDsPreProcess *nvdspreprocess = GST_NVDSPREPROCESS(object);
+
+    /* Deinitialize custom library */
+    if (nvdspreprocess->custom_lib_path) {
+        std::function<void(void *)> deInitLib;
+
+        if (nvdspreprocess->custom_lib_handle) {
+            deInitLib = dlsym_ptr<void(void *)>(nvdspreprocess->custom_lib_handle, "deInitLib");
+            deInitLib(nvdspreprocess->custom_lib_ctx);
+            dlclose(nvdspreprocess->custom_lib_handle);
+            nvdspreprocess->custom_lib_handle = NULL;
+        }
+
+        delete[] (nvdspreprocess->custom_lib_path);
+        nvdspreprocess->custom_lib_path = NULL;
+    }
+    nvdspreprocess->acquire_impl.reset();
+
+    GST_DEBUG_OBJECT(nvdspreprocess, "Successfully Closed Custom Library\n");
+}
+
 /* Function called when a property of the element is set. Standard boilerplate.
  */
 static void gst_nvdspreprocess_set_property(GObject *object,
@@ -339,11 +362,22 @@ static void gst_nvdspreprocess_set_property(GObject *object,
         g_mutex_lock(&nvdspreprocess->preprocess_lock);
         g_free(nvdspreprocess->config_file_path);
         nvdspreprocess->config_file_path = g_value_dup_string(value);
+        std::string lower(nvdspreprocess->config_file_path);
+        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+        bool is_yaml = (lower.length() >= 4 && lower.substr(lower.length() - 4) == ".yml") ||
+                       (lower.length() >= 5 && lower.substr(lower.length() - 5) == ".yaml");
         /* Parse the initialization parameters from the config file. This function
          * gives preference to values set through the set_property function over
          * the values set in the config file. */
-        nvdspreprocess->config_file_parse_successful =
-            nvdspreprocess_parse_config_file(nvdspreprocess, nvdspreprocess->config_file_path);
+        if (is_yaml) {
+            nvdspreprocess->config_file_parse_successful =
+                gst_nvdspreprocess_parse_config_file_yaml(nvdspreprocess,
+                                                          nvdspreprocess->config_file_path);
+        } else {
+            nvdspreprocess->config_file_parse_successful =
+                nvdspreprocess_parse_config_file(nvdspreprocess, nvdspreprocess->config_file_path);
+        }
+
         if (nvdspreprocess->config_file_parse_successful) {
             GST_DEBUG_OBJECT(nvdspreprocess, "Successfully Parsed Config file\n");
         }
@@ -414,6 +448,15 @@ static gboolean gst_nvdspreprocess_start(GstBaseTransform *btrans)
     GstAllocator *tensor_pool_allocator;
     GstAllocationParams tensor_pool_allocation_params;
 
+#ifdef DUMP_ROIS
+    int is_nvgpu = 0;
+    NvBufSurfaceDeviceInfo dev_info;
+    if (NvBufSurfaceGetDeviceInfo(&dev_info) == 0) {
+        if (dev_info.driverType == NVBUF_DRIVER_TYPE_NVGPU) {
+            is_nvgpu = 1;
+        }
+    }
+#endif
     if (!nvdspreprocess->config_file_path || strlen(nvdspreprocess->config_file_path) == 0) {
         GST_ELEMENT_ERROR(nvdspreprocess, LIBRARY, SETTINGS, ("Configuration file not provided"),
                           (nullptr));
@@ -437,6 +480,10 @@ static gboolean gst_nvdspreprocess_start(GstBaseTransform *btrans)
 
     /* Initialize custom library */
     if (nvdspreprocess->custom_lib_path) {
+        if (nvdspreprocess->custom_lib_handle) {
+            GST_DEBUG_OBJECT(nvdspreprocess, "Custom library Has Been Loaded\n");
+            return TRUE;
+        }
         nvdspreprocess->custom_lib_handle = dlopen(nvdspreprocess->custom_lib_path, RTLD_NOW);
         std::function<CustomCtx *(CustomInitParams)> initLib;
 
@@ -451,11 +498,12 @@ static gboolean gst_nvdspreprocess_start(GstBaseTransform *btrans)
                 return FALSE;
             }
 
-            if (nvdspreprocess->custom_tensor_function_name) {
+            if (!nvdspreprocess->custom_tensor_function_name.empty()) {
                 nvdspreprocess->custom_tensor_function = dlsym_ptr<NvDsPreProcessStatus(
                     CustomCtx *, NvDsPreProcessBatch *, NvDsPreProcessCustomBuf *&,
                     CustomTensorParams &, NvDsPreProcessAcquirer *)>(
-                    nvdspreprocess->custom_lib_handle, nvdspreprocess->custom_tensor_function_name);
+                    nvdspreprocess->custom_lib_handle,
+                    nvdspreprocess->custom_tensor_function_name.c_str());
 
                 if (!nvdspreprocess->custom_tensor_function) {
                     GST_ELEMENT_ERROR(nvdspreprocess, STREAM, FAILED,
@@ -466,13 +514,14 @@ static gboolean gst_nvdspreprocess_start(GstBaseTransform *btrans)
             }
 
             for (guint gcnt = 0; gcnt < nvdspreprocess->nvdspreprocess_groups.size(); gcnt++) {
-                if (nvdspreprocess->nvdspreprocess_groups[gcnt]->custom_transform_function_name) {
+                if (!nvdspreprocess->nvdspreprocess_groups[gcnt]
+                         ->custom_transform_function_name.empty()) {
                     nvdspreprocess->nvdspreprocess_groups[gcnt]->custom_transform =
                         dlsym_ptr<NvDsPreProcessStatus(NvBufSurface *, NvBufSurface *,
                                                        CustomTransformParams &)>(
                             nvdspreprocess->custom_lib_handle,
                             nvdspreprocess->nvdspreprocess_groups[gcnt]
-                                ->custom_transform_function_name);
+                                ->custom_transform_function_name.c_str());
 
                     if (!nvdspreprocess->nvdspreprocess_groups[gcnt]->custom_transform) {
                         GST_ELEMENT_ERROR(nvdspreprocess, STREAM, FAILED,
@@ -627,6 +676,9 @@ static gboolean gst_nvdspreprocess_start(GstBaseTransform *btrans)
 
 #ifdef DUMP_ROIS
     allocator_info.memory_type = NVBUF_MEM_CUDA_UNIFIED;
+    if (is_nvgpu) {
+        allocator_info.memory_type = NVBUF_MEM_DEFAULT;
+    }
 #else
     allocator_info.memory_type = nvdspreprocess->scaling_pool_memory_type;
 #endif
@@ -679,6 +731,10 @@ static gboolean gst_nvdspreprocess_start(GstBaseTransform *btrans)
     case NvDsDataType_UINT8:
     case NvDsDataType_INT8:
         nvdspreprocess->tensor_params.buffer_size *= 1;
+        break;
+    case NvDsDataType_UINT64:
+    case NvDsDataType_INT64:
+        nvdspreprocess->tensor_params.buffer_size *= 8;
         break;
     case NvDsDataType_FP16:
         nvdspreprocess->tensor_params.buffer_size *= 2;
@@ -792,29 +848,6 @@ static gboolean gst_nvdspreprocess_stop(GstBaseTransform *btrans)
         nvdspreprocess->config_file_path = NULL;
     }
 
-    /* Deinitialize custom library */
-    if (nvdspreprocess->custom_lib_path) {
-        std::function<void(void *)> deInitLib;
-
-        if (nvdspreprocess->custom_lib_handle) {
-            deInitLib = dlsym_ptr<void(void *)>(nvdspreprocess->custom_lib_handle, "deInitLib");
-            deInitLib(nvdspreprocess->custom_lib_ctx);
-        } else {
-            GST_ELEMENT_ERROR(nvdspreprocess, RESOURCE, FAILED,
-                              ("Could not open custom library for deinit\n"), (nullptr));
-            return FALSE;
-        }
-    }
-    dlclose(nvdspreprocess->custom_lib_handle);
-    GST_DEBUG_OBJECT(nvdspreprocess, "Successfully Closed Custom Library\n");
-
-    if (nvdspreprocess->custom_lib_path) {
-        delete[] (nvdspreprocess->custom_lib_path);
-        nvdspreprocess->custom_lib_path = NULL;
-    }
-
-    nvdspreprocess->acquire_impl.reset();
-
     /* delete the heap allocated memory */
     for (auto &group : nvdspreprocess->nvdspreprocess_groups) {
         group->framemeta_map.clear();
@@ -866,6 +899,13 @@ static GstFlowReturn scale_and_fill_data(GstNvDsPreProcess *nvdspreprocess,
     if ((crop_rect_params->width == 0) || (crop_rect_params->height == 0)) {
         GST_ELEMENT_ERROR(nvdspreprocess, STREAM, FAILED,
                           ("%s:crop_rect_params dimensions are zero", __func__), (NULL));
+        return GST_FLOW_ERROR;
+    }
+    if (crop_rect_params->left > src_frame->width || crop_rect_params->top > src_frame->height) {
+        GST_ELEMENT_ERROR(nvdspreprocess, STREAM, FAILED,
+                          ("%s:crop_rect_params [left: %.02f or top:%.02f] are out of boundary",
+                           __func__, crop_rect_params->left, crop_rect_params->top),
+                          (NULL));
         return GST_FLOW_ERROR;
     }
 
@@ -1061,6 +1101,14 @@ static gboolean dump_rois(GstNvDsPreProcess *nvdspreprocess,
     guint src_id = G_MAXUINT;
     guint roi_cnt = 0;
 
+    int is_nvgpu = 0;
+    NvBufSurfaceDeviceInfo dev_info;
+    if (NvBufSurfaceGetDeviceInfo(&dev_info) == 0) {
+        if (dev_info.driverType == NVBUF_DRIVER_TYPE_NVGPU) {
+            is_nvgpu = 1;
+        }
+    }
+
     for (guint i = 0; i < batch->units.size(); i++) {
         if (src_id == batch->units[i].frame_meta->source_id) {
             roi_cnt++;
@@ -1076,11 +1124,14 @@ static gboolean dump_rois(GstNvDsPreProcess *nvdspreprocess,
             return FALSE;
         }
 
-        // sync mapped data for CPU access
-        NvBufSurfaceSyncForCpu(outsurf, i, 0);
+        if (is_nvgpu) {
+            // sync mapped data for CPU access
+            // TODO: outsurf->numFilled needs to be set correctly when function is called.
+            NvBufSurfaceSyncForCpu(outsurf, i, 0);
+        }
 
         in_mat =
-            cv::Mat(nvdspreprocess->processing_height, nvdspreprocess->processing_width, CV_8UC3,
+            cv::Mat(nvdspreprocess->processing_height, nvdspreprocess->processing_width, CV_8UC4,
                     outsurf->surfaceList[i].mappedAddr.addr[0], outsurf->surfaceList[i].pitch);
 
 #ifdef __aarch64__
@@ -1090,7 +1141,7 @@ static gboolean dump_rois(GstNvDsPreProcess *nvdspreprocess,
         cv::cvtColor(in_mat, out_mat, CV_RGBA2BGR);
 #endif
 #else
-        cv::cvtColor(in_mat, out_mat, cv::COLOR_RGB2BGR);
+        cv::cvtColor(in_mat, out_mat, cv::COLOR_RGBA2BGR);
 #endif
         cv::imwrite("out_" + std::to_string(cnt) + "__src__" + std::to_string(src_id) + "__roi__" +
                         std::to_string(roi_cnt) + ".jpeg",
@@ -1102,23 +1153,22 @@ static gboolean dump_rois(GstNvDsPreProcess *nvdspreprocess,
             return FALSE;
         }
 
-#ifdef __aarch64__
-        // To use the converted buffer in CUDA, create an EGLImage and then use
-        // CUDA-EGL interop APIs
-        if (USE_EGLIMAGE) {
-            if (NvBufSurfaceMapEglImage(outsurf, 0) != 0) {
-                GST_ELEMENT_ERROR(nvdspreprocess, STREAM, FAILED,
-                                  ("%s:buffer map eglimage failed", __func__), (NULL));
-                return FALSE;
+        if (is_nvgpu) {
+            // To use the converted buffer in CUDA, create an EGLImage and then use
+            // CUDA-EGL interop APIs
+            if (USE_EGLIMAGE) {
+                if (NvBufSurfaceMapEglImage(outsurf, 0) != 0) {
+                    GST_ELEMENT_ERROR(nvdspreprocess, STREAM, FAILED,
+                                      ("%s:buffer map eglimage failed", __func__), (NULL));
+                    return FALSE;
+                }
+                // outsurf->surfaceList[0].mappedAddr.eglImage
+                // Use interop APIs cuGraphicsEGLRegisterImage and
+                // cuGraphicsResourceGetMappedEglFrame to access the buffer in CUDA
+                // Destroy the EGLImage
+                NvBufSurfaceUnMapEglImage(outsurf, 0);
             }
-            // outsurf->surfaceList[0].mappedAddr.eglImage
-            // Use interop APIs cuGraphicsEGLRegisterImage and
-            // cuGraphicsResourceGetMappedEglFrame to access the buffer in CUDA
-
-            // Destroy the EGLImage
-            NvBufSurfaceUnMapEglImage(outsurf, 0);
         }
-#endif
     }
     cnt++;
 
@@ -1252,7 +1302,7 @@ static gboolean group_transformation(GstNvDsPreProcess *nvdspreprocess,
     nvtxDomainRangePushEx(nvdspreprocess->nvtx_domain, &eventAttrib);
 
     if (nvdspreprocess->custom_lib_path && nvdspreprocess->custom_lib_handle &&
-        group->custom_transform_function_name) {
+        !group->custom_transform_function_name.empty()) {
         NvDsPreProcessStatus status;
         status = group->custom_transform(&nvdspreprocess->batch_insurf,
                                          &nvdspreprocess->batch_outsurf, params);
@@ -1297,7 +1347,8 @@ static void release_user_meta_at_batch_level(gpointer data, gpointer user_data)
 
         NvDsPreProcessAcquirerImpl *acquire_impl =
             (NvDsPreProcessAcquirerImpl *)nvdspreprocess->acquire_impl.get();
-        acquire_impl->release(buf);
+        if (acquire_impl != nullptr)
+            acquire_impl->release(buf);
         delete private_data_pair;
         delete preprocess_batchmeta->tensor_meta;
     }
@@ -1305,8 +1356,14 @@ static void release_user_meta_at_batch_level(gpointer data, gpointer user_data)
         (GstBuffer *)preprocess_batchmeta->private_data); // unref conversion pool buffer
 
     for (auto &roi_meta : preprocess_batchmeta->roi_vector) {
-        g_list_free(roi_meta.classifier_meta_list);
-        g_list_free(roi_meta.roi_user_meta_list);
+        if (roi_meta.classifier_meta_list) {
+            g_list_free(roi_meta.classifier_meta_list);
+            roi_meta.classifier_meta_list = nullptr;
+        }
+        if (roi_meta.roi_user_meta_list) {
+            g_list_free(roi_meta.roi_user_meta_list);
+            roi_meta.roi_user_meta_list = nullptr;
+        }
     }
 
     delete preprocess_batchmeta;
@@ -1337,6 +1394,9 @@ static void attach_user_meta_at_batch_level(GstNvDsPreProcess *nvdspreprocess,
 
         preprocess_batchmeta->tensor_meta->meta_id = nvdspreprocess->meta_id;
         nvdspreprocess->meta_id++;
+
+        preprocess_batchmeta->tensor_meta->maintain_aspect_ratio =
+            nvdspreprocess->maintain_aspect_ratio;
 
         preprocess_batchmeta->tensor_meta->raw_tensor_buffer =
             ((NvDsPreProcessCustomBufImpl *)nvdspreprocess->tensor_buf)->memory->dev_memory_ptr;
@@ -1427,6 +1487,12 @@ static GstFlowReturn gst_nvdspreprocess_on_frame(GstNvDsPreProcess *nvdspreproce
         GST_DEBUG_OBJECT(nvdspreprocess, "num filled in batch meta = %d\n",
                          batch_meta->num_frames_in_batch);
         NvDsMetaList *l_frame = NULL;
+
+        /* Process group only when interval_counter is 0. */
+        if (preprocess_group->interval_counter++ % (preprocess_group->interval + 1) > 0) {
+            continue;
+        }
+
         for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
             NvDsFrameMeta *frame_meta = NULL;
             frame_meta = (NvDsFrameMeta *)(l_frame->data);
@@ -1647,20 +1713,12 @@ static GstFlowReturn gst_nvdspreprocess_on_frame(GstNvDsPreProcess *nvdspreproce
                         nvdspreprocess->batch_insurf.numFilled = 0;
                         nvdspreprocess->batch_outsurf.numFilled = 0;
 
-#ifdef DUMP_ROIS
-                        gboolean ret = dump_rois(nvdspreprocess, batch.get(), memory->surf);
-                        if (!ret) {
-                            g_print("dump_rois failed\n");
-                            return GST_FLOW_ERROR;
-                        }
-#endif
-
                         /** wait for async transformation */
                         for (guint g_count = 0; g_count < num_groups; g_count++) {
                             GstNvDsPreProcessGroup *group =
                                 nvdspreprocess->nvdspreprocess_groups[g_count];
-                            if (group->custom_transform_function_name == NULL ||
-                                !g_strcmp0(group->custom_transform_function_name,
+                            if (group->custom_transform_function_name.empty() ||
+                                !g_strcmp0(group->custom_transform_function_name.c_str(),
                                            "CustomAsyncTransformation")) {
                                 if (group_present[g_count] == 1 && group->sync_obj != NULL) {
                                     batch->sync_objects.push_back(group->sync_obj);
@@ -1700,19 +1758,12 @@ static GstFlowReturn gst_nvdspreprocess_on_frame(GstNvDsPreProcess *nvdspreproce
 
     /* Processing last batch whose size is lesser than max batch size*/
     if (batch != nullptr) {
-#ifdef DUMP_ROIS
-        gboolean ret = dump_rois(nvdspreprocess, batch.get(), memory->surf);
-        if (!ret) {
-            g_print("dump_rois failed\n");
-            return GST_FLOW_ERROR;
-        }
-#endif
-
         /** wait for async transformation */
         for (guint g_count = 0; g_count < num_groups; g_count++) {
             GstNvDsPreProcessGroup *group = nvdspreprocess->nvdspreprocess_groups[g_count];
-            if (group->custom_transform_function_name == NULL ||
-                !g_strcmp0(group->custom_transform_function_name, "CustomAsyncTransformation")) {
+            if (group->custom_transform_function_name.empty() ||
+                !g_strcmp0(group->custom_transform_function_name.c_str(),
+                           "CustomAsyncTransformation")) {
                 if (group_present[g_count] == 1 && group->sync_obj != NULL) {
                     batch->sync_objects.push_back(group->sync_obj);
                 }
@@ -1837,6 +1888,12 @@ static GstFlowReturn gst_nvdspreprocess_on_objects(GstNvDsPreProcess *nvdsprepro
         GST_DEBUG_OBJECT(nvdspreprocess, "num filled in batch meta = %d\n",
                          batch_meta->num_frames_in_batch);
         NvDsMetaList *l_frame = NULL;
+
+        /* Process group only when interval_counter is 0. */
+        if (preprocess_group->interval_counter++ % (preprocess_group->interval + 1) > 0) {
+            continue;
+        }
+
         for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
             NvDsFrameMeta *frame_meta = NULL;
             frame_meta = (NvDsFrameMeta *)(l_frame->data);
@@ -2072,20 +2129,12 @@ static GstFlowReturn gst_nvdspreprocess_on_objects(GstNvDsPreProcess *nvdsprepro
                             nvdspreprocess->batch_insurf.numFilled = 0;
                             nvdspreprocess->batch_outsurf.numFilled = 0;
 
-#ifdef DUMP_ROIS
-                            gboolean ret = dump_rois(nvdspreprocess, batch.get(), memory->surf);
-                            if (!ret) {
-                                g_print("dump_rois failed\n");
-                                return GST_FLOW_ERROR;
-                            }
-#endif
-
                             /** wait for async transformation */
                             for (guint g_count = 0; g_count < num_groups; g_count++) {
                                 GstNvDsPreProcessGroup *group =
                                     nvdspreprocess->nvdspreprocess_groups[g_count];
-                                if (group->custom_transform_function_name == NULL ||
-                                    !g_strcmp0(group->custom_transform_function_name,
+                                if (group->custom_transform_function_name.empty() ||
+                                    !g_strcmp0(group->custom_transform_function_name.c_str(),
                                                "CustomAsyncTransformation")) {
                                     if (group_present[g_count] == 1 && group->sync_obj != NULL) {
                                         batch->sync_objects.push_back(group->sync_obj);
@@ -2126,19 +2175,12 @@ static GstFlowReturn gst_nvdspreprocess_on_objects(GstNvDsPreProcess *nvdsprepro
 
     /* Processing last batch whose size is lesser than max batch size*/
     if (batch != nullptr) {
-#ifdef DUMP_ROIS
-        gboolean ret = dump_rois(nvdspreprocess, batch.get(), memory->surf);
-        if (!ret) {
-            g_print("dump_rois failed\n");
-            return GST_FLOW_ERROR;
-        }
-#endif
-
         /** wait for async transformation */
         for (guint g_count = 0; g_count < num_groups; g_count++) {
             GstNvDsPreProcessGroup *group = nvdspreprocess->nvdspreprocess_groups[g_count];
-            if (group->custom_transform_function_name == NULL ||
-                !g_strcmp0(group->custom_transform_function_name, "CustomAsyncTransformation")) {
+            if (group->custom_transform_function_name.empty() ||
+                !g_strcmp0(group->custom_transform_function_name.c_str(),
+                           "CustomAsyncTransformation")) {
                 if (group_present[g_count] == 1 && group->sync_obj != NULL) {
                     batch->sync_objects.push_back(group->sync_obj);
                 }
@@ -2396,6 +2438,12 @@ static gpointer gst_nvdspreprocess_output_loop(gpointer data)
             NvBufSurfTransformSyncObjDestroy(&sync_object);
         }
 
+#ifdef DUMP_ROIS
+        GstNvDsPreProcessMemory *memory = nullptr;
+        memory = gst_nvdspreprocess_buffer_get_memory(batch->converted_buf);
+        dump_rois(nvdspreprocess, batch.get(), memory->surf);
+#endif
+
         nvtx_str = "dequeueOutputAndAttachMeta batch_num=" + std::to_string(batch->inbuf_batch_num);
         eventAttrib.message.ascii = nvtx_str.c_str();
         nvtxDomainRangePushEx(nvdspreprocess->nvtx_domain, &eventAttrib);
@@ -2457,7 +2505,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_preprocess,
                   DESCRIPTION,
                   nvdspreprocess_plugin_init,
-                  "6.3",
+                  "8.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

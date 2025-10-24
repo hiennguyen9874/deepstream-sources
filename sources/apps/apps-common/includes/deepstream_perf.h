@@ -1,18 +1,36 @@
 #ifndef __NVGSTDS_PERF_H__
 #define __NVGSTDS_PERF_H__
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <gst/gst.h>
-
 #include "deepstream_config.h"
+
+typedef struct {
+    guint source_id;
+    gchar const *uri;
+    gchar const *sensor_id;
+    gchar const *sensor_name;
+} NvDsFPSSensorInfo;
+
+typedef struct {
+    guint source_id;
+    char *stream_name;
+    gchar const *sensor_id;
+    gchar const *sensor_name;
+} NvDsAppSourceDetail;
 
 typedef struct {
     gdouble fps[MAX_SOURCE_BINS];
     gdouble fps_avg[MAX_SOURCE_BINS];
     guint num_instances;
+    NvDsAppSourceDetail source_detail[MAX_SOURCE_BINS];
+    guint active_source_size;
+    gboolean stream_name_display;
+    gboolean use_nvmultiurisrcbin;
 } NvDsAppPerfStruct;
 
 typedef void (*perf_callback)(gpointer ctx, NvDsAppPerfStruct *str);
@@ -38,6 +56,9 @@ typedef struct {
     gulong fps_measure_probe_id;
     NvDsInstancePerfStruct instance_str[MAX_SOURCE_BINS];
     guint dewarper_surfaces_per_frame;
+    GHashTable *FPSInfoHash;
+    gboolean stream_name_display;
+    gboolean use_nvmultiurisrcbin;
 } NvDsAppPerfStructInt;
 
 gboolean enable_perf_measurement(NvDsAppPerfStructInt *str,

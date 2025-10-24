@@ -456,7 +456,7 @@ NvDsInferStatus CropSurfaceConverter::resizeBatch(SharedBatchBuf &src, SharedBat
     assert(m_ConverStream);
     InferDebug("NetworkPreprocessor id:%d resize batch buffer", uniqueId());
 
-    int devId = src->getBufDesc().devId;
+    int devId = dst->getBufDesc().devId;
     RETURN_CUDA_ERR(cudaSetDevice(devId),
                     "CropSurfaceConverter failed to set cuda device(%d) during resize "
                     "batch",

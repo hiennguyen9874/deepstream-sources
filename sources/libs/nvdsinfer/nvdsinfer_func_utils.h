@@ -196,12 +196,15 @@ private:
 inline uint32_t getElementSize(NvDsInferDataType t)
 {
     switch (t) {
+    case INT64:
+        return 8;
     case INT32:
     case FLOAT:
         return 4;
     case HALF:
         return 2;
     case INT8:
+    case UINT8:
         return 1;
     default:
         dsInferError("Failed to get element size on Unknown datatype:%d", (int)t);

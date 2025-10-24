@@ -76,7 +76,7 @@ public:
         return false;
     };
     virtual bool push(SourcePad *pad, unsigned long pts) { return false; };
-    virtual void unref(){};
+    virtual void unref() {};
     void *batch;
     //        unsigned int num_filled;
 };
@@ -100,8 +100,8 @@ public:
                            unsigned int frame_number,
                            unsigned int num_surfaces_per_frame,
                            NvDsBatchMeta *dest_batch_meta,
-                           unsigned int source_id){};
-    virtual void unref(){};
+                           unsigned int source_id) {};
+    virtual void unref() {};
     unsigned int batch_size;
 };
 
@@ -153,7 +153,7 @@ private:
 
 class BatchPolicy {
 public:
-    BatchPolicy(){};
+    BatchPolicy() {};
     BatchPolicy(BatchPolicyConfig policy,
                 std::unordered_map<unsigned int, SinkPad *> *ins,
                 INvStreammuxDebug *a_debug_iface);
@@ -175,6 +175,7 @@ public:
 
     void set_batch_size(unsigned int);
 
+    void set_batch_push_timeout(unsigned int);
     /**
      * @brief  Set num_surfaces_per_frame
      */

@@ -1,5 +1,6 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <cuda_runtime_api.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
@@ -380,6 +381,7 @@ static gpointer nvds_x_event_thread(gpointer data)
     while (display) {
         XEvent e;
         guint index;
+        memset(&e, 0, sizeof(XEvent));
         while (XPending(display)) {
             XNextEvent(display, &e);
             switch (e.type) {
@@ -388,6 +390,7 @@ static gpointer nvds_x_event_thread(gpointer data)
                 XButtonEvent ev = e.xbutton;
                 gint source_id;
                 GstElement *tiler;
+                memset(&win_attr, 0, sizeof(XWindowAttributes));
 
                 XGetWindowAttributes(display, ev.window, &win_attr);
 
@@ -398,7 +401,8 @@ static gpointer nvds_x_event_thread(gpointer data)
                 tiler = appCtx[index]->pipeline.tiled_display_bin.tiler;
                 g_object_get(G_OBJECT(tiler), "show-source", &source_id, NULL);
 
-                if (ev.button == Button1 && source_id == -1) {
+                if (ev.button == Button1 && source_id == -1 &&
+                    (index >= 0 && index < MAX_INSTANCES)) {
                     source_id = get_source_id_from_coordinates(
                         ev.x * 1.0 / win_attr.width, ev.y * 1.0 / win_attr.height, appCtx[index]);
                     if (source_id > -1) {
@@ -571,6 +575,11 @@ int main(int argc, char *argv[])
 
     GST_DEBUG_CATEGORY_INIT(NVDS_APP, "NVDS_APP", 0, NULL);
 
+    int current_device = -1;
+    cudaGetDevice(&current_device);
+    struct cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, current_device);
+
     if (!g_option_context_parse(ctx, &argc, &argv, &error)) {
         NVGSTDS_ERR_MSG_V("%s", error->message);
         return -1;
@@ -651,14 +660,14 @@ int main(int argc, char *argv[])
     display = XOpenDisplay(NULL);
     for (i = 0; i < num_instances; i++) {
         guint j;
-
+#if defined(__aarch64__)
         if (gst_element_set_state(appCtx[i]->pipeline.pipeline, GST_STATE_PAUSED) ==
             GST_STATE_CHANGE_FAILURE) {
             NVGSTDS_ERR_MSG_V("Failed to set pipeline to PAUSED");
             return_value = -1;
             goto done;
         }
-
+#endif
         for (j = 0; j < appCtx[i]->config.num_sink_sub_bins; j++) {
             XTextProperty xproperty;
             gchar *title;
@@ -737,6 +746,16 @@ int main(int argc, char *argv[])
                 x_event_thread =
                     g_thread_new("nvds-window-event-thread", nvds_x_event_thread, NULL);
         }
+#if !defined(__aarch64__)
+        if (!prop.integrated) {
+            if (gst_element_set_state(appCtx[i]->pipeline.pipeline, GST_STATE_PAUSED) ==
+                GST_STATE_CHANGE_FAILURE) {
+                NVGSTDS_ERR_MSG_V("Failed to set pipeline to PAUSED");
+                return_value = -1;
+                goto done;
+            }
+        }
+#endif
     }
 
     /* Dont try to set playing state if error is observed */

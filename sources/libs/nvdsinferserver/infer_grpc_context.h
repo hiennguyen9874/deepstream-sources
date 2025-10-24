@@ -1,5 +1,3 @@
-
-
 /**
  * @file infer_grpc_context.h
  *

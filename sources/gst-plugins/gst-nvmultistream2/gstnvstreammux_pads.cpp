@@ -277,23 +277,20 @@ bool GstBatchBufferWrapper::push(SourcePad *src_pad, unsigned long pts)
     if (is_raw && gst_buffer_list_length(raw_batch) > 0) {
         //                  gst_nvstreammux_push_buffers (mux, raw_batch);
     } else if (!is_raw) {
-        if (mux->isAudio) {
-            if (batch_meta && mux->sync_inputs) {
-                pts = 0;
-                for (GList *nodeFrame = batch_meta->frame_meta_list; nodeFrame;
-                     nodeFrame = g_list_next(nodeFrame)) {
-                    NvDsFrameMeta *frameMeta = static_cast<NvDsFrameMeta *>(nodeFrame->data);
-                    GstClockTime running_time = mux->helper->synch_buffer->GetBufferRunningTime(
-                        frameMeta->buf_pts, frameMeta->pad_index);
-                    if (running_time > pts)
-                        pts = running_time;
-                }
+        if (batch_meta && mux->sync_inputs) {
+            pts = 0;
+            for (GList *nodeFrame = batch_meta->frame_meta_list; nodeFrame;
+                 nodeFrame = g_list_next(nodeFrame)) {
+                NvDsFrameMeta *frameMeta = static_cast<NvDsFrameMeta *>(nodeFrame->data);
+                GstClockTime running_time = mux->helper->synch_buffer->GetBufferRunningTime(
+                    frameMeta->buf_pts, frameMeta->pad_index);
+                if (running_time > pts)
+                    pts = running_time;
             }
         } else {
             GstClockTime running_time = pts + mux->pts_offset;
             pts = running_time;
         }
-
         LOGD("PTS=%lu\n", pts);
         GST_BUFFER_PTS(gst_buffer) = pts;
         if (mux->prev_outbuf_pts == pts) {
@@ -314,7 +311,7 @@ bool GstBatchBufferWrapper::push(SourcePad *src_pad, unsigned long pts)
          * as it might already be destroyed
          * when gst_buffer is unref'd downstream */
         if (ret != GST_FLOW_OK) {
-            LOGE("push failed [%d]\n", ret);
+            GST_ERROR_OBJECT(mux, "push failed [%d]\n", ret);
             return false;
         }
     }
@@ -327,7 +324,7 @@ void GstSinkPad::push_event(SourcePad *src_pad, QueueEntry *entry)
         GstEvent *event = GST_EVENT(entry->wrapped);
         switch ((guint32)GST_EVENT_TYPE(event)) {
         case GST_EVENT_SEGMENT: {
-            const GstSegment *segment;
+            const GstSegment *segment = NULL;
             GstEvent *new_event;
             gst_event_parse_segment(event, &segment);
             new_event = gst_nvevent_new_stream_segment(id, (GstSegment *)segment);

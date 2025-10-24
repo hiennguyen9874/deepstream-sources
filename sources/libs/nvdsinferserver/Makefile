@@ -1,5 +1,5 @@
 ################################################################################
-# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
 # NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
@@ -11,7 +11,7 @@
 ################################################################################
 
 LIB:=libnvds_infer_server.so
-NVDS_VERSION := 6.3
+NVDS_VERSION := 8.0
 LIB_INSTALL_DIR ?= /opt/nvidia/deepstream/deepstream-$(NVDS_VERSION)/lib/
 TRITON_SERVER_STUB ?= build/nvdsinferserver
 
@@ -65,7 +65,7 @@ CFLAGS := \
     -O3 \
     -s \
     -fPIC \
-    -std=c++14  \
+    -std=c++17  \
     -DNDEBUG  \
     -Wall \
     -Werror \
@@ -73,7 +73,7 @@ CFLAGS := \
     -DTRTIS_ENABLE_GPU  \
     -DHAVE_CONFIG_H \
     -DTRITON_ENABLE_GPU \
-	-DFOR_PRIVATE \
+    -DFOR_PRIVATE \
     $(NULL)
 
 INC_PATHS += \
@@ -157,6 +157,19 @@ LIBS := \
     -l:libabsl_demangle_internal.a \
     -l:libabsl_debugging_internal.a \
     -l:libabsl_base.a \
+    -l:libabsl_crc_cord_state.a \
+    -l:libabsl_log_flags.a \
+    -l:libabsl_flags_reflection.a \
+    -l:libabsl_flags_config.a \
+    -l:libabsl_flags_program_name.a \
+    -l:libabsl_flags_private_handle_accessor.a \
+    -l:libabsl_flags_internal.a \
+    -l:libabsl_crc32c.a \
+    -l:libabsl_crc_internal.a \
+    -l:libabsl_flags_commandlineflag.a \
+    -l:libabsl_flags_parse.a \
+    -l:libabsl_flags_marshalling.a \
+    -l:libabsl_flags_commandlineflag_internal.a \
     -l:libupb.a \
     -l:libre2.a \
     -ldl \

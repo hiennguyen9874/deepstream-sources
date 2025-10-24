@@ -1,4 +1,3 @@
-
 #ifndef _DS3D_COMMON_HPP_DATAMAP_HPP
 #define _DS3D_COMMON_HPP_DATAMAP_HPP
 
@@ -123,7 +122,7 @@ ErrCode GuardDataMap::setRefData(const GuardDataMap::KeyName &name, const abiRef
     return code;
 }
 
-template <class T, _EnableIfValidIdType<T> = true>
+template <class T, _EnableIfValidIdType<T>>
 ErrCode GuardDataMap::setData(const GuardDataMap::KeyName &name, const T &value)
 {
     using t = std::remove_const_t<std::remove_reference_t<T>>;
@@ -186,12 +185,12 @@ ErrCode GuardDataMap::getPtrData(const GuardDataMap::KeyName &name, ShrdPtr<T> &
         return code;
     }
     DS_ASSERT(ud && ud->data());
-    value = AbiRefToPtr(*ud);
+    value = AbiRefToPtr<void, T>(*ud);
     DS_ASSERT(value);
     return code;
 }
 
-template <class T, _EnableIfValidIdType<T> = true>
+template <class T, _EnableIfValidIdType<T>>
 ErrCode GuardDataMap::getData(const GuardDataMap::KeyName &name, T &value)
 {
     using t = std::remove_const_t<T>;

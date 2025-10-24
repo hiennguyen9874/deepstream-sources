@@ -32,9 +32,6 @@ using namespace nvdsinferserver;
 GST_DEBUG_CATEGORY(gst_nvinfer_server_debug);
 #define GST_CAT_DEFAULT gst_nvinfer_server_debug
 
-#define MIN_INPUT_OBJECT_WIDTH 16
-#define MIN_INPUT_OBJECT_HEIGHT 16
-
 #define GST_NVINFER_SERVER_IMPL(gst_nvinfer_server) \
     reinterpret_cast<GstNvInferServerImpl *>((gst_nvinfer_server)->impl)
 
@@ -451,21 +448,21 @@ static gboolean gst_nvinfer_server_sink_event(GstBaseTransform *trans, GstEvent 
     if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_PAD_ADDED) {
         /* New source added in the pipeline. Create a source info instance for
          * it. */
-        guint source_id;
+        guint source_id = 0;
         gst_nvevent_parse_pad_added(event, &source_id);
         impl->addTrackingSource(source_id);
     }
 
     if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_PAD_DELETED) {
         /* Source removed from the pipeline. Remove the related structure. */
-        guint source_id;
+        guint source_id = 0;
         gst_nvevent_parse_pad_deleted(event, &source_id);
         impl->eraseTrackingSource(source_id);
     }
 
     if ((GstNvEventType)GST_EVENT_TYPE(event) == GST_NVEVENT_STREAM_EOS) {
         /* Got EOS from a source. Clean up the object history map. */
-        guint source_id;
+        guint source_id = 0;
         gst_nvevent_parse_stream_eos(event, &source_id);
     }
 
@@ -691,7 +688,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_inferserver,
                   DESCRIPTION,
                   nvinfer_server_plugin_init,
-                  "6.3",
+                  "8.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

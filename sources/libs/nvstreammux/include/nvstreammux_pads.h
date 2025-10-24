@@ -179,7 +179,7 @@ public:
 
     void push_events(SourcePad *src_pad);
 
-    virtual void push_event(SourcePad *src_pad, QueueEntry *){};
+    virtual void push_event(SourcePad *src_pad, QueueEntry *) {};
 
     unsigned int get_available();
 

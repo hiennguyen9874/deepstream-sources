@@ -1,13 +1,15 @@
-################################################################################
-# Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+##################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 #
-################################################################################
+##################################################################################################
 
 This project implements protocol adaptor for Azure (device2cloud messaging)
 The adaptor implements the nv_dsmi API for client applications to interface with it.
@@ -19,6 +21,19 @@ Dependencies:
 ------------
  sudo apt-get update
  sudo apt-get install -y libcurl4-openssl-dev libssl-dev uuid-dev libglib2.0 libglib2.0-dev
+
+* azure-iot-sdk-c 1.11.0
+    git clone https://github.com/Azure/azure-iot-sdk-c.git
+    cd azure-iot-sdk-c
+    git checkout tags/1.11.0
+    git submodule update --init
+    #Modify the CMakeLists.txt (line 61), change the default build option - build_as_dynamic to ON
+    #Modify the CMakeLists.txt (line 65), change the default build option - use_edge_modules to ON
+    mkdir cmake
+    cd cmake
+    cmake ..
+    cmake --build .
+    make install
 
 Azure cfg:
 ----------
@@ -74,6 +89,10 @@ On Jetson,
  sudo ~/deepstream_sdk_on_jetson/sources/tools/nvds_logger/setup_nvds_logger.sh
 
 When the test app starts, log messages from the message adaptors(azure) can be seen at /tmp/nvds/ds.log
+
+Building the adaptor
+---------------------
+Upon installing the dependencies, to build adaptor library execute 'make' and install with 'make install'
 
 To run test program:
 --------------------

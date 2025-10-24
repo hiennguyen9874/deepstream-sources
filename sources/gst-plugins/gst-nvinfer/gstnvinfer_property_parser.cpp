@@ -12,6 +12,13 @@
         goto done;                                                           \
     }
 
+#define CHECK_STR_ERROR(error)                                               \
+    if (error) {                                                             \
+        g_printerr("Error while parsing config file: %s\n", error->message); \
+        free(str);                                                           \
+        goto done;                                                           \
+    }
+
 extern const int DEFAULT_REINFER_INTERVAL;
 
 /* Get the absolute path of a file mentioned in the config given a
@@ -22,8 +29,8 @@ static gboolean get_absolute_file_path(const gchar *cfg_file_path,
 {
     gchar abs_cfg_path[PATH_MAX + 1];
     gchar abs_real_file_path[PATH_MAX + 1];
-    gchar *abs_file_path;
-    gchar *delim;
+    gchar *abs_file_path = nullptr;
+    gchar *delim = nullptr;
 
     /* Absolute path. No need to resolve further. */
     if (file_path[0] == '/') {
@@ -56,8 +63,10 @@ static gboolean get_absolute_file_path(const gchar *cfg_file_path,
         /* Ignore error if file does not exist and use the unresolved path. */
         if (errno == ENOENT)
             g_strlcpy(abs_real_file_path, abs_file_path, _PATH_MAX);
-        else
+        else {
+            g_free(abs_file_path);
             return FALSE;
+        }
     }
 
     g_free(abs_file_path);
@@ -203,7 +212,7 @@ static gboolean gst_nvinfer_parse_class_attrs(
                 goto done;
             }
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_CLASS_ATTRS_BORDER_COLOR)) {
-            gsize length;
+            gsize length = 0;
             gdouble *list = g_key_file_get_double_list(
                 key_file, group, CONFIG_GROUP_INFER_CLASS_ATTRS_BORDER_COLOR, &length, &error);
             CHECK_ERROR(error);
@@ -221,7 +230,7 @@ static gboolean gst_nvinfer_parse_class_attrs(
 
             g_free(list);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_CLASS_ATTRS_BG_COLOR)) {
-            gsize length;
+            gsize length = 0;
             gdouble *list = g_key_file_get_double_list(
                 key_file, group, CONFIG_GROUP_INFER_CLASS_ATTRS_BG_COLOR, &length, &error);
             CHECK_ERROR(error);
@@ -397,7 +406,7 @@ static gboolean gst_nvinfer_parse_other_attribute(GstNvInfer *nvinfer,
         if ((*nvinfer->is_prop_set)[PROP_OPERATE_ON_GIE_ID] ||
             (*nvinfer->is_prop_set)[PROP_OPERATE_ON_CLASS_IDS])
             return TRUE;
-        gsize length, i;
+        gsize length = 0, i = 0;
         gint max_class_id = -1;
         gint *int_list = g_key_file_get_integer_list(
             key_file, group_name, CONFIG_GROUP_INFER_CLASS_IDS_FOR_OPERATION, &length, &error);
@@ -413,7 +422,7 @@ static gboolean gst_nvinfer_parse_other_attribute(GstNvInfer *nvinfer,
         }
         g_free(int_list);
     } else if (!g_strcmp0(key, CONFIG_GROUP_INFER_CLASS_IDS_FOR_FILTERING)) {
-        gsize length;
+        gsize length = 0;
 
         gint *int_list = g_key_file_get_integer_list(
             key_file, group_name, CONFIG_GROUP_INFER_CLASS_IDS_FOR_FILTERING, &length, &error);
@@ -537,7 +546,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_LABEL)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_LABEL, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             if (!get_absolute_file_path(cfg_file_path, str, init_params->labelsFilePath)) {
                 g_printerr("Error: Could not parse labels file path\n");
@@ -619,7 +628,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
                 init_params->workspaceSize = 0;
             }
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_INFER_DIMENSIONS)) {
-            gsize length;
+            gsize length = 0;
             gint *int_list =
                 g_key_file_get_integer_list(key_file, CONFIG_GROUP_PROPERTY,
                                             CONFIG_GROUP_INFER_INFER_DIMENSIONS, &length, &error);
@@ -642,6 +651,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
             case NvDsInferNetworkMode_FP32:
             case NvDsInferNetworkMode_FP16:
             case NvDsInferNetworkMode_INT8:
+            case NvDsInferNetworkMode_BEST:
                 break;
             default:
                 g_printerr("Error. Invalid value for '%s':'%d'\n", CONFIG_GROUP_INFER_NETWORK_MODE,
@@ -655,7 +665,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
                 continue;
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_MODEL_ENGINE, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             if (!get_absolute_file_path(cfg_file_path, str, init_params->modelEngineFilePath)) {
                 g_printerr("Error: Could not parse model engine file path\n");
@@ -666,7 +676,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_INT8_CALIBRATION_FILE)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_INT8_CALIBRATION_FILE, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             if (!get_absolute_file_path(cfg_file_path, str, init_params->int8CalibrationFilePath)) {
                 g_printerr("Error: Could not parse INT8 calibration file path\n");
@@ -675,22 +685,68 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
             }
             g_free(str);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_OUTPUT_BLOB_NAMES)) {
-            gsize length;
+            gsize length = 0;
             init_params->outputLayerNames =
                 g_key_file_get_string_list(key_file, CONFIG_GROUP_PROPERTY,
                                            CONFIG_GROUP_INFER_OUTPUT_BLOB_NAMES, &length, &error);
             init_params->numOutputLayers = length;
 
             CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_DUMP_INPUT_TENSOR)) {
+            init_params->dumpIpTensor = g_key_file_get_integer(
+                key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_DUMP_INPUT_TENSOR, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_DUMP_OUTPUT_TENSOR)) {
+            init_params->dumpOpTensor = g_key_file_get_integer(
+                key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_DUMP_OUTPUT_TENSOR, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_OVERWRITE_INPUT_TENSOR)) {
+            init_params->overwriteIpTensor = g_key_file_get_integer(
+                key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_OVERWRITE_INPUT_TENSOR, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_OVERWRITE_OUTPUT_TENSOR)) {
+            init_params->overwriteOpTensor =
+                g_key_file_get_integer(key_file, CONFIG_GROUP_PROPERTY,
+                                       CONFIG_GROUP_INFER_OVERWRITE_OUTPUT_TENSOR, &error);
+            CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_INPUT_TENSOR_FILE)) {
+            gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
+                                               CONFIG_GROUP_INFER_INPUT_TENSOR_FILE, &error);
+            CHECK_ERROR(error);
+
+            if (!get_absolute_file_path(cfg_file_path, str, init_params->ipTensorFilePath)) {
+                g_printerr("Error: Could not parse Input Tensor file path\n");
+                g_free(str);
+                goto done;
+            }
+            g_free(str);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_OUTPUT_TENSOR_FILES)) {
+            gsize length = 0;
+            char **op_file_list =
+                g_key_file_get_string_list(key_file, CONFIG_GROUP_PROPERTY,
+                                           CONFIG_GROUP_INFER_OUTPUT_TENSOR_FILES, &length, &error);
+            CHECK_ERROR(error);
+            init_params->opTensorFilePath = (gchar **)malloc(sizeof(gchar *) * length);
+            for (gsize i = 0; i < length; i++) {
+                gchar *str = (gchar *)malloc(sizeof(gchar *) * _MAX_STR_LENGTH);
+                if (!get_absolute_file_path(cfg_file_path, op_file_list[i], str)) {
+                    g_printerr("Error: Could not parse output Tensor file path\n");
+                    g_free(str);
+                    g_free(op_file_list);
+                    goto done;
+                }
+                init_params->opTensorFilePath[i] = str;
+            }
+            g_free(op_file_list);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_OUTPUT_IO_FORMATS)) {
-            gsize length;
+            gsize length = 0;
             init_params->outputIOFormats =
                 g_key_file_get_string_list(key_file, CONFIG_GROUP_PROPERTY,
                                            CONFIG_GROUP_INFER_OUTPUT_IO_FORMATS, &length, &error);
             init_params->numOutputIOFormats = length;
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_LAYER_DEVICE_PRECISION)) {
-            gsize length;
+            gsize length = 0;
             init_params->layerDevicePrecisions = g_key_file_get_string_list(
                 key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_LAYER_DEVICE_PRECISION, &length,
                 &error);
@@ -740,7 +796,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
                 key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_SCALE_FACTOR, &error);
             CHECK_ERROR(error);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_OFFSETS)) {
-            gsize length, i;
+            gsize length = 0, i = 0;
             gdouble *dbl_list = g_key_file_get_double_list(
                 key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_OFFSETS, &length, &error);
             CHECK_ERROR(error);
@@ -759,7 +815,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_MEANFILE)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_MEANFILE, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             if (!get_absolute_file_path(cfg_file_path, str, init_params->meanImageFilePath)) {
                 g_printerr("Error: Could not parse mean image file path\n");
@@ -770,7 +826,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_CUSTOM_LIB_PATH)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_CUSTOM_LIB_PATH, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             if (!get_absolute_file_path(cfg_file_path, str, init_params->customLibPath)) {
                 g_printerr("Error: Could not parse custom library path\n");
@@ -781,40 +837,47 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_CUSTOM_PARSE_BBOX_FUNC)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_CUSTOM_PARSE_BBOX_FUNC, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
             g_strlcpy(init_params->customBBoxParseFuncName, str, _MAX_STR_LENGTH);
             g_free(str);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_CUSTOM_PARSE_BBOX_IM_FUNC)) {
             gchar *str =
                 g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                       CONFIG_GROUP_INFER_CUSTOM_PARSE_BBOX_IM_FUNC, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
             g_strlcpy(init_params->customBBoxInstanceMaskParseFuncName, str, _MAX_STR_LENGTH);
+            g_free(str);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_CUSTOM_PARSE_SEGMENTATION_FUNC)) {
+            gchar *str =
+                g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
+                                      CONFIG_GROUP_INFER_CUSTOM_PARSE_SEGMENTATION_FUNC, &error);
+            CHECK_STR_ERROR(error);
+            g_strlcpy(init_params->customSegmentationParseFuncName, str, _MAX_STR_LENGTH);
             g_free(str);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_CUSTOM_ENGINE_CREATE_FUNC)) {
             gchar *str =
                 g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                       CONFIG_GROUP_INFER_CUSTOM_ENGINE_CREATE_FUNC, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
             g_strlcpy(init_params->customEngineCreateFuncName, str, _MAX_STR_LENGTH);
             g_free(str);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_CUSTOM_PARSE_CLASSIFIER_FUNC)) {
             gchar *str =
                 g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                       CONFIG_GROUP_INFER_CUSTOM_PARSE_CLASSIFIER_FUNC, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
             g_strlcpy(init_params->customClassifierParseFuncName, str, _MAX_STR_LENGTH);
             g_free(str);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_CUSTOM_NETWORK_CONFIG)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_CUSTOM_NETWORK_CONFIG, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
             g_strlcpy(init_params->customNetworkConfigFilePath, str, _MAX_STR_LENGTH);
             g_free(str);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_MODEL)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_MODEL, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             if (!get_absolute_file_path(cfg_file_path, str, init_params->modelFilePath)) {
                 g_printerr("Error: Could not parse model file path\n");
@@ -825,7 +888,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_PROTO)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_PROTO, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             if (!get_absolute_file_path(cfg_file_path, str, init_params->protoFilePath)) {
                 g_printerr("Error: Could not parse prototxt file path\n");
@@ -836,7 +899,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_UFF)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_UFF, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             if (!get_absolute_file_path(cfg_file_path, str, init_params->uffFilePath)) {
                 g_printerr("Error: Could not parse UFF file path\n");
@@ -851,7 +914,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
                 g_printerr(
                     "Warning: 'input-dims' parameter has been deprecated. Use 'infer-dims' "
                     "instead.\n");
-                gsize length;
+                gsize length = 0;
                 gint *int_list = g_key_file_get_integer_list(
                     key_file, CONFIG_GROUP_PROPERTY, CONFIG_GROUP_INFER_UFF_INPUT_DIMENSIONS_LEGACY,
                     &length, &error);
@@ -892,7 +955,7 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
                 g_printerr(
                     "Warning: 'input-dims' parameter has been deprecated. Use 'infer-dims' "
                     "instead.\n");
-                gsize length;
+                gsize length = 0;
                 gint *int_list = g_key_file_get_integer_list(
                     key_file, CONFIG_GROUP_PROPERTY,
                     CONFIG_GROUP_INFER_UFF_INPUT_DIMENSIONS_LEGACY_V2, &length, &error);
@@ -969,14 +1032,14 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_UFF_INPUT_BLOB_NAME)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_UFF_INPUT_BLOB_NAME, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             g_strlcpy(init_params->uffInputBlobName, str, _MAX_STR_LENGTH);
             g_free(str);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_TLT_ENCODED_MODEL)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_TLT_ENCODED_MODEL, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             if (!get_absolute_file_path(cfg_file_path, str, init_params->tltEncodedModelFilePath)) {
                 g_printerr("Error: Could not parse TLT encoded model file path\n");
@@ -987,14 +1050,14 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_TLT_MODEL_KEY)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_TLT_MODEL_KEY, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             g_strlcpy(init_params->tltModelKey, str, _MAX_STR_LENGTH);
             g_free(str);
         } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_ONNX)) {
             gchar *str = g_key_file_get_string(key_file, CONFIG_GROUP_PROPERTY,
                                                CONFIG_GROUP_INFER_ONNX, &error);
-            CHECK_ERROR(error);
+            CHECK_STR_ERROR(error);
 
             if (!get_absolute_file_path(cfg_file_path, str, init_params->onnxFilePath)) {
                 g_printerr("Error: Could not parse ONNX file path\n");
@@ -1106,6 +1169,16 @@ static gboolean gst_nvinfer_parse_props(GstNvInfer *nvinfer,
                 init_params->inputFromPreprocessedTensor = TRUE;
             }
             CHECK_ERROR(error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_DISABLE_OUTPUT_HOST_COPY)) {
+            init_params->disableOutputHostCopy =
+                g_key_file_get_integer(key_file, CONFIG_GROUP_PROPERTY,
+                                       CONFIG_GROUP_INFER_DISABLE_OUTPUT_HOST_COPY, &error);
+        } else if (!g_strcmp0(*key, CONFIG_GROUP_INFER_RAW_OUTPUT_FILE_WRITE)) {
+            if (g_key_file_get_boolean(key_file, CONFIG_GROUP_PROPERTY,
+                                       CONFIG_GROUP_INFER_RAW_OUTPUT_FILE_WRITE, &error)) {
+                nvinfer->write_raw_buffers_to_file = TRUE;
+            }
+            CHECK_ERROR(error);
         } else if (nvinfer) {
             if (!gst_nvinfer_parse_other_attribute(nvinfer, key_file, CONFIG_GROUP_PROPERTY, *key,
                                                    cfg_file_path)) {
@@ -1133,7 +1206,7 @@ gboolean gst_nvinfer_parse_config_file(GstNvInfer *nvinfer,
     GError *error = nullptr;
     gboolean ret = FALSE;
     gchar **groups = nullptr;
-    gchar **group;
+    gchar **group = nullptr;
     GKeyFile *cfg_file = g_key_file_new();
 
     if (!g_key_file_load_from_file(cfg_file, cfg_file_path, G_KEY_FILE_NONE, &error)) {
@@ -1202,7 +1275,7 @@ gboolean gst_nvinfer_parse_config_file(GstNvInfer *nvinfer,
             if (!strncmp(*group, CONFIG_GROUP_INFER_CLASS_ATTRS_PREFIX,
                          sizeof(CONFIG_GROUP_INFER_CLASS_ATTRS_PREFIX) - 1)) {
                 gchar *key1 = *group + sizeof(CONFIG_GROUP_INFER_CLASS_ATTRS_PREFIX) - 1;
-                gchar *endptr;
+                gchar *endptr = nullptr;
                 guint64 class_index = g_ascii_strtoull(key1, &endptr, 10);
 
                 /* Check that class_index has been parsed successfully and that it lies

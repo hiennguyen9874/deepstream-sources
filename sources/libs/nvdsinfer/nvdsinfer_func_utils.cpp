@@ -76,8 +76,15 @@ void SplitFullDims(const nvinfer1::Dims &fullDims, NvDsInferDims &dims, int &bat
     } else {
         /* Use 0th dim as batch size and get rest of the dims. */
         batch = fullDims.d[0];
-        dims.numDims = fullDims.nbDims - 1;
-        std::copy(fullDims.d + 1, fullDims.d + fullDims.nbDims, dims.d);
+        if (fullDims.nbDims == 1) {
+            /* scaler output*/
+            dims.numDims = 1;
+            dims.d[0] = 1;
+        } else {
+            dims.numDims = fullDims.nbDims - 1;
+            std::copy(fullDims.d + 1, fullDims.d + fullDims.nbDims, dims.d);
+        }
+
         normalizeDims(dims);
     }
 }
@@ -122,8 +129,12 @@ std::string dataType2Str(const nvinfer1::DataType type)
         return "kHALF";
     case nvinfer1::DataType::kINT8:
         return "kINT8";
+    case nvinfer1::DataType::kUINT8:
+        return "kUINT8";
     case nvinfer1::DataType::kINT32:
         return "kINT32";
+    case nvinfer1::DataType::kINT64:
+        return "kINT64";
     default:
         return "UNKNOWN";
     }
@@ -138,8 +149,12 @@ std::string dataType2Str(const NvDsInferDataType type)
         return "kHALF";
     case INT8:
         return "kINT8";
+    case UINT8:
+        return "kUINT8";
     case INT32:
         return "kINT32";
+    case INT64:
+        return "kINT64";
     default:
         return "UNKNOWN";
     }
@@ -154,6 +169,8 @@ std::string networkMode2Str(const NvDsInferNetworkMode type)
         return "int8";
     case NvDsInferNetworkMode_FP16:
         return "fp16";
+    case NvDsInferNetworkMode_BEST:
+        return "best";
     default:
         return "UNKNOWN";
     }
@@ -283,19 +300,6 @@ uint32_t str2TensorFormat(const std::string &fmt)
 
 bool validateIOTensorNames(const BuildParams &params, const nvinfer1::INetworkDefinition &network)
 {
-    for (auto fmt : params.inputFormats) {
-        bool found = false;
-        for (int i = 0; !found && (i < network.getNbInputs()); ++i) {
-            auto input = network.getInput(i);
-            if (!fmt.first.compare(input->getName()))
-                found = true;
-        }
-        if (!found) {
-            dsInferError("Invalid input layer name specified %s", fmt.first.c_str());
-            return false;
-        }
-    }
-
     for (auto fmt : params.outputFormats) {
         bool found = false;
         for (int i = 0; !found && (i < network.getNbOutputs()); ++i) {

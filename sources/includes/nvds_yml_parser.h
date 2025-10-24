@@ -16,11 +16,11 @@
 #ifndef _NVGSTDS_YAML_PARSER_H_
 #define _NVGSTDS_YAML_PARSER_H_
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
 
 /**
  * Enum for Yaml parsing status for the API call on a GstElement.
@@ -386,6 +386,29 @@ NvDsYamlParserStatus nvds_parse_nvxfer(GstElement *element,
 NvDsYamlParserStatus nvds_parse_nvxfer_position(gchar *cfg_file_path,
                                                 const char *group,
                                                 guint *position);
+
+/**
+ * Set properties of a nvdsanalytics element from values specified in a YAML configuration file.
+ *
+ * @param[in]  element GStreamer element on which properties are to be set.
+ * @param[in]  cfg_file_path The YAML config file used by an application.
+ * @param[in]  group Group in the YAML config file to be parsed and
+ *             corresponding properties set on the nvdsanalytics element.
+ * @return Yaml parsing status for the API call.
+ */
+NvDsYamlParserStatus nvds_parse_nvdsanalytics(GstElement *element,
+                                              gchar *cfg_file_path,
+                                              const char *group);
+
+/**
+ * Function definition to check if the rest server is enabled in the YAML config file.
+ *
+ * @param[in]  cfg_file_path YAML config file name/path.
+ * @param[in]  group Group in the YAML config file to be parsed and
+ *             corresponding properties set on the nvdsanalytics element.
+ * @return Boolean value on the basis of rest server status.
+ */
+gboolean check_enable_status(gchar *cfg_file_path, const char *group);
 
 #ifdef __cplusplus
 }

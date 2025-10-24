@@ -66,6 +66,15 @@ static GstMemory *gst_nvinfer_allocator_alloc(GstAllocator *allocator,
     GstNvInferAllocator *inferallocator = GST_NVINFER_ALLOCATOR(allocator);
     GstNvInferMem *nvmem = new GstNvInferMem;
     GstNvInferMemory *tmem = &nvmem->mem_infer;
+
+    int is_nvgpu = 0;
+    NvBufSurfaceDeviceInfo dev_info;
+    if (NvBufSurfaceGetDeviceInfo(&dev_info) == 0) {
+        if (dev_info.driverType == NVBUF_DRIVER_TYPE_NVGPU) {
+            is_nvgpu = 1;
+        }
+    }
+
     NvBufSurfaceCreateParams create_params = {0};
 
     create_params.gpuId = inferallocator->gpu_id;
@@ -75,16 +84,27 @@ static GstMemory *gst_nvinfer_allocator_alloc(GstAllocator *allocator,
     create_params.isContiguous = 1;
     create_params.colorFormat = inferallocator->color_format;
     create_params.layout = NVBUF_LAYOUT_PITCH;
-    create_params.memType = NVBUF_MEM_DEFAULT;
+    create_params.memType = NVBUF_MEM_CUDA_DEVICE;
+    if (is_nvgpu) {
+        create_params.memType = NVBUF_MEM_SURFACE_ARRAY;
+    }
 
     if (NvBufSurfaceCreate(&tmem->surf, inferallocator->batch_size, &create_params) != 0) {
         GST_ERROR("Error: Could not allocate internal buffer pool for nvinfer");
+        if (nvmem) {
+            delete nvmem;
+            nvmem = nullptr;
+        }
         return nullptr;
     }
 
     if (tmem->surf->memType == NVBUF_MEM_SURFACE_ARRAY) {
         if (NvBufSurfaceMapEglImage(tmem->surf, -1) != 0) {
             GST_ERROR("Error: Could not map EglImage from NvBufSurface for nvinfer");
+            if (nvmem) {
+                delete nvmem;
+                nvmem = nullptr;
+            }
             return nullptr;
         }
 
@@ -95,21 +115,32 @@ static GstMemory *gst_nvinfer_allocator_alloc(GstAllocator *allocator,
     tmem->frame_memory_ptrs.assign(inferallocator->batch_size, nullptr);
 
     for (guint i = 0; i < inferallocator->batch_size; i++) {
+#if defined(__aarch64__)
         if (tmem->surf->memType == NVBUF_MEM_SURFACE_ARRAY) {
             if (cuGraphicsEGLRegisterImage(&tmem->cuda_resources[i],
                                            tmem->surf->surfaceList[i].mappedAddr.eglImage,
                                            CU_GRAPHICS_MAP_RESOURCE_FLAGS_NONE) != CUDA_SUCCESS) {
                 g_printerr("Failed to register EGLImage in cuda\n");
+                if (nvmem) {
+                    delete nvmem;
+                    nvmem = nullptr;
+                }
                 return nullptr;
             }
 
             if (cuGraphicsResourceGetMappedEglFrame(&tmem->egl_frames[i], tmem->cuda_resources[i],
                                                     0, 0) != CUDA_SUCCESS) {
                 g_printerr("Failed to get mapped EGL Frame\n");
+                if (nvmem) {
+                    delete nvmem;
+                    nvmem = nullptr;
+                }
                 return nullptr;
             }
             tmem->frame_memory_ptrs[i] = (char *)tmem->egl_frames[i].frame.pPitch[0];
-        } else {
+        } else
+#endif
+        {
             /* Calculate pointers to individual frame memories in the batch memory and
              * insert in the vector. */
             tmem->frame_memory_ptrs[i] = (char *)tmem->surf->surfaceList[i].dataPtr;

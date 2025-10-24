@@ -1,13 +1,15 @@
-################################################################################
-# Copyright (c) 2018-2021, NVIDIA CORPORATION.  All rights reserved.
+#######################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2018-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 #
-################################################################################
+#######################################################################################################
  
 This project implements protocol adaptor for kafka.
 The adaptor implements and exposed the DSMI API for client applications to interface with it.
@@ -15,19 +17,30 @@ The adaptor implements and exposed the DSMI API for client applications to inter
 Dependencies
 -------------
 Build dependencies with installation instructions:
-* librdkafka
-  Note that for using TLS/SSL security, make sure to build librdkafka with
-  SSL suport enabled by using the enable_ssl option while running
-  'configure', as shown below.
+* librdkafka-dev
+  sudo mkdir -p /etc/apt/keyrings
 
-  git clone https://github.com/edenhill/librdkafka.git
-  cd librdkafka
-  git reset --hard 063a9ae7a65cebdf1cc128da9815c05f91a2a996
-  ./configure --enable-ssl
-  make
-  sudo make install
-  sudo cp /usr/local/lib/librdkafka* /opt/nvidia/deepstream/deepstream/lib/
-  sudo ldconfig
+  wget -qO - https://packages.confluent.io/deb/7.8/archive.key | gpg \
+  --dearmor | sudo tee /etc/apt/keyrings/confluent.gpg > /dev/null
+
+  CP_DIST=$(lsb_release -cs)
+echo "Types: deb
+URIs: https://packages.confluent.io/deb/8.0
+Suites: stable
+Components: main
+Architectures: $(dpkg --print-architecture)
+Signed-by: /etc/apt/keyrings/confluent.gpg
+
+Types: deb
+URIs: https://packages.confluent.io/clients/deb/
+Suites: ${CP_DIST}
+Components: main
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/confluent.gpg" | sudo tee /etc/apt/sources.list.d/confluent-platform.sources > /dev/null
+
+  sudo apt-get update && sudo apt-get install confluent-platform
+
+  sudo apt install librdkafka-dev
 
 NOTE: To compile the sources, run make with "sudo" or root permission.
 
@@ -43,9 +56,38 @@ NOTE: To compile the sources, run make with "sudo" or root permission.
 
   apt-get install libssl-dev
 
-* protobuf
+If running deepstream on baremetal and not docker:
+  Install other dependencies (Needs sudo or root privilege):
+  A. For X86 Device -
+  1. Triton gRPC Client into "/opt/tritonclient":
+  mkdir -p  /opt/tritonclient/
+  wget https://github.com/triton-inference-server/server/releases/download/v2.56.0/v2.56.0_ubuntu2404.clients.tar.gz
+  tar xzf v2.56.0_ubuntu2404.clients.tar.gz -C /opt/tritonclient/ lib include
 
-  apt-get install protobuf-compiler
+  2. Protobuf compiler v3.21.12 into "/opt/proto":
+  mkdir /opt/proto
+  PB_REL="https://github.com/protocolbuffers/protobuf/releases";
+  curl -LO $PB_REL/download/v21.12/protoc-21.12-linux-x86_64.zip
+  unzip protoc-21.12-linux-x86_64.zip -d /opt/proto
+  chmod -R +rx /opt/proto/
+
+  B. For Jetson Device -
+  1. Please download the correct version of Triton gRPC client from
+    https://github.com/triton-inference-server/server/releases 
+    and install into "/opt/tritonclient". Example commands :
+  mkdir -p  /opt/tritonclient/
+  wget https://github.com/triton-inference-server/server/releases/download/v2.56.0/tritonserver2.56.0-igpu.tar
+  tar xzf tritonserver2.56.0-igpu.tar -C /opt/tritonclient/ --strip-components=2 tritonserver/clients/lib/ tritonserver/clients/include
+
+  2. Protobuf compiler v3.21.12 into "/opt/proto":
+  mkdir /opt/proto
+  PB_REL="https://github.com/protocolbuffers/protobuf/releases";
+  curl -LO $PB_REL/download/v21.12/protoc-21.12-linux-aarch_64.zip
+  unzip protoc-21.12-linux-aarch_64.zip -d /opt/proto
+  chmod -R +rx /opt/proto/
+
+  Update PATH variable with newly installed protoc by running below command,
+    $ export PATH=/opt/proto/bin/:$PATH
 
 (optional) : Install & setup kafka broker on your machine & create topic(s)
 --------------------------------------------------------------------------
@@ -87,7 +129,7 @@ NOTE:
 
 Building the adaptor
 ---------------------
-Upon installing the dependencies, to build adaptor library execute 'make'.
+Upon installing the dependencies, to build adaptor library execute 'make' and install with 'make install'
 
 Refer to test program for illustration of using the adaptor.
 
@@ -120,8 +162,8 @@ On Jetson,
 Note that for complete set of logs, set the logger level to 7 (DEBUG), as described in the logger README.
 
 To run test program:
-  ./test_sample_proto_sync
-  ./test_sample_proto_async
+  ./test_kafka_proto_sync
+  ./test_kafka_proto_async
 
 Note that the send operation inspects the incoming JSON formatted message to look for a sensor.id field.
 This field (if present) is used as message key while sending to kafka broker.

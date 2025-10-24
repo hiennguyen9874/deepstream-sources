@@ -6,6 +6,7 @@
 
 #include "nvdspostprocesslib_base.hpp"
 #include "post_processor.h"
+#include "post_processor_bodypose.h"
 #include "post_processor_classify.h"
 #include "post_processor_detect.h"
 #include "post_processor_instance_segment.h"
@@ -33,11 +34,14 @@ public:
             m_element = createParams->m_element;
             m_gpuId = createParams->m_gpuId;
             m_cudaStream = createParams->m_cudaStream;
+            m_preprocessor_support = createParams->m_preprocessor_support;
         } else {
             m_element = NULL;
             m_gpuId = 0;
             m_cudaStream = 0;
+            m_preprocessor_support = FALSE;
         }
+        m_initParams.preprocessor_support = FALSE;
         m_outputThread = new std::thread(&PostProcessAlgorithm::OutputThread, this);
         m_initParams.uniqueID = 0;
         m_initParams.maxBatchSize = 1;
@@ -124,6 +128,7 @@ private:
     gboolean m_isClassifier = 0;
     gboolean m_releaseTensorMeta = FALSE;
     gboolean m_outputInstanceMask = FALSE;
+    gboolean m_preprocessor_support = FALSE;
     std::string m_classifierType;
     std::set<gint> m_filterOutClassIds;
     std::set<gint> m_operateOnClassIds;

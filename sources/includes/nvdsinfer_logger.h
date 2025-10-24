@@ -4,8 +4,10 @@
 #include <NvInfer.h>
 #include <nvdsinfer.h>
 
+#include <array>
 #include <memory>
 #include <mutex>
+#include <string>
 
 #if defined(NDEBUG)
 #define INFER_LOG_FORMAT_(fmt) fmt

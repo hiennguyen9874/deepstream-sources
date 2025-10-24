@@ -1,14 +1,14 @@
 #ifndef __NVGSTDS_SOURCES_H__
 #define __NVGSTDS_SOURCES_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <gst/gst.h>
 #include <sys/time.h>
 
 #include "deepstream_dewarper.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {
     NV_DS_SOURCE_CAMERA_V4L2 = 1,
@@ -19,6 +19,7 @@ typedef enum {
     NV_DS_SOURCE_AUDIO_WAV,
     NV_DS_SOURCE_AUDIO_URI,
     NV_DS_SOURCE_ALSA_SRC,
+    NV_DS_SOURCE_IPC,
 } NvDsSourceType;
 
 typedef struct {
@@ -46,19 +47,31 @@ typedef struct {
     guint smart_rec_start_time;
     guint smart_rec_interval;
     guint num_sources;
+    guint buffer_mode;
     guint gpu_id;
     guint camera_id;
     guint source_id;
     guint select_rtp_protocol;
+    guint leaky;
+    guint max_size_buffers;
     guint num_decode_surfaces;
     guint num_extra_surfaces;
     guint nvbuf_memory_type;
     guint cuda_memory_type;
+#if defined(__aarch64__) && !defined(AARCH64_IS_SBSA)
+    /* copy-hw as VIC applicable only for Jetson */
+    guint nvvideoconvert_copy_hw;
+#endif
     NvDsDewarperConfig dewarper_config;
     guint drop_frame_interval;
+    gboolean drop_on_latency;
+    gboolean extract_sei_type5_data;
     gint rtsp_reconnect_interval_sec;
+    gint init_rtsp_reconnect_interval_sec;
     guint rtsp_reconnect_attempts;
+    gboolean rtsp_reconnect_attempt_exceeded;
     guint udp_buffer_size;
+    gboolean sensorIdToPadIdMapping;
     /** Desired input audio rate to nvinferaudio from PGIE config;
      * This config shall be copied over from NvDsGieConfig
      * at create_multi_source_bin()*/

@@ -65,14 +65,14 @@ typedef struct {
     guint num_units;
 
     /** custom transformation function name */
-    gchar *custom_transform_function_name = NULL;
+    std::string custom_transform_function_name;
 
     /** wrapper to custom transformation function */
     std::function<NvDsPreProcessStatus(NvBufSurface *, NvBufSurface *, CustomTransformParams &)>
         custom_transform;
 
     /** sync object for async transformation */
-    NvBufSurfTransformSyncObj_t sync_obj;
+    NvBufSurfTransformSyncObj_t sync_obj = NULL;
 
     /** Map src_id - Preprocess Frame meta */
     std::unordered_map<gint, GstNvDsPreProcessFrame> framemeta_map;
@@ -98,6 +98,10 @@ typedef struct {
 
     /** src-id whose rois is used by all the src within the preprocess-group (when src-ids[0]=-1)*/
     guint replicated_src_id;
+
+    /** Group interval for frame/roi processing. */
+    guint interval = 0;
+    guint interval_counter = 0;
 } GstNvDsPreProcessGroup;
 
 /** Used by plugin to access GstBuffer and GstNvDsPreProcessMemory
@@ -173,6 +177,8 @@ typedef struct {
     gboolean max_input_object_width;
     /** for config param : input-object-max-height */
     gboolean max_input_object_height;
+    /** for config param : interval */
+    gboolean interval;
 } NvDsPreProcessPropertySet;
 
 /**
@@ -207,7 +213,7 @@ struct _GstNvDsPreProcess {
     gchar *custom_lib_path;
 
     /** custom tensor function name */
-    gchar *custom_tensor_function_name;
+    std::string custom_tensor_function_name;
 
     /** wrapper to custom tensor function */
     std::function<NvDsPreProcessStatus(CustomCtx *,

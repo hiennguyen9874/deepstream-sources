@@ -4,7 +4,9 @@
 
 #include "gst-nvdscustommessage.h"
 #include "gst-nvquery.h"
+#include "gstnvdsmeta.h"
 #include "nvds_rest_server.h"
+#include "nvdsmeta.h"
 
 // #define NVMULTIURISRCBIN_CREATOR_DEBUG
 #ifndef NVMULTIURISRCBIN_CREATOR_DEBUG
@@ -104,6 +106,10 @@ static GstPadProbeReturn s_nvmultiurisrcbincreator_probe_func_eos_handling(GstPa
                                                                            GstPadProbeInfo *info,
                                                                            gpointer u_data);
 
+static GstPadProbeReturn s_nvmultiurisrcbincreator_probe_func_add_sensorInfo(GstPad *pad,
+                                                                             GstPadProbeInfo *info,
+                                                                             gpointer u_data);
+
 static void s_nvmultiurisrcbincreator_remove_source_info(
     NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator,
     NvDsUriSourceInfo *sourceInfo);
@@ -119,7 +125,8 @@ static gboolean s_nvmultiurisrcbincreator_remove_source_impl(
 
 static gpointer s_uribin_removal_thread(gpointer data);
 
-gint s_get_source_id(NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator);
+gint s_get_source_id(NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator,
+                     GstDsNvUriSrcConfig *sourceConfig);
 
 static GstBus *s_nvmultiurisrcbincreator_get_bus_from_parent(
     NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator)
@@ -153,7 +160,7 @@ gboolean find_source(NvDst_Handle_NvMultiUriSrcCreator apiHandle, guint sourceId
 }
 
 gboolean s_force_eos_handle(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
-                            NvDsAppInstanceInfo *appinstance_info)
+                            NvDsServerAppInstanceInfo *appinstance_info)
 {
     NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator = (NvMultiUriSrcBinCreator *)apiHandle;
 
@@ -176,7 +183,8 @@ gboolean s_force_eos_handle(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
     return TRUE;
 }
 
-gboolean set_nvuribin_mux_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle, NvDsMuxInfo *mux_info)
+gboolean set_nvuribin_mux_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
+                               NvDsServerMuxInfo *mux_info)
 {
     NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator = (NvMultiUriSrcBinCreator *)apiHandle;
 
@@ -197,7 +205,7 @@ gboolean set_nvuribin_mux_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle, NvDs
 
 gboolean set_nvuribin_conv_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
                                 guint sourceId,
-                                NvDsConvInfo *conv_info)
+                                NvDsServerConvInfo *conv_info)
 {
     NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator = (NvMultiUriSrcBinCreator *)apiHandle;
 
@@ -258,7 +266,7 @@ gboolean set_nvuribin_conv_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
 
 gboolean set_nvuribin_dec_prop(NvDst_Handle_NvMultiUriSrcCreator apiHandle,
                                guint sourceId,
-                               NvDsDecInfo *dec_info)
+                               NvDsServerDecInfo *dec_info)
 {
     NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator = (NvMultiUriSrcBinCreator *)apiHandle;
 
@@ -422,6 +430,10 @@ NvDst_Handle_NvMultiUriSrcCreator gst_nvmultiurisrcbincreator_init(
                 g_object_set(nvmultiurisrcbinCreator->streammux, "buffer-pool-size",
                              nvmultiurisrcbinCreator->muxConfig->buffer_pool_size, NULL);
             }
+            if (nvmultiurisrcbinCreator->muxConfig->extract_sei_type5_data) {
+                g_object_set(nvmultiurisrcbinCreator->streammux, "extract-sei-type5-data",
+                             nvmultiurisrcbinCreator->muxConfig->extract_sei_type5_data, NULL);
+            }
             if (nvmultiurisrcbinCreator->muxConfig->compute_hw) {
                 g_object_set(nvmultiurisrcbinCreator->streammux, "compute-hw",
                              nvmultiurisrcbinCreator->muxConfig->compute_hw, NULL);
@@ -449,12 +461,38 @@ NvDst_Handle_NvMultiUriSrcCreator gst_nvmultiurisrcbincreator_init(
                 g_object_set(nvmultiurisrcbinCreator->streammux, "async-process",
                              nvmultiurisrcbinCreator->muxConfig->async_process, NULL);
             }
+            if (nvmultiurisrcbinCreator->muxConfig->sort_batch) {
+                g_object_set(nvmultiurisrcbinCreator->streammux, "sort-batch",
+                             nvmultiurisrcbinCreator->muxConfig->sort_batch, NULL);
+            }
+            if (nvmultiurisrcbinCreator->muxConfig->buffer_cache) {
+                g_object_set(nvmultiurisrcbinCreator->streammux, "cache-buffer",
+                             nvmultiurisrcbinCreator->muxConfig->buffer_cache, NULL);
+            }
+            if (nvmultiurisrcbinCreator->muxConfig->buffer_cache_timeout) {
+                g_object_set(nvmultiurisrcbinCreator->streammux, "cache-buffer-timeout",
+                             nvmultiurisrcbinCreator->muxConfig->buffer_cache_timeout, NULL);
+            }
+            if (nvmultiurisrcbinCreator->muxConfig->extract_sei_sim_time) {
+                g_object_set(nvmultiurisrcbinCreator->streammux, "extract-sei-sim-time",
+                             nvmultiurisrcbinCreator->muxConfig->extract_sei_sim_time, NULL);
+            }
+            if (nvmultiurisrcbinCreator->muxConfig->align_first_buffer) {
+                g_object_set(nvmultiurisrcbinCreator->streammux, "align-first-buffer",
+                             nvmultiurisrcbinCreator->muxConfig->align_first_buffer, NULL);
+            }
+            if (nvmultiurisrcbinCreator->muxConfig->sync_inputs_ntp) {
+                g_object_set(nvmultiurisrcbinCreator->streammux, "sync-inputs-ntp",
+                             nvmultiurisrcbinCreator->muxConfig->sync_inputs_ntp, NULL);
+            }
         } else {
             // using new nvstreammux
             if (nvmultiurisrcbinCreator->muxConfig->config_file_path) {
                 g_object_set(nvmultiurisrcbinCreator->streammux, "config-file-path",
                              nvmultiurisrcbinCreator->muxConfig->config_file_path, NULL);
             }
+            g_object_set(nvmultiurisrcbinCreator->streammux, "batch-size",
+                         nvmultiurisrcbinCreator->muxConfig->maxBatchSize, NULL);
         }
 
         // common to both
@@ -496,12 +534,15 @@ NvDst_Handle_NvMultiUriSrcCreator gst_nvmultiurisrcbincreator_init(
 
     // Create parent bin
     nvmultiurisrcbinCreator->nvmultiurisrcbin = gst_element_factory_make("bin", binName);
-    g_object_set(nvmultiurisrcbinCreator->nvmultiurisrcbin, "async-handling", TRUE, NULL);
 
     if (!nvmultiurisrcbinCreator->nvmultiurisrcbin) {
         GST_WARNING_OBJECT(nvmultiurisrcbinCreator->nvmultiurisrcbin, "bin creation failed\n");
+        g_free(nvmultiurisrcbinCreator);
         return (NvDst_Handle_NvMultiUriSrcCreator)NULL;
     }
+
+    g_object_set(nvmultiurisrcbinCreator->nvmultiurisrcbin, "async-handling", TRUE, NULL);
+
     // Add nvstreammux to this bin
     gst_bin_add(GST_BIN(nvmultiurisrcbinCreator->nvmultiurisrcbin),
                 nvmultiurisrcbinCreator->streammux);
@@ -514,6 +555,10 @@ NvDst_Handle_NvMultiUriSrcCreator gst_nvmultiurisrcbincreator_init(
                            nvmultiurisrcbinCreator->streammux, "src", src_pad_query_probe,
                            GST_PAD_PROBE_TYPE_QUERY_BOTH, nvmultiurisrcbinCreator);
 
+    NVGSTDS_ELEM_ADD_PROBE(nvmultiurisrcbinCreator->nvmultiurisrcbin,
+                           nvmultiurisrcbinCreator->streammux, "src",
+                           s_nvmultiurisrcbincreator_probe_func_add_sensorInfo,
+                           GST_PAD_PROBE_TYPE_BUFFER, nvmultiurisrcbinCreator);
     nvmultiurisrcbinCreator->remove_uribin_queue = g_queue_new();
 
     g_cond_init(&nvmultiurisrcbinCreator->remove_uribin_cond);
@@ -535,17 +580,21 @@ void gst_nvmultiurisrcbincreator_deinit(NvDst_Handle_NvMultiUriSrcCreator apiHan
 
     // Remove all remaining sources
     g_mutex_lock(&nvmultiurisrcbinCreator->lock);
-    while (nvmultiurisrcbinCreator->sourceInfoList) {
-        NvDsUriSourceInfo *sourceInfo =
-            (NvDsUriSourceInfo *)(nvmultiurisrcbinCreator->sourceInfoList->data);
-        /** nvmultiurisrcbinCreator->sourceInfoList will change in the below API call */
-        guint sourceId = sourceInfo->config->source_id;
-        g_mutex_unlock(&nvmultiurisrcbinCreator->lock);
-        LOGD("removing source %d\n", sourceId);
+    GList *sourceIds = NULL;
+    for (GList *node = nvmultiurisrcbinCreator->sourceInfoList; node; node = g_list_next(node)) {
+        NvDsUriSourceInfo *sourceInfo = (NvDsUriSourceInfo *)(node->data);
+        sourceIds = g_list_append(sourceIds, GUINT_TO_POINTER(sourceInfo->config->source_id));
+    }
+    g_mutex_unlock(&nvmultiurisrcbinCreator->lock);
+
+    // Now remove sources using the collected IDs
+    for (GList *node = sourceIds; node; node = g_list_next(node)) {
+        guint sourceId = GPOINTER_TO_UINT(node->data);
         gst_nvmultiurisrcbincreator_remove_source(apiHandle, sourceId);
-        g_mutex_lock(&nvmultiurisrcbinCreator->lock);
     }
 
+    g_list_free(sourceIds);
+    g_mutex_lock(&nvmultiurisrcbinCreator->lock);
     /* Cannot unref the bin: nvmultiurisrcbinCreator->nvmultiurisrcbin;
      * The floating ref on this bin will be unref'd only when parent
      * pipeline is unref'd
@@ -592,9 +641,9 @@ static gpointer s_uribin_removal_thread(gpointer data)
                 gst_object_unref(sourceInfo->muxSinkPad);
             }
 
-            g_object_ref(sourceInfo->uribin);
-            if ((!gst_bin_remove(GST_BIN(nvmultiurisrcbinCreator->nvmultiurisrcbin),
-                                 sourceInfo->uribin))) {
+            GstElement *uribin = sourceInfo->uribin;
+            g_object_ref(uribin);
+            if ((!gst_bin_remove(GST_BIN(nvmultiurisrcbinCreator->nvmultiurisrcbin), uribin))) {
                 GST_WARNING_OBJECT(nvmultiurisrcbinCreator->nvmultiurisrcbin,
                                    "Failed to set remove source-id:%u",
                                    sourceInfo->config->source_id);
@@ -602,22 +651,16 @@ static gpointer s_uribin_removal_thread(gpointer data)
             }
 
             GstStateChangeReturn state_return = GST_STATE_CHANGE_FAILURE;
-            if (GST_IS_BIN(sourceInfo->uribin) &&
-                (state_return =
-                     gst_element_set_state(GST_ELEMENT(sourceInfo->uribin), GST_STATE_NULL)) ==
+            if (GST_IS_BIN(uribin) &&
+                (state_return = gst_element_set_state(GST_ELEMENT(uribin), GST_STATE_NULL)) ==
                     GST_STATE_CHANGE_FAILURE) {
                 GST_WARNING_OBJECT(nvmultiurisrcbinCreator->nvmultiurisrcbin,
                                    "Failed to set stop source-id:%u",
                                    sourceInfo->config->source_id);
                 return FALSE;
             }
-            gst_object_unref(sourceInfo->uribin);
+            gst_object_unref(uribin);
 
-            g_mutex_lock(&nvmultiurisrcbinCreator->lock);
-
-            s_nvmultiurisrcbincreator_remove_source_info_handlers(sourceInfo);
-            s_nvmultiurisrcbincreator_remove_source_info(nvmultiurisrcbinCreator, sourceInfo);
-            g_mutex_unlock(&nvmultiurisrcbinCreator->lock);
             g_mutex_lock(&nvmultiurisrcbinCreator->uribin_removal_lock);
         }
     }
@@ -643,12 +686,78 @@ static GstPadProbeReturn s_nvmultiurisrcbincreator_probe_func_eos_handling(GstPa
             g_queue_push_tail(nvmultiurisrcbinCreator->remove_uribin_queue, sourceInfo);
             g_cond_broadcast(&nvmultiurisrcbinCreator->remove_uribin_cond);
             g_mutex_unlock(&nvmultiurisrcbinCreator->uribin_removal_lock);
+            sourceInfo->probe_eos_handling = 0;
             return GST_PAD_PROBE_REMOVE;
         }
     }
 
     return GST_PAD_PROBE_OK;
 }
+
+static GstPadProbeReturn s_nvmultiurisrcbincreator_probe_func_add_sensorInfo(GstPad *pad,
+                                                                             GstPadProbeInfo *info,
+                                                                             gpointer u_data)
+{
+    NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator = (NvMultiUriSrcBinCreator *)u_data;
+    GstBuffer *buf = (GstBuffer *)info->data;
+    NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
+
+    if (!batch_meta) {
+        return GST_PAD_PROBE_OK;
+    }
+
+    NvDsMetaList *l_frame = NULL;
+    for (l_frame = batch_meta->frame_meta_list; l_frame != NULL; l_frame = l_frame->next) {
+        NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)(l_frame->data);
+        NvDsUriSourceInfo *srcInfo = (NvDsUriSourceInfo *)g_hash_table_lookup(
+            nvmultiurisrcbinCreator->sourceInfoHash, frame_meta->source_id + (gchar *)NULL);
+
+        if (srcInfo == NULL || srcInfo->config == NULL ||
+            !gst_pad_is_linked(srcInfo->uribin_src_pad) || !srcInfo->muxSinkPad ||
+            !srcInfo->uribin_src_pad || !srcInfo->uribin) {
+            continue;
+        }
+
+        frame_meta->sensorInfo_meta.source_id = srcInfo->config->source_id;
+        frame_meta->sensorInfo_meta.sensor_id =
+            srcInfo->config->sensorId ? (gchar const *)g_strdup(srcInfo->config->sensorId)
+                                      : (gchar const *)g_strdup("");
+        frame_meta->sensorInfo_meta.sensor_name =
+            srcInfo->config->sensorName ? (gchar const *)g_strdup(srcInfo->config->sensorName)
+                                        : (gchar const *)g_strdup("");
+        frame_meta->sensorInfo_meta.uri = srcInfo->config->uri
+                                              ? (gchar const *)g_strdup(srcInfo->config->uri)
+                                              : (gchar const *)g_strdup("");
+    }
+
+    return GST_PAD_PROBE_OK;
+}
+
+#ifdef PLATFORM_TEGRA
+static GstPadProbeReturn streammux_processing_done_buf_prob(GstPad *pad,
+                                                            GstPadProbeInfo *info,
+                                                            gpointer u_data)
+{
+    NvDsUriSourceInfo *sourceInfo = (NvDsUriSourceInfo *)u_data;
+    NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator =
+        (NvMultiUriSrcBinCreator *)sourceInfo->apiHandle;
+    GstBuffer *buf = (GstBuffer *)info->data;
+    NvDsBatchMeta *batch_meta = gst_buffer_get_nvds_batch_meta(buf);
+
+    if (!batch_meta) {
+        GST_ERROR_OBJECT(nvmultiurisrcbinCreator->nvmultiurisrcbin,
+                         "Batch meta not found for buffer %p", buf);
+        return GST_PAD_PROBE_OK;
+    } else {
+        for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
+             l_frame = l_frame->next) {
+            NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+            frame_meta->ntp_timestamp = frame_meta->buf_pts;
+        }
+    }
+    return GST_PAD_PROBE_OK;
+}
+#endif
 
 static void s_nvmultiurisrcbincreator_cb_newpad(GstElement *decodebin, GstPad *pad, gpointer data)
 {
@@ -672,9 +781,19 @@ static void s_nvmultiurisrcbincreator_cb_newpad(GstElement *decodebin, GstPad *p
             sourceInfo, nvmultiurisrcbinCreator->streammux, pad, sourceInfo->config->source_id);
         // Attach a probe for EOS handling
         sourceInfo->uribin_src_pad = pad;
+
         sourceInfo->probe_eos_handling =
             gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
                               s_nvmultiurisrcbincreator_probe_func_eos_handling, data, NULL);
+#ifdef PLATFORM_TEGRA
+        gboolean is_ipc =
+            sourceInfo->config->uri && g_str_has_prefix(sourceInfo->config->uri, "ipc://");
+        if (is_ipc) {
+            GstPad *src_pad = gst_nvmultiurisrcbincreator_get_source_pad(nvmultiurisrcbinCreator);
+            gst_pad_add_probe(src_pad, GST_PAD_PROBE_TYPE_BUFFER,
+                              streammux_processing_done_buf_prob, data, NULL);
+        }
+#endif
     }
 #if 0
   /** Link the unnecessary pad with fakesink according to the current mode of support
@@ -733,6 +852,7 @@ GstDsNvUriSrcConfig *gst_nvmultiurisrcbincreator_src_config_dup(GstDsNvUriSrcCon
     /** allocate memory for pointers and copy them over */
     config->uri = g_strdup(sourceConfig->uri);
     config->sensorId = sourceConfig->sensorId ? g_strdup(sourceConfig->sensorId) : NULL;
+    config->sensorName = sourceConfig->sensorName ? g_strdup(sourceConfig->sensorName) : NULL;
     config->smart_rec_dir_path = g_strdup(sourceConfig->smart_rec_dir_path);
     config->smart_rec_file_prefix = g_strdup(sourceConfig->smart_rec_file_prefix);
     return config;
@@ -746,14 +866,18 @@ void gst_nvmultiurisrcbincreator_src_config_free(GstDsNvUriSrcConfig *config)
     if (config->sensorId) {
         g_free(config->sensorId);
     }
+    if (config->sensorName) {
+        g_free(config->sensorName);
+    }
     if (config->smart_rec_dir_path) {
         g_free(config->smart_rec_dir_path);
     }
     if (config->smart_rec_file_prefix) {
         g_free(config->smart_rec_file_prefix);
     }
-    if (config)
+    if (config) {
         g_free(config);
+    }
 }
 
 static NvDsUriSourceInfo *s_nvmultiurisrcbincreator_create_source_info(
@@ -796,18 +920,43 @@ static void s_nvmultiurisrcbincreator_destroy_mux_config(GstDsNvStreammuxConfig 
     }
 }
 
-gint s_get_source_id(NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator)
+static guint extract_pad_index(const gchar *str)
+{
+    while (*str && !isdigit(*str))
+        str++;
+    return atoi(str);
+}
+
+gint s_get_source_id(NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator,
+                     GstDsNvUriSrcConfig *sourceConfig)
 {
     gchar pad_name[64];
-    for (int i = 0; i < 1024; i++) {
-        guint pad_indx = (nvmultiurisrcbinCreator->base_index + i) % 1024;
-        g_snprintf(pad_name, sizeof(pad_name), "sink_%u", pad_indx);
+    gint max_batch_size = 0;
+    guint pad_indx = 0;
+
+    if (nvmultiurisrcbinCreator && nvmultiurisrcbinCreator->muxConfig) {
+        max_batch_size = nvmultiurisrcbinCreator->muxConfig->maxBatchSize;
+    }
+
+    if (sourceConfig->sensorIdToPadIdMapping == TRUE) {
+        pad_indx = extract_pad_index(sourceConfig->sensorId);
         GstPad *test_pad = gst_element_get_static_pad(nvmultiurisrcbinCreator->streammux, pad_name);
         if (!test_pad) {
-            nvmultiurisrcbinCreator->base_index = pad_indx + 1;
             return pad_indx;
         }
         gst_object_unref(test_pad);
+    } else {
+        for (int i = 0; i < max_batch_size; i++) {
+            pad_indx = (nvmultiurisrcbinCreator->base_index + i) % max_batch_size;
+            g_snprintf(pad_name, sizeof(pad_name), "sink_%u", pad_indx);
+            GstPad *test_pad =
+                gst_element_get_static_pad(nvmultiurisrcbinCreator->streammux, pad_name);
+            if (!test_pad) {
+                nvmultiurisrcbinCreator->base_index = pad_indx + 1;
+                return pad_indx;
+            }
+            gst_object_unref(test_pad);
+        }
     }
     return -1;
 }
@@ -828,7 +977,7 @@ gboolean gst_nvmultiurisrcbincreator_add_source(NvDst_Handle_NvMultiUriSrcCreato
     NvDsUriSourceInfo *sourceInfo =
         s_nvmultiurisrcbincreator_create_source_info(sourceConfig, apiHandle);
     sourceInfo->uribin = (GstElement *)gst_object_ref(uribin);
-    sourceConfig->source_id = s_get_source_id(nvmultiurisrcbinCreator);
+    sourceConfig->source_id = s_get_source_id(nvmultiurisrcbinCreator, sourceConfig);
     sourceInfo->config->source_id = sourceConfig->source_id;
     // set nvurisrcbin properties
     s_nvmultiurisrcbincreator_set_properties_nvuribin(GST_ELEMENT(uribin), sourceConfig);
@@ -852,6 +1001,8 @@ gboolean gst_nvmultiurisrcbincreator_add_source(NvDst_Handle_NvMultiUriSrcCreato
         NvDsSensorInfo sensorInfo;
         sensorInfo.source_id = sourceConfig->source_id;
         sensorInfo.sensor_id = sourceConfig->sensorId;
+        sensorInfo.sensor_name = sourceConfig->sensorName;
+        sensorInfo.uri = sourceConfig->uri;
         GstBus *bus = s_nvmultiurisrcbincreator_get_bus_from_parent(nvmultiurisrcbinCreator);
         if (bus) {
             gst_bus_post(bus,
@@ -896,6 +1047,8 @@ static void s_nvmultiurisrcbincreator_remove_source_info(
     NvDsSensorInfo sensorInfoM;
     sensorInfoM.source_id = sourceInfo->config->source_id;
     sensorInfoM.sensor_id = sourceInfo->config->sensorId;
+    sensorInfoM.sensor_name = sourceInfo->config->sensorName;
+    sensorInfoM.uri = sourceInfo->config->uri;
 
     /** POST nvmessage stream removed on the bus */
     if (GST_IS_BIN(nvmultiurisrcbinCreator->nvmultiurisrcbin)) {
@@ -1002,33 +1155,62 @@ gboolean s_nvmultiurisrcbincreator_remove_source_impl(NvDst_Handle_NvMultiUriSrc
     }
 
     if (forceSourceStateChange) {
-        GstElement *uribin = sourceInfo->uribin;
+        if (GST_IS_PAD(sourceInfo->muxSinkPad)) {
+            gst_pad_send_event(sourceInfo->muxSinkPad, gst_event_new_flush_start());
+            gst_element_send_event(GST_ELEMENT(sourceInfo->uribin), gst_event_new_flush_start());
+            gst_pad_send_event(sourceInfo->muxSinkPad, gst_event_new_flush_stop(FALSE));
+            gst_element_send_event(GST_ELEMENT(sourceInfo->uribin),
+                                   gst_event_new_flush_stop(FALSE));
 
-        // set uribin state to NULL
-        if (GST_IS_BIN(uribin) && (state_return = gst_element_set_state(uribin, GST_STATE_NULL)) ==
-                                      GST_STATE_CHANGE_FAILURE) {
+            // If the pad is linked to another pad, first unlink it
+            if (gst_pad_is_linked(sourceInfo->muxSinkPad)) {
+                GstPad *peer_pad = gst_pad_get_peer(sourceInfo->muxSinkPad);
+
+                if (peer_pad) {
+                    if (GST_PAD_IS_SINK(sourceInfo->muxSinkPad) && GST_PAD_IS_SRC(peer_pad)) {
+                        gst_pad_unlink(peer_pad, sourceInfo->muxSinkPad);
+                    } else {
+                        g_warning("Cannot unlink pads: pad direction mismatch");
+                    }
+                    gst_object_unref(peer_pad);
+                }
+            }
+        }
+
+        g_object_ref(sourceInfo->uribin);
+        if ((!gst_bin_remove(GST_BIN(nvmultiurisrcbinCreator->nvmultiurisrcbin),
+                             sourceInfo->uribin))) {
             GST_WARNING_OBJECT(nvmultiurisrcbinCreator->nvmultiurisrcbin,
-                               "Failed to set stop source-id:%u", sourceId);
+                               "Failed to set remove source-id:%u", sourceInfo->config->source_id);
             g_mutex_unlock(&nvmultiurisrcbinCreator->lock);
             return FALSE;
         }
-        // release nvstreammux sink pad
+
+        gst_element_send_event(GST_ELEMENT(sourceInfo->uribin), gst_event_new_flush_start());
+        gst_element_send_event(GST_ELEMENT(sourceInfo->uribin), gst_event_new_flush_stop(FALSE));
+        if (GST_IS_BIN(sourceInfo->uribin) &&
+            (state_return = gst_element_set_state(GST_ELEMENT(sourceInfo->uribin),
+                                                  GST_STATE_NULL)) == GST_STATE_CHANGE_FAILURE) {
+            GST_WARNING_OBJECT(nvmultiurisrcbinCreator->nvmultiurisrcbin,
+                               "Failed to set stop source-id:%u", sourceInfo->config->source_id);
+            g_mutex_unlock(&nvmultiurisrcbinCreator->lock);
+            return FALSE;
+        }
+
+        if (state_return == GST_STATE_CHANGE_ASYNC) {
+            gst_element_get_state(sourceInfo->uribin, NULL, NULL, GST_CLOCK_TIME_NONE);
+        }
+
+        gst_object_unref(sourceInfo->uribin);
+
         if (GST_IS_PAD(sourceInfo->muxSinkPad)) {
             gst_pad_send_event(sourceInfo->muxSinkPad, gst_event_new_flush_stop(FALSE));
-            gst_pad_send_event(sourceInfo->muxSinkPad, gst_event_new_eos());
             gst_element_release_request_pad(nvmultiurisrcbinCreator->streammux,
                                             sourceInfo->muxSinkPad);
             gst_object_unref(sourceInfo->muxSinkPad);
         }
-        // remove uribin from nvmultiurisrcbin
-        if ((state_return == GST_STATE_CHANGE_SUCCESS || state_return == GST_STATE_CHANGE_ASYNC) &&
-            !gst_bin_remove(GST_BIN(nvmultiurisrcbinCreator->nvmultiurisrcbin), uribin)) {
-            GST_WARNING_OBJECT(nvmultiurisrcbinCreator->nvmultiurisrcbin,
-                               "Failed to set remove source-id:%u", sourceId);
-            g_mutex_unlock(&nvmultiurisrcbinCreator->lock);
-            return FALSE;
-        }
     }
+
     // remove sourceInfo from the hash map and the list, free sourceInfo
     s_nvmultiurisrcbincreator_remove_source_info(nvmultiurisrcbinCreator, sourceInfo);
     LOGD("removed source %d\n", sourceId);
@@ -1069,7 +1251,7 @@ static gboolean s_nvmultiurisrcbincreator_link_element_to_streammux_sink_pad(
         strcpy(pad_name, "sink_%u");
     }
 
-    sourceInfo->muxSinkPad = gst_element_get_request_pad(streammux, pad_name);
+    sourceInfo->muxSinkPad = gst_element_request_pad_simple(streammux, pad_name);
     if (!sourceInfo->muxSinkPad) {
         GST_WARNING("Failed to get sink pad (%d) from streammux\n", sourceInfo->config->source_id);
         return FALSE;
@@ -1096,8 +1278,8 @@ GstDsNvUriSrcConfig *gst_nvmultiurisrcbincreator_get_source_config(
     for (GList *node = nvmultiurisrcbinCreator->sourceInfoList; node; node = g_list_next(node)) {
         NvDsUriSourceInfo *sourceInfo = (NvDsUriSourceInfo *)(node->data);
         if (sourceInfo->config->uri && sourceInfo->config->sensorId &&
-            g_strrstr(sourceInfo->config->uri, uri) &&
-            g_strrstr(sourceInfo->config->sensorId, sensorId)) {
+            (g_strcmp0(sourceInfo->config->uri, uri) == 0) &&
+            (g_strcmp0(sourceInfo->config->sensorId, sensorId) == 0)) {
             config = gst_nvmultiurisrcbincreator_src_config_dup(sourceInfo->config);
             break;
         }
@@ -1116,7 +1298,8 @@ GstDsNvUriSrcConfig *gst_nvmultiurisrcbincreator_get_source_config_by_sensorid(
     /** Go through the list and find it */
     for (GList *node = nvmultiurisrcbinCreator->sourceInfoList; node; node = g_list_next(node)) {
         NvDsUriSourceInfo *sourceInfo = (NvDsUriSourceInfo *)(node->data);
-        if (sourceInfo->config->sensorId && g_strrstr(sourceInfo->config->sensorId, sensorId)) {
+        if (sourceInfo->config->sensorId &&
+            (g_strcmp0(sourceInfo->config->sensorId, sensorId) == 0)) {
             config = gst_nvmultiurisrcbincreator_src_config_dup(sourceInfo->config);
             break;
         }
@@ -1136,12 +1319,25 @@ static void s_nvmultiurisrcbincreator_set_properties_nvuribin(GstElement *elemen
         g_object_set(element_, "gpu-id", config->gpu_id, NULL);
     if (config->skip_frames_type)
         g_object_set(element_, "dec-skip-frames", config->skip_frames_type, NULL);
+    g_object_set(element_, "low-latency-mode", config->low_latency_mode, NULL);
     g_object_set(element_, "type", SOURCE_TYPE_AUTO, NULL); // always set to auto
     g_object_set(element_, "cudadec-memtype", config->cuda_memory_type, NULL);
     if (config->drop_frame_interval)
         g_object_set(element_, "drop-frame-interval", config->drop_frame_interval, NULL);
+    g_object_set(element_, "drop-on-latency", config->drop_on_latency, NULL);
+    if (config->extract_sei_type5_data) {
+        g_object_set(element_, "extract-sei-type5-data", config->extract_sei_type5_data, NULL);
+    }
+    if (config->buffer_mode) {
+        g_object_set(element_, "buffer-mode", config->buffer_mode, NULL);
+    }
+    g_object_set(element_, "sei-uuid", config->sei_uuid, NULL);
     if (config->rtp_protocol)
         g_object_set(element_, "select-rtp-protocol", config->rtp_protocol, NULL);
+    if (config->leaky)
+        g_object_set(element_, "leaky", config->leaky, NULL);
+    if (config->max_size_buffers)
+        g_object_set(element_, "max-size-buffers", config->max_size_buffers, NULL);
     if (config->loop)
         g_object_set(element_, "file-loop", config->loop, NULL);
     if (config->smart_record)
@@ -1162,11 +1358,49 @@ static void s_nvmultiurisrcbincreator_set_properties_nvuribin(GstElement *elemen
     if (config->rtsp_reconnect_interval_sec)
         g_object_set(element_, "rtsp-reconnect-interval", config->rtsp_reconnect_interval_sec,
                      NULL);
+    if (config->init_rtsp_reconnect_interval_sec)
+        g_object_set(element_, "init-rtsp-reconnect-interval",
+                     config->init_rtsp_reconnect_interval_sec, NULL);
     if (config->latency)
         g_object_set(element_, "latency", config->latency, NULL);
     if (config->udp_buffer_size)
         g_object_set(element_, "udp-buffer-size", config->udp_buffer_size, NULL);
     g_object_set(element_, "disable-passthrough", config->disable_passthrough, NULL);
+    g_object_set(element_, "rtsp-reconnect-attempts", config->rtsp_reconnect_attempts, NULL);
+    g_object_set(element_, "disable-audio", config->disable_audio, NULL);
+    if (config->ipc_socket_path)
+        g_object_set(element_, "ipc-socket-path", config->ipc_socket_path, NULL);
+    g_object_set(element_, "ipc-buffer-timestamp-copy", config->ipc_buffer_timestamp_copy, NULL);
+    g_object_set(element_, "ipc-connection-attempts", config->ipc_connection_attempts, NULL);
+    g_object_set(element_, "ipc-connection-interval", config->ipc_connection_interval, NULL);
+}
+
+gboolean gst_nvmultiurisrcbincreator_get_source_info_list(
+    NvDst_Handle_NvMultiUriSrcCreator apiHandle,
+    GList **stream_info_list)
+{
+    NvMultiUriSrcBinCreator *nvmultiurisrcbinCreator = (NvMultiUriSrcBinCreator *)apiHandle;
+
+    g_mutex_lock(&nvmultiurisrcbinCreator->lock);
+
+    if (nvmultiurisrcbinCreator->sourceInfoList) {
+        for (GList *node = nvmultiurisrcbinCreator->sourceInfoList; node;
+             node = g_list_next(node)) {
+            NvDsUriSourceInfo *sourceInfo = (NvDsUriSourceInfo *)(node->data);
+            NvDsSensorInfo *sensorInfo = g_new0(NvDsSensorInfo, 1);
+
+            sensorInfo->source_id = sourceInfo->config->source_id;
+            sensorInfo->sensor_id = sourceInfo->config->sensorId;
+            sensorInfo->sensor_name = g_strdup(sourceInfo->config->sensorName);
+            sensorInfo->uri = g_strdup(sourceInfo->config->uri);
+
+            *stream_info_list = g_list_append(*stream_info_list, sensorInfo);
+        }
+    }
+
+    g_mutex_unlock(&nvmultiurisrcbinCreator->lock);
+
+    return TRUE;
 }
 
 gboolean gst_nvmultiurisrcbincreator_get_active_sources_list(

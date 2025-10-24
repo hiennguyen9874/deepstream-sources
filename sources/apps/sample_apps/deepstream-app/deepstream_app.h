@@ -1,10 +1,6 @@
 #ifndef __NVGSTDS_APP_H__
 #define __NVGSTDS_APP_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <gst/gst.h>
 #include <stdio.h>
 
@@ -29,6 +25,10 @@ extern "C" {
 #include "deepstream_tracker.h"
 #include "gst-nvdscommonconfig.h"
 #include "gst-nvdscustommessage.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _AppCtx AppCtx;
 
@@ -83,6 +83,9 @@ typedef struct {
     gint file_loop;
     gint pipeline_recreate_sec;
     gboolean source_list_enabled;
+    gboolean dummy_payload;
+    gboolean custom_ts_to_rfc;
+    gchar *batched_sensor_name;
     guint total_num_sources;
     guint num_source_sub_bins;
     guint num_secondary_gie_sub_bins;
@@ -91,12 +94,18 @@ typedef struct {
     guint num_message_consumers;
     guint perf_measurement_interval_sec;
     guint sgie_batch_size;
+    gboolean extract_sei_type5_data;
+    gchar *sei_uuid;
+    gboolean low_latency_mode;
     gchar *bbox_dir_path;
     gchar *kitti_track_dir_path;
     gchar *reid_track_dir_path;
+    gchar *terminated_track_output_path;
+    gchar *shadow_track_output_path;
 
     gchar **uri_list;
     gchar **sensor_id_list;
+    gchar **sensor_name_list;
     NvDsSourceConfig multi_source_config[MAX_SOURCE_BINS];
     NvDsStreammuxConfig streammux_config;
     NvDsOSDConfig osd_config;
@@ -116,11 +125,17 @@ typedef struct {
 
     /** To support nvmultiurisrcbin */
     gboolean use_nvmultiurisrcbin;
+    gboolean stream_name_display;
     guint max_batch_size;
     gchar *http_ip;
     gchar *http_port;
     gboolean source_attr_all_parsed;
     NvDsSourceConfig source_attr_all_config;
+
+    /** To set Global GPU ID for all the componenents at once if needed
+     * This will be used in case gpu_id prop is not set for a component
+     * if gpu_id prop is set for a component, global_gpu_id will be overridden by it */
+    gint global_gpu_id;
 } NvDsConfig;
 
 typedef struct {
@@ -161,6 +176,7 @@ struct _AppCtx {
      * obtained with REST API stream/add, remove operations
      * The key is souce_id */
     GHashTable *sensorInfoHash;
+    gboolean eos_received;
 };
 
 /**

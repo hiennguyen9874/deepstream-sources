@@ -105,7 +105,7 @@ static GstPad *gst_nvstreamdemux_request_new_pad(GstElement *element,
 {
     GstNvStreamDemux *nvstreamdemux = GST_NVSTREAMDEMUX(element);
     GstPad *srcpad = NULL;
-    guint stream_index;
+    guint stream_index = 0;
 
     if (!name || sscanf(name, "src_%u", &stream_index) < 1) {
         GST_ERROR_OBJECT(element, "Pad should be named 'src_%%u' when requesting a pad");
@@ -150,7 +150,7 @@ static void gst_nvstreamdemux_release_pad(GstElement *element, GstPad *pad)
 {
     GstNvStreamDemux *nvstreamdemux = GST_NVSTREAMDEMUX(element);
     gchar *name = gst_pad_get_name(pad);
-    guint stream_index;
+    guint stream_index = 0;
 
     if (!name || sscanf(name, "src_%u", &stream_index) < 1) {
         return;
@@ -265,7 +265,7 @@ static GstBuffer *create_shared_mem_buf(GstNvStreamDemux *demux,
 {
     GstNvStreamMemory *mem;
     NvBufSurface *src_surf;
-    GstMapInfo info; /* TBD FIXME doesn't compile  = GST_MAP_INFO_INIT;*/
+    GstMapInfo info = GST_MAP_INFO_INIT;
     GstBuffer *out_buf;
     GstMeta *rem_meta_list[128];
     guint num_rem_meta = 0;
@@ -350,7 +350,7 @@ static GstBuffer *create_shared_mem_buf(GstNvStreamDemux *demux,
 static GstFlowReturn gst_nvstreamdemux_sink_chain_audio_batch(GstNvStreamDemux *nvstreamdemux,
                                                               GstBuffer *buffer)
 {
-    GstMapInfo info; /* TBD FIXME doesn't compile  = GST_MAP_INFO_INIT;*/
+    GstMapInfo info = GST_MAP_INFO_INIT;
     NvBufAudio *src_surf;
     std::vector<std::tuple<GstPad *, GstBuffer *, gint>> data;
     NvDsBatchMeta *src_batch_meta = gst_buffer_get_nvds_batch_meta(buffer);
@@ -623,9 +623,6 @@ static gboolean set_src_pad_caps(GstNvStreamDemux *nvstreamdemux,
                     g_value_set_int(&ht, height_val);
                     g_value_set_uint(&batchsize, (uint)1);
 
-                    GST_DEBUG_OBJECT(nvstreamdemux, "%s index =%d width_val=%d height_val=%d\n ",
-                                     __func__, index, width_val, height_val);
-
                     n = gst_caps_get_size(new_caps);
                     for (i = 0; i < n; i++) {
                         if (gst_structure_has_field(new_caps_s, "width")) {
@@ -706,6 +703,7 @@ static gboolean gst_nvstreamdemux_sink_event(GstPad *pad, GstObject *parent, Gst
         LOGD("incoming caps\n");
         GstCaps *caps = NULL;
         GstQuery *query;
+        gboolean ret;
 
         query = gst_nvquery_num_surfaces_per_buffer_new();
         if (gst_pad_peer_query(nvstreamdemux->sinkpad, query)) {
@@ -728,8 +726,48 @@ static gboolean gst_nvstreamdemux_sink_event(GstPad *pad, GstObject *parent, Gst
                 nvstreamdemux->num_surfaces_per_frame = num_surfaces_per_frame;
             }
         }
+        gst_event_unref(event);
+        g_mutex_lock(&nvstreamdemux->ctx_lock);
+        ret = set_src_pad_caps(nvstreamdemux, -1, 0, 0);
+        g_mutex_unlock(&nvstreamdemux->ctx_lock);
 
-        return set_src_pad_caps(nvstreamdemux, -1, 0, 0);
+        return ret;
+    }
+
+    if (GST_EVENT_TYPE(event) == GST_NVEVENT_UPDATE_CAPS) {
+        const GstStructure *const str = gst_event_get_structure(event);
+        LOGD("Got update-caps event\n");
+        GstCaps *new_caps;
+        GstStructure *new_caps_str;
+        guint stream_index = 0;
+        guint width_val = 0;
+        guint height_val = 0;
+
+        gchar *stream_id = NULL;
+        const GValue *frame_rate = NULL;
+        GValue *fr = (GValue *)g_malloc0(sizeof(GValue));
+        gboolean ret;
+
+        gst_structure_get_uint(str, "stream-id", &stream_index);
+        stream_id = (gchar *)gst_structure_get_string(str, "stream-id-str");
+        gst_structure_get_uint(str, "width-val", &width_val);
+        gst_structure_get_uint(str, "height-val", &height_val);
+
+        frame_rate = gst_structure_get_value(str, "frame-rate");
+        if (frame_rate) {
+            g_value_init(fr, GST_TYPE_FRACTION);
+            g_value_copy(frame_rate, fr);
+        }
+
+        // GST_OBJECT_LOCK (nvstreamdemux);
+
+        g_mutex_lock(&nvstreamdemux->ctx_lock);
+        g_hash_table_insert(nvstreamdemux->pad_framerates, stream_index + (char *)NULL, fr);
+        ret = set_src_pad_caps(nvstreamdemux, stream_index, width_val, height_val, stream_id);
+        g_mutex_unlock(&nvstreamdemux->ctx_lock);
+        // GST_OBJECT_UNLOCK (nvstreamdemux);
+
+        return ret;
     }
 
     if (GST_EVENT_TYPE(event) == GST_NVEVENT_STREAM_EOS) {
@@ -776,7 +814,7 @@ static gboolean gst_nvstreamdemux_sink_event(GstPad *pad, GstObject *parent, Gst
     }
 
     if (GST_EVENT_TYPE(event) == GST_NVEVENT_STREAM_SEGMENT) {
-        GstSegment *segment;
+        GstSegment *segment = NULL;
         GstPad *src_pad = NULL;
         guint source_id = 0;
         gst_nvevent_parse_stream_segment(event, &source_id, &segment);
@@ -792,6 +830,7 @@ static gboolean gst_nvstreamdemux_sink_event(GstPad *pad, GstObject *parent, Gst
 
     if ((GST_EVENT_TYPE(event) == GST_NVEVENT_PAD_ADDED) ||
         (GST_EVENT_TYPE(event) == GST_NVEVENT_PAD_DELETED)) {
+        gst_event_unref(event);
         return TRUE;
     }
 
@@ -802,6 +841,7 @@ static gboolean gst_nvstreamdemux_sink_event(GstPad *pad, GstObject *parent, Gst
         guint source_id = 0;
         gst_nvevent_parse_stream_start(event, &source_id, &stream_id);
         LOGD("sending stream-start event on pad %d stream_id=%s\n", source_id, stream_id);
+        gst_event_unref(event);
         src_pad =
             GST_PAD(g_hash_table_lookup(nvstreamdemux->pad_indexes, source_id + (char *)NULL));
         if (!src_pad) {
@@ -827,15 +867,17 @@ static gboolean gst_nvstreamdemux_sink_event(GstPad *pad, GstObject *parent, Gst
          *   and hence ignoring EVENT_EOS here.
          */
         LOGD("ignoring redundant event\n");
+        gst_event_unref(event);
         return TRUE;
     }
 
     LOGD("handling event type=%d(%s)\n", GST_EVENT_TYPE(event),
          gst_event_type_get_name(GST_EVENT_TYPE(event)));
 
-    if (GST_EVENT_TYPE(event) == GST_EVENT_TAG)
+    if (GST_EVENT_TYPE(event) == GST_EVENT_TAG) {
+        gst_event_unref(event);
         return TRUE;
-    else {
+    } else {
         g_mutex_lock(&nvstreamdemux->ctx_lock);
         gboolean ret = gst_pad_event_default(pad, parent, event);
         g_mutex_unlock(&nvstreamdemux->ctx_lock);
@@ -853,43 +895,6 @@ static gboolean gst_nvstreamdemux_sink_query(GstPad *pad, GstObject *parent, Gst
         return FALSE;
     }
 
-    if (GST_QUERY_TYPE(query) == GST_QUERY_CUSTOM) {
-        const GstStructure *str = gst_query_get_structure(query);
-        if (str && gst_structure_has_name(str, "update-caps")) {
-            LOGD("Got update-caps query\n");
-            GstCaps *new_caps;
-            GstStructure *new_caps_str;
-            guint stream_index;
-            gint width_val = 0;
-            gint height_val = 0;
-
-            gchar *stream_id = NULL;
-            const GValue *frame_rate = NULL;
-            GValue *fr = (GValue *)g_malloc0(sizeof(GValue));
-            gboolean ret;
-
-            gst_structure_get_uint(str, "stream-id", &stream_index);
-            stream_id = (gchar *)gst_structure_get_string(str, "stream-id-str");
-            gst_structure_get_int(str, "width-val", &width_val);
-            gst_structure_get_int(str, "height-val", &height_val);
-
-            frame_rate = gst_structure_get_value(str, "frame-rate");
-            if (frame_rate) {
-                g_value_init(fr, GST_TYPE_FRACTION);
-                g_value_copy(frame_rate, fr);
-            }
-
-            // GST_OBJECT_LOCK (nvstreamdemux);
-
-            g_mutex_lock(&nvstreamdemux->ctx_lock);
-            g_hash_table_insert(nvstreamdemux->pad_framerates, stream_index + (char *)NULL, fr);
-            ret = set_src_pad_caps(nvstreamdemux, stream_index, width_val, height_val, stream_id);
-            g_mutex_unlock(&nvstreamdemux->ctx_lock);
-            // GST_OBJECT_UNLOCK (nvstreamdemux);
-
-            return ret;
-        }
-    }
     return gst_pad_query_default(pad, parent, query);
 }
 

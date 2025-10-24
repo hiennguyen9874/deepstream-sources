@@ -100,6 +100,7 @@ enum {
     PROP_NEW_API
 };
 #define DEFAULT_USE_NEW_API FALSE
+#define DEFAULT_SLEEP_TIME 0
 
 static GstStaticPadTemplate gst_nvmsgbroker_sink_template =
     GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS, GST_STATIC_CAPS_ANY);
@@ -115,18 +116,21 @@ G_DEFINE_TYPE_WITH_CODE(GstNvMsgBroker,
 static gpointer gst_nvmsgbroker_do_work(gpointer data)
 {
     GstNvMsgBroker *self = (GstNvMsgBroker *)data;
-
     while (self->isRunning) {
-        g_mutex_lock(&self->flowLock);
-        while (self->isRunning && self->pendingCbCount <= 0) {
-            g_cond_wait(&self->flowCond, &self->flowLock);
+        // Don't wait for new messages in nvmsgbroker in case of MQTT--MQTT relies on continuous
+        // calls to mosquitto_loop() as called by do_work() to keep connection alive. The call
+        // blocks until a messages is received or until timeout is met as set in the mqtt config
+        if (!g_strrstr(self->protoLib, "libnvds_mqtt_proto.so")) {
+            g_mutex_lock(&self->flowLock);
+            while (self->isRunning && self->pendingCbCount <= 0) {
+                g_cond_wait(&self->flowCond, &self->flowLock);
+            }
+            g_mutex_unlock(&self->flowLock);
         }
-        g_mutex_unlock(&self->flowLock);
 
         if (!self->isRunning) {
             return NULL;
         }
-
         self->nvds_msgapi_do_work(self->connHandle);
         g_usleep(self->sleepTime * 1000);
     }
@@ -196,7 +200,8 @@ static void gst_nvmsgbroker_class_init(GstNvMsgBrokerClass *klass)
         gobject_class, PROP_SLEEP_TIME,
         g_param_spec_uint("sleep-time", "Sleep time ",
                           "Sleep time between consecutive do_work calls in millisecond.", 0,
-                          G_MAXUINT, 0, (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+                          G_MAXUINT, DEFAULT_SLEEP_TIME,
+                          (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 }
 
 static void gst_nvmsgbroker_init(GstNvMsgBroker *self)
@@ -217,7 +222,7 @@ static void gst_nvmsgbroker_init(GstNvMsgBroker *self)
     self->newAPI = DEFAULT_USE_NEW_API;
     self->newConnHandle = NULL;
     self->newLastError = NV_MSGBROKER_API_OK;
-    self->sleepTime = 0;
+    self->sleepTime = DEFAULT_SLEEP_TIME;
 
     g_mutex_init(&self->flowLock);
     g_cond_init(&self->flowCond);
@@ -349,6 +354,14 @@ static gboolean gst_nvmsgbroker_start(GstBaseSink *sink)
 {
     GstNvMsgBroker *self = GST_NVMSGBROKER(sink);
 
+    if (self->protoLib && g_strrstr(self->protoLib, "libnvds_azure_proto.so") &&
+        self->sleepTime < 10) {
+        g_print(
+            "Warning: sleep-time value < 10ms fails for azure protocol adaptor. Setting to 10ms. "
+            "You may require even higher sleep time depending on your service tier.\n");
+        self->sleepTime = 10;
+    }
+
     if (self->newAPI)
         return new_gst_nvmsgbroker_start(sink);
     else
@@ -398,7 +411,6 @@ static gboolean legacy_gst_nvmsgbroker_start(GstBaseSink *sink)
         GST_ELEMENT_ERROR(self, LIBRARY, FAILED, (NULL), ("%s", error));
         return FALSE;
     }
-
     self->connHandle = self->nvds_msgapi_connect(
         self->connStr, (nvds_msgapi_connect_cb_t)nvds_msgapi_connect_callback, self->configFile);
     if (!self->connHandle) {
@@ -495,14 +507,8 @@ static GstFlowReturn legacy_gst_nvmsgbroker_render(GstBaseSink *sink, GstBuffer 
         void *frame_meta = NULL;
         NvDsUserMeta *user_meta = NULL;
 
-        for (l_frame = batch_meta->frame_meta_list; l_frame; l_frame = l_frame->next) {
-            frame_meta = (NvDsFrameMeta *)l_frame->data;
-            if (self->is_video) {
-                user_meta_list = ((NvDsFrameMeta *)frame_meta)->frame_user_meta_list;
-            } else {
-                user_meta_list = ((NvDsAudioFrameMeta *)frame_meta)->frame_user_meta_list;
-            }
-
+        if (batch_meta->misc_batch_info[0] == NVDS_CUSTOM_MSG_SPARSE4D) {
+            user_meta_list = batch_meta->batch_user_meta_list;
             for (l = user_meta_list; l; l = l->next) {
                 user_meta = (NvDsUserMeta *)(l->data);
 
@@ -538,6 +544,55 @@ static GstFlowReturn legacy_gst_nvmsgbroker_render(GstBaseSink *sink, GstBuffer 
                                               ("failed to send the message. err(%d)", err));
 
                             return GST_FLOW_ERROR;
+                        }
+                    }
+                }
+            }
+        } else {
+            for (l_frame = batch_meta->frame_meta_list; l_frame; l_frame = l_frame->next) {
+                frame_meta = (NvDsFrameMeta *)l_frame->data;
+                if (self->is_video) {
+                    user_meta_list = ((NvDsFrameMeta *)frame_meta)->frame_user_meta_list;
+                } else {
+                    user_meta_list = ((NvDsAudioFrameMeta *)frame_meta)->frame_user_meta_list;
+                }
+
+                for (l = user_meta_list; l; l = l->next) {
+                    user_meta = (NvDsUserMeta *)(l->data);
+
+                    if (user_meta && user_meta->base_meta.meta_type == NVDS_PAYLOAD_META) {
+                        payload = (NvDsPayload *)user_meta->user_meta_data;
+
+                        if (self->compId && payload->componentId != self->compId)
+                            continue;
+
+                        if (self->asyncSend) {
+                            g_mutex_lock(&self->flowLock);
+                            err = self->nvds_msgapi_send_async(
+                                self->connHandle, self->topic, (uint8_t *)payload->payload,
+                                payload->payloadSize, nvds_msgapi_send_callback, self);
+
+                            if (err != NVDS_MSGAPI_OK) {
+                                GST_ELEMENT_ERROR(self, LIBRARY, FAILED, (NULL),
+                                                  ("failed to send the message. err(%d)", err));
+
+                                g_mutex_unlock(&self->flowLock);
+                                return GST_FLOW_ERROR;
+                            }
+                            self->pendingCbCount++;
+                            g_cond_signal(&self->flowCond);
+                            g_mutex_unlock(&self->flowLock);
+                        } else {
+                            err = self->nvds_msgapi_send(self->connHandle, self->topic,
+                                                         (uint8_t *)payload->payload,
+                                                         payload->payloadSize);
+
+                            if (err != NVDS_MSGAPI_OK) {
+                                GST_ELEMENT_ERROR(self, LIBRARY, FAILED, (NULL),
+                                                  ("failed to send the message. err(%d)", err));
+
+                                return GST_FLOW_ERROR;
+                            }
                         }
                     }
                 }
@@ -631,6 +686,50 @@ static gboolean new_gst_nvmsgbroker_stop(GstBaseSink *sink)
     return TRUE;
 }
 
+static GstFlowReturn new_gst_nvmsgbroker_render_user_meta_list(GstNvMsgBroker *self,
+                                                               NvDsMetaList *user_meta_list)
+{
+    NvMsgBrokerErrorType err;
+    NvDsPayload *payload;
+    NvDsMetaList *l = NULL;
+    for (l = user_meta_list; l; l = l->next) {
+        NvDsUserMeta *user_meta = (NvDsUserMeta *)(l->data);
+
+        if (user_meta && user_meta->base_meta.meta_type == NVDS_PAYLOAD_META) {
+            payload = (NvDsPayload *)user_meta->user_meta_data;
+
+            if (self->compId && payload->componentId != self->compId)
+                continue;
+
+            if (self->newConnHandle &&
+                NvMsgBrokerHandleMap[self->newConnHandle]->connection_alive == true) {
+                NvMsgBrokerClientMsg msg;
+                msg.topic = self->topic;
+                msg.payload = (void *)payload->payload;
+                msg.payload_len = payload->payloadSize;
+                err = nv_msgbroker_send_async(self->newConnHandle, msg, nvmsgbroker_send_callback,
+                                              self);
+
+                if (err != NV_MSGBROKER_API_OK) {
+                    GST_ERROR_OBJECT(self, "gstmsgbroker send callback: error(%d) in sending data",
+                                     err);
+                }
+            } else
+                GST_ERROR_OBJECT(self,
+                                 "gstmsgbroker send : connection not alive, message not published");
+
+            if (self->newConnHandle &&
+                NvMsgBrokerHandleMap[self->newConnHandle]->broker_disconnect == true) {
+                // Disconnect the connection handle (ex: after max connection retry attempt, fatal
+                // errors) Signal msgbroker disconnect
+                GST_ELEMENT_ERROR(self, LIBRARY, FAILED, (NULL), ("disconnecting nvmsgbroker"));
+                return GST_FLOW_ERROR;
+            }
+        }
+    }
+    return GST_FLOW_OK;
+}
+
 static GstFlowReturn new_gst_nvmsgbroker_render(GstBaseSink *sink, GstBuffer *buf)
 {
     GstNvMsgBroker *self = GST_NVMSGBROKER(sink);
@@ -638,8 +737,7 @@ static GstFlowReturn new_gst_nvmsgbroker_render(GstBaseSink *sink, GstBuffer *bu
     NvDsBatchMeta *batch_meta = NULL;
     GstMeta *gstMeta = NULL;
     gpointer state = NULL;
-    NvMsgBrokerErrorType err;
-    NvDsPayload *payload;
+    GstFlowReturn ret = GST_FLOW_OK;
 
     GST_DEBUG_OBJECT(self, "render");
 
@@ -654,11 +752,9 @@ static GstFlowReturn new_gst_nvmsgbroker_render(GstBaseSink *sink, GstBuffer *bu
     }
 
     if (batch_meta) {
-        NvDsMetaList *l = NULL;
         NvDsMetaList *l_frame = NULL;
         NvDsMetaList *user_meta_list = NULL;
         void *frame_meta = NULL;
-        NvDsUserMeta *user_meta = NULL;
 
         for (l_frame = batch_meta->frame_meta_list; l_frame; l_frame = l_frame->next) {
             frame_meta = l_frame->data;
@@ -667,47 +763,15 @@ static GstFlowReturn new_gst_nvmsgbroker_render(GstBaseSink *sink, GstBuffer *bu
             } else {
                 user_meta_list = ((NvDsAudioFrameMeta *)frame_meta)->frame_user_meta_list;
             }
-
-            for (l = user_meta_list; l; l = l->next) {
-                user_meta = (NvDsUserMeta *)(l->data);
-
-                if (user_meta && user_meta->base_meta.meta_type == NVDS_PAYLOAD_META) {
-                    payload = (NvDsPayload *)user_meta->user_meta_data;
-
-                    if (self->compId && payload->componentId != self->compId)
-                        continue;
-
-                    if (self->newConnHandle &&
-                        NvMsgBrokerHandleMap[self->newConnHandle]->connection_alive == true) {
-                        NvMsgBrokerClientMsg msg;
-                        msg.topic = self->topic;
-                        msg.payload = (void *)payload->payload;
-                        msg.payload_len = payload->payloadSize;
-                        err = nv_msgbroker_send_async(self->newConnHandle, msg,
-                                                      nvmsgbroker_send_callback, self);
-
-                        if (err != NV_MSGBROKER_API_OK) {
-                            GST_ERROR_OBJECT(
-                                self, "gstmsgbroker send callback: error(%d) in sending data", err);
-                        }
-                    } else
-                        GST_ERROR_OBJECT(
-                            self,
-                            "gstmsgbroker send : connection not alive, message not published");
-
-                    if (self->newConnHandle &&
-                        NvMsgBrokerHandleMap[self->newConnHandle]->broker_disconnect == true) {
-                        // Disconnect the connection handle (ex: after max connection retry attempt,
-                        // fatal errors) Signal msgbroker disconnect
-                        GST_ELEMENT_ERROR(self, LIBRARY, FAILED, (NULL),
-                                          ("disconnecting nvmsgbroker"));
-                        return GST_FLOW_ERROR;
-                    }
-                }
+            ret = new_gst_nvmsgbroker_render_user_meta_list(self, user_meta_list);
+            if (ret != GST_FLOW_OK) {
+                return ret;
             }
         }
+
+        ret = new_gst_nvmsgbroker_render_user_meta_list(self, batch_meta->batch_user_meta_list);
     }
-    return GST_FLOW_OK;
+    return ret;
 }
 
 #define PACKAGE "nvmsgbroker"
@@ -717,7 +781,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_msgbroker,
                   "Message broker",
                   plugin_init,
-                  "6.3",
+                  "8.0",
                   "Proprietary",
                   "NvMsgBroker",
                   "http://nvidia.com")

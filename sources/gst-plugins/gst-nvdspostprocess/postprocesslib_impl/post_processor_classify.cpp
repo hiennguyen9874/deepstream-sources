@@ -153,11 +153,16 @@ void ClassifyModelPostProcessor::attachMetadata(NvBufSurface *surf,
                                                 gboolean output_instance_mask,
                                                 gboolean process_full_frame,
                                                 float segmentationThreshold,
-                                                gboolean maintain_aspect_ratio)
+                                                gboolean maintain_aspect_ratio,
+                                                NvDsRoiMeta *roi_meta,
+                                                gboolean symmetric_padding)
 {
     if (model_output.classificationOutput.numAttributes == 0 ||
         model_output.classificationOutput.label == NULL)
         return;
+
+    if (frame_meta)
+        frame_meta->bInferDone = TRUE;
 
     nvds_acquire_meta_lock(batch_meta);
     if (process_full_frame == PROCESS_MODEL_FULL_FRAME) {

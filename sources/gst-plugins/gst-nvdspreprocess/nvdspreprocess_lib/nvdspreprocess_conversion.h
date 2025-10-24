@@ -16,6 +16,8 @@
 #ifndef __NVDSPREPROCESS_CONVERSION_H__
 #define __NVDSPREPROCESS_CONVERSION_H__
 
+#include <cuda_fp16.h>
+
 /**
  * Converts an input packed 3 channel buffer of width x height resolution into an
  * planar 3-channel float buffer of width x height resolution. The input buffer can
@@ -102,6 +104,35 @@ void NvDsPreProcessConvert_C4ToP3Float(float *outBuffer,
                                        float scaleFactor,
                                        float *meanDataBuffer,
                                        cudaStream_t stream);
+
+/**
+ * Converts an input packed 3 channel buffer of width x height resolution into an
+ * planar 3-channel half buffer of width x height resolution. The input buffer can
+ * have a pitch > (width * 3). The cuda kernel supports normalization and mean
+ * image subtraction.
+ *
+ * This kernel can be used for RGBA -> RGB and BGRx -> BGR conversions.
+ *
+ * @param outBuffer      Cuda device buffer for planar half output. Should
+ *                       be at least (width * height * 3 * sizeof(half)) bytes.
+ * @param inBuffer       Cuda device buffer for packed input. Should be
+ *                       at least (pitch * height) bytes.
+ * @param width          Width of the buffers in pixels.
+ * @param height         Height of the buffers in pixels.
+ * @param pitch          Pitch of the input buffer in bytes.
+ * @param scaleFactor    Normalization factor.
+ * @param meanDataBuffer Mean Image Data buffer. Should be at least
+ *                       (width * height * 3 * sizeof(float)) bytes.
+ * @param stream         Cuda stream identifier.
+ */
+void NvDsPreProcessConvert_C4ToP3Half(half *outBuffer,
+                                      unsigned char *inBuffer,
+                                      unsigned int width,
+                                      unsigned int height,
+                                      unsigned int pitch,
+                                      float scaleFactor,
+                                      float *meanDataBuffer,
+                                      cudaStream_t stream);
 
 /**
  * Converts an input packed 3 channel buffer of width x height resolution into an
@@ -199,6 +230,35 @@ void NvDsPreProcessConvert_C3ToL3RFloat(float *outBuffer,
  * This kernel can be used for BGRx -> RGB and RGBA -> BGR conversions.
  *
  * @param outBuffer      Cuda device buffer for planar float output. Should
+ *                       be at least (width * height * 3 * sizeof(half)) bytes.
+ * @param inBuffer       Cuda device buffer for packed input. Should be
+ *                       at least (pitch * height) bytes.
+ * @param width          Width of the buffers in pixels.
+ * @param height         Height of the buffers in pixels.
+ * @param pitch          Pitch of the input buffer in bytes.
+ * @param scaleFactor    Normalization factor.
+ * @param meanDataBuffer Mean Image Data buffer. Should be at least
+ *                       (width * height * 3 * sizeof(float)) bytes.
+ * @param stream         Cuda stream identifier.
+ */
+void NvDsPreProcessConvert_C4ToP3RHalf(half *outBuffer,
+                                       unsigned char *inBuffer,
+                                       unsigned int width,
+                                       unsigned int height,
+                                       unsigned int pitch,
+                                       float scaleFactor,
+                                       float *meanDataBuffer,
+                                       cudaStream_t stream);
+
+/**
+ * Converts an input packed 4 channel buffer of width x height resolution into an
+ * planar 3-channel float buffer of width x height resolution with plane order
+ * reversed. The input buffer can have a pitch > (width * 3). The cuda kernel
+ * supports normalization and mean image subtraction.
+ *
+ * This kernel can be used for BGRx -> RGB and RGBA -> BGR conversions.
+ *
+ * @param outBuffer      Cuda device buffer for planar float output. Should
  *                       be at least (width * height * 3 * sizeof(float)) bytes.
  * @param inBuffer       Cuda device buffer for packed input. Should be
  *                       at least (pitch * height) bytes.
@@ -283,6 +343,19 @@ void NvDsPreProcessConvert_FtFTensor(float *outBuffer,
                                      float scaleFactor,
                                      float *meanDataBuffer,
                                      cudaStream_t stream);
+
+/**
+ * Function pointer type to which any of the NvDsPreProcessConvert functions can be
+ * assigned.
+ */
+typedef void (*NvDsPreProcessConvertFcnHalf)(half *outBuffer,
+                                             unsigned char *inBuffer,
+                                             unsigned int width,
+                                             unsigned int height,
+                                             unsigned int pitch,
+                                             float scaleFactor,
+                                             float *meanDataBuffer,
+                                             cudaStream_t stream);
 
 /**
  * Function pointer type to which any of the NvDsPreProcessConvert functions can be

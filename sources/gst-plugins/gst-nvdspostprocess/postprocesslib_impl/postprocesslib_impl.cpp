@@ -1,25 +1,3 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: MIT
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
 #include "postprocesslib_impl.h"
 
 #include <filesystem>
@@ -104,8 +82,10 @@ bool PostProcessAlgorithm::GetAbsFilePath(const gchar *cfg_file_path,
         /* Ignore error if file does not exist and use the unresolved path. */
         if (errno == ENOENT)
             g_strlcpy(abs_real_file_path, abs_file_path, _PATH_MAX);
-        else
+        else {
+            g_free(abs_file_path);
             return FALSE;
+        }
     }
 
     g_free(abs_file_path);
@@ -176,12 +156,16 @@ bool PostProcessAlgorithm::SetConfigFile(const gchar *cfg_file_path)
             if (paramKey == "gpu-id") {
                 m_gpuId = itr->second.as<gint>();
                 m_initParams.gpuID = m_gpuId;
+            } else if (paramKey == "preprocessor-support") {
+                m_preprocessor_support = itr->second.as<gboolean>();
+                m_initParams.preprocessor_support = m_preprocessor_support;
             } else if (paramKey == "network-type") {
                 switch (itr->second.as<gint>()) {
                 case NvDsPostProcessNetworkType_Detector:
                 case NvDsPostProcessNetworkType_Classifier:
                 case NvDsPostProcessNetworkType_Segmentation:
                 case NvDsPostProcessNetworkType_InstanceSegmentation:
+                case NvDsPostProcessNetworkType_BodyPose:
                 case NvDsPostProcessNetworkType_Other:
                     m_networkType = static_cast<NvDsPostProcessNetworkType>(itr->second.as<gint>());
                     break;
@@ -277,7 +261,7 @@ bool PostProcessAlgorithm::SetConfigFile(const gchar *cfg_file_path)
                 for (int i = 0; i < len; i++) {
                     int size = 64;
                     char *str2 = (char *)g_malloc0(sizeof(char) * size);
-                    std::strncpy(str2, m_outputBlobNames[i].c_str(), size);
+                    std::strncpy(str2, m_outputBlobNames[i].c_str(), size - 1);
                     values[i] = str2;
                 }
                 values[len] = NULL;
@@ -365,7 +349,8 @@ bool PostProcessAlgorithm::SetConfigFile(const gchar *cfg_file_path)
             return false;
         }
     } else if (m_initParams.networkType == NvDsPostProcessNetworkType_Classifier ||
-               m_initParams.networkType == NvDsPostProcessNetworkType_Segmentation) {
+               m_initParams.networkType == NvDsPostProcessNetworkType_Segmentation ||
+               m_initParams.networkType == NvDsPostProcessNetworkType_BodyPose) {
         status = preparePostProcess();
         if (status != NVDSPOSTPROCESS_SUCCESS) {
             return false;
@@ -400,6 +385,10 @@ NvDsPostProcessStatus PostProcessAlgorithm::preparePostProcess()
     case NvDsPostProcessNetworkType_InstanceSegmentation:
         m_Postprocessor =
             std::make_unique<InstanceSegmentModelPostProcessor>(m_gieUniqueId, m_gpuId);
+        ret = m_Postprocessor->initResource(m_initParams);
+        break;
+    case NvDsPostProcessNetworkType_BodyPose:
+        m_Postprocessor = std::make_unique<BodyPoseModelPostProcessor>(m_gieUniqueId, m_gpuId);
         ret = m_Postprocessor->initResource(m_initParams);
         break;
         // FIXME:
@@ -640,66 +629,27 @@ void PostProcessAlgorithm::OutputThread(void)
         batch_meta = GetNVDS_BatchMeta(packetInfo.inbuf);
         outBuffer = packetInfo.inbuf;
         nvds_set_input_system_timestamp(outBuffer, GST_ELEMENT_NAME(m_element));
-        /* Iterate each frame metadata in batch */
-        for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
-             l_frame = l_frame->next) {
-            NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
-
-            if (m_processMode == PROCESS_MODEL_FULL_FRAME) {
+        if (m_preprocessor_support) {
+            for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
+                 l_frame = l_frame->next) {
+                NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
                 /* Iterate user metadata in frames to search PGIE's tensor metadata */
                 for (NvDsMetaList *l_user = frame_meta->frame_user_meta_list; l_user != NULL;
                      l_user = l_user->next) {
-                    NvDsUserMeta *user_meta = (NvDsUserMeta *)l_user->data;
-                    if (user_meta->base_meta.meta_type != NVDSINFER_TENSOR_OUTPUT_META)
+                    NvDsUserMeta *roi_user_meta = (NvDsUserMeta *)l_user->data;
+                    if (roi_user_meta->base_meta.meta_type != NVDS_ROI_META)
                         continue;
-
-                    /* convert to tensor metadata */
-                    NvDsInferTensorMeta *meta = (NvDsInferTensorMeta *)user_meta->user_meta_data;
-                    // PGIE and operate on meta->unique_id data only
-                    if (meta->unique_id == m_gieUniqueId) {
-                        for (unsigned int i = 0; i < meta->num_output_layers; i++) {
-                            NvDsInferLayerInfo *info = &meta->output_layers_info[i];
-                            info->buffer = meta->out_buf_ptrs_host[i];
-                        }
-                        /* Parse output tensor and fill detection results into objectList. */
-                        std::vector<NvDsInferLayerInfo> outputLayersInfo(
-                            meta->output_layers_info,
-                            meta->output_layers_info + meta->num_output_layers);
-                        NvDsPostProcessFrameOutput output;
-                        memset(&output, 0, sizeof(output));
-                        if (m_Postprocessor) {
-                            m_Postprocessor->setNetworkInfo(meta->network_info);
-                            m_Postprocessor->parseEachFrame(outputLayersInfo, output);
-                            m_Postprocessor->attachMetadata(
-                                in_surf, frame_meta->batch_id, batch_meta, frame_meta, NULL, NULL,
-                                output, m_initParams.perClassDetectionParams, m_filterOutClassIds,
-                                m_gieUniqueId, m_outputInstanceMask, m_processMode,
-                                m_segmentationThreshold, meta->maintain_aspect_ratio);
-
-                            m_Postprocessor->releaseFrameOutput(output);
-                        } else {
-                            GST_WARNING_OBJECT(m_element,
-                                               "Post Processor not initialized for network");
-                        }
-                    }
-                }
-            } else if (m_processMode == PROCESS_MODEL_OBJECTS) {
-                /* Iterate object metadata in frame */
-                for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != NULL;
-                     l_obj = l_obj->next) {
-                    NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)l_obj->data;
-
-                    /* Iterate user metadata in object to search SGIE's tensor data */
-                    for (NvDsMetaList *l_user = obj_meta->obj_user_meta_list; l_user != NULL;
-                         l_user = l_user->next) {
-                        NvDsUserMeta *user_meta = (NvDsUserMeta *)l_user->data;
-                        if (user_meta->base_meta.meta_type != NVDSINFER_TENSOR_OUTPUT_META)
+                    /* convert to roi metadata */
+                    NvDsRoiMeta *roi_meta = (NvDsRoiMeta *)roi_user_meta->user_meta_data;
+                    for (NvDsUserMetaList *r_user = roi_meta->roi_user_meta_list; r_user != NULL;
+                         r_user = r_user->next) {
+                        NvDsUserMeta *tensor_user_meta = (NvDsUserMeta *)r_user->data;
+                        if (tensor_user_meta->base_meta.meta_type != NVDSINFER_TENSOR_OUTPUT_META)
                             continue;
-
                         /* convert to tensor metadata */
                         NvDsInferTensorMeta *meta =
-                            (NvDsInferTensorMeta *)user_meta->user_meta_data;
-
+                            (NvDsInferTensorMeta *)tensor_user_meta->user_meta_data;
+                        /* PGIE and operate on meta->unique_id data only */
                         if (meta->unique_id == m_gieUniqueId) {
                             for (unsigned int i = 0; i < meta->num_output_layers; i++) {
                                 NvDsInferLayerInfo *info = &meta->output_layers_info[i];
@@ -710,21 +660,114 @@ void PostProcessAlgorithm::OutputThread(void)
                                 meta->output_layers_info + meta->num_output_layers);
                             NvDsPostProcessFrameOutput output;
                             memset(&output, 0, sizeof(output));
-
                             if (m_Postprocessor) {
                                 m_Postprocessor->setNetworkInfo(meta->network_info);
                                 m_Postprocessor->parseEachFrame(outputLayersInfo, output);
-                                /* Generate classifer metadata and attach to obj_meta */
                                 m_Postprocessor->attachMetadata(
-                                    in_surf, frame_meta->batch_id, batch_meta, frame_meta, obj_meta,
-                                    obj_meta, output, m_initParams.perClassDetectionParams,
+                                    in_surf, frame_meta->batch_id, batch_meta, frame_meta, NULL,
+                                    NULL, output, m_initParams.perClassDetectionParams,
                                     m_filterOutClassIds, m_gieUniqueId, m_outputInstanceMask,
                                     m_processMode, m_segmentationThreshold,
-                                    meta->maintain_aspect_ratio);
+                                    meta->maintain_aspect_ratio, roi_meta, meta->symmetric_padding);
                                 m_Postprocessor->releaseFrameOutput(output);
                             } else {
                                 GST_WARNING_OBJECT(m_element,
                                                    "Post Processor not initialized for network");
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            /* Iterate each frame metadata in batch */
+            for (NvDsMetaList *l_frame = batch_meta->frame_meta_list; l_frame != NULL;
+                 l_frame = l_frame->next) {
+                NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
+
+                if (m_processMode == PROCESS_MODEL_FULL_FRAME) {
+                    /* Iterate user metadata in frames to search PGIE's tensor metadata */
+                    for (NvDsMetaList *l_user = frame_meta->frame_user_meta_list; l_user != NULL;
+                         l_user = l_user->next) {
+                        NvDsUserMeta *user_meta = (NvDsUserMeta *)l_user->data;
+                        if (user_meta->base_meta.meta_type != NVDSINFER_TENSOR_OUTPUT_META)
+                            continue;
+
+                        /* convert to tensor metadata */
+                        NvDsInferTensorMeta *meta =
+                            (NvDsInferTensorMeta *)user_meta->user_meta_data;
+                        // PGIE and operate on meta->unique_id data only
+                        if (meta->unique_id == m_gieUniqueId) {
+                            for (unsigned int i = 0; i < meta->num_output_layers; i++) {
+                                NvDsInferLayerInfo *info = &meta->output_layers_info[i];
+                                info->buffer = meta->out_buf_ptrs_host[i];
+                            }
+                            /* Parse output tensor and fill detection results into objectList. */
+                            std::vector<NvDsInferLayerInfo> outputLayersInfo(
+                                meta->output_layers_info,
+                                meta->output_layers_info + meta->num_output_layers);
+                            NvDsPostProcessFrameOutput output;
+                            memset(&output, 0, sizeof(output));
+                            if (m_Postprocessor) {
+                                m_Postprocessor->setNetworkInfo(meta->network_info);
+                                m_Postprocessor->parseEachFrame(outputLayersInfo, output);
+                                m_Postprocessor->attachMetadata(
+                                    in_surf, frame_meta->batch_id, batch_meta, frame_meta, NULL,
+                                    NULL, output, m_initParams.perClassDetectionParams,
+                                    m_filterOutClassIds, m_gieUniqueId, m_outputInstanceMask,
+                                    m_processMode, m_segmentationThreshold,
+                                    meta->maintain_aspect_ratio, NULL, meta->symmetric_padding);
+
+                                m_Postprocessor->releaseFrameOutput(output);
+                            } else {
+                                GST_WARNING_OBJECT(m_element,
+                                                   "Post Processor not initialized for network");
+                            }
+                        }
+                    }
+                } else if (m_processMode == PROCESS_MODEL_OBJECTS) {
+                    /* Iterate object metadata in frame */
+                    for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != NULL;
+                         l_obj = l_obj->next) {
+                        NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)l_obj->data;
+
+                        /* Iterate user metadata in object to search SGIE's tensor data */
+                        for (NvDsMetaList *l_user = obj_meta->obj_user_meta_list; l_user != NULL;
+                             l_user = l_user->next) {
+                            NvDsUserMeta *user_meta = (NvDsUserMeta *)l_user->data;
+                            if (user_meta->base_meta.meta_type != NVDSINFER_TENSOR_OUTPUT_META)
+                                continue;
+
+                            /* convert to tensor metadata */
+                            NvDsInferTensorMeta *meta =
+                                (NvDsInferTensorMeta *)user_meta->user_meta_data;
+
+                            if (meta->unique_id == m_gieUniqueId) {
+                                for (unsigned int i = 0; i < meta->num_output_layers; i++) {
+                                    NvDsInferLayerInfo *info = &meta->output_layers_info[i];
+                                    info->buffer = meta->out_buf_ptrs_host[i];
+                                }
+                                std::vector<NvDsInferLayerInfo> outputLayersInfo(
+                                    meta->output_layers_info,
+                                    meta->output_layers_info + meta->num_output_layers);
+                                NvDsPostProcessFrameOutput output;
+                                memset(&output, 0, sizeof(output));
+
+                                if (m_Postprocessor) {
+                                    m_Postprocessor->setNetworkInfo(meta->network_info);
+                                    m_Postprocessor->parseEachFrame(outputLayersInfo, output);
+                                    /* Generate classifer metadata and attach to obj_meta */
+                                    m_Postprocessor->attachMetadata(
+                                        in_surf, frame_meta->batch_id, batch_meta, frame_meta,
+                                        obj_meta, obj_meta, output,
+                                        m_initParams.perClassDetectionParams, m_filterOutClassIds,
+                                        m_gieUniqueId, m_outputInstanceMask, m_processMode,
+                                        m_segmentationThreshold, meta->maintain_aspect_ratio, NULL,
+                                        meta->symmetric_padding);
+                                    m_Postprocessor->releaseFrameOutput(output);
+                                } else {
+                                    GST_WARNING_OBJECT(
+                                        m_element, "Post Processor not initialized for network");
+                                }
                             }
                         }
                     }

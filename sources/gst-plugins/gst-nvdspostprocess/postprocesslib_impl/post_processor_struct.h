@@ -174,6 +174,8 @@ typedef enum {
      network detects objects, bounding box and mask for objects, and
      their classes in an input frame */
     NvDsPostProcessNetworkType_InstanceSegmentation,
+    /** Bodypose 3D */
+    NvDsPostProcessNetworkType_BodyPose,
     /** Specifies other. Output layers of an "other" network are not parsed by
      NvDsPostProcessContext. This is useful for networks that produce custom output.
      Output can be parsed by the NvDsPostProcessContext client or can be combined
@@ -285,6 +287,8 @@ typedef struct _NvDsPostProcessContextInitParams {
     NvDsPostProcessTensorOrder segmentationOutputOrder;
 
     char *classifier_type;
+    /** Holds boolean value to show whether preprocessor support is there. */
+    gboolean preprocessor_support = FALSE;
 } NvDsPostProcessContextInitParams;
 
 /**
@@ -435,6 +439,25 @@ typedef struct {
     float *class_probability_map;
 } NvDsPostProcessSegmentationOutput;
 
+typedef struct NvDsPoint3f {
+    float x;
+    float y;
+    float z;
+} NvDsPoint3f;
+
+/**
+ * Holds information parsed from bodypose network output for one frame.
+ */
+typedef struct {
+    /** Holds the width of the output. Same as network width. */
+    unsigned int width;
+    /** Holds the height of the output. Same as network height. */
+    unsigned int height;
+
+    unsigned int num_key_points;
+    float *data;
+} NvDsPostProcessBodyPoseOutput;
+
 /**
  * Holds the information inferred by the network on one frame.
  */
@@ -455,6 +478,9 @@ typedef struct {
         /** Holds classifier output. Valid when @a outputType is
          @ref NvDsPostProcessNetworkType_Classifier. */
         NvDsPostProcessSegmentationOutput segmentationOutput;
+        /** Holds classifier output. Valid when @a outputType is
+         @ref NvDsPostProcessNetworkType_Classifier. */
+        NvDsPostProcessBodyPoseOutput bodyPoseOutput;
     };
 } NvDsPostProcessFrameOutput;
 

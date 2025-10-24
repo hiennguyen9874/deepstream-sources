@@ -242,7 +242,20 @@ bool DsNvInferImpl::initNewInferModelParams(NvDsInferContextInitParams &newParam
         g_strlcpy(newParams.labelsFilePath, oldParams.labelsFilePath,
                   sizeof(newParams.labelsFilePath));
     }
-    if (oldParams.numDetectedClasses) {
+
+    if (string_empty(newParams.customLibPath) && !string_empty(oldParams.customLibPath)) {
+        g_strlcpy(newParams.customLibPath, oldParams.customLibPath,
+                  sizeof(newParams.customLibPath));
+    }
+    if (string_empty(newParams.customBBoxParseFuncName) &&
+        !string_empty(oldParams.customBBoxParseFuncName)) {
+        g_strlcpy(newParams.customBBoxParseFuncName, oldParams.customBBoxParseFuncName,
+                  sizeof(newParams.customBBoxParseFuncName));
+    }
+
+    if ((oldParams.networkType == NvDsInferNetworkType_Detector ||
+         oldParams.networkType == NvDsInferNetworkType_InstanceSegmentation) &&
+        oldParams.numDetectedClasses) {
         newParams.numDetectedClasses = oldParams.numDetectedClasses;
         delete[] newParams.perClassDetectionParams;
         newParams.perClassDetectionParams =

@@ -33,6 +33,7 @@ GST_DEBUG_CATEGORY_STATIC(nv_video_test_src_debug);
 #define DEFAULT_FILE_LOOP (FALSE)
 #define DEFAULT_MAX_JITTER (0)
 #define DEFAULT_FIXED_JITTER ""
+#define DEFAULT_HORIZONTAL_SPEED (0)
 
 enum {
     PROP_0,
@@ -45,13 +46,16 @@ enum {
     PROP_FILE_LOOP,
     PROP_MAX_JITTER,
     PROP_FIXED_JITTER,
+    PROP_HORIZONTAL_SPEED,
 };
 
-static GstStaticPadTemplate gst_nv_video_test_src_template = GST_STATIC_PAD_TEMPLATE(
-    "src",
-    GST_PAD_SRC,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE_WITH_FEATURES("memory:NVMM", "{I420, NV12, RGBA}")));
+static GstStaticPadTemplate gst_nv_video_test_src_template =
+    GST_STATIC_PAD_TEMPLATE("src",
+                            GST_PAD_SRC,
+                            GST_PAD_ALWAYS,
+                            GST_STATIC_CAPS(GST_VIDEO_CAPS_MAKE_WITH_FEATURES(
+                                "memory:NVMM",
+                                "{I420, NV12, RGBA, UYVP, BGRA64_LE, RGB10A2_LE}")));
 
 #define parent_class gst_nv_video_test_src_parent_class
 G_DEFINE_TYPE(GstNvVideoTestSrc, gst_nv_video_test_src, GST_TYPE_PUSH_SRC)
@@ -202,6 +206,14 @@ static void gst_nv_video_test_src_class_init(GstNvVideoTestSrcClass *klass)
                             DEFAULT_FIXED_JITTER,
                             (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
+    g_object_class_install_property(
+        gobject_class, PROP_HORIZONTAL_SPEED,
+        g_param_spec_int("horizontal-speed", "Horizontal Speed",
+                         "Horizontal speed of the SMPTE pattern in pixels per frame, "
+                         "positive values move to the left, negative to the right",
+                         G_MININT, G_MAXINT, DEFAULT_HORIZONTAL_SPEED,
+                         (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+
     gst_element_class_set_static_metadata(element_class, GST_PACKAGE_NAME, "Source/Video",
                                           GST_PACKAGE_DESCRIPTION, GST_PACKAGE_AUTHOR);
 
@@ -239,6 +251,7 @@ static void gst_nv_video_test_src_init(GstNvVideoTestSrc *self)
     self->animation_mode = DEFAULT_ANIMATION_MODE;
     self->gpu_id = DEFAULT_GPU_ID;
     self->memtype = DEFAULT_MEMTYPE;
+    self->horizontal_speed = DEFAULT_HORIZONTAL_SPEED;
 
     self->filename = NULL;
     self->file_handle = NULL;
@@ -345,6 +358,9 @@ static void gst_nv_video_test_src_set_property(GObject *object,
             str.get();
         }
     } break;
+    case PROP_HORIZONTAL_SPEED:
+        self->horizontal_speed = g_value_get_int(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
         break;
@@ -398,6 +414,10 @@ static void gst_nv_video_test_src_get_property(GObject *object,
             str << value << ";";
         g_value_set_string(value, str.str().c_str());
     } break;
+
+    case PROP_HORIZONTAL_SPEED:
+        g_value_set_int(value, self->horizontal_speed);
+        break;
 
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -657,6 +677,21 @@ static GstFlowReturn gst_nv_video_file_src_fill(GstNvVideoTestSrc *src)
     case NVBUF_COLOR_FORMAT_NV12_709:
         to_read = (3 * params->width * params->height) / 2;
         break;
+    case NVBUF_COLOR_FORMAT_UYVP:
+    case NVBUF_COLOR_FORMAT_UYVP_ER:
+        // UYVP is 10-bit 4:2:2, packed format
+        // Each group of 2 pixels (U|Y, V|Y) takes 5 bytes (10 bits per component)
+        to_read = (params->width * params->height * 5) / 2;
+        break;
+    case NVBUF_COLOR_FORMAT_BGRA64_LE:
+        // BGRA64_LE is 64 bits per pixel (16 bits per component)
+        to_read = 8 * params->width * params->height;
+        break;
+    case NVBUF_COLOR_FORMAT_RGBA_10_10_10_2_709:
+    case NVBUF_COLOR_FORMAT_RGBA_10_10_10_2_2020:
+        // RGB10A2_LE is 32 bits per pixel (10 bits for R,G,B and 2 bits for A)
+        to_read = 4 * params->width * params->height;
+        break;
     default:
         GST_ERROR_OBJECT(src, "ColorFormat %d not supported", params->colorFormat);
         return GST_FLOW_ERROR;
@@ -698,7 +733,7 @@ static GstFlowReturn gst_nv_video_file_src_fill(GstNvVideoTestSrc *src)
 static GstFlowReturn gst_nv_video_test_src_fill(GstPushSrc *psrc, GstBuffer *buffer)
 {
     GstNvVideoTestSrc *self = GST_NV_VIDEO_TEST_SRC(psrc);
-    GstMapInfo map;
+    GstMapInfo map = GST_MAP_INFO_INIT;
 
     // If 0 framerate and we've returned a frame, EOS.
     if (G_UNLIKELY(self->info.fps_n == 0 && self->filled_frames == 1))

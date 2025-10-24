@@ -1,5 +1,3 @@
-
-
 #ifndef _DS3D_COMMON_IMPL_FRAMES__H
 #define _DS3D_COMMON_IMPL_FRAMES__H
 

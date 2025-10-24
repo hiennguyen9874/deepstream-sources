@@ -1,11 +1,11 @@
 #ifndef __NVGSTDS_CONFIG_PARSER_H__
 #define __NVGSTDS_CONFIG_PARSER_H__
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
 
 #include "deepstream_audio_classifier.h"
 #include "deepstream_c2d_msg.h"
@@ -30,12 +30,20 @@ extern "C" {
 #define CONFIG_GROUP_SOURCE_LIST_URI_LIST "list"
 /** this vector is one to one mapped with the uri-list/list */
 #define CONFIG_GROUP_SOURCE_LIST_SENSOR_ID_LIST "sensor-id-list"
+#define CONFIG_GROUP_SOURCE_LIST_SENSOR_NAME_LIST "sensor-name-list"
 
 /** additional configs to support nvmultiurisrcbin usage */
 #define CONFIG_GROUP_SOURCE_LIST_USE_NVMULTIURISRCBIN "use-nvmultiurisrcbin"
+#define CONFIG_GROUP_SOURCE_LIST_DUMMY_PAYLOAD "dummy-payload"
+#define CONFIG_GROUP_SOURCE_LIST_CUSTOM_TS_TO_RFC "custom-ts-to-rfc"
+#define CONFIG_GROUP_SOURCE_LIST_BATCHED_SENSOR_NAME "batched-sensor-name"
+#define CONFIG_GROUP_SOURCE_LIST_STREAM_NAME_DISPLAY "stream-name-display"
 #define CONFIG_GROUP_SOURCE_LIST_MAX_BATCH_SIZE "max-batch-size"
 #define CONFIG_GROUP_SOURCE_LIST_HTTP_IP "http-ip"
 #define CONFIG_GROUP_SOURCE_LIST_HTTP_PORT "http-port"
+#define CONFIG_GROUP_SOURCE_EXTRACT_SEI_TYPE5_DATA "extract-sei-type5-data"
+#define CONFIG_GROUP_SOURCE_SEI_UUID "sei-uuid"
+#define CONFIG_GROUP_SOURCE_LIST_LOW_LATENCY_MODE "low-latency-mode"
 
 #define CONFIG_GROUP_SOURCE_ALL "source-attr-all"
 
@@ -78,11 +86,16 @@ extern "C" {
 #define CONFIG_GROUP_SOURCE_NUM_DECODE_SURFACES "num-decode-surfaces"
 #define CONFIG_GROUP_SOURCE_NUM_EXTRA_SURFACES "num-extra-surfaces"
 #define CONFIG_GROUP_SOURCE_DROP_FRAME_INTERVAL "drop-frame-interval"
+#define CONFIG_GROUP_SOURCE_DROP_ON_LATENCY "drop-on-latency"
 #define CONFIG_GROUP_SOURCE_CAMERA_ID "camera-id"
 #define CONFIG_GROUP_SOURCE_ID "source-id"
 #define CONFIG_GROUP_SOURCE_SELECT_RTP_PROTOCOL "select-rtp-protocol"
+#define CONFIG_GROUP_SOURCE_LEAKY "leaky"
+#define CONFIG_GROUP_SOURCE_MAX_SIZE_BUFFERS "max-size-buffers"
 #define CONFIG_GROUP_SOURCE_RTSP_RECONNECT_INTERVAL_SEC "rtsp-reconnect-interval-sec"
 #define CONFIG_GROUP_SOURCE_RTSP_RECONNECT_ATTEMPTS "rtsp-reconnect-attempts"
+#define CONFIG_GROUP_SOURCE_RTSP_INIT_RECONNECT_INTERVAL_SEC "init-rtsp-reconnect-interval-sec"
+#define CONFIG_GROUP_SOURCE_RTSP_BUFFER_MODE "buffer-mode"
 #define CONFIG_GROUP_SOURCE_SMART_RECORD_ENABLE "smart-record"
 #define CONFIG_GROUP_SOURCE_SMART_RECORD_DIRPATH "smart-rec-dir-path"
 #define CONFIG_GROUP_SOURCE_SMART_RECORD_FILE_PREFIX "smart-rec-file-prefix"

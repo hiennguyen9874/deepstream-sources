@@ -1,13 +1,15 @@
-################################################################################
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+#######################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 #
-################################################################################
+#######################################################################################################
 
 nvmsgconv (Message Convertor) library provides APIs for payload generation
 nvmsgconv library supports generation of payload in json & protobuf formats
@@ -31,10 +33,42 @@ Pre-requisites:
 - json-glib-1.0
 - uuid
 - yaml-cpp
-- protobuf-compiler
 
 Install using:
-  sudo apt-get install libglib2.0-dev libjson-glib-dev uuid-dev libyaml-cpp-dev protobuf-compiler
+  sudo apt-get install libglib2.0-dev libjson-glib-dev uuid-dev libyaml-cpp-dev
+
+If running deepstream on baremetal and not docker:
+  Install other dependencies (Needs sudo or root privilege):
+  A. For X86 Device -
+  1. Triton gRPC Client into "/opt/tritonclient":
+  mkdir -p  /opt/tritonclient/
+  wget https://github.com/triton-inference-server/server/releases/download/v2.56.0/v2.56.0_ubuntu2404.clients.tar.gz
+  tar xzf v2.56.0_ubuntu2404.clients.tar.gz -C /opt/tritonclient/ lib include
+
+  2. Protobuf compiler v3.21.12 into "/opt/proto":
+  mkdir /opt/proto
+  PB_REL="https://github.com/protocolbuffers/protobuf/releases";
+  curl -LO $PB_REL/download/v21.12/protoc-21.12-linux-x86_64.zip
+  unzip protoc-21.12-linux-x86_64.zip -d /opt/proto
+  chmod -R +rx /opt/proto/
+
+  B. For Jetson Device -
+  1. Please download the correct version of Triton gRPC client from
+    https://github.com/triton-inference-server/server/releases 
+    and install into "/opt/tritonclient". Example commands :
+  mkdir -p  /opt/tritonclient/
+  wget https://github.com/triton-inference-server/server/releases/download/v2.56.0/tritonserver2.56.0-igpu.tar
+  tar xzf tritonserver2.56.0-igpu.tar -C /opt/tritonclient/ --strip-components=2 tritonserver/clients/lib/ tritonserver/clients/include
+
+  2. Protobuf compiler v3.21.12 into "/opt/proto":
+  mkdir /opt/proto
+  PB_REL="https://github.com/protocolbuffers/protobuf/releases";
+  curl -LO $PB_REL/download/v21.12/protoc-21.12-linux-aarch_64.zip
+  unzip protoc-21.12-linux-aarch_64.zip -d /opt/proto
+  chmod -R +rx /opt/proto/
+
+  Update PATH variable with newly installed protoc by running below command,
+    $ export PATH=/opt/proto/bin/:$PATH
 
 ------------------------------------------------------------------------------------------------
 Compiling and installing the plugin:

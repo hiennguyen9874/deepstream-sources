@@ -22,19 +22,19 @@ gboolean parse_msgconsumer_yaml(NvDsMsgConsumerConfig *config,
         } else if (paramKey == "config-file") {
             std::string temp = itr->second.as<std::string>();
             config->config_file_path = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->config_file_path, temp.c_str(), 1024);
+            std::strncpy(config->config_file_path, temp.c_str(), 1023);
         } else if (paramKey == "proto-lib") {
             std::string temp = itr->second.as<std::string>();
             config->proto_lib = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->proto_lib, temp.c_str(), 1024);
+            std::strncpy(config->proto_lib, temp.c_str(), 1023);
         } else if (paramKey == "conn-str") {
             std::string temp = itr->second.as<std::string>();
             config->conn_str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(config->conn_str, temp.c_str(), 1024);
+            std::strncpy(config->conn_str, temp.c_str(), 1023);
         } else if (paramKey == "sensor-list-file") {
             std::string temp = itr->second.as<std::string>();
             char *str = (char *)malloc(sizeof(char) * 1024);
-            std::strncpy(str, temp.c_str(), 1024);
+            std::strncpy(str, temp.c_str(), 1023);
             config->sensor_list_file = (char *)malloc(sizeof(char) * 1024);
             if (!get_absolute_file_path_yaml(cfg_file_path, str, config->sensor_list_file)) {
                 g_printerr("Error: Could not parse labels file path\n");
@@ -51,13 +51,14 @@ gboolean parse_msgconsumer_yaml(NvDsMsgConsumerConfig *config,
 
             for (int i = 0; i < length; i++) {
                 char *str2 = (char *)malloc(sizeof(char) * _MAX_STR_LENGTH);
-                std::strncpy(str2, vec[i].c_str(), _MAX_STR_LENGTH);
+                std::strncpy(str2, vec[i].c_str(), _MAX_STR_LENGTH - 1);
                 topicList[i] = str2;
             }
             topicList[length] = NULL;
 
             if (length < 1) {
                 NVGSTDS_ERR_MSG_V("%s at least one topic must be provided", __func__);
+                g_strfreev(topicList);
                 goto done;
             }
             if (config->topicList)

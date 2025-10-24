@@ -49,6 +49,13 @@ public:
         return createAlgoCtx ? createAlgoCtx(object) : nullptr;
     }
 
+    IDSCustomLibrary *Initialize()
+    {
+        m_libHandle = nullptr;
+        m_libName.clear();
+        return nullptr;
+    }
+
 public:
     void *m_libHandle;
     std::string m_libName;

@@ -306,9 +306,9 @@ static GstCaps *gst_nvdewarper_fixate_caps(GstBaseTransform *trans,
 
     /* we have both PAR but they might not be fixated */
     if (from_par && to_par) {
-        gint from_w, from_h, from_par_n, from_par_d, to_par_n, to_par_d;
+        gint from_w = 0, from_h = 0, from_par_n = 0, from_par_d = 0, to_par_n = 0, to_par_d = 0;
         gint count = 0, w = 0, h = 0;
-        guint num, den;
+        guint num = 0, den = 0;
 
         /* from_par should be fixed */
         g_return_val_if_fail(gst_value_is_fixed(from_par), othercaps);
@@ -459,6 +459,7 @@ static GstCaps *gst_nvdewarper_transform_caps(GstBaseTransform *btrans,
     Gstnvdewarper *nvdewarper = GST_NVDEWARPER(btrans);
     GstCapsFeatures *feature = NULL;
     GstCaps *new_caps = NULL;
+    GstCaps *temp_caps = NULL;
 
     if (direction == GST_PAD_SINK) {
         new_caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "RGBA", "width",
@@ -487,6 +488,11 @@ static GstCaps *gst_nvdewarper_transform_caps(GstBaseTransform *btrans,
             fs = gst_caps_get_structure(new_caps, i);
             gst_structure_set_value(fs, "framerate", fps_value);
         }
+    }
+    if (filter) {
+        temp_caps = gst_caps_intersect(new_caps, filter);
+        gst_caps_unref(new_caps);
+        new_caps = temp_caps;
     }
     return new_caps;
 }
@@ -650,7 +656,7 @@ static gboolean gst_nvdewarper_set_caps(GstBaseTransform *trans, GstCaps *incaps
     Gstnvdewarper *nvdewarper = GST_NVDEWARPER(trans);
     GstCapsFeatures *ift = NULL;
     GstStructure *config = NULL;
-    GstVideoInfo in_info, out_info;
+    GstVideoInfo in_info = {}, out_info = {};
 
     GST_DEBUG_OBJECT(nvdewarper, "set_caps");
 
@@ -835,12 +841,14 @@ static cudaError gst_nvdewarper_generate_output(Gstnvdewarper *nvdewarper,
     tx_err = NvBufSurfTransformSetSessionParams(&config_params);
     if (tx_err != NvBufSurfTransformError_Success) {
         g_print("%s: %d NvBufSurfTransform set session failed\n", __func__, __LINE__);
+        g_free(surface_meta);
         return cudaErrorInvalidSurface;
     }
 
     tx_err = NvBufSurfTransform(&in_surf, out_surface, &transform_params);
     if (tx_err != NvBufSurfTransformError_Success) {
         g_print("%s: %d NvBufSurfTransform failed\n", __func__, __LINE__);
+        g_free(surface_meta);
         return cudaErrorInvalidSurface;
     }
     out_surface->numFilled = i;
@@ -914,8 +922,8 @@ static GstFlowReturn gst_nvdewarper_transform(GstBaseTransform *btrans,
                                               GstBuffer *outbuf)
 {
     Gstnvdewarper *nvdewarper = GST_NVDEWARPER(btrans);
-    GstMapInfo inmap;
-    GstMapInfo outmap;
+    GstMapInfo inmap = GST_MAP_INFO_INIT;
+    GstMapInfo outmap = GST_MAP_INFO_INIT;
     NvBufSurface *in_surface = NULL;
     NvBufSurface *out_surface = NULL;
     cudaError cudaErr = cudaSuccess;
@@ -1355,7 +1363,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dewarper,
                   PACKAGE_DESCRIPTION,
                   nvdewarper_init,
-                  "6.3",
+                  "8.0",
                   PACKAGE_LICENSE,
                   PACKAGE_NAME,
                   PACKAGE_URL)

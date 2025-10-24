@@ -1,14 +1,4 @@
 /*
- * Copyright (c) 2020-2021 NVIDIA Corporation.  All rights reserved.
- *
- * NVIDIA Corporation and its licensors retain all intellectual property
- * and proprietary rights in and to this software, related documentation
- * and any modifications thereto.  Any use, reproduction, disclosure or
- * distribution of this software and related documentation without an express
- * license agreement from NVIDIA Corporation is strictly prohibited.
- *
- */
-/*
  * This file defines the NvMsgBroker interface.
  * The interfaces is used by applications to send and receive
  * messages from remote entities and services to deliver events, allow
@@ -24,6 +14,7 @@ extern "C" {
 
 #define NV_MSGBROKER_VERSION "2.0"
 #define LOG_CAT "DSLOG:NV_MSGBROKER"
+
 /*
  * Defines status for operations in the NvMsgBroker interface
  */

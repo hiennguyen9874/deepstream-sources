@@ -50,7 +50,7 @@ typedef struct _GstDsExampleClass GstDsExampleClass;
 #define GST_DSEXAMPLE_CAST(obj) ((GstDsExample *)(obj))
 
 /** Maximum batch size to be supported by dsexample. */
-#define NVDSEXAMPLE_MAX_BATCH_SIZE G_MAXUINT
+#define NVDSEXAMPLE_MAX_BATCH_SIZE 1024
 
 struct _GstDsExample {
     GstBaseTransform base_trans;
@@ -103,6 +103,9 @@ struct _GstDsExample {
     /** Resolution at which frames/objects should be processed */
     gint processing_width;
     gint processing_height;
+
+    // Flag which defince igpu/dgpu
+    guint is_integrated;
 
     /** Maximum batch size. */
     guint max_batch_size;

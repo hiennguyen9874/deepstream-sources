@@ -118,8 +118,7 @@ private:
     }
 
     template <typename In>
-    struct convertType {
-    };
+    struct convertType {};
 
 public:
     template <typename T>
@@ -226,12 +225,10 @@ struct BufOptions::convertType<std::string> {
 };
 
 template <typename T> // not supported
-struct BufOptions::convertType<std::vector<T>> {
-};
+struct BufOptions::convertType<std::vector<T>> {};
 
 template <typename T> // not supported
-struct BufOptions::convertType<std::vector<T *>> {
-};
+struct BufOptions::convertType<std::vector<T *>> {};
 
 } // namespace nvdsinferserver
 

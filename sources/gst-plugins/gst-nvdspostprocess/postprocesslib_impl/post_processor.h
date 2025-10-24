@@ -63,7 +63,9 @@ public:
                                 gboolean output_instance_mask,
                                 gboolean process_full_frame,
                                 float segmentationThreshold,
-                                gboolean maintain_aspect_ratio) = 0;
+                                gboolean maintain_aspect_ratio,
+                                NvDsRoiMeta *roi_meta,
+                                gboolean symmetric_padding) = 0;
 
     virtual void releaseFrameOutput(NvDsPostProcessFrameOutput &frameOutput) = 0;
 

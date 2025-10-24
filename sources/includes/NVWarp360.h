@@ -177,10 +177,7 @@ typedef struct nvwarpParams_t {
     //! Constructor for C++ automatically initializes nvwarpParams_t.
     //! C users are recommended to call nvwarpInitParams() explicitly, for consistent
     //! initialization.
-    nvwarpParams_t()
-    {
-        nvwarpInitParams(this);
-    }
+    nvwarpParams_t() { nvwarpInitParams(this); }
 #endif // __cplusplus
 
 } nvwarpParams_t; //!< Parameters typedef.

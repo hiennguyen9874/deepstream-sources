@@ -67,7 +67,8 @@ NvDsInferStatus InferExtraProcessor::initCustomProcessor(SharedDllHandle dlHandl
     RETURN_IF_FAILED(dlHandle && dlHandle->isValid(), NVDSINFER_CUSTOM_LIB_FAILED,
                      "dlopen lib failed.");
     auto funcPtr = dlHandle->symbol<CreateCustomProcessorFunc>(funcName);
-    RETURN_IF_FAILED(funcPtr, NVDSINFER_CUSTOM_LIB_FAILED, "dlsym %s failed.", safeStr(funcName));
+    RETURN_IF_FAILED(funcPtr, NVDSINFER_CUSTOM_LIB_FAILED, "dlsym %s failed. dlerror: %s",
+                     safeStr(funcName), dlerror());
     m_CustomProcessor.reset(funcPtr(config.c_str(), (uint32_t)config.length()),
                             [dlHandle](IInferCustomProcessor *p) { delete p; });
     m_RequireInferLoop = m_CustomProcessor->requireInferLoop();

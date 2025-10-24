@@ -37,7 +37,7 @@ public:
                                        GstCaps *in_caps,
                                        GstCaps *othercaps) = 0;
     virtual BufferResult ProcessBuffer(GstBuffer *inbuf) = 0;
-    virtual ~IDSCustomLibrary(){};
+    virtual ~IDSCustomLibrary() {};
 };
 
 #endif

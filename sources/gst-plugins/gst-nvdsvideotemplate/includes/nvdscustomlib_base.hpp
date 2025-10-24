@@ -107,8 +107,8 @@ GstCaps *DSCustomLibraryBase::GetCompatibleCaps(GstPadDirection direction,
 {
     GstCaps *result = NULL;
     GstStructure *s1, *s2;
-    gint width, height;
-    gint num, denom;
+    gint width = 0, height = 0;
+    gint num = 0, denom = 0;
     const gchar *inputFmt = NULL;
 
     GST_INFO_OBJECT(m_element, "\n----------\ndirection = %d (1=Src, 2=Sink) -> %s:\nCAPS = %s\n",
@@ -209,7 +209,7 @@ GstBufferPool *DSCustomLibraryBase::CreateBufferPool(BufferPoolConfig *pool_conf
 /* Helped function to get the NvBufSurface from the GstBuffer */
 NvBufSurface *DSCustomLibraryBase::getNvBufSurface(GstBuffer *inbuf)
 {
-    GstMapInfo in_map_info;
+    GstMapInfo in_map_info = GST_MAP_INFO_INIT;
     NvBufSurface *nvbuf_surface = NULL;
 
     /* Map the buffer contents and get the pointer to NvBufSurface. */

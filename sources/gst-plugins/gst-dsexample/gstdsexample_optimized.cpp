@@ -84,8 +84,8 @@ enum {
 #define Y_BYTES_PER_PIXEL 1
 #define UV_BYTES_PER_PIXEL 2
 
-#define MIN_INPUT_OBJECT_WIDTH 16
-#define MIN_INPUT_OBJECT_HEIGHT 16
+#define MIN_INPUT_OBJECT_WIDTH 1
+#define MIN_INPUT_OBJECT_HEIGHT 1
 
 #define CHECK_NPP_STATUS(npp_status, error_str)                                                  \
     do {                                                                                         \
@@ -346,7 +346,7 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
 #else
     NvBufSurface *inter_buf;
 #endif
-    NvBufSurfaceCreateParams create_params;
+    NvBufSurfaceCreateParams create_params = {0};
     DsExampleInitParams init_params = {dsexample->processing_width, dsexample->processing_height,
                                        dsexample->process_full_frame};
 
@@ -361,6 +361,14 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
         nvtxDomainCreate(nvtx_str.c_str()), nvtx_deleter);
 
     CHECK_CUDA_STATUS(cudaSetDevice(dsexample->gpu_id), "Unable to set cuda device");
+
+    dsexample->is_integrated = 0;
+    NvBufSurfaceDeviceInfo dev_info;
+    if (NvBufSurfaceGetDeviceInfo(&dev_info) == 0) {
+        if (dev_info.driverType == NVBUF_DRIVER_TYPE_NVGPU) {
+            dsexample->is_integrated = 1;
+        }
+    }
 
     CHECK_CUDA_STATUS(cudaStreamCreate(&dsexample->cuda_stream), "Could not create cuda stream");
 
@@ -378,11 +386,11 @@ static gboolean gst_dsexample_start(GstBaseTransform *btrans)
     create_params.size = 0;
     create_params.colorFormat = NVBUF_COLOR_FORMAT_RGBA;
     create_params.layout = NVBUF_LAYOUT_PITCH;
-#ifdef __aarch64__
-    create_params.memType = NVBUF_MEM_DEFAULT;
-#else
-    create_params.memType = NVBUF_MEM_CUDA_UNIFIED;
-#endif
+    if (dsexample->is_integrated) {
+        create_params.memType = NVBUF_MEM_DEFAULT;
+    } else {
+        create_params.memType = NVBUF_MEM_CUDA_UNIFIED;
+    }
 
 #ifdef WITH_OPENCV
     if (NvBufSurfaceCreate(&dsexample->inter_buf, dsexample->max_batch_size, &create_params) != 0) {
@@ -594,12 +602,12 @@ static GstFlowReturn scale_and_fill_data(GstDsExample *dsexample,
                           ("%s:crop_rect_params dimensions are zero", __func__), (NULL));
         return GST_FLOW_ERROR;
     }
-#ifdef __aarch64__
-    if (ratio <= 1.0 / 16 || ratio >= 16.0) {
-        // Currently cannot scale by ratio > 16 or < 1/16 for Jetson
-        return GST_FLOW_ERROR;
+    if (dsexample->is_integrated) {
+        if (ratio <= 1.0 / 16 || ratio >= 16.0) {
+            // Currently cannot scale by ratio > 16 or < 1/16 for Jetson
+            return GST_FLOW_ERROR;
+        }
     }
-#endif
 
     /* We will first convert only the Region of Interest (the entire frame or the
      * object bounding box) to RGB and then scale the converted RGB frame to
@@ -633,7 +641,7 @@ static gboolean convert_batch_and_push_to_process_thread(GstDsExample *dsexample
 #endif
 
     // Configure transform session parameters for the transformation
-    transform_config_params.compute_mode = NvBufSurfTransformCompute_Default;
+    transform_config_params.compute_mode = dsexample->transform_config_params.compute_mode;
     transform_config_params.gpu_id = dsexample->gpu_id;
     transform_config_params.cuda_stream = dsexample->cuda_stream;
 
@@ -699,8 +707,10 @@ static gboolean convert_batch_and_push_to_process_thread(GstDsExample *dsexample
                               ("%s:buffer map to be accessed by CPU failed", __func__), (NULL));
             return FALSE;
         }
-        // sync mapped data for CPU access
-        NvBufSurfaceSyncForCpu(dsexample->inter_buf, i, 0);
+        if (dsexample->is_integrated) {
+            // sync mapped data for CPU access
+            NvBufSurfaceSyncForCpu(dsexample->inter_buf, i, 0);
+        }
 
 #ifdef WITH_OPENCV
         in_mat = cv::Mat(dsexample->processing_height, dsexample->processing_width, CV_8UC4,
@@ -726,23 +736,23 @@ static gboolean convert_batch_and_push_to_process_thread(GstDsExample *dsexample
             return FALSE;
         }
 
-#ifdef __aarch64__
-        // To use the converted buffer in CUDA, create an EGLImage and then use
-        // CUDA-EGL interop APIs
-        if (USE_EGLIMAGE) {
-            if (NvBufSurfaceMapEglImage(dsexample->inter_buf, 0) != 0) {
-                GST_ELEMENT_ERROR(dsexample, STREAM, FAILED,
-                                  ("%s:buffer map eglimage failed", __func__), (NULL));
-                return FALSE;
-            }
-            // dsexample->inter_buf->surfaceList[0].mappedAddr.eglImage
-            // Use interop APIs cuGraphicsEGLRegisterImage and
-            // cuGraphicsResourceGetMappedEglFrame to access the buffer in CUDA
+        if (dsexample->is_integrated) {
+            // To use the converted buffer in CUDA, create an EGLImage and then use
+            // CUDA-EGL interop APIs
+            if (USE_EGLIMAGE) {
+                if (NvBufSurfaceMapEglImage(dsexample->inter_buf, 0) != 0) {
+                    GST_ELEMENT_ERROR(dsexample, STREAM, FAILED,
+                                      ("%s:buffer map eglimage failed", __func__), (NULL));
+                    return FALSE;
+                }
+                // dsexample->inter_buf->surfaceList[0].mappedAddr.eglImage
+                // Use interop APIs cuGraphicsEGLRegisterImage and
+                // cuGraphicsResourceGetMappedEglFrame to access the buffer in CUDA
 
-            // Destroy the EGLImage
-            NvBufSurfaceUnMapEglImage(dsexample->inter_buf, 0);
+                // Destroy the EGLImage
+                NvBufSurfaceUnMapEglImage(dsexample->inter_buf, 0);
+            }
         }
-#endif
     }
 
     /* Push the batch info structure in the processing queue and notify the process
@@ -777,6 +787,13 @@ static GstFlowReturn gst_dsexample_submit_input_buffer(GstBaseTransform *btrans,
     gdouble scale_ratio = 1.0;
     guint num_filled = 0;
 
+    int is_nvgpu = 0;
+    NvBufSurfaceDeviceInfo dev_info;
+    if (NvBufSurfaceGetDeviceInfo(&dev_info) == 0) {
+        if (dev_info.driverType == NVBUF_DRIVER_TYPE_NVGPU) {
+            is_nvgpu = 1;
+        }
+    }
     dsexample->current_batch_num++;
 
     nvtxEventAttributes_t eventAttrib = {0};
@@ -871,10 +888,22 @@ static GstFlowReturn gst_dsexample_submit_input_buffer(GstBaseTransform *btrans,
                 obj_meta = (NvDsObjectMeta *)(l_obj->data);
 
                 /* Should not process on objects smaller than MIN_INPUT_OBJECT_WIDTH x
-                 * MIN_INPUT_OBJECT_HEIGHT since it will cause hardware scaling issues. */
+                 * MIN_INPUT_OBJECT_HEIGHT */
                 if (obj_meta->rect_params.width < MIN_INPUT_OBJECT_WIDTH ||
                     obj_meta->rect_params.height < MIN_INPUT_OBJECT_HEIGHT)
                     continue;
+
+                /* Extra check for Jetson devices as default compute mode on Jetson is VIC which
+                 * supports min 16x16 */
+                if (is_nvgpu) {
+                    if (dsexample->transform_config_params.compute_mode ==
+                            NvBufSurfTransformCompute_VIC ||
+                        dsexample->transform_config_params.compute_mode ==
+                            NvBufSurfTransformCompute_Default) {
+                        if (obj_meta->rect_params.width < 16 || obj_meta->rect_params.height < 16)
+                            continue;
+                    }
+                }
 
                 // Crop and scale the object maintainig aspect ratio
                 if (scale_and_fill_data(dsexample, in_surf->surfaceList + frame_meta->batch_id,
@@ -1103,6 +1132,13 @@ static gpointer gst_dsexample_output_loop(gpointer data)
     eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
     std::string nvtx_str;
 
+    int is_nvgpu = 0;
+    NvBufSurfaceDeviceInfo dev_info;
+    if (NvBufSurfaceGetDeviceInfo(&dev_info) == 0) {
+        if (dev_info.driverType == NVBUF_DRIVER_TYPE_NVGPU) {
+            is_nvgpu = 1;
+        }
+    }
     nvtx_str = "gst-dsexample_output-loop_uid=" + std::to_string(dsexample->unique_id);
 
     g_mutex_lock(&dsexample->process_lock);
@@ -1182,12 +1218,24 @@ static gpointer gst_dsexample_output_loop(gpointer data)
                 obj_meta = frame.obj_meta;
 
                 /* Should not process on objects smaller than MIN_INPUT_OBJECT_WIDTH x
-                 * MIN_INPUT_OBJECT_HEIGHT since it will cause hardware scaling issues. */
+                 * MIN_INPUT_OBJECT_HEIGHT */
                 if (obj_meta->rect_params.width < MIN_INPUT_OBJECT_WIDTH ||
                     obj_meta->rect_params.height < MIN_INPUT_OBJECT_HEIGHT)
                     continue;
 
-                    // Process the object crop to obtain label
+                /* Extra check for Jetson devices as default compute mode on Jetson is VIC which
+                 * supports min 16x16 */
+                if (is_nvgpu) {
+                    if (dsexample->transform_config_params.compute_mode ==
+                            NvBufSurfTransformCompute_VIC ||
+                        dsexample->transform_config_params.compute_mode ==
+                            NvBufSurfTransformCompute_Default) {
+                        if (obj_meta->rect_params.width < 16 || obj_meta->rect_params.height < 16)
+                            continue;
+                    }
+                }
+
+                // Process the object crop to obtain label
 #ifdef WITH_OPENCV
                 output = DsExampleProcess(dsexample->dsexamplelib_ctx, batch->cvmat[i].data);
 #else
@@ -1234,7 +1282,7 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
                   nvdsgst_dsexample,
                   DESCRIPTION,
                   dsexample_plugin_init,
-                  "6.3",
+                  "8.0",
                   LICENSE,
                   BINARY_PACKAGE,
                   URL)

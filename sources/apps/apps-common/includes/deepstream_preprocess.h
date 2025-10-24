@@ -1,11 +1,11 @@
 #ifndef __NVGSTDS_PREPROCESS_H__
 #define __NVGSTDS_PREPROCESS_H__
 
+#include <gst/gst.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <gst/gst.h>
 
 typedef struct {
     /** create a bin for the element only if enabled */

@@ -42,6 +42,9 @@ gboolean create_tiled_display_bin(NvDsTiledDisplayConfig *config, NvDsTiledDispl
     if (config->buffer_pool_size)
         g_object_set(G_OBJECT(bin->tiler), "buffer-pool-size", config->buffer_pool_size, NULL);
 
+    if (config->square_seq_grid)
+        g_object_set(G_OBJECT(bin->tiler), "square-seq-grid", config->square_seq_grid, NULL);
+
 #ifdef IS_TEGRA
     if (config->compute_hw)
         g_object_set(G_OBJECT(bin->tiler), "compute-hw", config->compute_hw, NULL);

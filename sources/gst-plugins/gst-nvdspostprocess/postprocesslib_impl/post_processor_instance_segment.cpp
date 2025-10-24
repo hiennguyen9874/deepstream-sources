@@ -17,20 +17,23 @@ using namespace std;
 /**
  * Attach metadata for the detector. We will be adding a new metadata.
  */
-void InstanceSegmentModelPostProcessor::attachMetadata(NvBufSurface *surf,
-                                                       gint batch_idx,
-                                                       NvDsBatchMeta *batch_meta,
-                                                       NvDsFrameMeta *frame_meta,
-                                                       NvDsObjectMeta *object_meta,
-                                                       NvDsObjectMeta *parent_obj_meta,
-                                                       NvDsPostProcessFrameOutput &detection_output,
-                                                       NvDsPostProcessDetectionParams *all_params,
-                                                       std::set<gint> &filterOutClassIds,
-                                                       int32_t unique_id,
-                                                       gboolean output_instance_mask,
-                                                       gboolean process_full_frame,
-                                                       float segmentationThreshold,
-                                                       gboolean maintain_aspect_ratio)
+void InstanceSegmentModelPostProcessor::attachMetadata(
+    NvBufSurface *surf,
+    gint batch_idx,
+    NvDsBatchMeta *batch_meta,
+    NvDsFrameMeta *frame_meta,
+    NvDsObjectMeta *object_meta,
+    NvDsObjectMeta *parent_obj_meta,
+    NvDsPostProcessFrameOutput &detection_output,
+    NvDsPostProcessDetectionParams *all_params,
+    std::set<gint> &filterOutClassIds,
+    int32_t unique_id,
+    gboolean output_instance_mask,
+    gboolean process_full_frame,
+    float segmentationThreshold,
+    gboolean maintain_aspect_ratio,
+    NvDsRoiMeta *roi_meta,
+    gboolean symmetric_padding) // FIXME: handle padding
 {
     static gchar font_name[] = "Serif";
     NvDsObjectMeta *obj_meta = NULL;

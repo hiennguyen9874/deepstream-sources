@@ -69,28 +69,37 @@ using namespace std;
 /**
  * Attach metadata for the detector. We will be adding a new metadata.
  */
-void DetectModelPostProcessor::attachMetadata(NvBufSurface *surf,
-                                              gint batch_idx,
-                                              NvDsBatchMeta *batch_meta,
-                                              NvDsFrameMeta *frame_meta,
-                                              NvDsObjectMeta *object_meta,
-                                              NvDsObjectMeta *parent_obj_meta,
-                                              NvDsPostProcessFrameOutput &detection_output,
-                                              NvDsPostProcessDetectionParams *all_params,
-                                              std::set<gint> &filterOutClassIds,
-                                              int32_t unique_id,
-                                              gboolean output_instance_mask,
-                                              gboolean process_full_frame,
-                                              float segmentationThreshold,
-                                              gboolean maintain_aspect_ratio)
+void DetectModelPostProcessor::attachMetadata(
+    NvBufSurface *surf,
+    gint batch_idx,
+    NvDsBatchMeta *batch_meta,
+    NvDsFrameMeta *frame_meta,
+    NvDsObjectMeta *object_meta,
+    NvDsObjectMeta *parent_obj_meta,
+    NvDsPostProcessFrameOutput &detection_output,
+    NvDsPostProcessDetectionParams *all_params,
+    std::set<gint> &filterOutClassIds,
+    int32_t unique_id,
+    gboolean output_instance_mask,
+    gboolean process_full_frame,
+    float segmentationThreshold,
+    gboolean maintain_aspect_ratio,
+    NvDsRoiMeta *roi_meta,
+    gboolean symmetric_padding) // FIXME: handle it for detectors
 {
     static gchar font_name[] = "Serif";
     NvDsObjectMeta *obj_meta = NULL;
     nvds_acquire_meta_lock(batch_meta);
     gint surf_width = surf->surfaceList[batch_idx].width;
     gint surf_height = surf->surfaceList[batch_idx].height;
-    float scale_x = (float)surf_width / (float)m_NetworkInfo.width;
-    float scale_y = (float)surf_height / (float)m_NetworkInfo.height;
+    float scale_x = (float)m_NetworkInfo.width / (float)surf_width;
+    float scale_y = (float)m_NetworkInfo.height / (float)surf_height;
+    float offset_left = 0;
+    float offset_top = 0;
+    float roi_left = 0;
+    float roi_top = 0;
+    float roi_height = 0;
+    float roi_width = 0;
 
     // FIXME: Get preprocess data and scale ROI
 
@@ -100,9 +109,18 @@ void DetectModelPostProcessor::attachMetadata(NvBufSurface *surf,
     for (guint i = 0; i < detection_output.detectionOutput.numObjects; i++) {
         NvDsPostProcessObject &obj = detection_output.detectionOutput.objects[i];
         NvDsPostProcessDetectionParams &filter_params = all_params[obj.classIndex];
-
         /* Scale the bounding boxes proportionally based on how the object/frame was
          * scaled during input. */
+        if (roi_meta) {
+            scale_x = roi_meta->scale_ratio_x;
+            scale_y = roi_meta->scale_ratio_y;
+            offset_left = roi_meta->offset_left;
+            roi_left = roi_meta->roi.left;
+            offset_top = roi_meta->offset_top;
+            roi_top = roi_meta->roi.top;
+            roi_height = roi_meta->roi.height;
+            roi_width = roi_meta->roi.height;
+        }
         if (maintain_aspect_ratio) {
             if (scale_x > scale_y) {
                 scale_y = scale_x;
@@ -110,10 +128,34 @@ void DetectModelPostProcessor::attachMetadata(NvBufSurface *surf,
                 scale_x = scale_y;
             }
         }
-        obj.left = (obj.left - 0) * scale_x + 0;
-        obj.top = (obj.top - 0) * scale_y + 0;
-        obj.width *= scale_x;
-        obj.height *= scale_y;
+        obj.left = (obj.left - offset_left) / scale_x + roi_left;
+        obj.top = (obj.top - offset_top) / scale_y + roi_top;
+        obj.width /= scale_x;
+        obj.height /= scale_y;
+
+        /** Clipping the object bounding-box which lies outside the roi
+         * specified by nvdspreprosess plugin. */
+        if (roi_meta) {
+            if (obj.left + obj.width >= roi_left + roi_width) {
+                obj.width = roi_left + roi_width - obj.left;
+            }
+            if (obj.top + obj.height >= roi_top + roi_height) {
+                obj.height = roi_top + roi_height - obj.top;
+            }
+            if (obj.left < roi_left) {
+                obj.left = roi_left;
+                obj.width = obj.width - roi_left + obj.left;
+            }
+            if (obj.top < roi_top) {
+                obj.top = roi_top;
+                obj.height = obj.height - roi_top + obj.top;
+            }
+        }
+        /* top and left should not be less than 0 */
+        if (obj.top < 0)
+            obj.top = 0;
+        if (obj.left < 0)
+            obj.left = 0;
 
         /* Check if the scaled box co-ordinates meet the detection filter criteria.
          * Skip the box if it does not. */
@@ -299,7 +341,7 @@ NvDsPostProcessStatus DetectModelPostProcessor::initResource(
             return NVDSPOSTPROCESS_RESOURCE_ERROR;
         }
     }
-
+    m_PreprocessorSupport = initParams.preprocessor_support;
     return NVDSPOSTPROCESS_SUCCESS;
 }
 

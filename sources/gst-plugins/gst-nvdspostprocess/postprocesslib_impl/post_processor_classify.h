@@ -37,7 +37,9 @@ public:
                         gboolean output_instance_mask,
                         gboolean process_full_frame,
                         float segmentationThreshold,
-                        gboolean maintain_aspect_ratio) override;
+                        gboolean maintain_aspect_ratio,
+                        NvDsRoiMeta *roi_meta,
+                        gboolean symmetric_padding) override;
 
     void mergeClassificationOutput(NvDsPostProcessObjectHistory &history,
                                    NvDsPostProcessObjectInfo &new_result);

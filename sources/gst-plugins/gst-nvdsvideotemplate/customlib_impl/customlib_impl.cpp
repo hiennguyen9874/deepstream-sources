@@ -213,8 +213,8 @@ GstCaps *SampleAlgorithm::GetCompatibleCaps(GstPadDirection direction,
                                             GstCaps *othercaps)
 {
     GstStructure *s1, *s2;
-    gint width, height;
-    gint i, num, denom;
+    gint width = 0, height = 0;
+    gint i = 0, num = 0, denom = 0;
     const gchar *inputFmt = NULL;
     const gchar *outputFmt = NULL;
     gint w = 0;
@@ -254,73 +254,66 @@ GstCaps *SampleAlgorithm::GetCompatibleCaps(GstPadDirection direction,
 
         GST_DEBUG_OBJECT(m_element, "InputFMT = %s \n\n", inputFmt);
 
-        // Check for desired color format
-        if ((strncmp(inputFmt, FORMAT_NV12, strlen(FORMAT_NV12)) == 0) ||
-            (strncmp(inputFmt, FORMAT_I420, strlen(FORMAT_I420)) == 0) ||
-            (strncmp(inputFmt, FORMAT_RGBA, strlen(FORMAT_RGBA)) == 0)) {
-            // Set these output caps
-            gst_structure_get_int(s1, "width", &width);
-            gst_structure_get_int(s1, "height", &height);
+        // Set these output caps
+        gst_structure_get_int(s1, "width", &width);
+        gst_structure_get_int(s1, "height", &height);
 
-            /* otherwise the dimension of the output heatmap needs to be fixated */
+        /* otherwise the dimension of the output heatmap needs to be fixated */
 
-            // Here change the width and height on output caps based on the information provided
-            // byt the custom library
-            gst_structure_fixate_field_nearest_int(s2, "width", width);
-            gst_structure_fixate_field_nearest_int(s2, "height", height);
-            if (gst_structure_get_fraction(s1, "framerate", &num, &denom)) {
-                gst_structure_fixate_field_nearest_fraction(s2, "framerate", num, denom);
-            }
-
-            // TODO: Get width, height, coloutformat, and framerate from customlibrary API
-            // set the new properties accordingly
-            gst_structure_get_int(s2, "width", &w);
-            gst_structure_get_int(s2, "height", &h);
-
-            /* If scalefactor is provided in the property then library expects no width/height
-             * set on the SRC pad caps, output resolution will be according to the scalefactor.
-             * If width/height is set on the SRC pad caps then library expects scalefactor to
-             * be set as 1.0 .
-             * */
-
-            if ((m_scaleFactor != 1) && ((w != width) || (h != height))) {
-                GST_ERROR_OBJECT(
-                    m_element,
-                    "Scalefactor should be 1.0 for explicit width height set on the SRC caps\n");
-                return NULL;
-            }
-
-            if (m_scaleFactor != 1.0) {
-                gst_structure_set(s2, "width", G_TYPE_INT, (gint)(m_scaleFactor * width), NULL);
-                gst_structure_set(s2, "height", G_TYPE_INT, (gint)(m_scaleFactor * height), NULL);
-            } else if (((w != 0) && (h != 0)) || (m_scaleFactor == 1.0)) {
-                gst_structure_set(s2, "width", G_TYPE_INT, w, NULL);
-                gst_structure_set(s2, "height", G_TYPE_INT, h, NULL);
-            }
-
-            if (!outputFmt) {
-                gst_structure_set(s2, "format", G_TYPE_STRING, inputFmt, NULL);
-            }
-            gst_structure_set(s2, "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1, NULL);
-
-            GST_DEBUG_OBJECT(m_element, "%s : Updated OTHERCAPS = %s \n\n", __func__,
-                             gst_caps_to_string(othercaps));
-
-            // Check if the mode is resulting into transform mode,
-            // set the flag for transform mode accordingly
-            if ((m_scaleFactor == 1) &&
-                (!strcmp(gst_structure_get_string(s2, "format"),
-                         gst_structure_get_string(s1, "format"))) &&
-                (w == width) && (h == height)) {
-                m_transformMode = false;
-            } else {
-                m_transformMode = true;
-            }
-
-            break;
-        } else {
-            continue;
+        // Here change the width and height on output caps based on the information provided
+        // byt the custom library
+        gst_structure_fixate_field_nearest_int(s2, "width", width);
+        gst_structure_fixate_field_nearest_int(s2, "height", height);
+        if (gst_structure_get_fraction(s1, "framerate", &num, &denom)) {
+            gst_structure_fixate_field_nearest_fraction(s2, "framerate", num, denom);
         }
+
+        // TODO: Get width, height, coloutformat, and framerate from customlibrary API
+        // set the new properties accordingly
+        gst_structure_get_int(s2, "width", &w);
+        gst_structure_get_int(s2, "height", &h);
+
+        /* If scalefactor is provided in the property then library expects no width/height
+         * set on the SRC pad caps, output resolution will be according to the scalefactor.
+         * If width/height is set on the SRC pad caps then library expects scalefactor to
+         * be set as 1.0 .
+         * */
+
+        if ((m_scaleFactor != 1) && ((w != width) || (h != height))) {
+            GST_ERROR_OBJECT(
+                m_element,
+                "Scalefactor should be 1.0 for explicit width height set on the SRC caps\n");
+            return NULL;
+        }
+
+        if (m_scaleFactor != 1.0) {
+            gst_structure_set(s2, "width", G_TYPE_INT, (gint)(m_scaleFactor * width), NULL);
+            gst_structure_set(s2, "height", G_TYPE_INT, (gint)(m_scaleFactor * height), NULL);
+        } else if (((w != 0) && (h != 0)) || (m_scaleFactor == 1.0)) {
+            gst_structure_set(s2, "width", G_TYPE_INT, w, NULL);
+            gst_structure_set(s2, "height", G_TYPE_INT, h, NULL);
+        }
+
+        if (!outputFmt) {
+            gst_structure_set(s2, "format", G_TYPE_STRING, inputFmt, NULL);
+        }
+        gst_structure_set(s2, "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1, NULL);
+
+        GST_DEBUG_OBJECT(m_element, "%s : Updated OTHERCAPS = %s \n\n", __func__,
+                         gst_caps_to_string(othercaps));
+
+        // Check if the mode is resulting into transform mode,
+        // set the flag for transform mode accordingly
+        if ((m_scaleFactor == 1) &&
+            (!strcmp(gst_structure_get_string(s2, "format"),
+                     gst_structure_get_string(s1, "format"))) &&
+            (w == width) && (h == height)) {
+            m_transformMode = false;
+        } else {
+            m_transformMode = true;
+        }
+
+        break;
     }
     return othercaps;
 }
@@ -419,7 +412,7 @@ SampleAlgorithm::~SampleAlgorithm()
     }
 
     if (m_scratchNvBufSurface) {
-        cudaFree(&m_scratchNvBufSurface);
+        cudaFreeHost(m_scratchNvBufSurface);
         m_scratchNvBufSurface = NULL;
     }
 }

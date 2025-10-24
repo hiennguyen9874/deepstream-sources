@@ -1,13 +1,15 @@
-################################################################################
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.  All rights reserved.
+#######################################################################################################
+# SPDX-FileCopyrightText: Copyright (c) 2020-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA Corporation and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA Corporation is strictly prohibited.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 #
-################################################################################
+#######################################################################################################
 
 This module implements protocol adaptor for Redis.
 The adaptor implements and exposes the DSMI API for client applications to interface with it.
@@ -20,17 +22,8 @@ Dependencies
 
 Build dependencies with installation instructions:
 * libhiredis
-  Note that for using TLS/SSL security, make sure to build libhiredis with
-  SSL suport enabled by using the USE_SSL option as specified in the
-  README here: https://github.com/redis/hiredis
 
-  git clone https://github.com/redis/hiredis.git
-  cd hiredis
-  git checkout tags/v1.0.2
-  make USE_SSL=1
-  sudo cp libhiredis* /opt/nvidia/deepstream/deepstream/lib/
-  sudo ln -sf /opt/nvidia/deepstream/deepstream/lib/libhiredis.so /opt/nvidia/deepstream/deepstream/lib/libhiredis.so.1.0.0
-  sudo ldconfig
+  apt-get install libhiredis-dev
 
 
 (optional) : Install & setup redis-server on your machine
@@ -67,6 +60,7 @@ example:
 [message-broker]
 #hostname=localhost
 #port=6379
+#password=password
 #payloadkey=metadata
 #consumergroup=mygroup
 #consumername=myname
@@ -76,6 +70,10 @@ example:
 - You have the option to specify the max stream size for the stream where data is being published.
   Uncomment the field streamsize in cfg_redis.txt and provide redis stream size value
   More info on redis capped streams can be found here: https://redis.io/topics/streams-intro
+
+- Option to specify the password for connection to the server. Use if requirepass is enabled in the
+  redis server config file: https://redis.io/docs/latest/operate/oss_and_stack/management/security/
+  (CONFIG TO BE DEPRECATED: password should be set in an environmental variable instead)
 
 - Option to specify the redis stream key for the payload : https://redis.io/topics/streams-intro
 
@@ -97,9 +95,20 @@ NOTE:
     Default consumer name = redis-consumer
     cfg_redis.txt has option to specify a different consumer groupname/consumer name and override the default
 
-Redis protocol Adapter
------------------------
-Redis adapter library can be found at /opt/nvidia/deepstream/deepstream/lib/libnvds_redis_proto.so
+User Authentication
+-------------------
+Enable requirepass in the redis server config file to set password in the broker
+(see https://redis.io/docs/latest/operate/oss_and_stack/management/security/).
+
+Set the password in the adaptor by setting the following environmental variable:
+
+export PASSWORD_REDIS=password
+
+If the password ise also set in the config, the adaptor will set according to the environmental variable and not the config.
+
+Building the adaptor
+---------------------
+Upon installing the dependencies, to build adaptor library execute 'make' and install with 'make install'
 Refer to sample test programs for illustration of using the adaptor.
 
 Sample programs

@@ -6,14 +6,12 @@
 #include "nvmsgconv.h"
 
 G_BEGIN_DECLS
-
 #define GST_TYPE_NVMSGCONV (gst_nvmsgconv_get_type())
 #define GST_NVMSGCONV(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), GST_TYPE_NVMSGCONV, GstNvMsgConv))
 #define GST_NVMSGCONV_CLASS(klass) \
     (G_TYPE_CHECK_CLASS_CAST((klass), GST_TYPE_NVMSGCONV, GstNvMsgConvClass))
 #define GST_IS_NVMSGCONV(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_TYPE_NVMSGCONV))
 #define GST_IS_NVMSGCONV_CLASS(obj) (G_TYPE_CHECK_CLASS_TYPE((klass), GST_TYPE_NVMSGCONV))
-
 typedef struct _GstNvMsgConv GstNvMsgConv;
 typedef struct _GstNvMsgConvClass GstNvMsgConvClass;
 
@@ -36,6 +34,13 @@ typedef NvDsPayload **(*nvds_msg2p_generate_multiple_ptr_new)(NvDsMsg2pCtx *ctx,
                                                               void *metadataInfo,
                                                               guint *payloadCount);
 
+typedef enum {
+    kNvDsMsgConv_Video,
+    kNvDsMsgConv_Audio,
+    kNvDsMsgConv_DS3D,
+    kNvDsMsgConv_Sparse4D
+} NvDsMsgConvInputType;
+
 struct _GstNvMsgConv {
     GstBaseTransform parent;
 
@@ -53,6 +58,8 @@ struct _GstNvMsgConv {
     gint numActivePayloads;
     gboolean stop;
     gboolean selfRef;
+    gboolean dummyPayload;
+    gchar *embedding_filter;
 
     nvds_msg2p_ctx_create_ptr ctx_create;
     nvds_msg2p_ctx_destroy_ptr ctx_destroy;
@@ -61,9 +68,8 @@ struct _GstNvMsgConv {
     nvds_msg2p_generate_ptr_new msg2p_generate_new;
     nvds_msg2p_generate_multiple_ptr_new msg2p_generate_multiple_new;
     nvds_msg2p_release_ptr msg2p_release;
-    /** Identifies from input cap capability if the incoming data
-     * is video/audio */
-    gboolean is_video;
+    /** Identifies from caps/capability of the incoming data */
+    NvDsMsgConvInputType inputType;
 };
 
 struct _GstNvMsgConvClass {
@@ -73,5 +79,4 @@ struct _GstNvMsgConvClass {
 GType gst_nvmsgconv_get_type(void);
 
 G_END_DECLS
-
 #endif

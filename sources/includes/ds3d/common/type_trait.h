@@ -1,5 +1,3 @@
-
-
 #ifndef _DS3D_COMMON_TYPE_TRAIT__H
 #define _DS3D_COMMON_TYPE_TRAIT__H
 #include <ds3d/common/common.h>
@@ -29,38 +27,28 @@ struct __DataTypeVal {
 
 // define TypeId
 template <>
-struct TpId<uint32_t> : __TypeID<DS3D_TYPEID_UINT32_T>, __DataTypeVal<DataType::kUint32> {
-};
+struct TpId<uint32_t> : __TypeID<DS3D_TYPEID_UINT32_T>, __DataTypeVal<DataType::kUint32> {};
 template <>
-struct TpId<int32_t> : __TypeID<DS3D_TYPEID_INT32_T>, __DataTypeVal<DataType::kInt32> {
-};
+struct TpId<int32_t> : __TypeID<DS3D_TYPEID_INT32_T>, __DataTypeVal<DataType::kInt32> {};
 template <>
-struct TpId<float> : __TypeID<DS3D_TYPEID_FLOAT>, __DataTypeVal<DataType::kFp32> {
-};
+struct TpId<float> : __TypeID<DS3D_TYPEID_FLOAT>, __DataTypeVal<DataType::kFp32> {};
 template <>
-struct TpId<int8_t> : __TypeID<DS3D_TYPEID_INT8_T>, __DataTypeVal<DataType::kInt8> {
-};
+struct TpId<int8_t> : __TypeID<DS3D_TYPEID_INT8_T>, __DataTypeVal<DataType::kInt8> {};
 template <>
-struct TpId<uint8_t> : __TypeID<DS3D_TYPEID_UINT8_T>, __DataTypeVal<DataType::kUint8> {
-};
+struct TpId<uint8_t> : __TypeID<DS3D_TYPEID_UINT8_T>, __DataTypeVal<DataType::kUint8> {};
 template <>
-struct TpId<uint16_t> : __TypeID<DS3D_TYPEID_UINT16_T>, __DataTypeVal<DataType::kUint16> {
-};
+struct TpId<uint16_t> : __TypeID<DS3D_TYPEID_UINT16_T>, __DataTypeVal<DataType::kUint16> {};
 template <>
-struct TpId<int16_t> : __TypeID<DS3D_TYPEID_INT16_T>, __DataTypeVal<DataType::kInt16> {
-};
+struct TpId<int16_t> : __TypeID<DS3D_TYPEID_INT16_T>, __DataTypeVal<DataType::kInt16> {};
 
 template <>
-struct TpId<double> : __TypeID<DS3D_TYPEID_DOUBLE>, __DataTypeVal<DataType::kDouble> {
-};
+struct TpId<double> : __TypeID<DS3D_TYPEID_DOUBLE>, __DataTypeVal<DataType::kDouble> {};
 
 template <>
-struct TpId<bool> : __TypeID<DS3D_TYPEID_BOOL>, __DataTypeVal<DataType::kDouble> {
-};
+struct TpId<bool> : __TypeID<DS3D_TYPEID_BOOL>, __DataTypeVal<DataType::kDouble> {};
 
 template <>
-struct TpId<int64_t> : __TypeID<DS3D_TYPEID_INT64_T>, __DataTypeVal<DataType::kInt64> {
-};
+struct TpId<int64_t> : __TypeID<DS3D_TYPEID_INT64_T>, __DataTypeVal<DataType::kInt64> {};
 
 template <typename TP>
 struct __DataTypeTrait {

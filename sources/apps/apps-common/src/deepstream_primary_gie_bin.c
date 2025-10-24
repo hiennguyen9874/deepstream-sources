@@ -37,7 +37,11 @@ static void write_infer_output_to_file(GstBuffer *buf,
             element_size = 4;
             break;
         case INT8:
+        case UINT8:
             element_size = 1;
+            break;
+        case INT64:
+            element_size = 8;
             break;
         }
 
@@ -85,30 +89,62 @@ gboolean create_primary_gie_bin(NvDsGieConfig *config, NvDsPrimaryGieBin *bin)
         goto done;
     }
 
+    // Create either nvinfer or nvdsvideotemplate based on plugin_type
     switch (config->plugin_type) {
     case NV_DS_GIE_PLUGIN_INFER:
         bin->primary_gie = gst_element_factory_make(NVDS_ELEM_PGIE, "primary_gie");
+        if (!bin->primary_gie) {
+            NVGSTDS_ERR_MSG_V("Failed to create 'primary_gie'");
+            goto done;
+        }
+        // Set nvinfer specific properties
+        g_object_set(G_OBJECT(bin->primary_gie), "config-file-path",
+                     GET_FILE_PATH(config->config_file_path), "process-mode", 1,
+                     "input-tensor-meta", config->input_tensor_meta, NULL);
+
+        if (config->is_gpu_id_set)
+            g_object_set(G_OBJECT(bin->primary_gie), "gpu-id", config->gpu_id, NULL);
+
+        if (config->model_engine_file_path) {
+            g_object_set(G_OBJECT(bin->primary_gie), "model-engine-file",
+                         GET_FILE_PATH(config->model_engine_file_path), NULL);
+        }
+
+        if (config->raw_output_directory) {
+            g_object_set(G_OBJECT(bin->primary_gie), "raw-output-generated-callback", out_callback,
+                         "raw-output-generated-userdata", config, NULL);
+        }
         break;
+
     case NV_DS_GIE_PLUGIN_INFER_SERVER:
         bin->primary_gie = gst_element_factory_make(NVDS_ELEM_INFER_SERVER, "primary_gie");
+        if (!bin->primary_gie) {
+            NVGSTDS_ERR_MSG_V("Failed to create 'primary_gie'");
+            goto done;
+        }
+        // Set infer server specific properties
+        g_object_set(G_OBJECT(bin->primary_gie), "config-file-path",
+                     GET_FILE_PATH(config->config_file_path), "process-mode", 1,
+                     "input-tensor-meta", config->input_tensor_meta, NULL);
         break;
+
+    case NV_DS_GIE_PLUGIN_VIDEO_TEMPLATE:
+        bin->primary_gie = gst_element_factory_make("nvdsvideotemplate", "primary_gie");
+        if (!bin->primary_gie) {
+            NVGSTDS_ERR_MSG_V("Failed to create 'primary_gie' with nvdsvideotemplate");
+            goto done;
+        }
+        // Set nvdsvideotemplate specific properties
+        g_object_set(G_OBJECT(bin->primary_gie), "config-file",
+                     GET_FILE_PATH(config->config_file_path), NULL);
+        break;
+
     default:
-        NVGSTDS_ERR_MSG_V(
-            "Failed to create 'primary_gie' "
-            "on unknown plugin_type");
+        NVGSTDS_ERR_MSG_V("Failed to create 'primary_gie' on unknown plugin_type");
         goto done;
     }
 
-    if (!bin->primary_gie) {
-        NVGSTDS_ERR_MSG_V("Failed to create 'primary_gie'");
-        goto done;
-    }
-
-    g_object_set(G_OBJECT(bin->primary_gie), "config-file-path",
-                 GET_FILE_PATH(config->config_file_path), "process-mode", 1, NULL);
-
-    g_object_set(G_OBJECT(bin->primary_gie), "input-tensor-meta", config->input_tensor_meta, NULL);
-
+    // Set common properties for all plugin types
     if (config->is_batch_size_set)
         g_object_set(G_OBJECT(bin->primary_gie), "batch-size", config->batch_size, NULL);
 
@@ -118,39 +154,15 @@ gboolean create_primary_gie_bin(NvDsGieConfig *config, NvDsPrimaryGieBin *bin)
     if (config->is_unique_id_set)
         g_object_set(G_OBJECT(bin->primary_gie), "unique-id", config->unique_id, NULL);
 
-    if (config->is_gpu_id_set && NV_DS_GIE_PLUGIN_INFER_SERVER == config->plugin_type) {
-        NVGSTDS_INFO_MSG_V(
-            "gpu-id: %u in primary-gie group is ignored, "
-            "only accept in nvinferserver's config",
-            config->gpu_id);
-    }
-
-    if (config->raw_output_directory) {
-        g_object_set(G_OBJECT(bin->primary_gie), "raw-output-generated-callback", out_callback,
-                     "raw-output-generated-userdata", config, NULL);
-    }
-
-    if (NV_DS_GIE_PLUGIN_INFER == config->plugin_type) {
-        if (config->is_gpu_id_set)
-            g_object_set(G_OBJECT(bin->primary_gie), "gpu-id", config->gpu_id, NULL);
-
-        if (config->model_engine_file_path) {
-            g_object_set(G_OBJECT(bin->primary_gie), "model-engine-file",
-                         GET_FILE_PATH(config->model_engine_file_path), NULL);
-        }
-    }
-
     g_object_set(G_OBJECT(bin->nvvidconv), "gpu-id", config->gpu_id, NULL);
     g_object_set(G_OBJECT(bin->nvvidconv), "nvbuf-memory-type", config->nvbuf_memory_type, NULL);
 
     gst_bin_add_many(GST_BIN(bin->bin), bin->queue, bin->nvvidconv, bin->primary_gie, NULL);
 
     NVGSTDS_LINK_ELEMENT(bin->queue, bin->nvvidconv);
-
     NVGSTDS_LINK_ELEMENT(bin->nvvidconv, bin->primary_gie);
 
     NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->primary_gie, "src");
-
     NVGSTDS_BIN_ADD_GHOST_PAD(bin->bin, bin->queue, "sink");
 
     ret = TRUE;

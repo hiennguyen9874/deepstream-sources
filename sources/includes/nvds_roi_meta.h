@@ -50,6 +50,10 @@ typedef enum {
     NvDsDataType_UINT32,
     /** INT32 data type */
     NvDsDataType_INT32,
+    /** INT64 data type */
+    NvDsDataType_INT64,
+    /** UINT64 data type */
+    NvDsDataType_UINT64,
     /** FP16 data type */
     NvDsDataType_FP16,
 } NvDsDataType;

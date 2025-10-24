@@ -15,6 +15,11 @@
 extern "C" {
 #endif
 
+/**
+ * Defines the maximum number of sync objects.
+ */
+#define NVBUFSURF_MAX_SYNCOBJ 5
+
 typedef struct CUstream_st *cudaStream_t; //!< Forward declaration of cudaStream_t.
 
 /** @defgroup ds_bbb NvBufSurfTransform Types and Functions
@@ -141,6 +146,8 @@ typedef struct {
     uint32_t width;
     /** Holds the rectangle height. */
     uint32_t height;
+    /** Reserved fields for future expansion. */
+    void *reserved[STRUCTURE_PADDING];
 } NvBufSurfTransformRect;
 
 /**
@@ -157,6 +164,9 @@ typedef struct _NvBufSurfTransformConfigParams {
     /** User configure stream to be used. If NULL, the default stream is used.
      Ignored if VIC is used. */
     cudaStream_t cuda_stream;
+
+    /** Reserved fields for future expansion. */
+    void *reserved[STRUCTURE_PADDING];
 
 } NvBufSurfTransformConfigParams;
 
@@ -176,6 +186,8 @@ typedef struct _NvBufSurfaceTransformParams {
     /** Holds a pointer to list of destination rectangle coordinates for
      a crop operation. */
     NvBufSurfTransformRect *dst_rect;
+    /** Reserved fields for future expansion. */
+    void *reserved[STRUCTURE_PADDING];
 } NvBufSurfTransformParams;
 
 /**
@@ -193,6 +205,8 @@ typedef struct _NvBufSurfTransformCompositeParams {
     NvBufSurfTransformRect *dst_comp_rect;
     /** Holds a composite filter. */
     NvBufSurfTransform_Inter composite_filter;
+    /** Reserved fields for future expansion. */
+    void *reserved[STRUCTURE_PADDING];
 } NvBufSurfTransformCompositeParams;
 
 typedef struct _NvBufSurfTransform_ColorParams {
@@ -207,6 +221,8 @@ typedef struct _NvBufSurfTransform_ColorParams {
 
     double alpha; /**< Holds the alpha component of color.
                    Value must be in the range 0.0-1.0.*/
+    /** Reserved fields for future expansion. */
+    void *reserved[STRUCTURE_PADDING];
 } NvBufSurfTransform_ColorParams;
 
 /**
@@ -229,6 +245,8 @@ typedef struct _NvBufSurfTransformCompositeBlendParams {
      * size list and each element can take value 0 or 1
      */
     uint32_t *perform_blending;
+    /** Reserved fields for future expansion. */
+    void *reserved[STRUCTURE_PADDING];
 
 } NvBufSurfTransformCompositeBlendParams;
 
@@ -356,7 +374,7 @@ NvBufSurfTransform_Error NvBufSurfTransformComposite(
  *                  may include any combination of scaling, format conversion,
  *                  and cropping for both source and destination.
  *                  Flipping and rotation are supported on VIC/GPU.
- * @param[out] sync_objs
+ * @param[out] sync_obj
  *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
  *                  which holds synchronization information of the current
  *                  transform call. \ref NvBufSurfTransfromSyncObjWait() API to be
@@ -390,7 +408,7 @@ NvBufSurfTransform_Error NvBufSurfTransformAsync(NvBufSurface *src,
  *                  structure which specifies the compositing operation to be
  *                  performed, e.g., the source and destination rectangles
  *                  in \a src and \a dst.
- * @param[out] sync_objs
+ * @param[out] sync_obj
  *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
  *                  which holds synchronization information of the current
  *                  composite call. ref\ NvBufSurfTransfromSyncObjWait() API to be
@@ -480,7 +498,7 @@ NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufCompositeBlend(
  transformed.
  * @param[out] dst pointer (single buffer) where composited output would be stored.
  * @param[in] composite_blend_params pointer to NvBufSurfTransformCompositeParams structure.
- * @param[out] sync_objs
+ * @param[out] sync_obj
  *                  A pointer to an \ref NvBufSurfTransformSyncObj structure
  *                  which holds synchronization information of the current
  *                  composite call. ref\ NvBufSurfTransfromSyncObjWait() API to be
@@ -500,7 +518,7 @@ NvBufSurfTransform_Error NvBufSurfTransformMultiInputBufCompositeBlendAsync(
     NvBufSurfTransformSyncObj_t *sync_obj);
 
 /**
- * \brief  Wait on the synchroization object.
+ * \brief  Wait on the synchronization object.
  *
  * The API waits on the synchronization object to finish the corresponding
  * processing of transform/composite calls or returns on time_out
@@ -515,7 +533,7 @@ NvBufSurfTransform_Error NvBufSurfTransformSyncObjWait(NvBufSurfTransformSyncObj
                                                        uint32_t time_out);
 
 /**
- * \brief  Destroy the synchroization object.
+ * \brief  Destroy the synchronization object.
  *
  * The API deletes the sync_obj which was used for previous transform/composite
  * Asynchronous calls
@@ -525,6 +543,25 @@ NvBufSurfTransform_Error NvBufSurfTransformSyncObjWait(NvBufSurfTransformSyncObj
  *
  */
 NvBufSurfTransform_Error NvBufSurfTransformSyncObjDestroy(NvBufSurfTransformSyncObj_t *sync_obj);
+
+/**
+ * \brief  Get the synchronization object from sync point FD.
+ *
+ * The API gets the corresponding synchronization object from sync point FD.
+ * It currently assumes one synchronization object for one file descriptor as
+ * all the transform APIs supports single synchronization object only.
+ *
+ * @param[in]   file              sync point file descriptor.
+ * @param[out]  sync_obj          A pointer to an \ref NvBufSurfTransformSyncObj_t which is a
+ * pointer to an array of \ref NvBufSurfTransformSyncObj allocated in the function having size
+ * (num_sync_objs * sizeof(NvBufSurfTransformSyncObj)) which holds synchronization information
+ * corresponding to FD.
+ * @param[out]  num_sync_objs     number of sync objects.
+ * @return An \ref NvBufSurfTransform_Error value indicating success or failure.
+ */
+NvBufSurfTransform_Error NvBufSurfTransformSyncObjFromFile(int file,
+                                                           NvBufSurfTransformSyncObj_t *sync_obj,
+                                                           unsigned int *num_sync_objs);
 
 /**
  * \brief Sets the default transform session as the current session for all upcoming transforms.
